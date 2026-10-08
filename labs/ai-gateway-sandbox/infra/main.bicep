@@ -56,6 +56,9 @@ module sandbox '../main.bicep' = {
     inferenceAPIPath: lab.inferenceAPIPath
     inferenceAPIType: lab.inferenceAPIType
     foundryProjectName: lab.foundryProjectName
+    cachedInputPricing: lab.?cachedInputPricing ?? ''
+    imagePricing: lab.?imagePricing ?? ''
+    imagesConfig: lab.?imagesConfig ?? { enabled: false }
     uiClientId: uiIdentity.outputs.clientId
   }
 }
@@ -66,6 +69,7 @@ var demoConfig = union(config.uiConfig, {
   mcpUrl: sandbox.outputs.mcpUrl
   a2aUrl: sandbox.outputs.a2aUrl
   agentCardUrl: sandbox.outputs.agentCardUrl
+  imagesBaseUrl: sandbox.outputs.imagesBaseUrl
   apimServiceId: sandbox.outputs.apimServiceId
   appInsightsId: sandbox.outputs.appInsightsId
   appInsightsAppId: sandbox.outputs.appInsightsAppId

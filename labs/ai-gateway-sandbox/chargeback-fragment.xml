@@ -7,8 +7,8 @@
         everything FinOps needs to slice spend by team, cost center, user and session:
 
           record=chargeback, user (the paying subscription), displayName, team, costCenter, kind (user | agent),
-          session, surface (model | tool | agent), item (model / tool / agent id), costMicroUsd, promptTokens,
-          completionTokens, tier, via (direct | agent id), caller (Entra ID identity), requestId
+          session, surface (model | tool | agent | image), item (model / tool / agent id), costMicroUsd, promptTokens,
+          completionTokens, cachedTokens, imageCount, tier, via (direct | agent id), caller (Entra ID identity), requestId
 
         Why a trace record and not a metric dimension: emit-metric accepts at most 5 custom dimensions per policy
         and 100 unique values per dimension, and values over the limits are silently dropped. Sessions are
@@ -56,6 +56,8 @@
                 <metadata name="chargedMicroUsd" value="@(context.Variables.GetValueOrDefault<int>("costMicroUsd", 0).ToString())" />
                 <metadata name="promptTokens" value="@(context.Variables.GetValueOrDefault<int>("promptTokens", 0).ToString())" />
                 <metadata name="completionTokens" value="@(context.Variables.GetValueOrDefault<int>("completionTokens", 0).ToString())" />
+                <metadata name="cachedTokens" value="@(context.Variables.GetValueOrDefault<int>("cachedTokens", 0).ToString())" />
+                <metadata name="imageCount" value="@(context.Variables.GetValueOrDefault<int>("imageCount", 0).ToString())" />
                 <metadata name="tier" value="@(context.Variables.GetValueOrDefault<string>("payerTier", context.Product?.Id ?? "none"))" />
                 <metadata name="via" value="@(context.Variables.GetValueOrDefault<string>("via", "direct"))" />
                 <metadata name="caller" value="@(context.Variables.GetValueOrDefault<string>("caller", "unknown"))" />

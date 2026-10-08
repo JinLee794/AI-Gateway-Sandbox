@@ -33,12 +33,22 @@ lab_parameters = {
     "foundryProjectName": config["foundryProjectName"],
 }
 
+# Pricing beyond tokens: cached input tokens (USD per 1M) and images (micro-USD per image, by model|quality|size)
+responses, images = config.get("responses", {}), config.get("images", {"enabled": False})
+lab_parameters["cachedInputPricing"] = ";".join(f"{name}={price:.3f}" for name, price in responses.get("cachedInputPrices", {}).items())
+lab_parameters["imagePricing"] = ";".join(f"{model}|{quality}|{size}={int(round(price * 1_000_000))}"
+                                          for model, qualities in images.get("prices", {}).items()
+                                          for quality, sizes in qualities.items() for size, price in sizes.items())
+lab_parameters["imagesConfig"] = {k: v for k, v in images.items() if k not in ("$comment", "prices")}
+
 # Static part of the demo UI configuration (the endpoints and subscription keys are added by Bicep)
 ui_config = {
     "tiers": tiers,
     "models": [{k: m[k] for k in ("name", "inputPrice", "outputPrice")} for m in models],
     "tools": tools,
     "a2aAgents": a2a_agents,
+    "cachedInputPrices": responses.get("cachedInputPrices", {}),
+    "images": {k: v for k, v in images.items() if k != "$comment"},
 }
 
 target = os.path.join(INFRA, "sandbox.generated.json")

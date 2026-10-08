@@ -1,0 +1,76 @@
+<fragment>
+    <!--
+        AI Gateway Sandbox - "responses-pricing" policy fragment (included by policy.xml right after the base token
+        price is calculated, only for a 200 JSON response).
+
+        Refines the price of a model call beyond "prompt x input price + completion x output price":
+
+        - Cached input tokens: Microsoft Foundry bills prompt tokens served from the prompt cache at a discount
+          (usage.input_tokens_details.cached_tokens on the Responses API, usage.prompt_tokens_details.cached_tokens on
+          Chat Completions). They are priced with the {{cached-input-pricing}} named value
+          ("<model>=<USD per 1M cached input tokens>;..."); models not listed pay the full input price.
+        - Stored responses: reading a stored response (GET /responses/{id}, GET /responses/{id}/input_items) returns
+          the original usage block. The gateway already charged that usage when the response was created, so any
+          non-POST call is free (cost 0, no chargeback record, no budget spend).
+
+        Sets: cachedTokens, cachedSavingsMicroUsd, pricingRule (tokens | tokens+cached | stored-read) and overrides
+        promptTokens / completionTokens / costMicroUsd. Expects modelPricing, servedModel, promptTokens,
+        completionTokens and costMicroUsd (policy.xml).
+
+        Note: llm-token-limit and llm-emit-token-metric still see the usage block of a stored read, so the token
+        counters may count it (the $ budget does not).
+    -->
+    <set-variable name="cachedInputPricing" value="{{cached-input-pricing}}" />
+    <choose>
+        <when condition="@(context.Request.Method != "POST")">
+            <set-variable name="pricingRule" value="stored-read" />
+            <set-variable name="cachedTokens" value="@(0)" />
+            <set-variable name="cachedSavingsMicroUsd" value="@(0)" />
+            <set-variable name="promptTokens" value="@(0)" />
+            <set-variable name="completionTokens" value="@(0)" />
+            <set-variable name="costMicroUsd" value="@(0)" />
+        </when>
+        <otherwise>
+            <set-variable name="cachedTokens" value="@{
+                var usage = context.Response.Body.As<JObject>(preserveContent: true)["usage"] as JObject;
+                if (usage == null) { return 0; }
+                var details = (usage["input_tokens_details"] ?? usage["prompt_tokens_details"]) as JObject;
+                var cached = details == null ? null : details["cached_tokens"];
+                if (cached == null || cached.Type == JTokenType.Null) { return 0; }
+                return Math.Min((int)cached, (int)context.Variables["promptTokens"]);
+            }" />
+            <!-- savings = cached tokens x (input price - cached input price); the cost is reduced by the savings -->
+            <set-variable name="cachedSavingsMicroUsd" value="@{
+                var cached = (int)context.Variables["cachedTokens"];
+                if (cached == 0) { return 0; }
+                var model = context.Variables.GetValueOrDefault<string>("servedModel", "");
+                double inputPrice = -1, cachedPrice = -1;
+                foreach (var entry in ((string)context.Variables["modelPricing"]).Split(';')) {
+                    var parts = entry.Split('=');
+                    if (parts.Length == 2 && parts[0].Trim().Equals(model, StringComparison.OrdinalIgnoreCase)) {
+                        inputPrice = double.Parse(parts[1].Split('/')[0].Trim());
+                    }
+                }
+                foreach (var entry in ((string)context.Variables["cachedInputPricing"]).Split(';')) {
+                    var parts = entry.Split('=');
+                    if (parts.Length == 2 && parts[0].Trim().Equals(model, StringComparison.OrdinalIgnoreCase)) {
+                        cachedPrice = double.Parse(parts[1].Trim());
+                    }
+                }
+                if (inputPrice < 0 || cachedPrice < 0 || cachedPrice >= inputPrice) { return 0; }
+                return (int)Math.Floor(cached * (inputPrice - cachedPrice));
+            }" />
+            <set-variable name="costMicroUsd" value="@(Math.Max(0, (int)context.Variables["costMicroUsd"] - (int)context.Variables["cachedSavingsMicroUsd"]))" />
+            <set-variable name="pricingRule" value="@((int)context.Variables["cachedTokens"] > 0 ? "tokens+cached" : "tokens")" />
+        </otherwise>
+    </choose>
+    <set-header name="x-gw-cached-tokens" exists-action="override">
+        <value>@(((int)context.Variables["cachedTokens"]).ToString())</value>
+    </set-header>
+    <set-header name="x-gw-cached-savings-usd" exists-action="override">
+        <value>@(((int)context.Variables["cachedSavingsMicroUsd"] / 1000000.0).ToString("0.000000"))</value>
+    </set-header>
+    <set-header name="x-gw-pricing-rule" exists-action="override">
+        <value>@((string)context.Variables["pricingRule"])</value>
+    </set-header>
+</fragment>
