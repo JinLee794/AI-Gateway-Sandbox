@@ -3,26 +3,29 @@
   "items": [
     {
       "type": 1,
-      "name": "header",
       "content": {
-        "json": "# AI Gateway Sandbox\nCost and consumption of every **agent** (APIM subscription) and **plan** (APIM product) across the three AI Gateway surfaces: **AI models** (Foundry), **MCP tools** and **A2A agents**, as measured by Azure API Management. Spend that an A2A agent makes on a caller's behalf is attributed to the **caller** (`Via` = the agent). Prices come from the `model-pricing`, `tool-pricing` and `agent-pricing` named values."
-      }
+        "json": "# 🪙 AI Gateway Sandbox\nSpend and plan enforcement for every **consumer** (APIM subscription) on every **plan** (APIM product), across **AI models**, **MCP tools** and **A2A agents**. Click a KPI to open its tab, and a 🔎 row to drill in."
+      },
+      "name": "header"
     },
     {
       "type": 9,
-      "name": "parameters",
+      "name": "filters",
       "content": {
         "version": "KqlParameterItem/1.0",
+        "style": "pills",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
         "parameters": [
           {
-            "id": "2e00b621-72db-5fb3-9875-7932b8d27134",
+            "id": "ca9024a8-abc2-50fd-9194-4715ee53bfb4",
             "version": "KqlParameterItem/1.0",
             "name": "TimeRange",
             "label": "Time range",
             "type": 4,
             "isRequired": true,
             "value": {
-              "durationMs": 3600000
+              "durationMs": 14400000
             },
             "typeSettings": {
               "selectableValues": [
@@ -36,6 +39,9 @@
                   "durationMs": 14400000
                 },
                 {
+                  "durationMs": 43200000
+                },
+                {
                   "durationMs": 86400000
                 },
                 {
@@ -47,24 +53,90 @@
               ],
               "allowCustom": true
             }
+          },
+          {
+            "id": "8d5693cf-9864-5371-a21f-bc803f08e55f",
+            "version": "KqlParameterItem/1.0",
+            "name": "Plan",
+            "label": "Plan",
+            "type": 2,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "selectAllValue": "*",
+              "showDefault": false
+            },
+            "defaultValue": "value::all",
+            "timeContextFromParameter": "TimeRange",
+            "description": "APIM product",
+            "query": "let budgets = datatable(Agent:string, AgentName:string, Tier:string, BudgetMicroUsd:long)[{budget-rows}];\nbudgets\n| distinct Tier\n| union (customMetrics | where name == \"CostMicroUSD\" | distinct Tier = tostring(customDimensions.Tier))\n| where isnotempty(Tier)\n| distinct Tier\n| project value = Tier, label = strcat(toupper(substring(Tier, 0, 1)), substring(Tier, 1)), selected = false\n| order by value asc",
+            "queryType": 0,
+            "resourceType": "microsoft.insights/components"
+          },
+          {
+            "id": "67eced8b-249c-5be5-a0b2-28e48eb6131f",
+            "version": "KqlParameterItem/1.0",
+            "name": "Consumer",
+            "label": "Consumer",
+            "type": 2,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "selectAllValue": "*",
+              "showDefault": false
+            },
+            "defaultValue": "value::all",
+            "timeContextFromParameter": "TimeRange",
+            "description": "APIM subscription: an app, agent or user",
+            "query": "let budgets = datatable(Agent:string, AgentName:string, Tier:string, BudgetMicroUsd:long)[{budget-rows}];\nbudgets\n| project Agent, AgentName, Tier\n| union (customMetrics | where name == \"CostMicroUSD\"\n    | distinct Agent = tostring(customDimensions.Agent), Tier = tostring(customDimensions.Tier)\n    | extend AgentName = Agent)\n| where isnotempty(Agent) and (\"*\" in ({Plan}) or Tier in ({Plan}))\n| summarize AgentName = take_any(AgentName), Tier = take_any(Tier) by Agent\n| project value = Agent, label = AgentName, selected = false, group = strcat(toupper(substring(Tier, 0, 1)), substring(Tier, 1), \" plan\")\n| order by group asc, label asc",
+            "queryType": 0,
+            "resourceType": "microsoft.insights/components"
+          },
+          {
+            "id": "8d2b39f1-4541-5281-81e1-c7d88c274d40",
+            "version": "KqlParameterItem/1.0",
+            "name": "Surface",
+            "label": "Surface",
+            "type": 2,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "selectAllValue": "*",
+              "showDefault": false
+            },
+            "defaultValue": "value::all",
+            "timeContextFromParameter": "TimeRange",
+            "jsonData": "[{\"value\": \"model\", \"label\": \"AI models\"}, {\"value\": \"tool\", \"label\": \"MCP tools\"}, {\"value\": \"agent\", \"label\": \"A2A agents\"}]"
           }
-        ],
-        "style": "pills",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components"
+        ]
       }
     },
     {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "let cost = toscalar(customMetrics | where name == \"CostMicroUSD\" | summarize sum(valueSum)) / 1e6;\nlet tokens = toscalar(customMetrics | where name == \"Total Tokens\" | summarize sum(valueSum));\nlet calls = toscalar(requests\n| where url has \"/openai/\" or url has \"/commerce-mcp\" or url has \"/sourcing-agent\"\n| extend Agent = tostring(customDimensions[\"Subscription Name\"]), Tier = tostring(customDimensions[\"Product Name\"])\n| count);\nlet blocked = toscalar(requests\n| where url has \"/openai/\" or url has \"/commerce-mcp\" or url has \"/sourcing-agent\"\n| extend Agent = tostring(customDimensions[\"Subscription Name\"]), Tier = tostring(customDimensions[\"Product Name\"])\n| where resultCode in (\"401\", \"403\", \"429\") | count);\nprint Metric = \"Total cost (USD)\", Value = round(cost, 4)\n| union (print Metric = \"Total tokens\", Value = todouble(tokens))\n| union (print Metric = \"Gateway calls\", Value = todouble(calls))\n| union (print Metric = \"Blocked by policy (401/403/429)\", Value = todouble(blocked))",
-        "size": 0,
-        "title": "Totals",
+        "query": "let cost = materialize(customMetrics\n  | where name == \"CostMicroUSD\"\n  | extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n           Resource = tostring(customDimensions.Model), Surface = coalesce(tostring(customDimensions.Surface), \"model\"),\n           Via = coalesce(tostring(customDimensions.Via), \"direct\"), Caller = tostring(customDimensions.Caller)\n  | where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n  | extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n  );\nlet tokens = customMetrics\n  | where name in (\"Prompt Tokens\", \"Completion Tokens\")\n  | extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n           Resource = tostring(customDimensions.Model), Surface = coalesce(tostring(customDimensions.Surface), \"model\"),\n           Via = coalesce(tostring(customDimensions.Via), \"direct\"), Caller = tostring(customDimensions.Caller)\n  | where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n  | extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n  ;\nlet gov = customMetrics\n  | where name == \"GovernanceEvents\"\n  | extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n           Event = tostring(customDimensions.Event), RequestedModel = tostring(customDimensions.Model), Surface = \"model\"\n  | where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer}))\n  ;\nlet failover = customMetrics | where name == \"BackendAttempts\" and tostring(customDimensions.Failover) == \"yes\"\n  | extend Plan = tostring(customDimensions.Tier), Consumer = tostring(customDimensions.Agent), Surface = \"model\"\n  | where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer}));\nlet gateway = workspace(\"{law-id}\").ApiManagementGatewayLogs\n  | where ApiId in (\"inference-api\", \"commerce-mcp\", \"commerce-api\", \"sourcing-agent\")\n  | extend Plan = ProductId, Consumer = ApimSubscriptionId,\n           Surface = case(ApiId == \"inference-api\", \"model\", ApiId == \"sourcing-agent\", \"agent\", \"tool\")\n  | where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}));\nlet tiles = datatable(Order:int, Metric:string, Tab:string)[\n  1, \"Spend ($)\", \"overview\", 2, \"Cost per 1K calls ($)\", \"chargeback\", 3, \"Tokens\", \"overview\",\n  4, \"Gateway calls\", \"evidence\", 5, \"Blocked by policy (%)\", \"governance\", 6, \"Plan enforcements\", \"governance\",\n  7, \"Regional failovers\", \"evidence\"];\nunion\n  (cost | make-series s = sum(valueSum), c = sum(valueCount) default = 0 on timestamp step {TimeRange:grain}\n   | extend S = array_sum(s), C = array_sum(c)\n   | project Row = pack_array(\n       bag_pack(\"Order\", 1, \"Value\", S / 1e6, \"Detail\", strcat(tolong(C), \" priced calls\"), \"Trend\", series_multiply(s, 1e-6)),\n       bag_pack(\"Order\", 2, \"Value\", iff(C > 0, 1000 * S / 1e6 / C, 0.0), \"Detail\", \"average, all surfaces\",\n                \"Trend\", series_multiply(series_divide(s, series_add(c, 1e-9)), 1e-3)))\n   | mv-expand Row),\n  (tokens | make-series v = sum(valueSum) default = 0 on timestamp step {TimeRange:grain} | project Row = bag_pack(\"Order\", 3, \"Value\", array_sum(v), \"Detail\", \"prompt + completion\", \"Trend\", v)),\n  (gateway | make-series n = count(), b = countif(ResponseCode in (401, 403, 429)) default = 0 on TimeGenerated step {TimeRange:grain}\n   | extend N = array_sum(n), B = array_sum(b)\n   | project Row = pack_array(\n       bag_pack(\"Order\", 4, \"Value\", N, \"Detail\", \"models, tools and agents\", \"Trend\", n),\n       bag_pack(\"Order\", 5, \"Value\", round(100.0 * B / iff(N == 0, 1.0, N), 1), \"Detail\", strcat(tolong(B), \" calls got 401, 403 or 429\"),\n                \"Trend\", b))\n   | mv-expand Row),\n  (gov | make-series v = sum(valueSum) default = 0 on timestamp step {TimeRange:grain} | project Row = bag_pack(\"Order\", 6, \"Value\", array_sum(v), \"Detail\", \"downgrades, denials, caps\", \"Trend\", v)),\n  (failover | make-series v = sum(valueCount) default = 0 on timestamp step {TimeRange:grain} | project Row = bag_pack(\"Order\", 7, \"Value\", array_sum(v), \"Detail\", \"retried in another region\", \"Trend\", v))\n| project Order = toint(Row.Order), Value = todouble(Row.Value), Detail = tostring(Row.Detail), Trend = Row.Trend\n| join kind=rightouter tiles on Order\n| project Order = Order1, Metric, Value = coalesce(Value, 0.0), Detail = coalesce(Detail, \"none in this time range\"), Trend, Tab\n| order by Order asc",
+        "size": 3,
+        "title": "",
         "timeContextFromParameter": "TimeRange",
         "queryType": 0,
-        "resourceType": "microsoft.insights/components",
         "visualization": "tiles",
+        "resourceType": "microsoft.insights/components",
         "tileSettings": {
           "titleContent": {
             "columnMatch": "Metric",
@@ -79,413 +151,1605 @@
             "numberFormat": {
               "unit": 17,
               "options": {
-                "maximumSignificantDigits": 6
+                "style": "decimal",
+                "maximumSignificantDigits": 3
               }
             }
           },
-          "showBorder": true
-        }
-      },
-      "name": "kpis",
-      "customWidth": "100"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"]), Model = tostring(customDimensions[\"Model\"]), Surface = coalesce(tostring(customDimensions[\"Surface\"]), \"model\"), Via = coalesce(tostring(customDimensions[\"Via\"]), \"direct\")\n| summarize CostUSD = sum(valueSum) / 1e6 by Agent, Surface\n| order by CostUSD desc",
-        "size": 0,
-        "title": "Cost by agent and surface (USD)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components",
-        "visualization": "barchart",
-        "chartSettings": {
-          "group": "Surface",
-          "createOtherGroup": 0
-        }
-      },
-      "name": "cost-by-agent",
-      "customWidth": "50"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"]), Model = tostring(customDimensions[\"Model\"]), Surface = coalesce(tostring(customDimensions[\"Surface\"]), \"model\"), Via = coalesce(tostring(customDimensions[\"Via\"]), \"direct\")\n| summarize CostUSD = sum(valueSum) / 1e6 by Surface\n| order by CostUSD desc",
-        "size": 0,
-        "title": "Cost by surface: AI models, MCP tools, A2A agents (USD)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components",
-        "visualization": "piechart"
-      },
-      "name": "cost-by-surface",
-      "customWidth": "50"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"]), Model = tostring(customDimensions[\"Model\"]), Surface = coalesce(tostring(customDimensions[\"Surface\"]), \"model\"), Via = coalesce(tostring(customDimensions[\"Via\"]), \"direct\")\n| summarize CostUSD = round(sum(valueSum) / 1e6, 6), Calls = sum(valueCount) by Agent, Tier, Surface, Via\n| order by Agent asc, CostUSD desc",
-        "size": 0,
-        "title": "Chargeback: who pays for what (Via = the A2A agent that spent on the payer's behalf)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components",
-        "visualization": "table",
-        "gridSettings": {
-          "formatters": [
-            {
-              "columnMatch": "CostUSD",
-              "formatter": 4,
-              "formatOptions": {
-                "palette": "blue"
-              }
+          "secondaryContent": {
+            "columnMatch": "Detail",
+            "formatter": 1
+          },
+          "rightContent": {
+            "columnMatch": "Trend",
+            "formatter": 10,
+            "formatOptions": {
+              "palette": "blue"
             }
-          ]
-        }
+          },
+          "showBorder": true,
+          "size": "auto"
+        },
+        "exportFieldName": "Tab",
+        "exportParameterName": "Tab",
+        "exportDefaultValue": "overview"
       },
-      "name": "chargeback",
-      "customWidth": "100"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"]), Model = tostring(customDimensions[\"Model\"]), Surface = coalesce(tostring(customDimensions[\"Surface\"]), \"model\"), Via = coalesce(tostring(customDimensions[\"Via\"]), \"direct\")\n| summarize CostUSD = round(sum(valueSum) / 1e6, 6), Calls = sum(valueCount) by Surface, Resource = Model\n| extend AvgCostPerCallUSD = round(CostUSD / Calls, 6)\n| order by CostUSD desc",
-        "size": 0,
-        "title": "Cost by model, tool and agent (USD)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components",
-        "visualization": "table"
-      },
-      "name": "cost-by-resource",
-      "customWidth": "50"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"]), Model = tostring(customDimensions[\"Model\"]), Surface = coalesce(tostring(customDimensions[\"Surface\"]), \"model\"), Via = coalesce(tostring(customDimensions[\"Via\"]), \"direct\")\n| where Surface == \"model\"\n| summarize CostUSD = sum(valueSum) / 1e6 by Model\n| order by CostUSD desc",
-        "size": 0,
-        "title": "Model cost (USD)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components",
-        "visualization": "piechart"
-      },
-      "name": "cost-by-model",
-      "customWidth": "50"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"]), Model = tostring(customDimensions[\"Model\"]), Surface = coalesce(tostring(customDimensions[\"Surface\"]), \"model\"), Via = coalesce(tostring(customDimensions[\"Via\"]), \"direct\")\n| summarize CostUSD = sum(valueSum) / 1e6 by Agent, bin(timestamp, 1m)",
-        "size": 0,
-        "title": "Cost over time by agent (USD)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components",
-        "visualization": "timechart"
-      },
-      "name": "cost-over-time",
-      "customWidth": "100"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "customMetrics\n| where name in (\"Prompt Tokens\", \"Completion Tokens\")\n| extend Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"]), Model = tostring(customDimensions[\"Model\"]), Surface = coalesce(tostring(customDimensions[\"Surface\"]), \"model\"), Via = coalesce(tostring(customDimensions[\"Via\"]), \"direct\")\n| summarize PromptTokens = sumif(valueSum, name == \"Prompt Tokens\"), CompletionTokens = sumif(valueSum, name == \"Completion Tokens\") by Agent, Tier, Via, Model\n| extend TotalTokens = PromptTokens + CompletionTokens\n| order by TotalTokens desc",
-        "size": 0,
-        "title": "Tokens by agent and model",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components",
-        "visualization": "table",
-        "gridSettings": {
-          "formatters": [
-            {
-              "columnMatch": "TotalTokens",
-              "formatter": 4,
-              "formatOptions": {
-                "palette": "blue"
-              }
-            }
-          ]
-        }
-      },
-      "name": "tokens-by-agent-model",
-      "customWidth": "50"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "let budgets = datatable(Agent:string, AgentName:string, Tier:string, BudgetMicroUsd:long)[{budget-rows}];\ncustomMetrics\n| where name == \"CostMicroUSD\"\n| extend Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"]), Model = tostring(customDimensions[\"Model\"]), Surface = coalesce(tostring(customDimensions[\"Surface\"]), \"model\"), Via = coalesce(tostring(customDimensions[\"Via\"]), \"direct\")\n| summarize SpentMicroUsd = sum(valueSum) by Agent\n| join kind=rightouter budgets on Agent\n| project Agent = Agent1, AgentName, Tier, BudgetUSD = BudgetMicroUsd / 1e6, SpentUSD = coalesce(SpentMicroUsd, 0.0) / 1e6\n| extend UsedPercent = round(100.0 * SpentUSD / BudgetUSD, 1)\n| order by UsedPercent desc",
-        "size": 0,
-        "title": "Budget vs spend by agent",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components",
-        "visualization": "table",
-        "gridSettings": {
-          "formatters": [
-            {
-              "columnMatch": "UsedPercent",
-              "formatter": 4,
-              "formatOptions": {
-                "min": 0,
-                "max": 100,
-                "palette": "greenRed"
-              }
-            }
-          ]
-        }
-      },
-      "name": "budget-vs-spend",
-      "customWidth": "50"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "requests\n| where url has \"/openai/\" or url has \"/commerce-mcp\" or url has \"/sourcing-agent\"\n| extend Agent = tostring(customDimensions[\"Subscription Name\"]), Tier = tostring(customDimensions[\"Product Name\"])\n| summarize Calls = count() by Agent, resultCode",
-        "size": 0,
-        "title": "Gateway outcomes by agent (status code)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components",
-        "visualization": "barchart",
-        "chartSettings": {
-          "group": "resultCode",
-          "createOtherGroup": 0
-        }
-      },
-      "name": "outcomes-by-agent",
-      "customWidth": "50"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "customMetrics\n| where name == \"GovernanceEvents\"\n| extend Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"]), Event = tostring(customDimensions[\"Event\"]), Model = tostring(customDimensions[\"Model\"])\n| summarize Events = sum(valueSum) by Agent, Tier, Event, RequestedModel = Model\n| order by Events desc",
-        "size": 0,
-        "title": "Governance actions (model downgrade / deny, output cap, tool / agent denied)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components",
-        "visualization": "table"
-      },
-      "name": "governance-events",
-      "customWidth": "50"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "requests\n| where url has \"/openai/\" or url has \"/commerce-mcp\" or url has \"/sourcing-agent\"\n| extend Agent = tostring(customDimensions[\"Subscription Name\"]), Tier = tostring(customDimensions[\"Product Name\"])\n| where resultCode in (\"401\", \"403\", \"429\")\n| summarize Calls = count() by resultCode, bin(timestamp, 1m)",
-        "size": 0,
-        "title": "Blocked calls over time (429 = rate limit, 403 = entitlement / quota / budget)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components",
-        "visualization": "timechart"
-      },
-      "name": "blocked-timeline",
-      "customWidth": "50"
-    },
-    {
-      "type": 1,
-      "name": "policies-header",
-      "content": {
-        "json": "## Policies in action\nEvidence of the gateway policies, from the **Log Analytics** diagnostic tables (`ApiManagementGatewayLogs`, `ApiManagementGatewayLlmLog`, `ApiManagementGatewayMCPLog`) and the gateway's custom metrics. `LastErrorSource` is the policy that stopped a call; `CorrelationId` equals the `x-gw-request-id` response header."
+      "name": "kpi",
+      "customWidth": "100",
+      "styleSettings": {
+        "showBorder": true
       }
     },
     {
-      "type": 3,
+      "type": 11,
+      "name": "tabs",
       "content": {
-        "version": "KqlItem/1.0",
-        "query": "ApiManagementGatewayLogs\n| where ApiId in (\"inference-api\", \"commerce-mcp\", \"sourcing-agent\")\n| extend Policy = iff(isempty(LastErrorSource), \"(passed)\", LastErrorSource)\n| summarize Requests = count() by Policy, ResponseCode, Plan = ProductId\n| order by Requests desc",
-        "size": 0,
-        "title": "Gateway outcomes by policy (LastErrorSource = the policy that stopped the call)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "table",
-        "crossComponentResources": [
-          "{law-id}"
+        "version": "LinkItem/1.0",
+        "style": "tabs",
+        "links": [
+          {
+            "id": "17f1420e-b3ba-55d1-8a5f-2e9060bb4f8a",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "📊 Overview",
+            "subTarget": "overview",
+            "style": "link"
+          },
+          {
+            "id": "fed08e0f-3644-5822-ad06-e06b1f22ab01",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "💳 Chargeback",
+            "subTarget": "chargeback",
+            "style": "link"
+          },
+          {
+            "id": "a59bfecc-ec89-5554-8c16-b887a522de1c",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "🛡️ Budgets & governance",
+            "subTarget": "governance",
+            "style": "link"
+          },
+          {
+            "id": "113d6b84-fd5b-514f-8e79-a27202f55304",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "🔍 Gateway evidence",
+            "subTarget": "evidence",
+            "style": "link"
+          },
+          {
+            "id": "86191030-5c51-5ace-843f-a6658a5b67a2",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "ℹ️ About",
+            "subTarget": "about",
+            "style": "link"
+          }
         ]
-      },
-      "name": "policy-outcomes",
-      "customWidth": "50"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "ApiManagementGatewayLogs\n| where LastErrorSource == \"validate-azure-ad-token\"\n| summarize Rejected = count() by Plan = ProductId, ApiId, LastErrorReason\n| order by Rejected desc",
-        "size": 0,
-        "title": "Microsoft Entra ID: rejected calls (validate-azure-ad-token)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "table",
-        "crossComponentResources": [
-          "{law-id}"
-        ]
-      },
-      "name": "entra-rejections",
-      "customWidth": "50"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "ApiManagementGatewayLogs\n| where ApiId == \"inference-api\" and isnotempty(BackendUrl)\n| extend Backend = tostring(split(parse_url(BackendUrl).Host, \".\")[0])\n| summarize Calls = count() by Backend, bin(TimeGenerated, 1m)",
-        "size": 0,
-        "title": "Load balancing: which Foundry region served the AI model calls",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "timechart",
-        "crossComponentResources": [
-          "{law-id}"
-        ]
-      },
-      "name": "backend-regions",
-      "customWidth": "50"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "customMetrics\n| where name == \"BackendAttempts\"\n| extend Backend = tostring(customDimensions[\"Backend\"]), Region = tostring(customDimensions[\"Region\"]), Failover = tostring(customDimensions[\"Failover\"]), Model = tostring(customDimensions[\"Model\"])\n| summarize Requests = sum(valueCount), Attempts = sum(valueSum) by Backend, Region, Failover, Model\n| order by Requests desc",
-        "size": 0,
-        "title": "Failover: gateway attempts per request (BackendAttempts metric, Failover = retried on another region)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components",
-        "visualization": "table"
-      },
-      "name": "failover",
-      "customWidth": "50"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "ApiManagementGatewayLlmLog\n| where isnotempty(DeploymentName)\n| summarize Calls = dcount(CorrelationId), PromptTokens = sum(PromptTokens), CompletionTokens = sum(CompletionTokens) by DeploymentName\n| order by PromptTokens desc",
-        "size": 0,
-        "title": "Tokens counted by the gateway per deployment (ApiManagementGatewayLlmLog)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "table",
-        "crossComponentResources": [
-          "{law-id}"
-        ]
-      },
-      "name": "llm-tokens",
-      "customWidth": "50"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "ApiManagementGatewayMCPLog\n| where isnotempty(ToolName)\n| summarize Calls = count(), Errors = countif(isnotempty(Error)) by ToolName, ClientName, AuthenticationMethod\n| order by Calls desc",
-        "size": 0,
-        "title": "MCP tool calls (ApiManagementGatewayMCPLog)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "table",
-        "crossComponentResources": [
-          "{law-id}"
-        ]
-      },
-      "name": "mcp-tools",
-      "customWidth": "50"
-    },
-    {
-      "type": 1,
-      "name": "chargeback-header",
-      "content": {
-        "json": "## Chargeback by team, user and session\nOne **chargeback record** (an App Insights trace written by the `chargeback-record` policy fragment) per priced call: the payer's **team** and **cost center** come from the `chargeback-directory` named value, the **session** from the `x-session-id` header (or the MCP session / A2A context id). Downstream calls an A2A agent makes for a user carry that user and session, and the A2A record holds only the task fee, so a session total is the fully loaded cost. Custom metrics allow at most 5 dimensions, which is why per-user and per-session data lives in traces."
       }
     },
     {
-      "type": 3,
+      "type": 12,
       "content": {
-        "version": "KqlItem/1.0",
-        "query": "traces\n| where tostring(customDimensions[\"record\"]) == \"chargeback\"\n| extend Team = tostring(customDimensions[\"team\"]), CostCenter = tostring(customDimensions[\"costCenter\"]), User = tostring(customDimensions[\"user\"]), DisplayName = tostring(customDimensions[\"displayName\"]), Kind = tostring(customDimensions[\"kind\"]), Session = tostring(customDimensions[\"session\"]), Surface = tostring(customDimensions[\"surface\"]), Via = tostring(customDimensions[\"via\"]), Cost = tolong(customDimensions[\"costMicroUsd\"]), Tokens = tolong(customDimensions[\"promptTokens\"]) + tolong(customDimensions[\"completionTokens\"])\n| summarize CostUSD = round(sum(Cost) / 1e6, 6), Users = dcount(User), Sessions = dcount(Session), Calls = count() by Team, CostCenter\n| order by CostUSD desc",
-        "size": 0,
-        "title": "Chargeback by team and cost center (USD)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components",
-        "visualization": "table",
-        "gridSettings": {
-          "formatters": [
-            {
-              "columnMatch": "CostUSD",
-              "formatter": 4,
-              "formatOptions": {
-                "palette": "blue"
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n         Resource = tostring(customDimensions.Model), Surface = coalesce(tostring(customDimensions.Surface), \"model\"),\n         Via = coalesce(tostring(customDimensions.Via), \"direct\"), Caller = tostring(customDimensions.Caller)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n| summarize CostUSD = sum(valueSum) / 1e6 by SurfaceName, bin(timestamp, {TimeRange:grain})",
+              "size": 0,
+              "title": "Spend over time by surface",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "areachart",
+              "resourceType": "microsoft.insights/components",
+              "chartSettings": {
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "AI models",
+                    "color": "blue"
+                  },
+                  {
+                    "seriesName": "MCP tools",
+                    "color": "purple"
+                  },
+                  {
+                    "seriesName": "A2A agents",
+                    "color": "orange"
+                  }
+                ],
+                "yAxis": [
+                  "CostUSD"
+                ],
+                "ySettings": {
+                  "numberFormatSettings": {
+                    "unit": 0,
+                    "options": {
+                      "style": "currency",
+                      "currency": "USD",
+                      "maximumFractionDigits": 4
+                    }
+                  }
+                }
               }
+            },
+            "name": "spend-trend",
+            "customWidth": "65",
+            "styleSettings": {
+              "showBorder": true
             }
-          ]
-        }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n         Resource = tostring(customDimensions.Model), Surface = coalesce(tostring(customDimensions.Surface), \"model\"),\n         Via = coalesce(tostring(customDimensions.Via), \"direct\"), Caller = tostring(customDimensions.Caller)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n| summarize CostUSD = sum(valueSum) / 1e6 by SurfaceName",
+              "size": 0,
+              "title": "Spend by surface",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "piechart",
+              "resourceType": "microsoft.insights/components",
+              "chartSettings": {
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "AI models",
+                    "color": "blue"
+                  },
+                  {
+                    "seriesName": "MCP tools",
+                    "color": "purple"
+                  },
+                  {
+                    "seriesName": "A2A agents",
+                    "color": "orange"
+                  }
+                ],
+                "ySettings": {
+                  "numberFormatSettings": {
+                    "unit": 0,
+                    "options": {
+                      "style": "currency",
+                      "currency": "USD",
+                      "maximumFractionDigits": 4
+                    }
+                  }
+                }
+              }
+            },
+            "name": "spend-mix",
+            "customWidth": "35",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let budgets = datatable(Agent:string, AgentName:string, Tier:string, BudgetMicroUsd:long)[{budget-rows}];\ncustomMetrics\n| where name == \"CostMicroUSD\"\n| extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n         Resource = tostring(customDimensions.Model), Surface = coalesce(tostring(customDimensions.Surface), \"model\"),\n         Via = coalesce(tostring(customDimensions.Via), \"direct\"), Caller = tostring(customDimensions.Caller)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n| summarize SpendUSD = sum(valueSum) / 1e6, Calls = sum(valueCount), Models = sumif(valueSum, Surface == \"model\") / 1e6,\n            Tools = sumif(valueSum, Surface == \"tool\") / 1e6, Agents = sumif(valueSum, Surface == \"agent\") / 1e6,\n            ViaAgents = sumif(valueSum, Via != \"direct\") / 1e6 by Consumer, Plan\n| join kind=leftouter (budgets | project Consumer = Agent, Name = AgentName) on Consumer\n| project Name = coalesce(Name, Consumer), Consumer, Plan, SpendUSD, Models, Tools, Agents, ViaAgents, Calls\n| order by SpendUSD desc",
+              "size": 0,
+              "title": "🔎 Top consumers: click a row for the breakdown",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.insights/components",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "SpendUSD",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "blue"
+                    },
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "Models",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "Tools",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "Agents",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "ViaAgents",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "Consumer",
+                    "formatter": 5
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "SpendUSD",
+                    "label": "Spend"
+                  },
+                  {
+                    "columnId": "Models",
+                    "label": "AI models"
+                  },
+                  {
+                    "columnId": "Tools",
+                    "label": "MCP tools"
+                  },
+                  {
+                    "columnId": "Agents",
+                    "label": "A2A agents"
+                  },
+                  {
+                    "columnId": "ViaAgents",
+                    "label": "via A2A agents"
+                  }
+                ]
+              },
+              "exportedParameters": [
+                {
+                  "fieldName": "Consumer",
+                  "parameterName": "SelectedConsumer",
+                  "parameterType": 1
+                },
+                {
+                  "fieldName": "Name",
+                  "parameterName": "SelectedConsumerName",
+                  "parameterType": 1
+                }
+              ]
+            },
+            "name": "top-consumers",
+            "customWidth": "60",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n         Resource = tostring(customDimensions.Model), Surface = coalesce(tostring(customDimensions.Surface), \"model\"),\n         Via = coalesce(tostring(customDimensions.Via), \"direct\"), Caller = tostring(customDimensions.Caller)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n| summarize SpendUSD = sum(valueSum) / 1e6, Calls = sum(valueCount) by Resource, SurfaceName\n| extend PerCallUSD = SpendUSD / Calls\n| order by SpendUSD desc",
+              "size": 0,
+              "title": "Top resources",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.insights/components",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "SpendUSD",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "purple"
+                    },
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "PerCallUSD",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 6
+                      }
+                    }
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "SurfaceName",
+                    "label": "Surface"
+                  },
+                  {
+                    "columnId": "SpendUSD",
+                    "label": "Spend"
+                  },
+                  {
+                    "columnId": "PerCallUSD",
+                    "label": "Per call"
+                  }
+                ]
+              }
+            },
+            "name": "top-resources",
+            "customWidth": "40",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "items": [
+                {
+                  "type": 1,
+                  "content": {
+                    "json": "### 🔎 {SelectedConsumerName} &nbsp;·&nbsp; `{SelectedConsumer}`"
+                  },
+                  "name": "consumer-detail-title"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n         Resource = tostring(customDimensions.Model), Surface = coalesce(tostring(customDimensions.Surface), \"model\"),\n         Via = coalesce(tostring(customDimensions.Via), \"direct\"), Caller = tostring(customDimensions.Caller)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| where Consumer == '{SelectedConsumer}'\n| extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n| summarize SpendUSD = sum(valueSum) / 1e6 by Resource, SurfaceName\n| order by SpendUSD desc",
+                    "size": 0,
+                    "title": "Spend by resource and surface",
+                    "timeContextFromParameter": "TimeRange",
+                    "queryType": 0,
+                    "visualization": "barchart",
+                    "resourceType": "microsoft.insights/components",
+                    "chartSettings": {
+                      "group": "SurfaceName",
+                      "createOtherGroup": 0,
+                      "seriesLabelSettings": [
+                        {
+                          "seriesName": "AI models",
+                          "color": "blue"
+                        },
+                        {
+                          "seriesName": "MCP tools",
+                          "color": "purple"
+                        },
+                        {
+                          "seriesName": "A2A agents",
+                          "color": "orange"
+                        }
+                      ],
+                      "ySettings": {
+                        "numberFormatSettings": {
+                          "unit": 0,
+                          "options": {
+                            "style": "currency",
+                            "currency": "USD",
+                            "maximumFractionDigits": 4
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "name": "consumer-resources",
+                  "customWidth": "50",
+                  "styleSettings": {
+                    "showBorder": true
+                  }
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n         Resource = tostring(customDimensions.Model), Surface = coalesce(tostring(customDimensions.Surface), \"model\"),\n         Via = coalesce(tostring(customDimensions.Via), \"direct\"), Caller = tostring(customDimensions.Caller)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| where Consumer == '{SelectedConsumer}'\n| extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n| extend Path = iff(Via == \"direct\", \"Direct\", strcat(\"via \", Via))\n| summarize SpendUSD = sum(valueSum) / 1e6 by Path, bin(timestamp, {TimeRange:grain})",
+                    "size": 0,
+                    "title": "Spend over time: direct vs via A2A agents",
+                    "timeContextFromParameter": "TimeRange",
+                    "queryType": 0,
+                    "visualization": "timechart",
+                    "resourceType": "microsoft.insights/components",
+                    "chartSettings": {
+                      "ySettings": {
+                        "numberFormatSettings": {
+                          "unit": 0,
+                          "options": {
+                            "style": "currency",
+                            "currency": "USD",
+                            "maximumFractionDigits": 4
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "name": "consumer-trend",
+                  "customWidth": "50",
+                  "styleSettings": {
+                    "showBorder": true
+                  }
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n         Resource = tostring(customDimensions.Model), Surface = coalesce(tostring(customDimensions.Surface), \"model\"),\n         Via = coalesce(tostring(customDimensions.Via), \"direct\"), Caller = tostring(customDimensions.Caller)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| where Consumer == '{SelectedConsumer}'\n| extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n| summarize SpendUSD = sum(valueSum) / 1e6, Calls = sum(valueCount) by SurfaceName, Resource, Via,\n            Caller = iff(isempty(Caller), \"(subscription key)\", Caller)\n| extend PerCallUSD = SpendUSD / Calls\n| order by SpendUSD desc",
+                    "size": 0,
+                    "title": "Line items",
+                    "timeContextFromParameter": "TimeRange",
+                    "queryType": 0,
+                    "visualization": "table",
+                    "resourceType": "microsoft.insights/components",
+                    "gridSettings": {
+                      "formatters": [
+                        {
+                          "columnMatch": "SpendUSD",
+                          "formatter": 4,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 0,
+                            "options": {
+                              "style": "currency",
+                              "currency": "USD",
+                              "maximumFractionDigits": 4
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "PerCallUSD",
+                          "formatter": 0,
+                          "numberFormat": {
+                            "unit": 0,
+                            "options": {
+                              "style": "currency",
+                              "currency": "USD",
+                              "maximumFractionDigits": 6
+                            }
+                          }
+                        }
+                      ],
+                      "labelSettings": [
+                        {
+                          "columnId": "SurfaceName",
+                          "label": "Surface"
+                        },
+                        {
+                          "columnId": "SpendUSD",
+                          "label": "Spend"
+                        },
+                        {
+                          "columnId": "PerCallUSD",
+                          "label": "Per call"
+                        },
+                        {
+                          "columnId": "Caller",
+                          "label": "Entra caller"
+                        }
+                      ]
+                    }
+                  },
+                  "name": "consumer-ledger",
+                  "customWidth": "65",
+                  "styleSettings": {
+                    "showBorder": true
+                  }
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "customMetrics\n| where name == \"GovernanceEvents\"\n| extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n         Event = tostring(customDimensions.Event), RequestedModel = tostring(customDimensions.Model), Surface = \"model\"\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer}))\n| where Consumer == '{SelectedConsumer}'\n| summarize Events = sum(valueSum) by Event, RequestedModel\n| order by Events desc",
+                    "size": 0,
+                    "title": "Plan enforcements",
+                    "timeContextFromParameter": "TimeRange",
+                    "queryType": 0,
+                    "visualization": "table",
+                    "resourceType": "microsoft.insights/components",
+                    "gridSettings": {
+                      "formatters": [
+                        {
+                          "columnMatch": "Events",
+                          "formatter": 4,
+                          "formatOptions": {
+                            "palette": "orange"
+                          }
+                        }
+                      ],
+                      "labelSettings": [
+                        {
+                          "columnId": "RequestedModel",
+                          "label": "Requested"
+                        }
+                      ]
+                    },
+                    "noDataMessage": "No plan enforcement for this consumer in the time range.",
+                    "noDataMessageStyle": 3
+                  },
+                  "name": "consumer-governance",
+                  "customWidth": "35",
+                  "styleSettings": {
+                    "showBorder": true
+                  }
+                }
+              ]
+            },
+            "name": "consumer-detail",
+            "styleSettings": {
+              "showBorder": true
+            },
+            "conditionalVisibility": {
+              "parameterName": "SelectedConsumer",
+              "comparison": "isNotEqualTo"
+            }
+          }
+        ]
       },
-      "name": "chargeback-teams",
-      "customWidth": "50"
+      "name": "tab-overview",
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "overview"
+      }
     },
     {
-      "type": 3,
+      "type": 12,
       "content": {
-        "version": "KqlItem/1.0",
-        "query": "traces\n| where tostring(customDimensions[\"record\"]) == \"chargeback\"\n| extend Team = tostring(customDimensions[\"team\"]), CostCenter = tostring(customDimensions[\"costCenter\"]), User = tostring(customDimensions[\"user\"]), DisplayName = tostring(customDimensions[\"displayName\"]), Kind = tostring(customDimensions[\"kind\"]), Session = tostring(customDimensions[\"session\"]), Surface = tostring(customDimensions[\"surface\"]), Via = tostring(customDimensions[\"via\"]), Cost = tolong(customDimensions[\"costMicroUsd\"]), Tokens = tolong(customDimensions[\"promptTokens\"]) + tolong(customDimensions[\"completionTokens\"])\n| summarize CostUSD = sum(Cost) / 1e6 by Payer = strcat(DisplayName, \" (\", Team, \")\"), Surface\n| order by CostUSD desc",
-        "size": 0,
-        "title": "Cost by user / app and surface (USD)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components",
-        "visualization": "barchart",
-        "chartSettings": {
-          "group": "Surface",
-          "createOtherGroup": 0
-        }
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "Every priced call writes a **chargeback record** with the payer's team, cost center, user and session. Spend an A2A agent makes for a user is charged to that user and session (**Via**).",
+              "style": "info"
+            },
+            "name": "chargeback-intro"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "traces\n| where tostring(customDimensions.record) == \"chargeback\"\n| extend Team = tostring(customDimensions.team), CostCenter = tostring(customDimensions.costCenter),\n         Consumer = tostring(customDimensions.user), Name = tostring(customDimensions.displayName),\n         Kind = tostring(customDimensions[\"kind\"]), Plan = tostring(customDimensions.tier),\n         Session = tostring(customDimensions.session), Surface = tostring(customDimensions.surface),\n         Item = tostring(customDimensions.item), Via = tostring(customDimensions.via),\n         Caller = tostring(customDimensions.caller), RequestId = tostring(customDimensions.requestId),\n         CostUSD = tolong(customDimensions.costMicroUsd) / 1e6,\n         Tokens = tolong(customDimensions.promptTokens) + tolong(customDimensions.completionTokens)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n| summarize SpendUSD = sum(CostUSD) by Team = strcat(Team, \" · \", CostCenter)",
+              "size": 0,
+              "title": "Spend by team",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "piechart",
+              "resourceType": "microsoft.insights/components",
+              "chartSettings": {
+                "ySettings": {
+                  "numberFormatSettings": {
+                    "unit": 0,
+                    "options": {
+                      "style": "currency",
+                      "currency": "USD",
+                      "maximumFractionDigits": 4
+                    }
+                  }
+                }
+              }
+            },
+            "name": "cb-teams",
+            "customWidth": "35",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "traces\n| where tostring(customDimensions.record) == \"chargeback\"\n| extend Team = tostring(customDimensions.team), CostCenter = tostring(customDimensions.costCenter),\n         Consumer = tostring(customDimensions.user), Name = tostring(customDimensions.displayName),\n         Kind = tostring(customDimensions[\"kind\"]), Plan = tostring(customDimensions.tier),\n         Session = tostring(customDimensions.session), Surface = tostring(customDimensions.surface),\n         Item = tostring(customDimensions.item), Via = tostring(customDimensions.via),\n         Caller = tostring(customDimensions.caller), RequestId = tostring(customDimensions.requestId),\n         CostUSD = tolong(customDimensions.costMicroUsd) / 1e6,\n         Tokens = tolong(customDimensions.promptTokens) + tolong(customDimensions.completionTokens)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n| summarize SpendUSD = sum(CostUSD) by Payer = Name, SurfaceName\n| order by SpendUSD desc",
+              "size": 0,
+              "title": "Spend by user or app",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "barchart",
+              "resourceType": "microsoft.insights/components",
+              "chartSettings": {
+                "group": "SurfaceName",
+                "createOtherGroup": 0,
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "AI models",
+                    "color": "blue"
+                  },
+                  {
+                    "seriesName": "MCP tools",
+                    "color": "purple"
+                  },
+                  {
+                    "seriesName": "A2A agents",
+                    "color": "orange"
+                  }
+                ],
+                "ySettings": {
+                  "numberFormatSettings": {
+                    "unit": 0,
+                    "options": {
+                      "style": "currency",
+                      "currency": "USD",
+                      "maximumFractionDigits": 4
+                    }
+                  }
+                }
+              }
+            },
+            "name": "cb-users",
+            "customWidth": "65",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "traces\n| where tostring(customDimensions.record) == \"chargeback\"\n| extend Team = tostring(customDimensions.team), CostCenter = tostring(customDimensions.costCenter),\n         Consumer = tostring(customDimensions.user), Name = tostring(customDimensions.displayName),\n         Kind = tostring(customDimensions[\"kind\"]), Plan = tostring(customDimensions.tier),\n         Session = tostring(customDimensions.session), Surface = tostring(customDimensions.surface),\n         Item = tostring(customDimensions.item), Via = tostring(customDimensions.via),\n         Caller = tostring(customDimensions.caller), RequestId = tostring(customDimensions.requestId),\n         CostUSD = tolong(customDimensions.costMicroUsd) / 1e6,\n         Tokens = tolong(customDimensions.promptTokens) + tolong(customDimensions.completionTokens)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n| summarize SpendUSD = sum(CostUSD), Calls = count(), Models = sumif(CostUSD, Surface == \"model\"),\n            Tools = sumif(CostUSD, Surface == \"tool\"), Agents = sumif(CostUSD, Surface == \"agent\"),\n            ViaAgents = sumif(CostUSD, Via != \"direct\"), Tokens = sum(Tokens), Started = min(timestamp), LastCall = max(timestamp)\n    by Team = strcat(Team, \" · \", CostCenter), User = strcat(Name, iff(Kind == \"agent\", \" 🤖\", \"\")), Session\n| order by LastCall desc",
+              "size": 0,
+              "title": "🔎 Team › user › session: expand a team, click a session for its ledger",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.insights/components",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "SpendUSD",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "blue"
+                    },
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "Models",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "Tools",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "Agents",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "ViaAgents",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "Tokens",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 17,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 1
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "Started",
+                    "formatter": 6
+                  },
+                  {
+                    "columnMatch": "LastCall",
+                    "formatter": 6
+                  }
+                ],
+                "hierarchySettings": {
+                  "treeType": 1,
+                  "groupBy": [
+                    "Team",
+                    "User"
+                  ],
+                  "expandTopLevel": false,
+                  "finalBy": "Session"
+                },
+                "filter": true,
+                "labelSettings": [
+                  {
+                    "columnId": "SpendUSD",
+                    "label": "Spend"
+                  },
+                  {
+                    "columnId": "Models",
+                    "label": "AI models"
+                  },
+                  {
+                    "columnId": "Tools",
+                    "label": "MCP tools"
+                  },
+                  {
+                    "columnId": "Agents",
+                    "label": "A2A agents"
+                  },
+                  {
+                    "columnId": "ViaAgents",
+                    "label": "via A2A agents"
+                  },
+                  {
+                    "columnId": "LastCall",
+                    "label": "Last call"
+                  }
+                ]
+              },
+              "exportedParameters": [
+                {
+                  "fieldName": "Session",
+                  "parameterName": "SelectedSession",
+                  "parameterType": 1
+                },
+                {
+                  "fieldName": "User",
+                  "parameterName": "SelectedSessionUser",
+                  "parameterType": 1
+                }
+              ]
+            },
+            "name": "cb-tree",
+            "customWidth": "100",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "items": [
+                {
+                  "type": 1,
+                  "content": {
+                    "json": "### 🧾 Session `{SelectedSession}` &nbsp;·&nbsp; {SelectedSessionUser}"
+                  },
+                  "name": "session-detail-title"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "traces\n| where tostring(customDimensions.record) == \"chargeback\"\n| extend Team = tostring(customDimensions.team), CostCenter = tostring(customDimensions.costCenter),\n         Consumer = tostring(customDimensions.user), Name = tostring(customDimensions.displayName),\n         Kind = tostring(customDimensions[\"kind\"]), Plan = tostring(customDimensions.tier),\n         Session = tostring(customDimensions.session), Surface = tostring(customDimensions.surface),\n         Item = tostring(customDimensions.item), Via = tostring(customDimensions.via),\n         Caller = tostring(customDimensions.caller), RequestId = tostring(customDimensions.requestId),\n         CostUSD = tolong(customDimensions.costMicroUsd) / 1e6,\n         Tokens = tolong(customDimensions.promptTokens) + tolong(customDimensions.completionTokens)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n| where Session == '{SelectedSession}'\n| order by timestamp asc\n| extend CumulativeUSD = row_cumsum(CostUSD)\n| project timestamp, CumulativeUSD",
+                    "size": 0,
+                    "title": "Cumulative spend",
+                    "timeContextFromParameter": "TimeRange",
+                    "queryType": 0,
+                    "visualization": "linechart",
+                    "resourceType": "microsoft.insights/components",
+                    "chartSettings": {
+                      "ySettings": {
+                        "numberFormatSettings": {
+                          "unit": 0,
+                          "options": {
+                            "style": "currency",
+                            "currency": "USD",
+                            "maximumFractionDigits": 4
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "name": "session-burn",
+                  "customWidth": "40",
+                  "styleSettings": {
+                    "showBorder": true
+                  }
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "traces\n| where tostring(customDimensions.record) == \"chargeback\"\n| extend Team = tostring(customDimensions.team), CostCenter = tostring(customDimensions.costCenter),\n         Consumer = tostring(customDimensions.user), Name = tostring(customDimensions.displayName),\n         Kind = tostring(customDimensions[\"kind\"]), Plan = tostring(customDimensions.tier),\n         Session = tostring(customDimensions.session), Surface = tostring(customDimensions.surface),\n         Item = tostring(customDimensions.item), Via = tostring(customDimensions.via),\n         Caller = tostring(customDimensions.caller), RequestId = tostring(customDimensions.requestId),\n         CostUSD = tolong(customDimensions.costMicroUsd) / 1e6,\n         Tokens = tolong(customDimensions.promptTokens) + tolong(customDimensions.completionTokens)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n| where Session == '{SelectedSession}'\n| order by timestamp asc\n| project Time = timestamp, SurfaceName, Item, Via, Tokens, CostUSD, Caller, RequestId",
+                    "size": 0,
+                    "title": "Call-by-call ledger",
+                    "timeContextFromParameter": "TimeRange",
+                    "queryType": 0,
+                    "visualization": "table",
+                    "resourceType": "microsoft.insights/components",
+                    "gridSettings": {
+                      "formatters": [
+                        {
+                          "columnMatch": "CostUSD",
+                          "formatter": 4,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 0,
+                            "options": {
+                              "style": "currency",
+                              "currency": "USD",
+                              "maximumFractionDigits": 4
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "Time",
+                          "formatter": 6
+                        }
+                      ],
+                      "labelSettings": [
+                        {
+                          "columnId": "SurfaceName",
+                          "label": "Surface"
+                        },
+                        {
+                          "columnId": "CostUSD",
+                          "label": "Cost"
+                        },
+                        {
+                          "columnId": "Caller",
+                          "label": "Entra caller"
+                        },
+                        {
+                          "columnId": "RequestId",
+                          "label": "x-gw-request-id"
+                        }
+                      ]
+                    }
+                  },
+                  "name": "session-ledger",
+                  "customWidth": "60",
+                  "styleSettings": {
+                    "showBorder": true
+                  }
+                }
+              ]
+            },
+            "name": "session-detail",
+            "styleSettings": {
+              "showBorder": true
+            },
+            "conditionalVisibility": {
+              "parameterName": "SelectedSession",
+              "comparison": "isNotEqualTo"
+            }
+          }
+        ]
       },
-      "name": "chargeback-users",
-      "customWidth": "50"
+      "name": "tab-chargeback",
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "chargeback"
+      }
     },
     {
-      "type": 3,
+      "type": 12,
       "content": {
-        "version": "KqlItem/1.0",
-        "query": "traces\n| where tostring(customDimensions[\"record\"]) == \"chargeback\"\n| extend Team = tostring(customDimensions[\"team\"]), CostCenter = tostring(customDimensions[\"costCenter\"]), User = tostring(customDimensions[\"user\"]), DisplayName = tostring(customDimensions[\"displayName\"]), Kind = tostring(customDimensions[\"kind\"]), Session = tostring(customDimensions[\"session\"]), Surface = tostring(customDimensions[\"surface\"]), Via = tostring(customDimensions[\"via\"]), Cost = tolong(customDimensions[\"costMicroUsd\"]), Tokens = tolong(customDimensions[\"promptTokens\"]) + tolong(customDimensions[\"completionTokens\"])\n| summarize CostUSD = round(sum(Cost) / 1e6, 6), Calls = count(), Models = round(sumif(Cost, Surface == \"model\") / 1e6, 6), Tools = round(sumif(Cost, Surface == \"tool\") / 1e6, 6), Agents = round(sumif(Cost, Surface == \"agent\") / 1e6, 6), ViaAgent = round(sumif(Cost, Via != \"direct\") / 1e6, 6), Tokens = sum(Tokens), Started = min(timestamp), LastCall = max(timestamp) by Team, CostCenter, User = DisplayName, Kind, Session\n| order by LastCall desc",
-        "size": 0,
-        "title": "Sessions: cost per user session (Via = the A2A agent that spent on the user's behalf)",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.insights/components",
-        "visualization": "table",
-        "gridSettings": {
-          "formatters": [
-            {
-              "columnMatch": "CostUSD",
-              "formatter": 4,
-              "formatOptions": {
-                "palette": "blue"
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let budgets = datatable(Agent:string, AgentName:string, Tier:string, BudgetMicroUsd:long)[{budget-rows}];\ncustomMetrics\n| where name == \"CostMicroUSD\"\n| extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n         Resource = tostring(customDimensions.Model), Surface = coalesce(tostring(customDimensions.Surface), \"model\"),\n         Via = coalesce(tostring(customDimensions.Via), \"direct\"), Caller = tostring(customDimensions.Caller)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n| summarize Spent = sum(valueSum) by Consumer\n| join kind=rightouter (budgets | where (\"*\" in ({Plan}) or Tier in ({Plan})) and (\"*\" in ({Consumer}) or Agent in ({Consumer}))) on $left.Consumer == $right.Agent\n| project Name = AgentName, Plan = Tier, BudgetUSD = BudgetMicroUsd / 1e6, SpentUSD = coalesce(Spent, 0.0) / 1e6\n| extend RemainingUSD = max_of(BudgetUSD - SpentUSD, 0.0), UsedPercent = round(100.0 * SpentUSD / BudgetUSD, 1)\n| order by UsedPercent desc",
+              "size": 0,
+              "title": "Budget burn: spend in the time range vs the plan budget",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.insights/components",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "BudgetUSD",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "SpentUSD",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "RemainingUSD",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "UsedPercent",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "greenRed"
+                    },
+                    "numberFormat": {
+                      "unit": 1,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 1
+                      }
+                    }
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "BudgetUSD",
+                    "label": "Budget"
+                  },
+                  {
+                    "columnId": "SpentUSD",
+                    "label": "Spent"
+                  },
+                  {
+                    "columnId": "RemainingUSD",
+                    "label": "Remaining"
+                  },
+                  {
+                    "columnId": "UsedPercent",
+                    "label": "Used"
+                  }
+                ]
               }
+            },
+            "name": "budget-burn",
+            "customWidth": "55",
+            "styleSettings": {
+              "showBorder": true
             }
-          ]
-        }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "customMetrics\n| where name == \"GovernanceEvents\"\n| extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n         Event = tostring(customDimensions.Event), RequestedModel = tostring(customDimensions.Model), Surface = \"model\"\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer}))\n| summarize Events = sum(valueSum) by Event, Plan\n| order by Events desc",
+              "size": 0,
+              "title": "Plan enforcement by plan",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "barchart",
+              "resourceType": "microsoft.insights/components",
+              "chartSettings": {
+                "group": "Plan",
+                "createOtherGroup": 0
+              }
+            },
+            "name": "gov-events",
+            "customWidth": "45",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ApiManagementGatewayLogs\n| where ApiId in (\"inference-api\", \"commerce-mcp\", \"commerce-api\", \"sourcing-agent\")\n| extend Plan = ProductId, Consumer = ApimSubscriptionId,\n         Surface = case(ApiId == \"inference-api\", \"model\", ApiId == \"sourcing-agent\", \"agent\", \"tool\")\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend Outcome = case(ResponseCode between (200 .. 299), \"Allowed\", ResponseCode == 401, \"Unauthenticated (401)\",\n                        ResponseCode == 403, \"Denied: plan, quota or budget (403)\", ResponseCode == 429, \"Throttled (429)\",\n                        ResponseCode >= 500 or ResponseCode == 0, \"Backend error (5xx)\", \"Other (4xx)\"),\n         Policy = iff(isempty(LastErrorSource), \"(none: call passed)\", LastErrorSource)\n| summarize Calls = count() by Plan = iff(isempty(Plan), \"(no plan)\", Plan), Outcome",
+              "size": 0,
+              "title": "Call outcomes by plan",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "barchart",
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{law-id}"
+              ],
+              "chartSettings": {
+                "group": "Outcome",
+                "createOtherGroup": 0,
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "Allowed",
+                    "color": "green"
+                  },
+                  {
+                    "seriesName": "Unauthenticated (401)",
+                    "color": "yellow"
+                  },
+                  {
+                    "seriesName": "Denied: plan, quota or budget (403)",
+                    "color": "redBright"
+                  },
+                  {
+                    "seriesName": "Throttled (429)",
+                    "color": "orange"
+                  },
+                  {
+                    "seriesName": "Backend error (5xx)",
+                    "color": "magenta"
+                  },
+                  {
+                    "seriesName": "Other (4xx)",
+                    "color": "gray"
+                  }
+                ]
+              }
+            },
+            "name": "outcomes-by-plan",
+            "customWidth": "50",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ApiManagementGatewayLogs\n| where ApiId in (\"inference-api\", \"commerce-mcp\", \"commerce-api\", \"sourcing-agent\")\n| extend Plan = ProductId, Consumer = ApimSubscriptionId,\n         Surface = case(ApiId == \"inference-api\", \"model\", ApiId == \"sourcing-agent\", \"agent\", \"tool\")\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend Outcome = case(ResponseCode between (200 .. 299), \"Allowed\", ResponseCode == 401, \"Unauthenticated (401)\",\n                        ResponseCode == 403, \"Denied: plan, quota or budget (403)\", ResponseCode == 429, \"Throttled (429)\",\n                        ResponseCode >= 500 or ResponseCode == 0, \"Backend error (5xx)\", \"Other (4xx)\"),\n         Policy = iff(isempty(LastErrorSource), \"(none: call passed)\", LastErrorSource)\n| where ResponseCode in (401, 403, 429)\n| summarize Calls = count() by Outcome, bin(TimeGenerated, {TimeRange:grain})",
+              "size": 0,
+              "title": "Blocked calls over time",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "timechart",
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{law-id}"
+              ],
+              "chartSettings": {
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "Allowed",
+                    "color": "green"
+                  },
+                  {
+                    "seriesName": "Unauthenticated (401)",
+                    "color": "yellow"
+                  },
+                  {
+                    "seriesName": "Denied: plan, quota or budget (403)",
+                    "color": "redBright"
+                  },
+                  {
+                    "seriesName": "Throttled (429)",
+                    "color": "orange"
+                  },
+                  {
+                    "seriesName": "Backend error (5xx)",
+                    "color": "magenta"
+                  },
+                  {
+                    "seriesName": "Other (4xx)",
+                    "color": "gray"
+                  }
+                ]
+              },
+              "noDataMessage": "No calls were blocked in the time range.",
+              "noDataMessageStyle": 3
+            },
+            "name": "blocked-trend",
+            "customWidth": "50",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "customMetrics\n| where name == \"GovernanceEvents\"\n| extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n         Event = tostring(customDimensions.Event), RequestedModel = tostring(customDimensions.Model), Surface = \"model\"\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer}))\n| summarize Events = sum(valueSum), LastSeen = max(timestamp) by Event, Consumer, Plan, RequestedModel\n| order by Events desc",
+              "size": 0,
+              "title": "Who hit which limit",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.insights/components",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Events",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "orange"
+                    }
+                  },
+                  {
+                    "columnMatch": "LastSeen",
+                    "formatter": 6
+                  }
+                ],
+                "hierarchySettings": {
+                  "treeType": 1,
+                  "groupBy": [
+                    "Event"
+                  ],
+                  "expandTopLevel": false
+                },
+                "labelSettings": [
+                  {
+                    "columnId": "RequestedModel",
+                    "label": "Requested model"
+                  },
+                  {
+                    "columnId": "LastSeen",
+                    "label": "Last seen"
+                  }
+                ]
+              }
+            },
+            "name": "gov-detail",
+            "customWidth": "100",
+            "styleSettings": {
+              "showBorder": true
+            }
+          }
+        ]
       },
-      "name": "chargeback-sessions",
-      "customWidth": "100"
+      "name": "tab-governance",
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "governance"
+      }
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "From the **Log Analytics** gateway tables. *Stopped by* is the policy that ended the call (`LastErrorSource`); `CorrelationId` matches the `x-gw-request-id` response header.",
+              "style": "info"
+            },
+            "name": "evidence-intro"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ApiManagementGatewayLogs\n| where ApiId in (\"inference-api\", \"commerce-mcp\", \"commerce-api\", \"sourcing-agent\")\n| extend Plan = ProductId, Consumer = ApimSubscriptionId,\n         Surface = case(ApiId == \"inference-api\", \"model\", ApiId == \"sourcing-agent\", \"agent\", \"tool\")\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend Outcome = case(ResponseCode between (200 .. 299), \"Allowed\", ResponseCode == 401, \"Unauthenticated (401)\",\n                        ResponseCode == 403, \"Denied: plan, quota or budget (403)\", ResponseCode == 429, \"Throttled (429)\",\n                        ResponseCode >= 500 or ResponseCode == 0, \"Backend error (5xx)\", \"Other (4xx)\"),\n         Policy = iff(isempty(LastErrorSource), \"(none: call passed)\", LastErrorSource)\n| summarize Calls = count(), Plans = make_set_if(Plan, isnotempty(Plan)), Consumers = dcount(Consumer) by Policy, Outcome, Reason = LastErrorReason\n| extend Plans = strcat_array(Plans, \", \")\n| order by Calls desc",
+              "size": 0,
+              "title": "🔎 What each policy did: click a row to see the calls it stopped",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{law-id}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Calls",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "blue"
+                    }
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "Policy",
+                    "label": "Stopped by"
+                  }
+                ]
+              },
+              "exportedParameters": [
+                {
+                  "fieldName": "Policy",
+                  "parameterName": "SelectedPolicy",
+                  "parameterType": 1
+                }
+              ]
+            },
+            "name": "policy-outcomes",
+            "customWidth": "55",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ApiManagementGatewayLogs\n| where ApiId in (\"inference-api\", \"commerce-mcp\", \"commerce-api\", \"sourcing-agent\")\n| extend Plan = ProductId, Consumer = ApimSubscriptionId,\n         Surface = case(ApiId == \"inference-api\", \"model\", ApiId == \"sourcing-agent\", \"agent\", \"tool\")\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend Outcome = case(ResponseCode between (200 .. 299), \"Allowed\", ResponseCode == 401, \"Unauthenticated (401)\",\n                        ResponseCode == 403, \"Denied: plan, quota or budget (403)\", ResponseCode == 429, \"Throttled (429)\",\n                        ResponseCode >= 500 or ResponseCode == 0, \"Backend error (5xx)\", \"Other (4xx)\"),\n         Policy = iff(isempty(LastErrorSource), \"(none: call passed)\", LastErrorSource)\n| summarize Calls = count(), p50 = percentile(TotalTime, 50), p95 = percentile(TotalTime, 95),\n            BackendP95 = percentile(BackendTime, 95) by ApiId\n| order by Calls desc",
+              "size": 0,
+              "title": "Latency by surface (ms)",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{law-id}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "p95",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "greenRed"
+                    }
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "ApiId",
+                    "label": "API"
+                  },
+                  {
+                    "columnId": "BackendP95",
+                    "label": "Backend p95"
+                  }
+                ]
+              }
+            },
+            "name": "api-latency",
+            "customWidth": "45",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "items": [
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "ApiManagementGatewayLogs\n| where ApiId in (\"inference-api\", \"commerce-mcp\", \"commerce-api\", \"sourcing-agent\")\n| extend Plan = ProductId, Consumer = ApimSubscriptionId,\n         Surface = case(ApiId == \"inference-api\", \"model\", ApiId == \"sourcing-agent\", \"agent\", \"tool\")\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend Outcome = case(ResponseCode between (200 .. 299), \"Allowed\", ResponseCode == 401, \"Unauthenticated (401)\",\n                        ResponseCode == 403, \"Denied: plan, quota or budget (403)\", ResponseCode == 429, \"Throttled (429)\",\n                        ResponseCode >= 500 or ResponseCode == 0, \"Backend error (5xx)\", \"Other (4xx)\"),\n         Policy = iff(isempty(LastErrorSource), \"(none: call passed)\", LastErrorSource)\n| where Policy == '{SelectedPolicy}'\n| order by TimeGenerated desc\n| project TimeGenerated, CorrelationId, ApiId, Plan, Consumer, ResponseCode, LastErrorReason, LastErrorMessage\n| take 200",
+                    "size": 0,
+                    "title": "🚦 Calls stopped by {SelectedPolicy}",
+                    "timeContextFromParameter": "TimeRange",
+                    "queryType": 0,
+                    "visualization": "table",
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{law-id}"
+                    ],
+                    "gridSettings": {
+                      "formatters": [
+                        {
+                          "columnMatch": "TimeGenerated",
+                          "formatter": 6
+                        }
+                      ],
+                      "labelSettings": [
+                        {
+                          "columnId": "TimeGenerated",
+                          "label": "Time"
+                        },
+                        {
+                          "columnId": "ApiId",
+                          "label": "API"
+                        },
+                        {
+                          "columnId": "ResponseCode",
+                          "label": "Code"
+                        },
+                        {
+                          "columnId": "LastErrorReason",
+                          "label": "Reason"
+                        },
+                        {
+                          "columnId": "LastErrorMessage",
+                          "label": "Message"
+                        }
+                      ]
+                    }
+                  },
+                  "name": "policy-calls",
+                  "customWidth": "100",
+                  "styleSettings": {
+                    "showBorder": true
+                  }
+                }
+              ]
+            },
+            "name": "policy-detail",
+            "styleSettings": {
+              "showBorder": true
+            },
+            "conditionalVisibility": {
+              "parameterName": "SelectedPolicy",
+              "comparison": "isNotEqualTo"
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ApiManagementGatewayLogs\n| where ApiId in (\"inference-api\", \"commerce-mcp\", \"commerce-api\", \"sourcing-agent\")\n| extend Plan = ProductId, Consumer = ApimSubscriptionId,\n         Surface = case(ApiId == \"inference-api\", \"model\", ApiId == \"sourcing-agent\", \"agent\", \"tool\")\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend Outcome = case(ResponseCode between (200 .. 299), \"Allowed\", ResponseCode == 401, \"Unauthenticated (401)\",\n                        ResponseCode == 403, \"Denied: plan, quota or budget (403)\", ResponseCode == 429, \"Throttled (429)\",\n                        ResponseCode >= 500 or ResponseCode == 0, \"Backend error (5xx)\", \"Other (4xx)\"),\n         Policy = iff(isempty(LastErrorSource), \"(none: call passed)\", LastErrorSource)\n| where ApiId == \"inference-api\" and isnotempty(BackendUrl)\n| extend Backend = tostring(split(parse_url(BackendUrl).Host, \".\")[0])\n| summarize Calls = count() by Backend, bin(TimeGenerated, {TimeRange:grain})",
+              "size": 0,
+              "title": "Load balancing: Foundry backend that served each model call",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "timechart",
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{law-id}"
+              ]
+            },
+            "name": "backend-regions",
+            "customWidth": "60",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "customMetrics\n| where name == \"BackendAttempts\"\n| extend Backend = tostring(customDimensions.Backend), Failover = tostring(customDimensions.Failover),\n         Model = tostring(customDimensions.Model), Plan = tostring(customDimensions.Tier)\n| where \"*\" in ({Plan}) or Plan in ({Plan})\n| summarize Requests = sum(valueCount), Attempts = sum(valueSum) by Backend, Failover = iff(Failover == \"yes\", \"🔁 yes\", \"no\")\n| extend AttemptsPerRequest = round(1.0 * Attempts / Requests, 2)\n| order by Requests desc",
+              "size": 0,
+              "title": "Failover: attempts per request",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.insights/components",
+              "gridSettings": {
+                "labelSettings": [
+                  {
+                    "columnId": "AttemptsPerRequest",
+                    "label": "Attempts / request"
+                  }
+                ]
+              }
+            },
+            "name": "failover",
+            "customWidth": "40",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ApiManagementGatewayLlmLog\n| where isnotempty(DeploymentName)\n| summarize Calls = dcount(CorrelationId), PromptTokens = sum(PromptTokens), CompletionTokens = sum(CompletionTokens) by DeploymentName\n| extend TotalTokens = PromptTokens + CompletionTokens\n| order by TotalTokens desc",
+              "size": 0,
+              "title": "Tokens counted by the gateway per deployment",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{law-id}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "PromptTokens",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 17,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 1
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "CompletionTokens",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 17,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 1
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "TotalTokens",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "blue"
+                    },
+                    "numberFormat": {
+                      "unit": 17,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 1
+                      }
+                    }
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "DeploymentName",
+                    "label": "Deployment"
+                  },
+                  {
+                    "columnId": "PromptTokens",
+                    "label": "Prompt"
+                  },
+                  {
+                    "columnId": "CompletionTokens",
+                    "label": "Completion"
+                  },
+                  {
+                    "columnId": "TotalTokens",
+                    "label": "Total"
+                  }
+                ]
+              }
+            },
+            "name": "llm-tokens",
+            "customWidth": "50",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ApiManagementGatewayMCPLog\n| where isnotempty(ToolName)\n| summarize Calls = count(), Errors = countif(isnotempty(Error)) by ToolName, ClientName, AuthenticationMethod\n| order by Calls desc",
+              "size": 0,
+              "title": "MCP tool calls",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{law-id}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Calls",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "purple"
+                    }
+                  },
+                  {
+                    "columnMatch": "Errors",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redBright",
+                      "min": 0
+                    }
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "ToolName",
+                    "label": "Tool"
+                  },
+                  {
+                    "columnId": "ClientName",
+                    "label": "Client"
+                  },
+                  {
+                    "columnId": "AuthenticationMethod",
+                    "label": "Auth"
+                  }
+                ]
+              }
+            },
+            "name": "mcp-tools",
+            "customWidth": "50",
+            "styleSettings": {
+              "showBorder": true
+            }
+          }
+        ]
+      },
+      "name": "tab-evidence",
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "evidence"
+      }
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "**Where the numbers come from**\n\n| Data | Source | Notes |\n|---|---|---|\n| Spend, tokens | `customMetrics` (`CostMicroUSD`, token metrics) | Priced at the gateway from the `model-pricing`, `tool-pricing` and `agent-pricing` named values |\n| Plan enforcement | `customMetrics` (`GovernanceEvents`) | Model downgrade or deny, output caps, tool or agent denied |\n| Failover | `customMetrics` (`BackendAttempts`) | Attempts per request and the region that answered |\n| Chargeback | `traces` (`record == \"chargeback\"`) | One record per priced call with team, cost center, user and session. Custom metrics allow at most 5 dimensions, so per-user and per-session data lives here |\n| Policy evidence | Log Analytics: `ApiManagementGatewayLogs`, `ApiManagementGatewayLlmLog`, `ApiManagementGatewayMCPLog` | `CorrelationId` equals the `x-gw-request-id` response header |\n\n**Via** is the A2A agent that spent on the consumer's behalf: an agent's model and tool calls are charged back to the consumer that sent it the task, so a session total is the fully loaded cost. Metrics arrive 1 to 3 minutes after a call, diagnostic logs 2 to 5 minutes."
+            },
+            "name": "about-text"
+          }
+        ]
+      },
+      "name": "about",
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "about"
+      }
     }
   ],
   "fallbackResourceIds": [],
