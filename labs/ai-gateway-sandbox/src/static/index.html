@@ -631,6 +631,8 @@
             ["built-in-logging", "Built-in logging", "The APIM logger and diagnostic settings send gateway, LLM and MCP logs to Log Analytics.", REPO + "/labs/built-in-logging"]] },
         };
         const PAT_KEYS = Object.keys(PATTERNS);
+        // The lightbox is opened from other tabs and Policies sub-views, so it must not live inside a hidden one.
+        document.body.appendChild(el("gwLb"));
         let lb = { key: "overview", i: 0, opener: null };
         function lbShow() {
           const p = PATTERNS[lb.key], [name, title, cap, lab] = p.items[lb.i], img = el("gwLbImg");
