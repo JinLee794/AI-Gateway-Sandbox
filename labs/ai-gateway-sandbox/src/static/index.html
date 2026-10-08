@@ -121,8 +121,14 @@
   .matrix td.grp { background:var(--panel2); font-weight:600; text-align:left; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.4px; }
   .yes { color:var(--ok); font-weight:600; } .no { color:#a19f9d; } .dg { color:var(--warn); font-weight:600; } .deny { color:var(--bad); font-weight:600; }
   .flow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; margin-top:8px; }
-  .flow .node { border:1px solid var(--border); border-radius:6px; padding:8px 12px; background:#fff; }
-  .flow .node.gw { border-color:var(--accent); background:var(--accent-light); font-weight:600; }
+  .flow .node { border:1px solid var(--border); border-radius:6px; padding:8px 12px; background:#fff; display:flex; align-items:center; gap:9px; line-height:1.35; }
+  .flow .node > img { width:22px; height:22px; flex:0 0 22px; }
+  .flow.tight { gap:5px; font-size:12px; flex-wrap:nowrap; } .flow.tight .node { padding:6px 8px; gap:6px; } .flow.tight .node > img { width:18px; height:18px; flex-basis:18px; }
+  .flow .node.gw { border-color:var(--accent); background:var(--accent-light); font-weight:600; } .flow .node.gw .muted { font-weight:400; }
+  .facts { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .facts > span { font-size:12px; background:var(--panel2); border:1px solid var(--divider); border-radius:12px; padding:2px 10px; display:inline-flex; gap:6px; align-items:center; }
+  .facts img { width:14px; height:14px; }
+  h2 > img.hico { width:20px; height:20px; vertical-align:-4px; margin-right:8px; }
   .flow .arrow { color:var(--muted); }
   .steps { margin-top:10px; } .steps td, .steps th { padding:4px 8px; }
   code { background:var(--panel2); border:1px solid var(--divider); border-radius:3px; padding:0 4px; font-size:12px; }
@@ -1103,16 +1109,14 @@
 
     <div id="tab-chargeback" class="hidden">
       <div class="card">
-        <h2>Chargeback by team, user and session</h2>
-        <div class="muted" style="font-size:13px">Each demo user has its own <b>subscription key</b> on a plan, so the gateway knows who pays without any extra identity setup.
-          The client sends a <code>x-session-id</code> header (or the gateway falls back to the MCP <code>Mcp-Session-Id</code> or the A2A <code>contextId</code>).
-          The plan meters a <b>$ cap per session</b>, and the <code>chargeback-record</code> policy fragment writes one record per billable call with user, team, cost center, session, surface, item, tokens and cost.
-          When an A2A agent works for a user, its model and tool calls are recorded under the <b>user's</b> session.</div>
-        <div class="flow" style="margin-top:10px"><span class="node">Demo user<br/><span class="muted">subscription key + x-session-id</span></span><span class="arrow">→</span>
-          <span class="node gw">Product policy<br/><span class="muted">session · $ cap per session</span></span><span class="arrow">→</span>
-          <span class="node gw">API policy<br/><span class="muted">prices the call</span></span><span class="arrow">→</span>
-          <span class="node gw">chargeback-record<br/><span class="muted"><code>trace</code> policy</span></span><span class="arrow">→</span>
-          <span class="node">Application Insights<br/><span class="muted">AppTraces · KQL</span></span></div>
+        <h2><img class="hico" src="/icons/cost-management.svg" alt="">Chargeback by team, user and session <span class="info" tabindex="0" data-tip="Each demo user has its own subscription key on a plan, so the gateway knows who pays without any extra identity setup. The client sends an x-session-id header (or the gateway falls back to the MCP Mcp-Session-Id or the A2A contextId). The plan meters a $ cap per session, and the chargeback-record policy fragment writes one record per billable call with user, team, cost center, session, surface, item, tokens and cost. When an A2A agent works for a user, its model and tool calls are recorded under the user's session.">i</span></h2>
+        <div class="flow"><span class="node"><img src="/icons/users.svg" alt=""><span>Demo user<br/><span class="muted">subscription key + <code>x-session-id</code></span></span></span><span class="arrow">→</span>
+          <span class="node gw"><img src="/icons/plan.svg" alt=""><span>Product policy<br/><span class="muted">session · $ cap per session</span></span></span><span class="arrow">→</span>
+          <span class="node gw"><img src="/icons/api.svg" alt=""><span>API policy<br/><span class="muted">prices the call</span></span></span><span class="arrow">→</span>
+          <span class="node gw"><img src="/icons/policy.svg" alt=""><span>chargeback-record<br/><span class="muted"><code>trace</code> policy fragment</span></span></span><span class="arrow">→</span>
+          <span class="node"><img src="/icons/app-insights.svg" alt=""><span>Application Insights<br/><span class="muted">AppTraces · KQL</span></span></span></div>
+        <div class="facts"><span><img src="/icons/key.svg" alt="">1 subscription key per user, no Entra ID user needed</span><span><img src="/icons/trace.svg" alt="">session: <code>x-session-id</code> › <code>Mcp-Session-Id</code> › A2A <code>contextId</code></span>
+          <span><img src="/icons/cost-budgets.svg" alt="">$ cap per session</span><span><img src="/icons/a2a.svg" alt="">agent spend billed to the user's session</span></div>
       </div>
       <div class="card" style="margin-top:16px">
         <h2>Ledger from this browser <span class="muted">(instant, from the <code>x-gw-*</code> response headers)</span></h2>
@@ -1120,7 +1124,7 @@
       </div>
       <div class="card" style="margin-top:16px">
         <div class="row" style="align-items:end">
-          <h2 style="flex:1;margin:0">Chargeback in Azure Monitor <span class="muted">(the gateway's own records)</span></h2>
+          <h2 style="flex:1;margin:0"><img class="hico" src="/icons/log-analytics.svg" alt="">Chargeback in Azure Monitor <span class="muted">(the gateway's own records)</span></h2>
           <div style="flex:0 0 160px"><select id="cbWindow"><option value="1h">Last hour</option><option value="1d" selected>Last 24 hours</option><option value="7d">Last 7 days</option></select></div>
           <div style="flex:0 0 auto"><button class="secondary" id="btnChargeback">Query Log Analytics</button></div>
         </div>
@@ -1131,24 +1135,24 @@
 
     <div id="tab-plans" class="hidden">
       <div class="card">
-        <h2>One product per plan: AI models, MCP tools and A2A agents under one contract</h2>
-        <div class="muted" style="font-size:13px">Each plan is an API Management <b>product</b> that bundles the AI model API, the MCP server and the A2A agent API.
-          A single product policy enforces the plan: which models, tools and agents a subscriber may use, rate and token limits, and one <b>$ budget</b> shared across all three.
-          Agents subscribe to a plan, and the gateway prices every call from the price list below.</div>
+        <h2><img class="hico" src="/icons/plan.svg" alt="">One product per plan: AI models, MCP tools and A2A agents under one contract <span class="info" tabindex="0" data-tip="Each plan is an API Management product that bundles the AI model API, the MCP server and the A2A agent API. A single product policy enforces the plan: which models, tools and agents a subscriber may use, rate and token limits, and one $ budget shared across all three. Agents subscribe to a plan, and the gateway prices every call from the price list below.">i</span></h2>
+        <div class="flow"><span class="node"><img src="/icons/subscriptions.svg" alt=""><span>Subscription<br/><span class="muted">one key per agent or user</span></span></span><span class="arrow">→</span>
+          <span class="node gw"><img src="/icons/plan.svg" alt=""><span>Product = plan<br/><span class="muted">one product policy</span></span></span><span class="arrow">→</span>
+          <span class="node"><img src="/icons/foundry-models.svg" alt=""><span>AI model API<br/><span class="muted">Microsoft Foundry</span></span></span>
+          <span class="node"><img src="/icons/mcp.svg" alt=""><span>MCP server<br/><span class="muted">Commerce Tools</span></span></span>
+          <span class="node"><img src="/icons/a2a.svg" alt=""><span>A2A agent API<br/><span class="muted">Sourcing Agent</span></span></span><span class="arrow">→</span>
+          <span class="node gw"><img src="/icons/cost-budgets.svg" alt=""><span>One $ budget<br/><span class="muted">shared across all three</span></span></span></div>
         <div class="scroll" style="max-height:none;margin-top:12px" id="plansMatrix"></div>
       </div>
       <div class="grid2" style="margin-top:16px">
-        <div class="card"><h2>Price list (set in the gateway)</h2><div id="priceList"></div></div>
+        <div class="card"><h2><img class="hico" src="/icons/cost-management.svg" alt="">Price list (set in the gateway) <span class="info" tabindex="0" data-tip="Prices live in API Management named values (model-pricing, tool-pricing, agent-pricing), so FinOps can change them without redeploying any app. Model calls are metered from the token usage Foundry returns, tool calls per MCP tools/call, agent tasks per A2A message/send.">i</span></h2><div id="priceList"></div></div>
         <div class="card">
-          <h2>Agent-to-agent chargeback</h2>
-          <div class="muted" style="font-size:13px">When an agent calls the Sourcing Agent, the agent's own model and tool calls go back through the gateway with its platform identity.
-            The gateway tags them <i>on behalf of</i> the caller, so the caller pays the per-task fee <b>plus</b> everything the agent consumed.</div>
-          <div class="flow"><span class="node">Calling agent<br/><span class="muted">e.g. Gold plan</span></span><span class="arrow">→</span>
-            <span class="node gw">AI Gateway<br/><span class="muted">A2A API</span></span><span class="arrow">→</span>
-            <span class="node">Sourcing Agent<br/><span class="muted">Container Apps</span></span><span class="arrow">→</span>
-            <span class="node gw">AI Gateway<br/><span class="muted">MCP + model APIs</span></span><span class="arrow">→</span>
-            <span class="node">Foundry + tools</span></div>
-          <h2 style="margin-top:16px">Gateway endpoints</h2>
+          <h2><img class="hico" src="/icons/a2a.svg" alt="">Agent-to-agent chargeback <span class="info" tabindex="0" data-tip="When an agent calls the Sourcing Agent, the agent's own model and tool calls go back through the gateway with its platform identity. The gateway tags them on behalf of the caller, so the caller pays the per-task fee plus everything the agent consumed.">i</span></h2>
+          <div class="flow tight"><span class="node"><img src="/icons/foundry-agent-service.svg" alt=""><span>Calling agent<br/><span class="muted">e.g. Gold plan</span></span></span><span class="arrow">→</span>
+            <span class="node gw"><img src="/icons/ai-gateway.svg" alt=""><span>AI Gateway<br/><span class="muted">A2A API · fee</span></span></span><span class="arrow">→</span>
+            <span class="node"><img src="/icons/container-apps-env.svg" alt=""><span>Sourcing Agent<br/><span class="muted">Container Apps</span></span></span><span class="arrow">→</span>
+            <span class="node gw"><img src="/icons/foundry-models.svg" alt=""><span>Models + MCP tools<br/><span class="muted">billed to caller</span></span></span></div>
+          <h2 style="margin-top:16px"><img class="hico" src="/icons/apim.svg" alt="">Gateway endpoints</h2>
           <div class="kv" id="endpoints"></div>
         </div>
       </div>
@@ -1192,23 +1196,23 @@
         <div class="row" style="align-items:end">
           <div style="flex:0 0 200px"><label>Time range</label>
             <select id="timespan"><option value="PT15M">Last 15 minutes</option><option value="PT1H" selected>Last hour</option><option value="PT4H">Last 4 hours</option><option value="P1D">Last 24 hours</option><option value="P7D">Last 7 days</option></select></div>
-          <div style="flex:0 0 auto"><button id="btnRefresh">Refresh from App Insights</button></div>
+          <div style="flex:0 0 auto"><button id="btnRefresh"><img src="/icons/app-insights.svg" alt="" style="width:16px;height:16px;vertical-align:-3px;margin-right:6px">Refresh from App Insights</button></div>
           <div class="muted" id="monStatus">Telemetry is queried live from Application Insights (expect 1-3 minutes of ingestion delay).</div>
         </div>
       </div>
       <div class="grid3" style="margin-top:16px">
-        <div class="card"><h2>Cost by agent (USD)</h2><canvas id="mCostAgent"></canvas></div>
-        <div class="card"><h2>Cost by surface (USD)</h2><canvas id="mCostModel"></canvas></div>
-        <div class="card"><h2>Gateway outcomes by agent</h2><canvas id="mOutcomes"></canvas></div>
+        <div class="card"><h2><img class="hico" src="/icons/cost-management.svg" alt="">Cost by agent (USD)</h2><canvas id="mCostAgent"></canvas></div>
+        <div class="card"><h2><img class="hico" src="/icons/cost-management.svg" alt="">Cost by surface (USD)</h2><canvas id="mCostModel"></canvas></div>
+        <div class="card"><h2><img class="hico" src="/icons/policy.svg" alt="">Gateway outcomes by agent</h2><canvas id="mOutcomes"></canvas></div>
       </div>
-      <div class="card" style="margin-top:16px"><h2>Cost over time by agent (USD / minute)</h2><canvas id="mCostTime"></canvas></div>
+      <div class="card" style="margin-top:16px"><h2><img class="hico" src="/icons/metrics.svg" alt="">Cost over time by agent (USD / minute)</h2><canvas id="mCostTime"></canvas></div>
       <div class="grid2" style="margin-top:16px">
-        <div class="card"><h2>Chargeback: who pays, for what, via which path</h2><div class="scroll" id="mChargeback"></div></div>
-        <div class="card"><h2>Cost by model, tool and agent</h2><div class="scroll" id="mResources"></div></div>
+        <div class="card"><h2><img class="hico" src="/icons/users.svg" alt="">Chargeback: who pays, for what, via which path</h2><div class="scroll" id="mChargeback"></div></div>
+        <div class="card"><h2><img class="hico" src="/icons/foundry-models.svg" alt="">Cost by model, tool and agent</h2><div class="scroll" id="mResources"></div></div>
       </div>
       <div class="grid2" style="margin-top:16px">
-        <div class="card"><h2>Tokens by agent and model</h2><div class="scroll" id="mTokens"></div></div>
-        <div class="card"><h2>Governance actions</h2><div class="scroll" id="mGov"></div></div>
+        <div class="card"><h2><img class="hico" src="/icons/metrics.svg" alt="">Tokens by agent and model</h2><div class="scroll" id="mTokens"></div></div>
+        <div class="card"><h2><img class="hico" src="/icons/policy.svg" alt="">Governance actions</h2><div class="scroll" id="mGov"></div></div>
       </div>
     </div>
   </section>
@@ -1320,18 +1324,18 @@ function renderPlans() {
   const grp = (label) => `<tr><td class="grp" colspan="${tiers.length + 1}">${label}</td></tr>`;
   const yes = `<span class="yes">✓</span>`, no = `<span class="no">—</span>`;
   let html = `<table class="matrix"><thead><tr><th>Capability</th>${tiers.map(t => `<th><span class="badge ${t.name}">${t.displayName}</span></th>`).join("")}</tr></thead><tbody>`;
-  html += grp(`${surfChip("model")} AI models (Foundry)`);
+  html += grp(`${surfChip("model")} Microsoft Foundry`);
   for (const m of cfg.models) html += row(`${m.name} <span class="muted">$${m.inputPrice}/$${m.outputPrice} per 1M</span>`, t => t.allowedModels.includes(m.name) ? yes
     : t.onDisallowedModel === "deny" ? `<span class="deny">denied</span>` : `<span class="dg">→ ${t.fallbackModel}</span>`);
   html += row("Tokens per minute", t => t.tpm.toLocaleString()) + row("Token quota", t => `${t.tokenQuota.toLocaleString()} / ${t.tokenQuotaPeriod.toLowerCase()}`)
         + row("Max output tokens per call", t => t.maxOutputTokens.toLocaleString());
-  html += grp(`${surfChip("tool")} MCP server: Commerce Tools`);
+  html += grp(`${surfChip("tool")} Commerce Tools server`);
   for (const x of cfg.tools) html += row(`${x.name} <span class="muted">$${x.priceUsd} per call</span>`, t => (t.allowedTools || []).includes(x.name) ? yes : no);
   html += row("Tool calls per minute", t => t.toolCallsPerMinute ?? "-");
-  html += grp(`${surfChip("agent")} A2A agents`);
+  html += grp(`${surfChip("agent")} Agents on the A2A API`);
   for (const a of cfg.a2aAgents) html += row(`${a.name} <span class="muted">$${a.feeUsd} per task + its spend</span>`, t => (t.allowedAgents || []).includes(a.name) ? yes : no);
   html += row("Agent tasks per minute", t => (t.allowedAgents || []).length ? t.agentCallsPerMinute : no);
-  html += grp("FinOps");
+  html += grp(`${ico("cost-budgets")} FinOps`);
   html += row("$ budget (models + tools + agents)", t => `<b>$${t.budgetUsd}</b> / 30 days`);
   html += row("$ cap per session", t => `$${t.sessionBudgetUsd ?? t.budgetUsd}`);
   html += "</tbody></table>";
@@ -1340,7 +1344,7 @@ function renderPlans() {
     + cfg.models.map(m => `<tr><td>${surfChip("model")}</td><td>${m.name}</td><td>$${m.inputPrice} in / $${m.outputPrice} out per 1M tokens</td><td>token usage returned by Foundry</td></tr>`).join("")
     + cfg.tools.map(x => `<tr><td>${surfChip("tool")}</td><td>${x.name}</td><td>$${x.priceUsd} per call</td><td>MCP <code>tools/call</code></td></tr>`).join("")
     + cfg.a2aAgents.map(a => `<tr><td>${surfChip("agent")}</td><td>${a.name}</td><td>$${a.feeUsd} per task + downstream spend</td><td>A2A <code>message/send</code></td></tr>`).join("")
-    + `</tbody></table><div class="muted" style="margin-top:8px">Prices live in API Management named values (<code>model-pricing</code>, <code>tool-pricing</code>, <code>agent-pricing</code>), so FinOps can change them without redeploying any app.</div>`;
+    + `</tbody></table><div class="facts"><span>${ico("key")} named values <code>model-pricing</code> · <code>tool-pricing</code> · <code>agent-pricing</code></span></div>`;
   const ep = cfg.endpoints || {};
   $("endpoints").innerHTML = `<div>${surfChip("model")} OpenAI v1</div><div><code>${ep.inferenceBaseUrl || "-"}</code></div>
     <div>${surfChip("tool")} MCP server</div><div><code>${ep.mcpUrl || "-"}</code></div>
