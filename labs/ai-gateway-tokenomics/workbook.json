@@ -1,0 +1,243 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "name": "header",
+      "content": {
+        "json": "# AI Gateway Tokenomics\nCost and token consumption of every **agent** (APIM subscription), **tier** (APIM product) and **model** as measured by Azure API Management. Costs use the demo price list stored in the `model-pricing` named value."
+      }
+    },
+    {
+      "type": 9,
+      "name": "parameters",
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "67eded80-519a-5a3e-bdbf-121642e543ee",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time range",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 3600000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 900000
+                },
+                {
+                  "durationMs": 3600000
+                },
+                {
+                  "durationMs": 14400000
+                },
+                {
+                  "durationMs": 86400000
+                },
+                {
+                  "durationMs": 604800000
+                },
+                {
+                  "durationMs": 2592000000
+                }
+              ],
+              "allowCustom": true
+            }
+          }
+        ],
+        "style": "pills",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let cost = toscalar(customMetrics | where name == \"CostMicroUSD\" | summarize sum(valueSum)) / 1e6;\nlet tokens = toscalar(customMetrics | where name == \"Total Tokens\" | summarize sum(valueSum));\nlet calls = toscalar(requests\n| where name has \"inference\" or url has \"/openai/\"\n| extend Agent = tostring(customDimensions[\"Subscription Name\"]), Tier = tostring(customDimensions[\"Product Name\"])\n| count);\nlet blocked = toscalar(requests\n| where name has \"inference\" or url has \"/openai/\"\n| extend Agent = tostring(customDimensions[\"Subscription Name\"]), Tier = tostring(customDimensions[\"Product Name\"])\n| where resultCode in (\"403\", \"429\") | count);\nprint Metric = \"Total cost (USD)\", Value = round(cost, 4)\n| union (print Metric = \"Total tokens\", Value = todouble(tokens))\n| union (print Metric = \"Gateway calls\", Value = todouble(calls))\n| union (print Metric = \"Blocked by policy (403/429)\", Value = todouble(blocked))",
+        "size": 0,
+        "title": "Totals",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {
+            "columnMatch": "Metric",
+            "formatter": 1
+          },
+          "leftContent": {
+            "columnMatch": "Value",
+            "formatter": 12,
+            "formatOptions": {
+              "palette": "auto"
+            },
+            "numberFormat": {
+              "unit": 17,
+              "options": {
+                "maximumSignificantDigits": 6
+              }
+            }
+          },
+          "showBorder": true
+        }
+      },
+      "name": "kpis",
+      "customWidth": "100"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"]), Model = tostring(customDimensions[\"Model\"])\n| summarize CostUSD = sum(valueSum) / 1e6 by Agent\n| order by CostUSD desc",
+        "size": 0,
+        "title": "Cost by agent (USD)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "barchart"
+      },
+      "name": "cost-by-agent",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"]), Model = tostring(customDimensions[\"Model\"])\n| summarize CostUSD = sum(valueSum) / 1e6 by Model\n| order by CostUSD desc",
+        "size": 0,
+        "title": "Cost by model (USD)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "piechart"
+      },
+      "name": "cost-by-model",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"]), Model = tostring(customDimensions[\"Model\"])\n| summarize CostUSD = sum(valueSum) / 1e6 by Agent, bin(timestamp, 1m)",
+        "size": 0,
+        "title": "Cost over time by agent (USD)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "timechart"
+      },
+      "name": "cost-over-time",
+      "customWidth": "100"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "customMetrics\n| where name in (\"Prompt Tokens\", \"Completion Tokens\")\n| extend Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"]), Model = tostring(customDimensions[\"Model\"])\n| summarize PromptTokens = sumif(valueSum, name == \"Prompt Tokens\"), CompletionTokens = sumif(valueSum, name == \"Completion Tokens\") by Agent, Tier, Model\n| extend TotalTokens = PromptTokens + CompletionTokens\n| order by TotalTokens desc",
+        "size": 0,
+        "title": "Tokens by agent and model",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "TotalTokens",
+              "formatter": 4,
+              "formatOptions": {
+                "palette": "blue"
+              }
+            }
+          ]
+        }
+      },
+      "name": "tokens-by-agent-model",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let budgets = datatable(Agent:string, AgentName:string, Tier:string, BudgetMicroUsd:long)[{budget-rows}];\ncustomMetrics\n| where name == \"CostMicroUSD\"\n| extend Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"]), Model = tostring(customDimensions[\"Model\"])\n| summarize SpentMicroUsd = sum(valueSum) by Agent\n| join kind=rightouter budgets on Agent\n| project Agent = Agent1, AgentName, Tier, BudgetUSD = BudgetMicroUsd / 1e6, SpentUSD = coalesce(SpentMicroUsd, 0.0) / 1e6\n| extend UsedPercent = round(100.0 * SpentUSD / BudgetUSD, 1)\n| order by UsedPercent desc",
+        "size": 0,
+        "title": "Budget vs spend by agent",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "UsedPercent",
+              "formatter": 4,
+              "formatOptions": {
+                "min": 0,
+                "max": 100,
+                "palette": "greenRed"
+              }
+            }
+          ]
+        }
+      },
+      "name": "budget-vs-spend",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "requests\n| where name has \"inference\" or url has \"/openai/\"\n| extend Agent = tostring(customDimensions[\"Subscription Name\"]), Tier = tostring(customDimensions[\"Product Name\"])\n| summarize Calls = count() by Agent, resultCode",
+        "size": 0,
+        "title": "Gateway outcomes by agent (status code)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "barchart",
+        "chartSettings": {
+          "group": "resultCode",
+          "createOtherGroup": 0
+        }
+      },
+      "name": "outcomes-by-agent",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "customMetrics\n| where name == \"GovernanceEvents\"\n| extend Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"]), Event = tostring(customDimensions[\"Event\"]), Model = tostring(customDimensions[\"Model\"])\n| summarize Events = sum(valueSum) by Agent, Tier, Event, RequestedModel = Model\n| order by Events desc",
+        "size": 0,
+        "title": "Governance actions (model downgrade / deny, output cap)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table"
+      },
+      "name": "governance-events",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "requests\n| where name has \"inference\" or url has \"/openai/\"\n| extend Agent = tostring(customDimensions[\"Subscription Name\"]), Tier = tostring(customDimensions[\"Product Name\"])\n| where resultCode in (\"403\", \"429\")\n| summarize Calls = count() by resultCode, bin(timestamp, 1m)",
+        "size": 0,
+        "title": "Blocked calls over time (429 = token rate limit, 403 = quota / budget / model)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "timechart"
+      },
+      "name": "blocked-timeline",
+      "customWidth": "50"
+    }
+  ],
+  "fallbackResourceIds": [],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}

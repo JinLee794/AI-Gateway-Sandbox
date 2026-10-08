@@ -1,0 +1,92 @@
+<!--
+    AI Gateway Tokenomics - API-level policy (applies to every agent / tier).
+
+    - Routes the request to the Microsoft Foundry backend.
+    - Emits token metrics to Application Insights, split by Agent, Tier and Model.
+    - Prices every call with the {{model-pricing}} named value (USD per 1M tokens), emits the
+      cost as a custom metric and returns it to the caller in the x-gw-* response headers.
+    - The calculated cost (micro-USD) feeds the per-agent $ budget enforced in product-policy.xml.
+
+    Tier-specific governance (allowed models, output caps, TPM, token quota and $ budget)
+    lives in the product policies (product-policy.xml).
+-->
+<policies>
+    <inbound>
+        <base />
+        <set-backend-service backend-id="{backend-id}" />
+        <llm-emit-token-metric namespace="ai-gateway-tokenomics">
+            <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
+            <dimension name="Tier" value="@(context.Product?.Id ?? "none")" />
+            <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("servedModel", "unknown"))" />
+        </llm-emit-token-metric>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+        <set-variable name="modelPricing" value="{{model-pricing}}" />
+        <choose>
+            <when condition="@(context.Response.StatusCode == 200 && context.Response.Headers.GetValueOrDefault("Content-Type", "").Contains("application/json"))">
+                <set-variable name="promptTokens" value="@{
+                    var usage = context.Response.Body.As<JObject>(preserveContent: true)["usage"];
+                    if (usage == null) { return 0; }
+                    var tokens = usage["prompt_tokens"] ?? usage["input_tokens"];
+                    return tokens == null ? 0 : (int)tokens;
+                }" />
+                <set-variable name="completionTokens" value="@{
+                    var usage = context.Response.Body.As<JObject>(preserveContent: true)["usage"];
+                    if (usage == null) { return 0; }
+                    var tokens = usage["completion_tokens"] ?? usage["output_tokens"];
+                    return tokens == null ? 0 : (int)tokens;
+                }" />
+                <!-- cost in micro-USD = prompt tokens x input price + completion tokens x output price (prices are USD per 1M tokens) -->
+                <set-variable name="costMicroUsd" value="@{
+                    var model = context.Variables.GetValueOrDefault<string>("servedModel", "");
+                    double inputPrice = 0, outputPrice = 0;
+                    foreach (var entry in ((string)context.Variables["modelPricing"]).Split(';')) {
+                        var parts = entry.Split('=');
+                        if (parts.Length == 2 && parts[0].Trim().Equals(model, StringComparison.OrdinalIgnoreCase)) {
+                            var prices = parts[1].Split('/');
+                            inputPrice = double.Parse(prices[0].Trim());
+                            outputPrice = double.Parse(prices[1].Trim());
+                        }
+                    }
+                    return (int)Math.Ceiling((int)context.Variables["promptTokens"] * inputPrice + (int)context.Variables["completionTokens"] * outputPrice);
+                }" />
+                <emit-metric name="CostMicroUSD" value="@((double)(int)context.Variables["costMicroUsd"])" namespace="ai-gateway-tokenomics">
+                    <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
+                    <dimension name="Tier" value="@(context.Product?.Id ?? "none")" />
+                    <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("servedModel", "unknown"))" />
+                </emit-metric>
+                <set-header name="x-gw-prompt-tokens" exists-action="override">
+                    <value>@(((int)context.Variables["promptTokens"]).ToString())</value>
+                </set-header>
+                <set-header name="x-gw-completion-tokens" exists-action="override">
+                    <value>@(((int)context.Variables["completionTokens"]).ToString())</value>
+                </set-header>
+                <set-header name="x-gw-cost-usd" exists-action="override">
+                    <value>@(((int)context.Variables["costMicroUsd"] / 1000000.0).ToString("0.000000"))</value>
+                </set-header>
+            </when>
+        </choose>
+        <set-header name="x-gw-agent" exists-action="override">
+            <value>@(context.Subscription?.Id ?? "anonymous")</value>
+        </set-header>
+        <set-header name="x-gw-tier" exists-action="override">
+            <value>@(context.Product?.Id ?? "none")</value>
+        </set-header>
+        <set-header name="x-gw-model-requested" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("requestedModel", ""))</value>
+        </set-header>
+        <set-header name="x-gw-model-served" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("servedModel", ""))</value>
+        </set-header>
+        <set-header name="x-gw-governance" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("governanceActions", "none"))</value>
+        </set-header>
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

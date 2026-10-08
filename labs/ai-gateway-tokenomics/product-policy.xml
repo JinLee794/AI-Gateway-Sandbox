@@ -1,0 +1,116 @@
+<!--
+    AI Gateway Tokenomics - tier (product) policy template.
+    main.bicep renders one copy per tier by replacing the {placeholders} with the tier configuration.
+
+    Order of enforcement for every agent (APIM subscription) in the tier:
+      1. Model governance   - models outside {allowed-models} are downgraded to {fallback-model} or denied (403)
+      2. Output token cap    - max_tokens / max_completion_tokens / max_output_tokens are capped to {max-output-tokens}
+      3. $ budget            - quota-by-key counts the cost (micro-USD) of every successful call; 403 when exhausted
+      4. Token rate + quota  - llm-token-limit: {tpm} tokens per minute (429) and {token-quota} tokens per {token-quota-period} (403)
+
+    The {{budget-epoch}} named value is part of every counter key, so changing it resets all budgets and quotas (handy for demos).
+-->
+<policies>
+    <inbound>
+        <base />
+        <set-variable name="budgetEpoch" value="{{budget-epoch}}" />
+        <set-variable name="requestedModel" value="@{
+            if (context.Request.Method != "POST") { return ""; }
+            var body = context.Request.Body?.As<JObject>(preserveContent: true);
+            return body?["model"]?.ToString() ?? "";
+        }" />
+        <set-variable name="servedModel" value="@((string)context.Variables["requestedModel"])" />
+        <set-variable name="governanceActions" value="none" />
+        <!-- 1. Model governance -->
+        <choose>
+            <when condition="@{
+                var model = (string)context.Variables["requestedModel"];
+                return model != "" && !(",{allowed-models},").Contains("," + model + ",");
+            }">
+                <emit-metric name="GovernanceEvents" value="1" namespace="ai-gateway-tokenomics">
+                    <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
+                    <dimension name="Tier" value="{tier}" />
+                    <dimension name="Event" value="@("{on-disallowed-model}" == "deny" ? "model-denied" : "model-downgraded")" />
+                    <dimension name="Model" value="@((string)context.Variables["requestedModel"])" />
+                </emit-metric>
+                <choose>
+                    <when condition="@("{on-disallowed-model}" == "deny")">
+                        <return-response>
+                            <set-status code="403" reason="Model Not Allowed" />
+                            <set-header name="Content-Type" exists-action="override">
+                                <value>application/json</value>
+                            </set-header>
+                            <set-header name="x-gw-governance" exists-action="override">
+                                <value>model-denied</value>
+                            </set-header>
+                            <set-body>@(new JObject(new JProperty("error", new JObject(
+                                new JProperty("code", "ModelNotAllowed"),
+                                new JProperty("message", "Model '" + (string)context.Variables["requestedModel"] + "' is not allowed for the '{tier}' tier. Allowed models: {allowed-models}")))).ToString())</set-body>
+                        </return-response>
+                    </when>
+                    <otherwise>
+                        <set-variable name="servedModel" value="{fallback-model}" />
+                        <set-variable name="governanceActions" value="model-downgraded" />
+                    </otherwise>
+                </choose>
+            </when>
+        </choose>
+        <!-- 2. Output token cap + apply the served model to the request body -->
+        <choose>
+            <when condition="@((string)context.Variables["requestedModel"] != "")">
+                <set-variable name="outputCapped" value="@{
+                    var body = context.Request.Body.As<JObject>(preserveContent: true);
+                    foreach (var key in new [] { "max_completion_tokens", "max_tokens", "max_output_tokens" }) {
+                        if (body[key] != null) { return (int)body[key] > {max-output-tokens}; }
+                    }
+                    return false;
+                }" />
+                <set-body>@{
+                    var body = context.Request.Body.As<JObject>(preserveContent: true);
+                    body["model"] = (string)context.Variables["servedModel"];
+                    string key = body["max_completion_tokens"] != null ? "max_completion_tokens"
+                        : body["max_output_tokens"] != null ? "max_output_tokens"
+                        : body["max_tokens"] != null ? "max_tokens"
+                        : (body["messages"] == null && body["input"] != null) ? "max_output_tokens" : "max_tokens";
+                    if (body[key] == null || (int)body[key] > {max-output-tokens}) { body[key] = {max-output-tokens}; }
+                    return body.ToString();
+                }</set-body>
+                <choose>
+                    <when condition="@((bool)context.Variables["outputCapped"])">
+                        <set-variable name="governanceActions" value="@{
+                            var current = (string)context.Variables["governanceActions"];
+                            return current == "none" ? "output-capped" : current + ",output-capped";
+                        }" />
+                        <emit-metric name="GovernanceEvents" value="1" namespace="ai-gateway-tokenomics">
+                            <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
+                            <dimension name="Tier" value="{tier}" />
+                            <dimension name="Event" value="output-capped" />
+                            <dimension name="Model" value="@((string)context.Variables["servedModel"])" />
+                        </emit-metric>
+                    </when>
+                </choose>
+            </when>
+        </choose>
+        <!-- 3. $ budget per agent: every successful call increments the counter by its cost in micro-USD (calculated in the API outbound policy) -->
+        <quota-by-key calls="{budget-micro-usd}" renewal-period="{budget-period-seconds}"
+            counter-key="@("budget-" + context.Subscription?.Id + "-" + (string)context.Variables["budgetEpoch"])"
+            increment-condition="@(context.Response.StatusCode == 200)"
+            increment-count="@(context.Variables.GetValueOrDefault<int>("costMicroUsd", 0))" />
+        <!-- 4. Token rate limit (TPM) and token quota per agent -->
+        <llm-token-limit counter-key="@("tokens-" + context.Subscription?.Id + "-" + (string)context.Variables["budgetEpoch"])"
+            tokens-per-minute="{tpm}" token-quota="{token-quota}" token-quota-period="{token-quota-period}"
+            estimate-prompt-tokens="false"
+            remaining-tokens-header-name="x-gw-remaining-tpm"
+            remaining-quota-tokens-header-name="x-gw-remaining-quota-tokens"
+            tokens-consumed-header-name="x-gw-tokens-consumed" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

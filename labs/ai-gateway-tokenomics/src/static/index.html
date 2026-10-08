@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Gateway Tokenomics</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root { --bg:#0f1420; --panel:#171e2e; --panel2:#1e2739; --text:#e6e9ef; --muted:#8b95a7; --accent:#4f8cff;
+          --ok:#2ecc71; --warn:#f5a623; --bad:#ff5c5c; --gold:#e5b443; --silver:#b8c2cc; --bronze:#cd7f32; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Segoe UI",system-ui,sans-serif; background:var(--bg); color:var(--text); font-size:14px; }
+  header { display:flex; align-items:center; gap:16px; padding:14px 22px; background:var(--panel); border-bottom:1px solid #263049; }
+  header h1 { font-size:18px; margin:0; font-weight:600; }
+  header .sub { color:var(--muted); font-size:12px; }
+  header .spacer { flex:1; }
+  a { color:var(--accent); text-decoration:none; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 14px; cursor:pointer; font-size:13px; }
+  button.secondary { background:var(--panel2); border:1px solid #33405e; }
+  button.danger { background:#7a2b2b; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  select, textarea, input { background:var(--panel2); color:var(--text); border:1px solid #33405e; border-radius:6px; padding:7px 9px; font:inherit; width:100%; }
+  textarea { resize:vertical; min-height:70px; }
+  label { color:var(--muted); font-size:12px; display:block; margin:10px 0 4px; }
+  main { display:grid; grid-template-columns:380px 1fr; gap:16px; padding:16px 22px; }
+  .card { background:var(--panel); border:1px solid #263049; border-radius:10px; padding:14px 16px; }
+  .card h2 { font-size:14px; margin:0 0 10px; font-weight:600; }
+  .tabs { display:flex; gap:6px; margin-bottom:12px; }
+  .tabs button { background:var(--panel2); border:1px solid #33405e; }
+  .tabs button.active { background:var(--accent); border-color:var(--accent); }
+  .agents { display:grid; gap:8px; }
+  .agent { border:1px solid #33405e; border-radius:8px; padding:9px 11px; cursor:pointer; background:var(--panel2); }
+  .agent.selected { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+  .agent .name { font-weight:600; display:flex; justify-content:space-between; align-items:center; }
+  .agent .meta { color:var(--muted); font-size:12px; margin-top:4px; line-height:1.5; }
+  .badge { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; color:#111; text-transform:uppercase; }
+  .badge.gold { background:var(--gold); } .badge.silver { background:var(--silver); } .badge.bronze { background:var(--bronze); }
+  .row { display:flex; gap:8px; } .row > * { flex:1; }
+  .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:16px; }
+  .kpi { background:var(--panel); border:1px solid #263049; border-radius:10px; padding:10px 14px; }
+  .kpi .v { font-size:22px; font-weight:600; margin-top:4px; } .kpi .l { color:var(--muted); font-size:12px; }
+  .status { font-weight:700; padding:2px 8px; border-radius:6px; font-size:12px; }
+  .s200 { background:#1d4d33; color:var(--ok); } .s403 { background:#4d1d1d; color:var(--bad); } .s429 { background:#4d3a1d; color:var(--warn); } .sother { background:#333; color:#ccc; }
+  .kv { display:grid; grid-template-columns:150px 1fr; gap:4px 10px; font-size:13px; margin-top:8px; }
+  .kv div:nth-child(odd) { color:var(--muted); }
+  .content { background:var(--panel2); border-radius:6px; padding:10px; margin-top:10px; white-space:pre-wrap; max-height:180px; overflow:auto; font-size:13px; }
+  .gov { color:var(--warn); font-weight:600; }
+  .budget { margin:8px 0; } .budget .bar { height:10px; background:var(--panel2); border-radius:5px; overflow:hidden; margin-top:4px; }
+  .budget .fill { height:100%; background:var(--ok); transition:width .3s; }
+  .budget .lbl { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th, td { text-align:left; padding:5px 6px; border-bottom:1px solid #263049; white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; position:sticky; top:0; background:var(--panel); }
+  .scroll { max-height:300px; overflow:auto; }
+  .muted { color:var(--muted); font-size:12px; }
+  .hidden { display:none; }
+  canvas { max-height:260px; }
+  .toast { position:fixed; bottom:18px; right:18px; background:var(--panel2); border:1px solid var(--accent); padding:10px 14px; border-radius:8px; display:none; max-width:420px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>AI Gateway Tokenomics</h1>
+    <div class="sub">Azure API Management governing cost and tokens for Microsoft Foundry models &amp; agents</div>
+  </div>
+  <div class="spacer"></div>
+  <a id="lnkWorkbook" target="_blank">📊 Workbook</a>
+  <a id="lnkAppInsights" target="_blank">🔎 App Insights</a>
+  <a id="lnkApim" target="_blank">🛡️ APIM</a>
+  <button class="danger" id="btnReset" title="Changes the budget-epoch named value, which resets every $ budget and token quota">↺ Reset budgets</button>
+</header>
+
+<main>
+  <section>
+    <div class="card">
+      <h2>1. Pick an agent</h2>
+      <div class="agents" id="agents"></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>2. Send requests through the gateway</h2>
+      <label>Model requested</label>
+      <select id="model"></select>
+      <label>Prompt</label>
+      <select id="preset"></select>
+      <textarea id="prompt" style="margin-top:6px"></textarea>
+      <div class="row">
+        <div><label>max_tokens</label><input id="maxTokens" type="number" value="200" min="1" /></div>
+        <div><label>Burst size</label><input id="burst" type="number" value="10" min="1" max="100" /></div>
+      </div>
+      <div class="actions">
+        <button id="btnSend">Send</button>
+        <button class="secondary" id="btnBurst">Burst ×N</button>
+        <button class="secondary" id="btnSim" title="Random agents and models, 2 requests/second">Simulate mixed traffic</button>
+        <button class="secondary hidden" id="btnStop">Stop</button>
+      </div>
+      <div class="muted" style="margin-top:10px" id="runStatus"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="tabs">
+      <button class="active" data-tab="live">Live session</button>
+      <button data-tab="monitor">Azure Monitor (App Insights)</button>
+    </div>
+
+    <div id="tab-live">
+      <div class="kpis">
+        <div class="kpi"><div class="l">Requests</div><div class="v" id="kCalls">0</div></div>
+        <div class="kpi"><div class="l">Allowed (200)</div><div class="v" id="kOk" style="color:var(--ok)">0</div></div>
+        <div class="kpi"><div class="l">Blocked (403/429)</div><div class="v" id="kBlocked" style="color:var(--bad)">0</div></div>
+        <div class="kpi"><div class="l">Tokens</div><div class="v" id="kTokens">0</div></div>
+        <div class="kpi"><div class="l">Cost (USD)</div><div class="v" id="kCost">$0.000000</div></div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <h2>Last response</h2>
+          <div id="last" class="muted">Send a request to see what the gateway did.</div>
+        </div>
+        <div class="card">
+          <h2>$ budget consumed this session <span class="muted">(since last reset)</span></h2>
+          <div id="budgets"></div>
+        </div>
+      </div>
+      <div class="grid3" style="margin-top:16px">
+        <div class="card"><h2>Cost by agent (USD)</h2><canvas id="cCostAgent"></canvas></div>
+        <div class="card"><h2>Tokens by served model</h2><canvas id="cTokensModel"></canvas></div>
+        <div class="card"><h2>Gateway outcomes by agent</h2><canvas id="cOutcomes"></canvas></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2>Request log</h2>
+        <div class="scroll"><table>
+          <thead><tr><th>Time</th><th>Agent</th><th>Status</th><th>Requested → served</th><th>Governance</th><th>Prompt/compl. tokens</th><th>Cost USD</th><th>Remaining TPM</th><th>Latency</th><th>Detail</th></tr></thead>
+          <tbody id="log"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div id="tab-monitor" class="hidden">
+      <div class="card">
+        <div class="row" style="align-items:end">
+          <div style="flex:0 0 200px"><label>Time range</label>
+            <select id="timespan"><option value="PT15M">Last 15 minutes</option><option value="PT1H" selected>Last hour</option><option value="PT4H">Last 4 hours</option><option value="P1D">Last 24 hours</option><option value="P7D">Last 7 days</option></select></div>
+          <div style="flex:0 0 auto"><button id="btnRefresh">Refresh from App Insights</button></div>
+          <div class="muted" id="monStatus">Telemetry is queried live from Application Insights (expect 1-3 minutes of ingestion delay).</div>
+        </div>
+      </div>
+      <div class="grid3" style="margin-top:16px">
+        <div class="card"><h2>Cost by agent (USD)</h2><canvas id="mCostAgent"></canvas></div>
+        <div class="card"><h2>Cost by model (USD)</h2><canvas id="mCostModel"></canvas></div>
+        <div class="card"><h2>Gateway outcomes by agent</h2><canvas id="mOutcomes"></canvas></div>
+      </div>
+      <div class="card" style="margin-top:16px"><h2>Cost over time by agent (USD / minute)</h2><canvas id="mCostTime"></canvas></div>
+      <div class="grid2" style="margin-top:16px">
+        <div class="card"><h2>Tokens by agent and model</h2><div class="scroll" id="mTokens"></div></div>
+        <div class="card"><h2>Governance actions</h2><div class="scroll" id="mGov"></div></div>
+      </div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const PRESETS = {
+  "Short FAQ answer": "In one sentence, what is your return policy for unopened items?",
+  "Summarize (medium)": "Summarize the benefits of using an AI gateway to govern LLM usage across many teams. Use 5 bullet points.",
+  "Long generation (expensive)": "Write a detailed 1500-word report on the evolution of large language models, covering architecture, training, alignment and enterprise adoption.",
+  "Marketing tagline": "Give me 3 catchy taglines for a reusable water bottle.",
+};
+const COLORS = ["#4f8cff", "#2ecc71", "#f5a623", "#ff5c5c", "#a66bff", "#28c7c7", "#e5b443"];
+const STATUS_COLORS = { "200": "#2ecc71", "403": "#ff5c5c", "429": "#f5a623", "other": "#8b95a7" };
+let cfg, selectedAgent, running = false;
+const session = { calls: [], costByAgent: {}, tokensByModel: {}, outcomes: {} };
+const charts = {};
+const $ = (id) => document.getElementById(id);
+
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 5000); }
+function tierOf(agent) { return cfg.tiers.find(t => t.name === agent.tier) || {}; }
+function fmtUsd(v) { return "$" + Number(v || 0).toFixed(6); }
+function statusClass(s) { return ["200", "403", "429"].includes(String(s)) ? "s" + s : "sother"; }
+
+async function init() {
+  cfg = await (await fetch("/api/config")).json();
+  for (const [k, id] of [["workbook", "lnkWorkbook"], ["appInsights", "lnkAppInsights"], ["apim", "lnkApim"]]) {
+    if (cfg.links[k]) $(id).href = cfg.links[k]; else $(id).classList.add("hidden");
+  }
+  $("agents").innerHTML = cfg.agents.map(a => {
+    const t = tierOf(a);
+    return `<div class="agent" data-agent="${a.name}">
+      <div class="name">${a.displayName} <span class="badge ${a.tier}">${a.tier}</span></div>
+      <div class="meta">Models: ${t.allowedModels.join(", ")} · disallowed → ${t.onDisallowedModel === "deny" ? "<b>deny</b>" : "downgrade to " + t.fallbackModel}<br/>
+      ${t.tpm.toLocaleString()} TPM · ${t.tokenQuota.toLocaleString()} tokens/${t.tokenQuotaPeriod.toLowerCase()} · max output ${t.maxOutputTokens} · budget <b>$${t.budgetUsd}</b></div></div>`;
+  }).join("");
+  document.querySelectorAll(".agent").forEach(el => el.onclick = () => selectAgent(el.dataset.agent));
+  $("preset").innerHTML = Object.keys(PRESETS).map(p => `<option>${p}</option>`).join("");
+  $("preset").onchange = () => $("prompt").value = PRESETS[$("preset").value];
+  $("prompt").value = PRESETS[$("preset").value];
+  selectAgent(cfg.agents[0].name);
+  initCharts();
+  renderBudgets();
+}
+
+function selectAgent(name) {
+  selectedAgent = cfg.agents.find(a => a.name === name);
+  document.querySelectorAll(".agent").forEach(el => el.classList.toggle("selected", el.dataset.agent === name));
+  const t = tierOf(selectedAgent), current = $("model").value;
+  $("model").innerHTML = cfg.models.map(m => {
+    const ok = t.allowedModels.includes(m.name);
+    const mark = ok ? "✅" : (t.onDisallowedModel === "deny" ? "⛔ denied" : "⚠️ downgraded → " + t.fallbackModel);
+    return `<option value="${m.name}">${m.name}  ($${m.inputPrice}/$${m.outputPrice} per 1M)  ${mark}</option>`;
+  }).join("");
+  if (current) $("model").value = current;
+}
+
+function chart(id, type, opts = {}) {
+  return new Chart($(id), { type, data: { labels: [], datasets: [] },
+    options: { responsive: true, animation: { duration: 250 }, plugins: { legend: { labels: { color: "#e6e9ef" }, display: type !== "bar" || !!opts.stacked } },
+      scales: type === "doughnut" ? {} : { x: { stacked: !!opts.stacked, ticks: { color: "#8b95a7" }, grid: { color: "#263049" } },
+                                         y: { stacked: !!opts.stacked, ticks: { color: "#8b95a7" }, grid: { color: "#263049" }, beginAtZero: true } } } });
+}
+function initCharts() {
+  charts.costAgent = chart("cCostAgent", "bar"); charts.tokensModel = chart("cTokensModel", "doughnut");
+  charts.outcomes = chart("cOutcomes", "bar", { stacked: true });
+  charts.mCostAgent = chart("mCostAgent", "bar"); charts.mCostModel = chart("mCostModel", "doughnut");
+  charts.mOutcomes = chart("mOutcomes", "bar", { stacked: true }); charts.mCostTime = chart("mCostTime", "line");
+}
+function setSimple(c, labels, values) { c.data.labels = labels; c.data.datasets = [{ data: values, backgroundColor: labels.map((_, i) => COLORS[i % COLORS.length]) }]; c.update(); }
+function setOutcomes(c, rows) { // rows: [{Agent, resultCode, Calls}]
+  const agents = [...new Set(rows.map(r => r.Agent))], codes = [...new Set(rows.map(r => String(r.resultCode)))].sort();
+  c.data.labels = agents;
+  c.data.datasets = codes.map(code => ({ label: code, backgroundColor: STATUS_COLORS[code] || STATUS_COLORS.other,
+    data: agents.map(a => rows.filter(r => r.Agent === a && String(r.resultCode) === code).reduce((s, r) => s + r.Calls, 0)) }));
+  c.update();
+}
+
+async function send(agentName, model) {
+  const body = { agent: agentName, model, prompt: $("prompt").value, maxTokens: Number($("maxTokens").value) || undefined };
+  const r = await (await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json();
+  if (r.status === undefined) { toast(r.error || "request failed"); return r; }
+  record(r);
+  return r;
+}
+
+function record(r) {
+  const h = r.headers || {}, cost = Number(h["x-gw-cost-usd"] || 0);
+  const tokens = r.usage ? (r.usage.total_tokens || 0) : 0, served = h["x-gw-model-served"] || r.requestedModel;
+  session.calls.push(r);
+  session.costByAgent[r.agent] = (session.costByAgent[r.agent] || 0) + cost;
+  if (tokens) session.tokensByModel[served] = (session.tokensByModel[served] || 0) + tokens;
+  const key = r.agent + "|" + r.status; session.outcomes[key] = (session.outcomes[key] || 0) + 1;
+
+  const ok = session.calls.filter(c => c.status === 200).length;
+  $("kCalls").textContent = session.calls.length; $("kOk").textContent = ok;
+  $("kBlocked").textContent = session.calls.filter(c => c.status === 403 || c.status === 429).length;
+  $("kTokens").textContent = Object.values(session.tokensByModel).reduce((a, b) => a + b, 0).toLocaleString();
+  $("kCost").textContent = fmtUsd(Object.values(session.costByAgent).reduce((a, b) => a + b, 0));
+
+  const gov = h["x-gw-governance"] && h["x-gw-governance"] !== "none" ? `<span class="gov">${h["x-gw-governance"]}</span>` : "none";
+  $("last").innerHTML = `<span class="status ${statusClass(r.status)}">${r.status}</span> <b>${r.agent}</b> (${r.tier}) · ${r.latencyMs} ms
+    <div class="kv">
+      <div>Model requested → served</div><div>${r.requestedModel} → <b>${served || "-"}</b></div>
+      <div>Governance</div><div>${gov}</div>
+      <div>Tokens (prompt / completion)</div><div>${h["x-gw-prompt-tokens"] || "-"} / ${h["x-gw-completion-tokens"] || "-"}</div>
+      <div>Cost of this call</div><div>${h["x-gw-cost-usd"] ? fmtUsd(cost) : "-"}</div>
+      <div>Remaining TPM</div><div>${h["x-gw-remaining-tpm"] ?? "-"}</div>
+      <div>Remaining token quota</div><div>${h["x-gw-remaining-quota-tokens"] ?? "-"}</div>
+      ${h["retry-after"] ? `<div>Retry-After</div><div>${h["retry-after"]} s</div>` : ""}
+    </div>
+    <div class="content">${escapeHtml(r.status === 200 ? (r.content || "") : (r.error || ""))}</div>`;
+
+  const detail = r.status === 200 ? (r.finishReason === "length" ? "truncated (output cap)" : "") : (r.error || "");
+  $("log").insertAdjacentHTML("afterbegin", `<tr><td>${new Date().toLocaleTimeString()}</td><td>${r.agent}</td>
+    <td><span class="status ${statusClass(r.status)}">${r.status}</span></td><td>${r.requestedModel} → ${served || "-"}</td><td>${gov}</td>
+    <td>${h["x-gw-prompt-tokens"] || "-"} / ${h["x-gw-completion-tokens"] || "-"}</td><td>${h["x-gw-cost-usd"] || "-"}</td>
+    <td>${h["x-gw-remaining-tpm"] ?? "-"}</td><td>${r.latencyMs} ms</td><td title="${escapeHtml(detail)}">${escapeHtml(detail.slice(0, 60))}</td></tr>`);
+
+  setSimple(charts.costAgent, Object.keys(session.costByAgent), Object.values(session.costByAgent));
+  setSimple(charts.tokensModel, Object.keys(session.tokensByModel), Object.values(session.tokensByModel));
+  setOutcomes(charts.outcomes, Object.entries(session.outcomes).map(([k, v]) => ({ Agent: k.split("|")[0], resultCode: k.split("|")[1], Calls: v })));
+  renderBudgets();
+}
+
+function renderBudgets() {
+  $("budgets").innerHTML = cfg.agents.map(a => {
+    const budget = tierOf(a).budgetUsd, spent = session.costByAgent[a.name] || 0, pct = Math.min(100, 100 * spent / budget);
+    const color = pct >= 100 ? "var(--bad)" : pct >= 75 ? "var(--warn)" : "var(--ok)";
+    return `<div class="budget"><div class="lbl"><span>${a.displayName} <span class="badge ${a.tier}">${a.tier}</span></span><span>${fmtUsd(spent)} / $${budget} (${pct.toFixed(0)}%)</span></div>
+      <div class="bar"><div class="fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+  }).join("") + `<div class="muted">When an agent exhausts its $ budget the gateway answers <b>403</b> until the budget period renews or budgets are reset.</div>`;
+}
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function setRunning(on, label = "") {
+  running = on; ["btnSend", "btnBurst", "btnSim"].forEach(id => $(id).disabled = on);
+  $("btnStop").classList.toggle("hidden", !on); $("runStatus").textContent = label;
+}
+
+$("btnSend").onclick = async () => { setRunning(true, "Sending…"); await send(selectedAgent.name, $("model").value); setRunning(false); };
+$("btnBurst").onclick = async () => {
+  const n = Number($("burst").value) || 10; setRunning(true);
+  for (let i = 1; i <= n && running; i++) { $("runStatus").textContent = `Burst ${i}/${n}…`; await send(selectedAgent.name, $("model").value); }
+  setRunning(false, `Burst finished.`);
+};
+$("btnSim").onclick = async () => {
+  setRunning(true); let i = 0;
+  while (running) {
+    const a = cfg.agents[Math.floor(Math.random() * cfg.agents.length)], m = cfg.models[Math.floor(Math.random() * cfg.models.length)];
+    $("runStatus").textContent = `Simulating… request ${++i}: ${a.name} → ${m.name}`;
+    send(a.name, m.name); await new Promise(r => setTimeout(r, 500));
+  }
+  setRunning(false, `Simulation stopped after ${i} requests.`);
+};
+$("btnStop").onclick = () => { running = false; };
+$("btnReset").onclick = async () => {
+  if (!confirm("Reset every agent's $ budget and token quota?")) return;
+  const r = await (await fetch("/api/reset-budgets", { method: "POST" })).json();
+  if (r.error) return toast("Reset failed: " + r.error);
+  session.costByAgent = {}; renderBudgets(); toast(r.message);
+};
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("active", x === b));
+  $("tab-live").classList.toggle("hidden", b.dataset.tab !== "live"); $("tab-monitor").classList.toggle("hidden", b.dataset.tab !== "monitor");
+  if (b.dataset.tab === "monitor" && !charts._loaded) { charts._loaded = true; refreshMonitor(); }
+});
+$("btnRefresh").onclick = refreshMonitor;
+$("timespan").onchange = refreshMonitor;
+
+function table(rows) {
+  if (!Array.isArray(rows)) return `<div class="muted">${escapeHtml(rows && rows.error || "no data")}</div>`;
+  if (!rows.length) return `<div class="muted">No data yet (telemetry can take a couple of minutes to arrive).</div>`;
+  const cols = Object.keys(rows[0]);
+  return `<table><thead><tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${cols.map(c => `<td>${escapeHtml(r[c])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+async function refreshMonitor() {
+  $("monStatus").textContent = "Querying Application Insights…"; $("btnRefresh").disabled = true;
+  try {
+    const d = await (await fetch("/api/telemetry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ timespan: $("timespan").value }) })).json();
+    if (d.error) throw new Error(d.error);
+    const arr = (x) => Array.isArray(x) ? x : [];
+    setSimple(charts.mCostAgent, arr(d.costByAgent).map(r => r.Agent), arr(d.costByAgent).map(r => r.CostUSD));
+    setSimple(charts.mCostModel, arr(d.costByModel).map(r => r.Model), arr(d.costByModel).map(r => r.CostUSD));
+    setOutcomes(charts.mOutcomes, arr(d.outcomesByAgent));
+    const times = [...new Set(arr(d.costOverTime).map(r => r.timestamp))].sort(), agents = [...new Set(arr(d.costOverTime).map(r => r.Agent))];
+    charts.mCostTime.data.labels = times.map(t => new Date(t).toLocaleTimeString());
+    charts.mCostTime.data.datasets = agents.map((a, i) => ({ label: a, borderColor: COLORS[i % COLORS.length], backgroundColor: COLORS[i % COLORS.length], tension: .2,
+      data: times.map(t => (arr(d.costOverTime).find(r => r.Agent === a && r.timestamp === t) || { CostUSD: 0 }).CostUSD) }));
+    charts.mCostTime.update();
+    $("mTokens").innerHTML = table(d.tokensByAgentModel); $("mGov").innerHTML = table(d.governance);
+    $("monStatus").textContent = "Updated " + new Date().toLocaleTimeString() + " (App Insights ingestion delay is typically 1-3 minutes).";
+  } catch (e) { $("monStatus").textContent = "Failed: " + e.message; }
+  $("btnRefresh").disabled = false;
+}
+init();
+</script>
+</body>
+</html>
