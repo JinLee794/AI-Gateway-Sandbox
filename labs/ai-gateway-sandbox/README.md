@@ -268,7 +268,7 @@ Proceed by opening the [Jupyter notebook](ai-gateway-sandbox.ipynb), and follow 
 [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) deploys the same infrastructure as the notebook ([main.bicep](main.bicep)) and also hosts the demo UI on Azure Container Apps, behind Microsoft Entra ID sign-in:
 
 ```bash
-cd labs/ai-gateway-sandbox
+cd labs/ai-gateway-sandbox   # or stay at the repo root: its azure.yaml deploys the same thing
 azd auth login
 azd up        # asks for an environment name, subscription and region (e.g. swedencentral)
 ```

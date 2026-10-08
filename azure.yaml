@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+# 'azd up' from the repo root (or 'azd init -t JinLee794/AI-Gateway-Sandbox') deploys the AI Gateway Sandbox:
+# the gateway, Foundry, MCP server, A2A agent and monitoring, plus the demo UI on Azure Container Apps behind
+# Microsoft Entra ID sign-in. Same as labs/ai-gateway-sandbox/azure.yaml; keep the two in sync.
+name: ai-gateway-sandbox
+infra:
+  provider: bicep
+  path: labs/ai-gateway-sandbox/infra
+  module: main
+hooks:
+  preprovision:
+    windows:
+      shell: pwsh
+      run: python ./labs/ai-gateway-sandbox/infra/scripts/build_config.py
+      continueOnError: false
+    posix:
+      shell: sh
+      run: python3 ./labs/ai-gateway-sandbox/infra/scripts/build_config.py
+      continueOnError: false
+services:
+  ui:
+    project: ./labs/ai-gateway-sandbox/src
+    language: python
+    host: containerapp
+    docker:
+      path: Dockerfile
+      remoteBuild: true
