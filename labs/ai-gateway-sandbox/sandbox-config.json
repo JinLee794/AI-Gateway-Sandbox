@@ -42,8 +42,8 @@
   ],
   "budgetPeriodSeconds": 2592000,
   "budgetSuspend": {
-    "$comment": "Over budget, switched off: an Azure Monitor alert on the chargeback records triggers a Logic App that suspends the watched subscriptions when their spend reaches suspendAtPercent of the plan budget. useCustomRole=false falls back to the built-in API Management Service Contributor role (no Owner / User Access Administrator needed).",
-    "enabled": true, "subscriptions": ["user-ben"], "suspendAtPercent": 100, "useCustomRole": true, "notifyEmails": []
+    "$comment": "Over budget, switched off: an Azure Monitor alert on the chargeback records triggers a Logic App that suspends the watched subscriptions when their spend reaches suspendAtPercent of the plan budget.     Off by default. Set enabled=true to deploy it. useCustomRole=true creates a least-privilege custom role at subscription scope, which needs Owner or User Access Administrator; useCustomRole=false assigns the built-in API Management Service Contributor role on the APIM instance instead (the lab's usual Role Based Access Control Administrator is enough).",
+        "enabled": false, "subscriptions": ["user-ben"], "suspendAtPercent": 100, "useCustomRole": true, "notifyEmails": []
   },
   "tools": [
     { "name": "search-products", "priceUsd": 0.0005, "description": "Search the product catalog" },

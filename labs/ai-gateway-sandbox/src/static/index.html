@@ -2624,7 +2624,7 @@ const SCENARIOS = [
       return `Budgets are reset first. <b>${b.displayName}</b> (${t.displayName}, <b>$${t.budgetUsd}</b> budget) then runs long reports until the gateway's <code>quota-by-key</code> answers 403: that is the real-time, per-call stop. Separately, an <b>Azure Monitor log search alert</b> adds up his chargeback records per budget epoch every 5 minutes. When they reach ${cfg.budgetSuspend?.suspendAtPercent ?? 100}% of the budget, its action group calls a <b>Logic App</b> that suspends his APIM subscription with its managed identity and writes a <code>BudgetBreach</code> audit event. That loop takes minutes, and it revokes the key on every API, notifies people and leaves an audit trail.`; },
     async run() {
       const bs = cfg.budgetSuspend || {};
-      if (!bs.enabled) { info("Not deployed: set <code>budgetSuspend.enabled</code> to <code>true</code> in <code>sandbox-config.json</code> and redeploy (notebook or <code>azd up</code>)."); return; }
+      if (!bs.enabled) { info("Not deployed (off by default): set <code>budgetSuspend.enabled</code> to <code>true</code> in <code>sandbox-config.json</code> (or <code>budget_suspend_config</code> in the notebook) and redeploy (notebook or <code>azd up</code>)."); return; }
       const b = byName(bs.subscriptions?.[0]);
       if (!b) { info(`Watched subscription ${escapeHtml(bs.subscriptions?.[0] || "-")} is missing from the config.`); return; }
       const t = tierOf(b), m = t.allowedModels.includes("gpt-4.1-mini") ? "gpt-4.1-mini" : t.allowedModels[0];
