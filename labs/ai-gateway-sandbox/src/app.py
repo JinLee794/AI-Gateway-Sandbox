@@ -613,6 +613,91 @@ def reset_budgets(_payload):
     return 200, {"epoch": epoch, "message": "Budgets and token quotas reset (named value budget-epoch updated). It can take a few seconds to apply."}
 
 
+# Run history: one append-only JSON Lines log per user. Hosted, the user is the Easy Auth Entra ID object id and the log lives in
+# App Service's persistent /home share; locally it is the OS user and src/.history (git-ignored). Container Apps has no persistent
+# disk here, so its history lasts until the replica restarts. Set HISTORY_DIR to override.
+HISTORY_DIR = os.environ.get("HISTORY_DIR") or ("/home/data/sandbox-history" if os.environ.get("WEBSITE_SITE_NAME") and os.path.isdir("/home")
+                                                else os.path.join(HERE, ".history"))
+HISTORY_KEEP = 50  # runs returned per user; older lines are compacted away
+HISTORY_MAX_RUN_BYTES = 3_000_000
+_history_lock = threading.Lock()
+
+
+def history_user(headers):
+    """(file-safe id, display name) of the caller, or None when no signed-in user can be determined."""
+    if HOSTED:
+        oid = (headers.get("X-MS-CLIENT-PRINCIPAL-ID") or "").lower()
+        return (oid, signed_in_user(headers) or oid) if re.fullmatch(r"[0-9a-f-]{36}", oid) else None
+    import getpass
+    try:
+        name = getpass.getuser()
+    except Exception:
+        name = "user"
+    return "local-" + (re.sub(r"[^\w.-]", "", name)[:64] or "user"), f"{name} (local)"
+
+
+def _history_path(uid):
+    return os.path.join(HISTORY_DIR, uid + ".jsonl")
+
+
+def _history_read(path):
+    runs = {}
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    continue  # a torn last line after a crash
+                run = entry.get("run") if isinstance(entry, dict) else None
+                if isinstance(run, dict) and run.get("id"):
+                    runs.pop(run["id"], None)
+                    runs[run["id"]] = run  # last write wins, ordered by last write
+    return sorted(runs.values(), key=lambda r: r.get("started") or 0)[-HISTORY_KEEP:]
+
+
+def history(headers):
+    who = history_user(headers)
+    if not who:
+        return 200, {"enabled": False, "reason": "No signed-in user (Easy Auth) on this request."}
+    with _history_lock:
+        runs = _history_read(_history_path(who[0]))
+    return 200, {"enabled": True, "user": who[1], "store": "App Service /home" if HISTORY_DIR.startswith("/home/") else "local" if not HOSTED else "container (ephemeral)", "runs": runs}
+
+
+def history_save(headers, payload):
+    who = history_user(headers)
+    if not who:
+        return 403, {"error": "No signed-in user"}
+    run = payload.get("run")
+    if not isinstance(run, dict) or not re.fullmatch(r"[\w-]{8,64}", str(run.get("id", ""))):
+        return 400, {"error": "run with an id is required"}
+    line = json.dumps({"at": time.time(), "user": who[1], "run": run}, separators=(",", ":"))
+    if len(line) > HISTORY_MAX_RUN_BYTES:
+        return 413, {"error": "run too large to save"}
+    path = _history_path(who[0])
+    with _history_lock:
+        os.makedirs(HISTORY_DIR, exist_ok=True)
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+        if os.path.getsize(path) > 8 * HISTORY_MAX_RUN_BYTES:  # compact: keep the latest version of the newest runs
+            keep = _history_read(path)
+            with open(path + ".tmp", "w", encoding="utf-8") as f:
+                f.writelines(json.dumps({"run": r}, separators=(",", ":")) + "\n" for r in keep)
+            os.replace(path + ".tmp", path)
+    return 200, {"saved": run["id"]}
+
+
+def history_clear(headers):
+    who = history_user(headers)
+    if not who:
+        return 403, {"error": "No signed-in user"}
+    with _history_lock:
+        if os.path.exists(_history_path(who[0])):
+            os.remove(_history_path(who[0]))
+    return 200, {"cleared": True}
+
+
 def public_config(user=None):
     portal = "https://portal.azure.com/#@/resource"
     return {
@@ -657,6 +742,8 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/invocations":  # the last 50 inspected requests, newest first (already redacted)
             with _recent_lock:
                 return self.send_json(200, {"requests": list(reversed(_recent))})
+        if self.path == "/api/history":
+            return self.send_json(*history(self.headers))
         match = re.fullmatch(r"/images/([a-z0-9-]+\.gif)", self.path)
         if match:  # the repo's lab diagrams (used by the "See the pattern" lightbox), served from <repo>/images
             path = os.path.join(IMAGES, match.group(1))
@@ -678,6 +765,17 @@ class Handler(SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def do_POST(self):
+        if self.path in ("/api/history", "/api/history/clear"):
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                if length > HISTORY_MAX_RUN_BYTES:
+                    return self.send_json(413, {"error": "run too large to save"})
+                payload = json.loads(self.rfile.read(length) or b"{}")
+                if self.path == "/api/history/clear":
+                    return self.send_json(*history_clear(self.headers))
+                return self.send_json(*history_save(self.headers, payload if isinstance(payload, dict) else {}))
+            except Exception as error:
+                return self.send_json(500, {"error": scrub(str(error))})
         routes = {"/api/chat": chat, "/api/mcp": mcp, "/api/a2a": a2a, "/api/telemetry": telemetry, "/api/reset-budgets": reset_budgets,
                   "/api/trace": trace, "/api/evidence": evidence, "/api/policy-evidence": policy_evidence, "/api/policies": policies,
                   "/api/chargeback": chargeback}

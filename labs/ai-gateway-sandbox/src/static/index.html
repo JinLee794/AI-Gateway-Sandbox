@@ -27,6 +27,9 @@
   .cmd { display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px; border-radius:4px; color:var(--text); background:transparent;
          border:0; font:inherit; font-size:13px; cursor:pointer; text-decoration:none; }
   .cmd:hover, .cmd:hover:not(:disabled) { background:#f3f2f1; border:0; color:var(--text); text-decoration:none; } .cmd svg { width:16px; height:16px; fill:var(--accent); flex:0 0 16px; }
+  .cmd img { width:16px; height:16px; flex:0 0 16px; }
+  .topbar .tb-ico { display:inline-flex; align-items:center; gap:6px; } .topbar .tb-ico img { width:18px; height:18px; background:#fff; border-radius:3px; padding:1px; }
+  img.ico { width:16px; height:16px; vertical-align:-3px; flex:0 0 auto; } img.ico.sm { width:13px; height:13px; vertical-align:-2px; } img.ico.lg { width:20px; height:20px; vertical-align:-5px; }
   .cmd.danger svg { fill:var(--bad); } .cmd:disabled { opacity:.45; cursor:not-allowed; background:transparent; }
   a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
   button { background:var(--accent); color:#fff; border:1px solid var(--accent); border-radius:4px; padding:0 16px; height:32px; cursor:pointer;
@@ -110,7 +113,9 @@
   .pivot button + button { border-left:1px solid #8a8886; }
   .pivot button:hover:not(:disabled) { background:#f3f2f1; border-color:#8a8886; color:var(--text); }
   .pivot button.active, .pivot button.active:hover:not(:disabled) { background:var(--accent); color:#fff; font-weight:600; }
-  .surf { font-size:11px; padding:1px 8px; border-radius:10px; font-weight:600; display:inline-block; white-space:nowrap; }
+  .pivot button { display:inline-flex; align-items:center; justify-content:center; gap:6px; } .pivot button.active img { background:#fff; border-radius:3px; padding:1px; }
+  .surf { font-size:11px; padding:1px 8px; border-radius:10px; font-weight:600; display:inline-flex; align-items:center; gap:4px; white-space:nowrap; vertical-align:middle; }
+  .surf img.ico.sm { width:12px; height:12px; }
   .surf.model { background:#eff6fc; color:#005a9e; } .surf.tool { background:#e8f5f6; color:#00666d; } .surf.agent { background:#f4effa; color:#5c2e91; }
   .matrix th, .matrix td { text-align:center; white-space:normal; } .matrix th:first-child, .matrix td:first-child { text-align:left; }
   .matrix td.grp { background:var(--panel2); font-weight:600; text-align:left; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.4px; }
@@ -123,11 +128,76 @@
   code { background:var(--panel2); border:1px solid var(--divider); border-radius:3px; padding:0 4px; font-size:12px; }
   .toggles { display:flex; gap:16px; margin-top:12px; font-size:13px; } .toggles label { display:flex; align-items:center; gap:6px; margin:0; font-weight:400; }
   .toggles input { width:auto; min-height:0; }
-  .pipe { display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; margin-top:8px; }
-  .pipe .stage { border:1px solid var(--border); border-radius:6px; padding:10px 12px; background:#fff; font-size:12px; line-height:1.55; position:relative; }
-  .pipe .stage b { display:block; font-size:13px; margin-bottom:4px; } .pipe .stage.gw { border-color:#c7e0f4; background:var(--accent-light); }
-  .pipe .stage code { font-size:11px; }
-  .pipe .stage .sec { font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); font-weight:600; }
+  /* Policies & evidence: sub-views, tips, pipeline stepper, backend pool, evidence sinks, KQL cards, trace timeline */
+  .psub { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px; }
+  .psub button { background:#fff; color:var(--text); border:1px solid var(--border); height:auto; padding:8px 12px; font-weight:400; display:flex; align-items:center; gap:10px; text-align:left; box-shadow:var(--shadow); }
+  .psub button img { width:26px; height:26px; flex:0 0 26px; }
+  .psub button b { display:block; font-size:13px; } .psub button small { display:block; color:var(--muted); font-size:11px; margin-top:1px; }
+  .psub button:hover:not(:disabled) { background:var(--accent-light); border-color:#c7e0f4; color:var(--text); }
+  .psub button.on, .psub button.on:hover:not(:disabled) { background:var(--accent-light); border-color:var(--accent); box-shadow:inset 0 -3px 0 var(--accent), var(--shadow); }
+  .info { display:inline-grid; place-items:center; width:16px; height:16px; border-radius:50%; border:1px solid #8a8886; color:var(--muted); font:italic 600 10px/1 Georgia,serif;
+          cursor:help; position:relative; flex:0 0 16px; text-transform:none; letter-spacing:0; }
+  .info:hover, .info:focus { border-color:var(--accent); color:var(--accent); outline:none; }
+  .info:hover::after, .info:focus::after { content:attr(data-tip); position:absolute; top:22px; left:-10px; width:360px; background:#fff; color:var(--text); border:1px solid var(--border);
+          box-shadow:0 6.4px 14.4px rgba(0,0,0,.13),0 1.2px 3.6px rgba(0,0,0,.11); border-radius:4px; padding:8px 10px; font:400 12px/1.5 "Segoe UI",sans-serif; z-index:60; white-space:normal; }
+  .legend { margin-left:auto; font-size:11px; font-weight:400; color:var(--muted); display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+  .out { font-size:10px; font-weight:700; padding:0 6px; border-radius:8px; line-height:16px; display:inline-block; white-space:nowrap; }
+  .out.o401, .out.o403 { background:var(--bad-bg); color:var(--bad); } .out.o429 { background:var(--warn-bg); color:var(--warn); } .out.dg { background:#fff4ce; color:#8a5300; }
+  .pscopes, .pipe { display:grid; grid-template-columns:repeat(5, 1fr); gap:16px; }
+  .pscopes { margin-top:2px; font-size:10px; text-transform:uppercase; letter-spacing:.5px; font-weight:600; color:var(--muted); }
+  .pscopes span { border-bottom:2px solid var(--border); padding-bottom:3px; } .pscopes .c2 { grid-column:span 2; border-color:#8764b8; } .pscopes .c3 { border-color:var(--accent); } .pscopes .c4 { border-color:var(--ok); }
+  .pipe { margin-top:8px; }
+  .pipe .stage { border:1px solid var(--border); border-radius:6px; padding:10px 12px; background:#fff; font-size:12px; position:relative; display:flex; flex-direction:column; gap:7px; }
+  .pipe .stage.gw { border-color:#c7e0f4; background:var(--accent-light); }
+  .pipe .stage:not(:first-child)::before { content:""; position:absolute; left:-13px; top:18px; border:5px solid transparent; border-left:7px solid #8a8886; border-right:0; }
+  .pipe .stage .hd { display:flex; align-items:center; gap:8px; font-weight:600; font-size:13px; } .pipe .stage .hd img { width:24px; height:24px; }
+  .pipe .pi { display:flex; align-items:center; gap:4px; flex-wrap:wrap; line-height:1.35; } .pipe .pi code { font-size:11px; } .pipe .pi .k { font-weight:600; }
+  .pipe .pi small { flex-basis:100%; color:var(--muted); font-size:11px; }
+  .pipe .stage .pat { margin-top:auto; }
+  .bkpool { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:10px; }
+  .bkpool .ph { grid-column:1 / -1; font-size:12px; color:var(--muted); display:flex; gap:6px; align-items:center; }
+  .bk { border:1px solid var(--border); border-radius:6px; padding:10px 12px; display:flex; gap:10px; align-items:flex-start; background:#fff; }
+  .bk > img { width:28px; height:28px; flex:0 0 28px; } .bk .nm { font-weight:600; font-size:13px; word-break:break-all; } .bk .rg { color:var(--muted); font-size:12px; }
+  .bk .pr { margin-left:auto; font-size:11px; font-weight:600; padding:0 8px; border-radius:10px; background:var(--accent-light); color:#005a9e; white-space:nowrap; }
+  .bk .pr.p1 { background:var(--ok-bg); color:var(--ok); }
+  .chips { display:flex; flex-wrap:wrap; gap:4px; } .chip { font-size:11px; background:var(--panel2); border:1px solid var(--divider); border-radius:10px; padding:0 7px; line-height:18px; display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
+  .chip.key { background:var(--accent-light); border-color:#c7e0f4; color:#005a9e; font-weight:600; } .chip img { width:12px; height:12px; }
+  .sinks { display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; }
+  .sink { border:1px solid var(--border); border-radius:6px; padding:10px 12px; display:flex; flex-direction:column; gap:7px; font-size:12px; background:#fff; }
+  .sink .h { display:flex; align-items:center; gap:8px; } .sink .h img { width:24px; height:24px; flex:0 0 24px; }
+  .sink .h .t { flex:1; min-width:0; font-weight:600; font-size:12.5px; word-break:break-word; line-height:1.25; } .sink .h .t small { display:block; font-weight:400; color:var(--muted); font-size:11px; }
+  .dly { font-size:10px; font-weight:600; padding:0 7px; border-radius:8px; background:#edebe9; color:#484644; white-space:nowrap; line-height:16px; } .dly.now { background:var(--ok-bg); color:var(--ok); }
+  .sink .fk { margin-top:auto; font-size:11px; color:var(--muted); display:flex; gap:4px; align-items:center; }
+  .kqgrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+  details.kq { border:1px solid var(--border); border-radius:6px; background:#fff; min-width:0; }
+  details.kq summary { cursor:pointer; padding:8px 12px; display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; list-style:none; }
+  details.kq summary::-webkit-details-marker { display:none; }
+  details.kq summary::before { content:""; border:4px solid transparent; border-left:6px solid #8a8886; border-right:0; transition:transform .15s; } details.kq[open] summary::before { transform:rotate(90deg); }
+  details.kq summary img { width:20px; height:20px; } details.kq summary .t { flex:1; min-width:0; } details.kq summary a { font-weight:400; font-size:12px; white-space:nowrap; }
+  .cnt { font-size:11px; font-weight:600; padding:0 7px; border-radius:10px; background:#edebe9; color:#484644; line-height:18px; } .cnt.has { background:var(--accent-light); color:#005a9e; }
+  details.kq .body { padding:0 12px 10px; overflow:auto; max-height:300px; }
+  td.bar { position:relative; min-width:110px; } td.bar i { position:absolute; left:6px; top:7px; bottom:7px; background:#c7e0f4; border-radius:2px; } td.bar b { position:relative; font-weight:600; }
+  .polgrp { margin-top:14px; } .polgrp:first-child { margin-top:4px; } .polgrp h3 { font-size:13px; margin:0 0 6px; display:flex; align-items:center; gap:6px; }
+  .polgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); gap:10px; }
+  .polcard { border:1px solid var(--border); border-radius:6px; padding:10px 12px; background:#fff; min-width:0; }
+  .polcard .nm { font-weight:600; font-size:13px; display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .polcard .sr { display:flex; gap:6px; align-items:flex-start; margin-top:4px; } .polcard .sr > span { flex:0 0 62px; font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; padding-top:2px; }
+  .polcard details { margin-top:6px; } .polcard summary { cursor:pointer; font-size:12px; color:var(--accent); }
+  .evh { font-size:13px; margin:0 0 8px; display:flex; align-items:center; gap:6px; } .evh .muted { font-weight:400; }
+  .tl { display:flex; height:22px; border-radius:4px; overflow:hidden; margin:4px 0 2px; font-size:10.5px; font-weight:600; color:#fff; }
+  .tl > div { display:flex; align-items:center; justify-content:center; min-width:0; white-space:nowrap; overflow:hidden; padding:0 4px; }
+  .tl .inbound { background:#0078d4; } .tl .backend { background:#8764b8; } .tl .outbound { background:#107c10; } .tl .on-error { background:#d13438; }
+  .tlx { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); }
+  .ksteps { display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin:10px 0 6px; }
+  .ksteps .ks { font:600 11px Consolas,monospace; padding:1px 7px; border-radius:10px; background:var(--accent-light); color:#005a9e; border:1px solid #c7e0f4; cursor:help; }
+  .ksteps .ks small { font:400 10px "Segoe UI",sans-serif; color:var(--muted); margin-left:4px; } .ksteps .ks.err { background:var(--bad-bg); color:var(--bad); border-color:#f1bbbc; }
+  .ksteps .ks.bk { background:#f4effa; color:#5c2e91; border-color:#d9c7ee; } .ksteps .sep { color:#a19f9d; font-size:11px; }
+  details.raw { margin-top:8px; } details.raw summary { cursor:pointer; font-size:12px; color:var(--accent); }
+  .evkv { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px 12px; margin-top:6px; }
+  .evkv div { min-width:0; } .evkv span { display:block; font-size:10.5px; color:var(--muted); } .evkv b { font-weight:600; font-size:12.5px; word-break:break-word; }
+  .evsrc { border:1px solid var(--border); border-radius:6px; padding:8px 12px; margin-bottom:10px; background:#fff; }
+  .evsrc h3 { font-size:13px; margin:0; display:flex; gap:6px; align-items:center; } .evsrc h3 a { margin-left:auto; font-weight:400; font-size:12px; }
+  @media (max-width:1200px) { .psub, .sinks { grid-template-columns:repeat(2,1fr); } .kqgrid { grid-template-columns:1fr; } .pipe, .pscopes { grid-template-columns:1fr; } .pscopes { display:none; } .pipe .stage:not(:first-child)::before { display:none; } }
   pre.xml { background:#faf9f8; border:1px solid var(--divider); border-radius:4px; padding:10px 12px; font:12px/1.45 Consolas,monospace; max-height:360px; overflow:auto; white-space:pre; margin:8px 0 0; }
   details.pol { border:1px solid var(--divider); border-radius:4px; padding:6px 10px; margin-top:6px; } details.pol summary { cursor:pointer; font-size:13px; }
   .evtbl { margin-top:14px; } .evtbl h3 { font-size:13px; margin:0 0 2px; display:flex; gap:10px; align-items:baseline; } .evtbl h3 a { font-weight:400; font-size:12px; }
@@ -224,7 +294,7 @@
   .ritem .meta { font-size:12px; color:var(--muted); margin-top:3px; }
   .ritem .cbar { height:4px; background:#edebe9; border-radius:2px; margin-top:6px; overflow:hidden; } .ritem .cbar i { display:block; height:100%; background:#8764b8; }
   .kind { font-size:10.5px; font-weight:600; border-radius:10px; padding:1px 7px; white-space:nowrap; flex:0 0 auto; }
-  .kind.scenario { background:var(--accent-light); color:#005a9e; } .kind.demo { background:#0078d4; color:#fff; } .kind.custom { background:#f3eefa; color:#5c2e91; }
+  .kind.scenario { background:var(--accent-light); color:#005a9e; } .kind.demo { background:#0078d4; color:#fff; } .kind.custom { background:#f3eefa; color:#5c2e91; } .kind.saved { background:#f3f2f1; color:#605e5c; font-weight:500; }
   .rtag { font-size:10.5px; font-weight:600; color:#484644; background:#edebe9; border-radius:8px; padding:0 6px; cursor:pointer; text-decoration:none; flex:0 0 auto; }
   a.rtag:hover { background:var(--accent); color:#fff; }
   .rhead { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:16px; } .rhead h2 { margin:0; flex:1; min-width:200px; }
@@ -287,18 +357,18 @@
   .insp-drawer .pbody { overflow:auto; padding:16px; } .insp-drawer .insp { margin-top:0; }</style>
 </head>
 <body>
-<div class="topbar"><span class="brand">Microsoft Azure</span><span class="sep"></span><span>AI Gateway</span><span class="spacer"></span><span class="env" id="envLabel">Live demo · Azure API Management + Microsoft Foundry</span></div>
+<div class="topbar"><span class="brand">Microsoft Azure</span><span class="sep"></span><span class="tb-ico"><img src="/icons/ai-gateway.svg" alt="">AI Gateway</span><span class="spacer"></span><span class="env" id="envLabel">Live demo · Azure API Management + Microsoft Foundry</span></div>
 <div class="pagehead">
   <div class="crumbs">Home<span>›</span>API Management<span>›</span>AI Gateway Sandbox</div>
   <div class="titlerow">
-    <div class="icon"><svg viewBox="0 0 16 16" width="20" height="20" fill="#0078d4"><path d="M8 1 2 3.5V8c0 3.3 2.6 6.2 6 7 3.4-.8 6-3.7 6-7V3.5L8 1zm5 7c0 2.7-2.1 5.1-5 5.9C5.1 13.1 3 10.7 3 8V4.2L8 2.1l5 2.1V8z"/><path d="M7 9.3 5.4 7.7l-.7.7L7 10.7l4.3-4.3-.7-.7z"/></svg></div>
+    <div class="icon"><img src="/icons/apim.svg" alt="API Management" width="26" height="26"></div>
     <div><h1>AI Gateway Sandbox</h1><div class="sub">A hands-on sandbox for Azure API Management governing Microsoft Foundry models, MCP servers and A2A agents: identity, plans, routing, metering and evidence</div></div>
   </div>
   <div class="cmdbar">
-    <a class="cmd" id="lnkWorkbook" target="_blank"><svg viewBox="0 0 16 16"><path d="M2 13h12v1H2zM3 8h2v4H3zm4-3h2v7H7zm4-3h2v10h-2z"/></svg>Workbook</a>
-    <a class="cmd" id="lnkLogs" target="_blank"><svg viewBox="0 0 16 16"><path d="M3 2h10v1H3zm0 3h10v1H3zm0 3h7v1H3zm0 3h10v1H3z"/></svg>Log Analytics</a>
-    <a class="cmd" id="lnkAppInsights" target="_blank"><svg viewBox="0 0 16 16"><path d="M8 1a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9zm2 8.5V11H6V9.5A4 4 0 1 1 10 9.5zM6 13h4v1H6zm1 1.5h2v.5H7z"/></svg>Application Insights</a>
-    <a class="cmd" id="lnkApim" target="_blank"><svg viewBox="0 0 16 16"><path d="M8 1 2 3.5V8c0 3.3 2.6 6.2 6 7 3.4-.8 6-3.7 6-7V3.5L8 1zm5 7c0 2.7-2.1 5.1-5 5.9C5.1 13.1 3 10.7 3 8V4.2L8 2.1l5 2.1V8z"/><path d="M7 9.3 5.4 7.7l-.7.7L7 10.7l4.3-4.3-.7-.7z"/></svg>API Management</a>
+    <a class="cmd" id="lnkWorkbook" target="_blank"><img src="/icons/workbooks.svg" alt="">Workbook</a>
+    <a class="cmd" id="lnkLogs" target="_blank"><img src="/icons/log-analytics.svg" alt="">Log Analytics</a>
+    <a class="cmd" id="lnkAppInsights" target="_blank"><img src="/icons/app-insights.svg" alt="">Application Insights</a>
+    <a class="cmd" id="lnkApim" target="_blank"><img src="/icons/apim.svg" alt="">API Management</a>
     <button class="cmd danger" id="btnReset" title="Changes the budget-epoch named value, which resets every $ budget and token quota"><svg viewBox="0 0 16 16"><path d="M8 2a6 6 0 0 0-5.2 3V2h-1v4.5h4.5v-1H3.6A5 5 0 1 1 3 8H2a6 6 0 1 0 6-6z"/></svg>Reset budgets</button>
   </div>
 </div>
@@ -332,9 +402,9 @@
     <div class="form">
       <h2><span class="step">2</span>Send requests through the gateway</h2>
       <div class="pivot" id="surfacePivot">
-        <button class="active" data-surface="model">AI model</button>
-        <button data-surface="tool">MCP tool</button>
-        <button data-surface="agent">A2A agent</button>
+        <button class="active" data-surface="model"><img class="ico" src="/icons/foundry-models.svg" alt=""> AI model</button>
+        <button data-surface="tool"><img class="ico" src="/icons/mcp.svg" alt=""> MCP tool</button>
+        <button data-surface="agent"><img class="ico" src="/icons/a2a.svg" alt=""> A2A agent</button>
       </div>
       <div id="pane-model">
       <label>Model requested</label>
@@ -398,21 +468,27 @@
 
     <div id="tab-runs" class="hidden">
       <div class="runs">
-        <div class="card rlist"><h2>Runs <span class="muted">(this page session, newest first)</span></h2><div id="runList"></div></div>
+        <div class="card rlist"><h2>Runs <span class="muted" id="runScope">(this page session, newest first)</span> <button class="secondary hidden" id="btnClearHist" onclick="clearHistory()" title="Delete the run history saved for you" style="float:right;padding:2px 10px;font-size:12px">Clear</button></h2><div id="runList"></div></div>
         <div id="runDetail"></div>
       </div>
     </div>
 
     <div id="tab-policies" class="hidden">
+      <div class="psub" role="tablist" aria-label="Policies and evidence views">
+        <button class="on" data-psec="investigate" role="tab"><img class="ico" src="/icons/trace.svg" alt=""><span><b>Investigate a request</b><small>log · flow · trace · logs</small></span></button>
+        <button data-psec="pipeline" role="tab"><img class="ico" src="/icons/policy.svg" alt=""><span><b>Policy pipeline</b><small>what runs, in what order</small></span></button>
+        <button data-psec="telemetry" role="tab"><img class="ico" src="/icons/log-analytics.svg" alt=""><span><b>Logs &amp; telemetry</b><small>where evidence lands · live KQL</small></span></button>
+        <button data-psec="deployed" role="tab"><img class="ico" src="/icons/apim.svg" alt=""><span><b>Deployed policies</b><small>read back from ARM</small></span></button>
+      </div>
+      <div class="psec" data-psec="investigate">
       <div class="card" id="evLogCard">
         <div class="evlbar">
-          <h2>Request log <span class="muted" id="evLogCount"></span></h2>
+          <h2>Request log <span class="muted" id="evLogCount"></span> <span class="info" tabindex="0" data-tip="Every call from this page session, newest first. Click a request (or use ↑ / ↓) to replay it in the flow below and load its policy trace and Log Analytics rows, without leaving this tab.">i</span></h2>
           <select id="evRunFilter" aria-label="Show requests from"></select>
           <label class="evlchk"><input type="checkbox" id="evBlockedOnly"/> Blocked only</label>
           <button class="secondary" id="evPrev" title="Previous request (↑)">↑ Previous</button>
           <button class="secondary" id="evNext" title="Next request (↓)">Next ↓</button>
         </div>
-        <div class="muted" style="font-size:13px">Every call from this page session, newest first. Click a request (or use ↑ / ↓) to replay it in the flow below and load its policy trace and Log Analytics rows. You don't need to leave this tab.</div>
         <div class="scroll" id="evLogWrap" tabindex="0" aria-label="Request log: use the up and down arrow keys to step through the requests"><table>
           <thead><tr><th>#</th><th>Time · run</th><th>Agent / user</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Gateway decision</th><th>Backend</th><th>Tokens</th><th>Cost USD</th><th>Latency</th><th>Evidence</th></tr></thead>
           <tbody id="evLog"></tbody>
@@ -456,7 +532,8 @@
         #gwfSvg .fn.ok rect { stroke:#107c10; stroke-width:2.2; stroke-dasharray:none; }
         #gwfSvg .fn.warn rect { stroke:#ca5010; stroke-width:2.5; fill:#fff4ce; stroke-dasharray:none; }
         #gwfSvg .fn.bad rect { stroke:#d13438; stroke-width:2.5; fill:#fde7e9; stroke-dasharray:none; filter:drop-shadow(0 0 5px rgba(209,52,56,.45)); }
-        #gwfSvg .fn.dim rect { fill:#faf9f8; stroke:#e1dfdd; stroke-dasharray:3 3; } #gwfSvg .fn.dim text { opacity:.45; }
+        #gwfSvg .fn.dim rect { fill:#faf9f8; stroke:#e1dfdd; stroke-dasharray:3 3; } #gwfSvg .fn.dim text, #gwfSvg .fn.dim image { opacity:.45; }
+        #gwfSvg image { pointer-events:none; }
         #gwfSvg .tok text, #gwfSvg .call text { font-size:11px; font-weight:600; text-anchor:middle; paint-order:stroke; stroke:#fff; stroke-width:3px; stroke-linejoin:round; }
         #gwfSvg .tok circle, #gwfSvg .drop { stroke:#fff; stroke-width:2; }
         #gwfSvg .call rect { stroke-width:1; } #gwfSvg .call text { stroke:none; font-size:10.5px; }
@@ -493,9 +570,7 @@
         @media (prefers-reduced-motion: reduce) { #gwfSvg *, .gwf-hdrs > span { transition:none !important; animation:none !important; } }
       </style>
       <div class="card" id="gwFlow">
-        <h2>How a call flows through the gateway <span class="gwf-src" id="gwfSrc"></span></h2>
-        <div class="muted" style="font-size:13px">Follow one request through API Management: the components it touches, the policy that stops it, the region that serves it, and the evidence it leaves behind.
-          Pick a request in the <b>request log</b> above, or click <b>evidence</b> on any call in the Live session or Run history tabs. The flow then replays that exact call from its <code>x-gw-*</code> response headers and APIM trace. You can also play an example below, and click a component to see its AI Gateway lab pattern.</div>
+        <h2>How a call flows through the gateway <span class="info" tabindex="0" data-tip="Follow one request through API Management: the components it touches, the policy that stops it, the region that serves it and the evidence it leaves. Pick a request in the log above (or 'evidence' on any call) to replay that exact call from its x-gw-* headers and APIM trace, or play an example. Click a component to see its AI Gateway lab pattern.">i</span> <span class="gwf-src" id="gwfSrc"></span></h2>
         <div class="gwf-bar">
           <div class="gwf-chips" id="gwfDemos" role="group" aria-label="Example flows"></div>
           <span class="sp"></span>
@@ -603,29 +678,57 @@
         const EDGES = [["client", "entra"], ["entra", "plan"], ["plan", "api"], ["api", "pool"], ["pool", "mi"], ["mi", "r0"], ["mi", "r1"], ["pool", "mcp"], ["pool", "a2a"], ["api", "log"], ["log", "la"], ["log", "ai"]];
         const mk = (tag, attrs = {}, parent = svg) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); parent.appendChild(n); return n; };
         const nodeEl = {}, edgeEl = {}, layer = {};
+        const ICON = { client: "users", entra: "entra-id", plan: "plan", api: "api", pool: "backend-pool", mi: "managed-identity", log: "diagnostic-settings",
+                       r0: "foundry-models", r1: "foundry-models", mcp: "mcp", a2a: "a2a", la: "log-analytics", ai: "app-insights" };
+        const ctx2d = document.createElement("canvas").getContext("2d");
+        // shrinks a label until it fits its node (down to 9px), then ellipsizes
+        function fit(node, str, base, weight, maxW) {
+          let f = base, s = String(str ?? "");
+          const w = () => { ctx2d.font = `${weight} ${f}px "Segoe UI", sans-serif`; return ctx2d.measureText(s).width; };
+          while (f > 9 && w() > maxW) f -= .5;
+          while (s.length > 3 && w() > maxW) s = s.slice(0, -2) + "…";
+          node.textContent = s; node.style.fontSize = f + "px";
+          if (s !== String(str ?? "")) node.setAttribute("data-full", str); else node.removeAttribute("data-full");
+        }
         function draw() {
           svg.innerHTML = "";
           mk("rect", { x: 172, y: 6, width: 702, height: 300, rx: 10, class: "apim" });
-          mk("text", { x: 186, y: 26, class: "lbl apiml" }).textContent = "AZURE API MANAGEMENT · AI GATEWAY";
+          mk("image", { href: "/icons/apim.svg", x: 184, y: 12, width: 18, height: 18 });
+          mk("text", { x: 208, y: 26, class: "lbl apiml" }).textContent = "AZURE API MANAGEMENT · AI GATEWAY";
           mk("rect", { x: 184, y: 92, width: 290, height: 114, rx: 8, class: "scope" });
           layer.scope = mk("text", { x: 194, y: 108, class: "lbl" }); layer.scope.textContent = "PRODUCT (PLAN) SCOPE";
           mk("rect", { x: 488, y: 92, width: 260, height: 114, rx: 8, class: "scope" });
           mk("text", { x: 498, y: 108, class: "lbl" }).textContent = "API SCOPE";
           mk("text", { x: 892, y: 300, class: "lbl" }).textContent = "BACKENDS";
-          mk("text", { x: 420, y: 316, class: "lbl" }).textContent = "AZURE MONITOR";
+          mk("image", { href: "/icons/monitor.svg", x: 418, y: 304, width: 14, height: 14 });
+          mk("text", { x: 436, y: 316, class: "lbl" }).textContent = "AZURE MONITOR";
           for (const [a, b] of EDGES) { const p = P(a), q = P(b); edgeEl[a + "-" + b] = mk("line", { x1: p.x, y1: p.y, x2: q.x, y2: q.y, class: "edge" }); }
           for (const [k, n] of Object.entries(NODES)) {
             const g = mk("g", { class: `fn ${n.cls || ""}`, tabindex: 0, role: "button", "data-node": k, "aria-label": `${n.t}: see the pattern` });
             mk("rect", { x: n.x, y: n.y, width: n.w, height: n.h, rx: 6 }, g);
-            const t = mk("text", { x: n.x + n.w / 2, y: n.y + n.h / 2 - 3, "text-anchor": "middle", class: "t" }, g); t.textContent = n.t;
-            const s = mk("text", { x: n.x + n.w / 2, y: n.y + n.h / 2 + 13, "text-anchor": "middle", class: "s" }, g); s.textContent = n.s;
+            const tall = n.h >= 60, stacked = n.w < 150;  // narrow nodes: icon above the label; wide nodes: icon on the left
+            const is = stacked ? (tall ? 18 : 15) : 22;
+            const ix = stacked ? n.x + n.w / 2 - is / 2 : n.x + 12, iy = stacked ? n.y + (tall ? 9 : 5) : n.y + n.h / 2 - is / 2;
+            mk("image", { href: `/icons/${ICON[k]}.svg`, x: ix, y: iy, width: is, height: is, class: "ni" }, g);
+            const tx = stacked ? n.x + n.w / 2 : n.x + is + 20 + (n.w - is - 28) / 2;
+            const ty = stacked ? iy + is + (tall ? 14 : 13) : n.y + n.h / 2 - 3, sy = stacked ? ty + (tall ? 15 : 12) : n.y + n.h / 2 + 13;
+            const maxW = stacked ? n.w - 10 : n.w - is - 28;
+            const t = mk("text", { x: tx, y: ty, "text-anchor": "middle", class: "t" }, g);
+            const s = mk("text", { x: tx, y: sy, "text-anchor": "middle", class: "s" }, g);
+            const ttl = mk("title", {}, g);
             g.addEventListener("click", () => { const [pk, pi] = n.pat.split(":"); pattern(pk, pi); });
             g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); g.dispatchEvent(new Event("click")); } });
-            nodeEl[k] = { g, t, s };
+            nodeEl[k] = { g, t, s, ttl, maxW, small: stacked && !tall };
+            setText(k, n.t, n.s);
           }
           layer.badges = mk("g", {}); layer.fx = mk("g", {});
         }
-        function setText(k, t, s) { if (t != null) nodeEl[k].t.textContent = t; if (s != null) nodeEl[k].s.textContent = s; }
+        function setText(k, t, s) {
+          const ne = nodeEl[k];
+          if (t != null) fit(ne.t, t, ne.small ? 11.5 : 12, 600, ne.maxW);
+          if (s != null) fit(ne.s, s, ne.small ? 10 : 10.5, 400, ne.maxW);
+          ne.ttl.textContent = `${ne.t.getAttribute("data-full") || ne.t.textContent} · ${ne.s.getAttribute("data-full") || ne.s.textContent}\nClick to see the pattern`;
+        }
         function mark(k, state) { const g = nodeEl[k]?.g; if (!g) return; g.classList.remove("on", "ok", "warn", "bad", "dim"); if (state) g.classList.add(state); }
         function edge(a, b, state) { const e = edgeEl[a + "-" + b] || edgeEl[b + "-" + a]; if (!e) return; e.classList.remove("on", "ok", "bad"); if (state) e.classList.add(state); }
         // a pill straddling the node's top border (default) or just below the node
@@ -955,53 +1058,47 @@
         <h2>Evidence for one request <span class="muted" id="evTitle"></span>
           <span class="evnav"><span class="muted" id="evPos"></span><button class="secondary" id="evPrev2" title="Previous request in the log">↑ Previous</button><button class="secondary" id="evNext2" title="Next request in the log">Next ↓</button></span></h2>
         <div class="grid2">
-          <div><h3 style="font-size:14px;margin:0 0 4px">Policy trace <span class="muted">(APIM request tracing)</span></h3><div id="evTrace" class="scroll" style="max-height:420px"></div></div>
-          <div><h3 style="font-size:14px;margin:0 0 4px">Azure Monitor <span class="muted">(Log Analytics, same request id)</span></h3><div id="evLogs" class="scroll" style="max-height:420px"></div></div>
+          <div><h3 class="evh"><img class="ico" src="/icons/trace.svg" alt=""> Policy trace <span class="muted">APIM request tracing</span></h3><div id="evTrace" class="scroll" style="max-height:460px"></div></div>
+          <div><h3 class="evh"><img class="ico" src="/icons/log-analytics.svg" alt=""> Azure Monitor <span class="muted">Log Analytics · same request id</span></h3><div id="evLogs" class="scroll" style="max-height:460px"></div></div>
         </div>
       </div>
-      <div class="card" style="margin-top:16px">
-        <h2>Request pipeline: the policies every call goes through</h2>
-        <div class="muted" style="font-size:13px">Policies run in scopes: <b>product</b> (the plan) wraps the <b>API</b> policy. A call is rejected by the first policy that fails, before it costs anything.
-          Every response carries <code>x-gw-request-id</code>, the key that finds the same call in the trace and in every Log Analytics table.</div>
-        <div class="pipe">
-          <div class="stage"><span class="sec">Client</span><b>Agent / app</b><code>api-key</code> = which plan pays<br/><code>Authorization: Bearer</code> = who calls<div class="pat"><a href="#" data-pat="overview">See the pattern</a></div></div>
-          <div class="stage gw"><span class="sec">Product · inbound</span><b>Identity</b><code>validate-azure-ad-token</code> (fragment <code>entra-identity</code>): tenant, audience, allowed client apps → <b>401</b><br/>          caller → chargeback record<div class="pat"><a href="#" data-pat="identity">See the pattern</a></div></div>
-                    <div class="stage gw"><span class="sec">Product · inbound</span><b>Plan enforcement</b>model / tool / agent entitlement → downgrade or <b>403</b><br/><code>llm-token-limit</code> TPM + quota → <b>429</b><br/><code>quota-by-key</code> $ budget per subscription and per session → <b>403</b><div class="pat"><a href="#" data-pat="plan">See the pattern</a></div></div>
-          <div class="stage gw"><span class="sec">API · inbound + backend</span><b>Routing &amp; resilience</b><code>set-backend-service</code> → priority pool<br/><code>retry</code> on 429 / 5xx → next region<br/>circuit breaker trips a throttled region<br/><code>authentication-managed-identity</code> → Foundry<div class="pat"><a href="#" data-pat="routing">See the pattern</a></div></div>
-          <div class="stage gw"><span class="sec">Outbound</span><b>Metering &amp; logging</b><code>llm-emit-token-metric</code>, <code>emit-metric</code> (cost per agent, tier, model)<br/><code>trace</code> chargeback record (user, team, session)<br/>LLM / MCP / gateway logs → Log Analytics<br/><code>x-gw-*</code> response headers<div class="pat"><a href="#" data-pat="metering">See the pattern</a></div></div>
-        </div>
-        <div class="kv" id="backendsKv" style="grid-template-columns:170px 1fr"></div>
+      </div><!-- /psec investigate -->
+
+      <div class="psec hidden" data-psec="pipeline">
+      <div class="card">
+        <h2>Request pipeline <span class="info" tabindex="0" data-tip="Policies run in scopes: the product (plan) policy wraps the API policy. A call is rejected by the first policy that fails, before it costs anything. Every response carries x-gw-request-id, the key that finds the same call in the trace and in every Log Analytics table.">i</span>
+          <span class="legend"><span class="out o401">401</span> identity <span class="out o403">403</span> entitlement / $ budget <span class="out o429">429</span> token limit <span class="out dg">↓</span> downgrade</span></h2>
+        <div class="pscopes"><span class="c1">Client</span><span class="c2">Product (plan) scope · inbound</span><span class="c3">API scope · inbound + backend</span><span class="c4">Outbound</span></div>
+        <div class="pipe" id="pipe"></div>
       </div>
       <div class="card" style="margin-top:16px">
-        <h2>What each log tracks</h2>
-        <table>
-          <thead><tr><th>Evidence</th><th>Written by</th><th>What it records</th><th>Find a call by</th><th>Delay</th></tr></thead>
-          <tbody>
-            <tr><td><code>x-gw-*</code> response headers</td><td><code>set-header</code> policies</td><td style="white-space:normal">plan, served model, tokens, cost, remaining limits, caller, session, backend route, blocking policy</td><td>the response</td><td>instant</td></tr>
-            <tr><td>Request trace</td><td>APIM tracing (debug credential)</td><td style="white-space:normal">every policy executed, in order, with timings, variables, retries and the backend URL of each attempt</td><td><code>apim-trace-id</code></td><td>instant</td></tr>
-            <tr><td><code>ApiManagementGatewayLogs</code></td><td>diagnostic setting → Log Analytics</td><td style="white-space:normal">product, subscription, backend, status codes, timings, client IP and the policy that failed (<code>LastErrorSource</code>, <code>LastErrorReason</code>)</td><td><code>CorrelationId</code></td><td>2-5 min</td></tr>
-            <tr><td><code>ApiManagementGatewayLlmLog</code></td><td>LLM logging (diagnostic setting)</td><td style="white-space:normal">deployment, model, prompt / completion / total tokens, streaming; optionally the prompt and completion</td><td><code>CorrelationId</code></td><td>2-5 min</td></tr>
-            <tr><td><code>ApiManagementGatewayMCPLog</code></td><td>MCP logging (diagnostic setting)</td><td style="white-space:normal">MCP client and server, method, tool name, session, authentication method, errors</td><td><code>CorrelationId</code></td><td>2-5 min</td></tr>
-            <tr><td>App Insights <code>requests</code></td><td>API diagnostics → Application Insights</td><td style="white-space:normal">every request with product and subscription name, duration and result code, correlated to the backend dependency</td><td>operation id</td><td>1-3 min</td></tr>
-            <tr><td>App Insights <code>customMetrics</code></td><td><code>emit-metric</code>, <code>llm-emit-token-metric</code></td><td style="white-space:normal">cost, tokens, governance events and backend attempts per agent, tier, model, surface, region (aggregated; at most 5 custom dimensions per metric)</td><td>dimensions (aggregated)</td><td>1-3 min</td></tr>
-            <tr><td>App Insights <code>traces</code> (<code>AppTraces</code>)</td><td><code>trace</code> policy (fragment <code>chargeback-record</code>)</td><td style="white-space:normal">one chargeback record per billable call: user, team, cost center, session, surface, item, tokens, cost, caller, on-behalf-of path</td><td>session, <code>requestId</code></td><td>1-3 min</td></tr>
-          </tbody>
-        </table>
+        <h2><img class="ico lg" src="/icons/backend-pool.svg" alt=""> Backend pool <span class="muted">priority routing · circuit breakers · managed identity</span></h2>
+        <div id="backendsKv" class="bkpool"><div class="muted">Loading…</div></div>
       </div>
-      <div class="card" style="margin-top:16px">
-        <div class="row" style="align-items:end">
-          <h2 style="flex:1;margin:0">Policies in action: Azure Monitor evidence</h2>
+      </div><!-- /psec pipeline -->
+
+      <div class="psec hidden" data-psec="telemetry">
+      <div class="card">
+        <h2>Where the evidence lands <span class="info" tabindex="0" data-tip="Each call leaves evidence in several places. Headers and the trace are instant; Azure Monitor tables arrive minutes later. The chip at the bottom of each card is the key that finds one call.">i</span></h2>
+        <div class="sinks" id="sinks"></div>
+      </div>
+      <div class="card" style="margin-top:16px" id="policyEvidenceCard">
+        <div class="row" style="align-items:center">
+          <h2 style="flex:1;margin:0">Policies in action <span class="muted">live KQL over Log Analytics</span> <span class="info" tabindex="0" data-tip="Live KQL over the gateway's Log Analytics tables. Each card links to the same query in the Azure portal.">i</span></h2>
           <div style="flex:0 0 160px"><select id="evWindow"><option value="15m">Last 15 minutes</option><option value="1h" selected>Last hour</option><option value="1d">Last 24 hours</option></select></div>
           <div style="flex:0 0 auto"><button class="secondary" id="btnEvidence">Query Log Analytics</button></div>
         </div>
-        <div class="muted" id="evStatus" style="margin-top:6px">Live KQL over the gateway's Log Analytics tables. Every result has an <b>Open in Azure portal</b> link that runs the same query in the portal.</div>
-        <div id="policyEvidence"></div>
+        <div class="muted" id="evStatus" style="margin-top:6px;font-size:12px"></div>
+        <div id="policyEvidence" class="kqgrid"></div>
       </div>
-      <div class="card" style="margin-top:16px">
-        <h2>Deployed policies <span class="muted">(read back from Azure Resource Manager)</span></h2>
-        <div class="muted" style="font-size:13px">In the portal: API Management › APIs › <i>API</i> › All operations › Inbound processing › Policy code editor; Products › <i>plan</i> › Policies; APIs › Policy fragments; Backends.</div>
+      </div><!-- /psec telemetry -->
+
+      <div class="psec hidden" data-psec="deployed">
+      <div class="card">
+        <h2>Deployed policies <span class="muted">read back from Azure Resource Manager</span> <span class="info" tabindex="0" data-tip="In the portal: API Management › APIs › (API) › All operations › Inbound processing › Policy code editor; Products › (plan) › Policies; APIs › Policy fragments; Backends.">i</span></h2>
         <div id="deployedPolicies" class="muted" style="margin-top:8px">Loading…</div>
       </div>
+      </div><!-- /psec deployed -->
     </div>
 
     <div id="tab-chargeback" class="hidden">
@@ -1144,7 +1241,9 @@ function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display
 function tierOf(agent) { return cfg.tiers.find(t => t.name === agent.tier) || {}; }
 function fmtUsd(v) { return "$" + Number(v || 0).toFixed(6); }
 function statusClass(s) { return ["200", "401", "403", "429"].includes(String(s)) ? "s" + s : "sother"; }
-const surfChip = (s) => `<span class="surf ${s}">${{ model: "AI model", tool: "MCP tool", agent: "A2A agent" }[s] || s}</span>`;
+const ICON_OF = { model: "foundry-models", tool: "mcp", agent: "a2a" };
+const ico = (name, cls = "", alt = "") => `<img class="ico ${cls}" src="/icons/${name}.svg" alt="${alt}">`;
+const surfChip = (s) => `<span class="surf ${s}">${ICON_OF[s] ? ico(ICON_OF[s], "sm") : ""}${{ model: "AI model", tool: "MCP tool", agent: "A2A agent" }[s] || s}</span>`;
 const toolPrice = (name) => (cfg.tools.find(t => t.name === name) || {}).priceUsd || 0;
 const list = (xs) => (xs && xs.length ? xs.join(", ") : "<i>none</i>");
 
@@ -1158,13 +1257,14 @@ async function init() {
   for (const [k, id] of [["workbook", "lnkWorkbook"], ["appInsights", "lnkAppInsights"], ["logAnalytics", "lnkLogs"], ["apim", "lnkApim"]]) {
     if (cfg.links[k]) $(id).href = cfg.links[k]; else $(id).classList.add("hidden");
   }
+  loadHistory();
   const card = (a) => {
     const t = tierOf(a);
     if (a.kind === "user") return `<div class="agent" data-agent="${a.name}">
-      <div class="name">${a.displayName} <span class="badge ${a.tier}">${a.tier}</span></div>
+      <div class="name"><span>${ico("users")} ${a.displayName}</span> <span class="badge ${a.tier}">${a.tier}</span></div>
       <div class="meta">${escapeHtml(a.team || "-")} · ${escapeHtml(a.costCenter || "-")}<br/>budget <b>$${t.budgetUsd}</b> · <b>$${t.sessionBudgetUsd ?? t.budgetUsd}</b> per session</div></div>`;
     return `<div class="agent" data-agent="${a.name}">
-      <div class="name">${a.displayName} <span class="badge ${a.tier}">${a.tier}</span></div>
+      <div class="name"><span>${ico("foundry-agent-service")} ${a.displayName}</span> <span class="badge ${a.tier}">${a.tier}</span></div>
       <div class="meta">${surfChip("model")} ${t.allowedModels.join(", ")} · disallowed → ${t.onDisallowedModel === "deny" ? "<b>deny</b>" : "downgrade to " + t.fallbackModel}<br/>
       ${surfChip("tool")} ${list(t.allowedTools)}<br/>
       ${surfChip("agent")} ${list(t.allowedAgents)}<br/>
@@ -1459,9 +1559,9 @@ function record(r) {
   for (const [s, v] of Object.entries(costParts(r))) led[s === "agent" ? "agentFee" : s] += v;
   renderLedger();
 
-  const ok = session.calls.filter(c => c.status === 200).length;
-  $("kCalls").textContent = session.calls.length; $("sessionArea").classList.remove("idle"); $("kOk").textContent = ok;
-  $("kBlocked").textContent = session.calls.filter(c => [401, 403, 429].includes(c.status)).length;
+  const live = session.calls.filter(c => !c.past), ok = live.filter(c => c.status === 200).length;  // saved runs from earlier visits don't count
+  $("kCalls").textContent = live.length; $("sessionArea").classList.remove("idle"); $("kOk").textContent = ok;
+  $("kBlocked").textContent = live.filter(c => [401, 403, 429].includes(c.status)).length;
   $("kTokens").textContent = session.tokens.toLocaleString();
   $("kCost").textContent = fmtUsd(session.totalCost);
 
@@ -1519,7 +1619,7 @@ async function loadChargeback(sessionId) {
     if (run !== cbRun) return d;
     const blk = (x, html) => x ? `<div class="evtbl"><h3>${escapeHtml(x.title)} ${portalLink(x.portalLink)}</h3>${html}</div>` : "";
     $("cbMonitor").innerHTML = blk(d.teams, table(d.teams?.rows))
-      + blk(d.sessions, table(Array.isArray(d.sessions?.rows) ? shortTime(d.sessions.rows) : d.sessions?.rows, r => ` class="click" data-session="${escapeHtml(r.Session)}"`))
+      + blk(d.sessions, `<div class="scroll" style="max-height:360px">${table(Array.isArray(d.sessions?.rows) ? shortTime(d.sessions.rows) : d.sessions?.rows, r => ` class="click" data-session="${escapeHtml(r.Session)}"`)}</div>`)
       + blk(d.session, table(Array.isArray(d.session?.rows) ? shortTime(d.session.rows) : d.session?.rows)
             + `<div class="muted" style="margin-top:6px">CostUSD is what each record adds to the session. BudgetDrawUSD is what the request took from the plan's $ budget: for an A2A task that is the fee plus everything the agent spent, which also appears as separate records.</div>`);
     document.querySelectorAll("#cbMonitor tr.click").forEach(tr => tr.onclick = () => loadChargeback(tr.dataset.session).then(() => $("cbMonitor").lastElementChild?.scrollIntoView({ behavior: "smooth" })));
@@ -1600,10 +1700,12 @@ $("btnToggle").onclick = () => collapseLaunch(!$("launch").classList.contains("c
 $("btnAgain").onclick = () => { if (lastRun) { setMode(lastRun.mode); lastRun.btn.click(); } };
 $("lsum").onclick = () => { if (lastRun) openRun(lastRun.n); };
 
-// Run history: each scenario, full demo or custom request becomes a run whose calls, cost and story can be analyzed later (kept for this page session).
-const runs = []; let curRun = null, curPart = null, stopRequested = false, selRun = null, selCall = null, curTab = "live";
+// Run history: each scenario, full demo or custom request becomes a run whose calls, cost and story can be analyzed later.
+// Finished runs are saved by app.py per signed-in user (Easy Auth Entra ID when hosted, a local file otherwise) and restored on the next visit.
+const runs = []; let curRun = null, curPart = null, stopRequested = false, selRun = null, selCall = null, curTab = "live", hist = { enabled: false };
+const newId = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
 function startRun(run) {
-  curRun = Object.assign(run, { n: runs.length ? runs[runs.length - 1].n + 1 : 1, started: Date.now(), ended: null, status: "running", calls: [], parts: [] });
+  curRun = Object.assign(run, { id: newId(), n: runs.length ? runs[runs.length - 1].n + 1 : 1, started: Date.now(), ended: null, status: "running", calls: [], parts: [] });
   runs.push(curRun); curPart = null; stopRequested = false; selRun = null; selCall = null; renderRuns();
 }
 function snapPart(p) { if (p) Object.assign(p, { story: $("scStory").innerHTML, steps: $("scSteps").innerHTML, takeaway: $("scTakeaway").innerHTML }); }
@@ -1612,7 +1714,48 @@ function endRun() {
   snapPart(curPart);
   Object.assign(curRun, { ended: Date.now(), status: stopRequested ? "stopped" : "finished" });
   if (curRun.kind === "custom" && !curRun.calls.length) runs.splice(runs.indexOf(curRun), 1); // e.g. invalid tool JSON: nothing reached the gateway
+  else saveRun(curRun);
   curRun = null; curPart = null; stopRequested = false; renderRuns();
+}
+// A saved run carries its own calls; run.calls / parts[].calls become positions in that array instead of session.calls indices
+function packRun(run, withInvocations = true) {
+  const pos = new Map(run.calls.map((i, j) => [i, j]));
+  const { btn, past, ...rest } = run;
+  return { ...rest, calls: run.calls.map((_, j) => j), parts: run.parts.map(p => ({ ...p, calls: p.calls.map(i => pos.get(i)).filter(j => j != null) })),
+    callData: run.calls.map(i => { const { past, ...c } = session.calls[i]; return withInvocations ? c : { ...c, invocations: undefined }; }) };
+}
+async function saveRun(run) {
+  if (!hist.enabled) return;
+  let body = JSON.stringify({ run: packRun(run) });
+  if (body.length > 2_500_000) body = JSON.stringify({ run: packRun(run, false) });  // very long runs: keep the results, drop the raw HTTP captures
+  try {
+    const res = await fetch("/api/history", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.status);
+  } catch (e) { toast(`Run #${run.n} wasn't saved to your history: ${e.message}`); }
+}
+async function loadHistory() {
+  try { hist = await (await fetch("/api/history")).json(); } catch { hist = { enabled: false }; }
+  const lbl = $("runScope");
+  if (!hist.enabled) { lbl.textContent = "(this page session, newest first)"; return; }
+  lbl.innerHTML = `· saved for <b>${escapeHtml(hist.user)}</b>`;
+  lbl.title = `Finished runs are stored by the demo app per signed-in user (${hist.store}), so they're still here after a reload.`;
+  for (const saved of hist.runs || []) {
+    if (runs.some(r => r.id === saved.id)) continue;
+    const base = session.calls.length, n = runs.length ? runs[runs.length - 1].n + 1 : 1;
+    for (const c of saved.callData || []) session.calls.push(Object.assign(c, { past: true, run: n }));
+    const { callData, ...run } = saved;
+    runs.push(Object.assign(run, { n, past: true, status: run.status === "running" ? "stopped" : run.status,
+      calls: (run.calls || []).map(j => base + j), parts: (run.parts || []).map(p => ({ ...p, calls: (p.calls || []).map(j => base + j) })) }));
+  }
+  $("btnClearHist").classList.toggle("hidden", !runs.some(r => r.past));
+  renderRuns();
+}
+async function clearHistory() {
+  if (running || !confirm(`Delete your saved run history${hist.user ? " for " + hist.user : ""}? Runs from this page session stay until you reload.`)) return;
+  await fetch("/api/history/clear", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  for (let k = runs.length - 1; k >= 0; k--) if (runs[k].past) runs.splice(k, 1);
+  for (const r of runs) saveRun(r);  // keep this page's runs saved
+  selRun = null; $("btnClearHist").classList.add("hidden"); renderRuns(); toast("Saved run history cleared.");
 }
 function openRun(n) { selRun = n; selCall = null; showTab("runs"); $("tab-runs").scrollIntoView({ block: "start" }); scrollBy(0, -80); }
 const fmtDur = (ms) => { const s = Math.round(ms / 1000); return s < 60 ? `${s} s` : `${Math.floor(s / 60)} m ${String(s % 60).padStart(2, "0")} s`; };
@@ -1645,7 +1788,7 @@ function renderRuns() {
   const run = runs.find(r => r.n === selRun) || runs[runs.length - 1];
   $("runList").innerHTML = runs.slice().reverse().map(r => { const s = stats.get(r.n);
     return `<button class="ritem${r === run ? " sel" : ""}" data-n="${r.n}"><div class="top"><span class="rtag">#${r.n}</span><span class="kind ${r.kind}">${r.chip}</span><span class="ttl" title="${escapeHtml(r.title)}">${escapeHtml(r.title)}</span></div>
-      <div class="meta">${new Date(r.started).toLocaleTimeString()} · ${s.calls} call${s.calls === 1 ? "" : "s"}${s.blocked ? ` · <b style="color:var(--bad)">${s.blocked} blocked</b>` : ""} · ${fmtUsd(s.cost)}${r.req ? ` · ${escapeHtml(r.req.action)}` : ""}${r.status === "running" ? " · <b>running…</b>" : r.status === "stopped" ? " · stopped" : ""}</div>
+      <div class="meta">${r.past ? `<span class="kind saved" title="Saved from an earlier visit">saved</span> ` : ""}${new Date(r.started).toDateString() === new Date().toDateString() ? new Date(r.started).toLocaleTimeString() : new Date(r.started).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })} · ${s.calls} call${s.calls === 1 ? "" : "s"}${s.blocked ? ` · <b style="color:var(--bad)">${s.blocked} blocked</b>` : ""} · ${fmtUsd(s.cost)}${r.req ? ` · ${escapeHtml(r.req.action)}` : ""}${r.status === "running" ? " · <b>running…</b>" : r.status === "stopped" ? " · stopped" : ""}</div>
       <div class="cbar" title="Cost relative to the most expensive run"><i style="width:${(100 * s.cost / maxCost).toFixed(1)}%"></i></div></button>`; }).join("");
   $("runList").querySelectorAll(".ritem").forEach(b => b.onclick = () => { selRun = +b.dataset.n; selCall = null; renderRuns(); });
   renderRunDetail(run, stats.get(run.n));
@@ -1789,27 +1932,95 @@ function cbText(rules) {
     return `trips after ${f.count ?? f.percentage + "%"} × ${codes || "error"} within ${f.interval}, opens for ${c.tripDuration}${c.acceptRetryAfter ? " (honours Retry-After)" : ""}`;
   }).join("; ");
 }
+// Sub-views of the Policies & evidence tab
+let psec = "investigate";
+function showPsec(name) {
+  psec = name;
+  document.querySelectorAll(".psub button").forEach(b => { b.classList.toggle("on", b.dataset.psec === name); b.setAttribute("aria-selected", b.dataset.psec === name); });
+  document.querySelectorAll("div.psec").forEach(x => x.classList.toggle("hidden", x.dataset.psec !== name));
+  if (name === "investigate") window.gwFlow?.shown();
+}
+document.querySelectorAll(".psub button").forEach(b => b.onclick = () => showPsec(b.dataset.psec));
+const pill = (o) => `<span class="out ${o === "dg" ? "dg" : "o" + o}">${o === "dg" ? "↓ downgrade" : o}</span>`;
+// [policy or "~label", short note, ...outcomes]
+const PIPE = [
+  { ico: "users", title: "Agent / app", pat: "overview", items: [["api-key", "which plan pays"], ["Authorization: Bearer", "who calls"]] },
+  { ico: "entra-id", title: "Identity", gw: 1, pat: "identity", items: [["validate-azure-ad-token", "tenant · audience · client apps", "401"], ["entra-identity", "fragment: caller → chargeback"]] },
+  { ico: "plan", title: "Plan enforcement", gw: 1, pat: "plan", items: [["~entitlement", "model / tool / agent", "dg", "403"], ["llm-token-limit", "TPM + token quota", "429"], ["quota-by-key", "$ budget per key and session", "403"]] },
+  { ico: "backend-pool", title: "Routing & resilience", gw: 1, pat: "routing", items: [["set-backend-service", "priority pool"], ["retry", "429 / 5xx → next region"], ["~circuit breaker", "trips a throttled region"], ["authentication-managed-identity", "→ Foundry, no keys"]] },
+  { ico: "metrics", title: "Metering & logging", gw: 1, pat: "metering", items: [["llm-emit-token-metric", "tokens per agent, model"], ["emit-metric", "cost per agent, tier"], ["trace", "chargeback record"], ["x-gw-*", "response headers"]] },
+];
+$("pipe").innerHTML = PIPE.map(st => `<div class="stage${st.gw ? " gw" : ""}"><div class="hd">${ico(st.ico, "", "")}${st.title}</div>`
+  + st.items.map(([p, n, ...o]) => `<div class="pi">${p[0] === "~" ? `<span class="k">${p.slice(1)}</span>` : `<code>${p}</code>`}${o.map(pill).join("")}<small>${n}</small></div>`).join("")
+  + `<div class="pat"><a href="#" data-pat="${st.pat}">See the pattern</a></div></div>`).join("");
+const SINKS = [
+  { ico: "api", t: "x-gw-* response headers", by: "set-header policies", f: ["plan", "served model", "tokens", "cost", "limits left", "caller", "session", "route", "blocked-by"], key: "the response", d: "instant" },
+  { ico: "trace", t: "Request trace", by: "APIM tracing (debug credential)", f: ["every policy, in order", "timings", "variables", "retries", "backend URL"], key: "apim-trace-id", d: "instant" },
+  { ico: "log-analytics", t: "ApiManagementGatewayLogs", by: "diagnostic setting", f: ["product", "subscription", "backend", "status codes", "timings", "LastErrorSource / Reason"], key: "CorrelationId", d: "2-5 min" },
+  { ico: "foundry-models", t: "ApiManagementGatewayLlmLog", by: "LLM logging", f: ["deployment", "model", "prompt / completion tokens", "streaming"], key: "CorrelationId", d: "2-5 min" },
+  { ico: "mcp", t: "ApiManagementGatewayMCPLog", by: "MCP logging", f: ["client / server", "method", "tool", "session", "auth method", "errors"], key: "CorrelationId", d: "2-5 min" },
+  { ico: "app-insights", t: "App Insights requests", by: "API diagnostics", f: ["product", "subscription", "duration", "result code", "dependency"], key: "operation id", d: "1-3 min" },
+  { ico: "metrics", t: "App Insights customMetrics", by: "emit-metric · llm-emit-token-metric", f: ["cost", "tokens", "governance events", "backend attempts", "≤ 5 dimensions"], key: "dimensions", d: "1-3 min" },
+  { ico: "cost-management", t: "App Insights traces", by: "trace (chargeback-record)", f: ["user", "team", "cost center", "session", "tokens", "cost", "on-behalf-of path"], key: "session · requestId", d: "1-3 min" },
+];
+$("sinks").innerHTML = SINKS.map(x => `<div class="sink"><div class="h">${ico(x.ico, "", "")}<div class="t">${x.t}<small>${x.by}</small></div><span class="dly${x.d === "instant" ? " now" : ""}">${x.d}</span></div>`
+  + `<div class="chips">${x.f.map(f => `<span class="chip">${f}</span>`).join("")}</div><div class="fk">find a call by <span class="chip key">${x.key}</span></div></div>`).join("");
+
 async function loadPolicies() {
   try {
     const d = await (await fetch("/api/policies", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).json();
     if (d.error) throw new Error(d.error);
     const singles = Object.fromEntries((d.backends || []).filter(b => b.type !== "Pool").map(b => [b.name, b]));
     const regions = Object.fromEntries((cfg.foundryBackends || []).map(b => [b.name, b.location]));
-    $("backendsKv").innerHTML = (d.backends || []).filter(b => b.type === "Pool").map(p => `<div>Backend pool <code>${p.name}</code></div><div>`
-      + (p.pool || []).map(s => { const n = shortId(s.id), b = singles[n] || {};
-          return `<b>priority ${s.priority ?? 1}</b> · <code>${n}</code> ${regions[n] ? "(" + regions[n] + ")" : ""}${b.circuitBreaker ? ` · circuit breaker: ${cbText(b.circuitBreaker)}` : ""}`; }).join("<br/>")
-      + `</div>`).join("") || `<div>Backends</div><div class="muted">no backend pool found</div>`;
+    $("backendsKv").innerHTML = (d.backends || []).filter(b => b.type === "Pool").map(p => `<div class="ph">pool <code>${escapeHtml(p.name)}</code> · lower priority number is tried first; equal priorities share load</div>`
+      + (p.pool || []).map(s => { const n = shortId(s.id), b = singles[n] || {}, pr = s.priority ?? 1, cb = b.circuitBreaker ? cbText(b.circuitBreaker) : "";
+          return `<div class="bk">${ico("foundry-models", "", "")}<div style="min-width:0"><div class="nm">${escapeHtml(n)}</div><div class="rg">${escapeHtml(regions[n] || b.url || "")}</div>`
+            + `<div class="chips" style="margin-top:6px">${ico("managed-identity", "sm", "managed identity")}${cb ? `<span class="chip" title="${escapeHtml(cb)}">${ico("circuit-breaker", "", "")}circuit breaker</span>` : ""}</div></div>`
+            + `<span class="pr${pr === 1 ? " p1" : ""}">priority ${pr}</span></div>`; }).join("")).join("")
+      || `<div class="muted">No backend pool found.</div>`;
+    const SCOPE = { API: ["api", "API policies"], Fragment: ["policy", "Policy fragments"], Product: ["plan", "Product (plan) policies"] };
+    const groups = {};
+    for (const p of d.policies || []) (groups[p.scope] ||= []).push(p);
     $("deployedPolicies").classList.remove("muted");
-    $("deployedPolicies").innerHTML = (d.policies || []).map(p => `<details class="pol"><summary><span class="badge">${p.scope}</span> ${escapeHtml(p.name)}</summary><pre class="xml">${escapeHtml(p.xml)}</pre></details>`).join("");
+    $("deployedPolicies").innerHTML = Object.entries(groups).map(([sc, list]) => `<div class="polgrp"><h3>${ico((SCOPE[sc] || ["policy"])[0], "", "")}${(SCOPE[sc] || [, sc])[1]} <span class="cnt">${list.length}</span></h3><div class="polgrid">`
+      + list.map(p => { const el = polElements(p.xml);
+          return `<div class="polcard"><div class="nm">${escapeHtml(p.name)}</div>` + Object.entries(el).map(([sec, names]) => `<div class="sr"><span>${sec}</span><div class="chips">`
+            + names.map(n => `<span class="chip${KEY_SOURCES.test(n) ? " key" : ""}">${n}</span>`).join("") + `</div></div>`).join("")
+            + `<details><summary>View XML</summary><pre class="xml">${escapeHtml(p.xml)}</pre></details></div>`; }).join("") + `</div></div>`).join("");
   } catch (e) { $("deployedPolicies").textContent = "Failed to read policies: " + e.message; }
+}
+// Policy statements in a policy document, grouped by section (regex: policy XML can hold C# generics such as <string> that break XML parsers)
+const POL_SKIP = new Set(["policies", "fragment", "inbound", "backend", "outbound", "on-error", "base", "choose", "when", "otherwise", "value", "set-variable", "string", "int", "bool", "double", "long", "decimal", "object",
+  "openid-config", "audiences", "audience", "issuers", "issuer", "required-claims", "claim", "client-application-ids", "application-id", "header", "parameter", "set-body", "dimension", "backend-pool", "message"]);
+function polElements(xml) {
+  const out = {}, seen = new Set(); let sec = "fragment";
+  for (const m of String(xml || "").matchAll(/<(\/?)([a-z][a-z0-9-]*)/g)) {
+    const [, close, n] = m;
+    if (["inbound", "backend", "outbound", "on-error"].includes(n)) { if (!close) sec = n; continue; }
+    if (close || POL_SKIP.has(n) || seen.has(sec + n)) continue;
+    seen.add(sec + n); (out[sec] ||= []).push(n);
+  }
+  return out;
+}
+const EV_ICON = { outcomes: "policy", backends: "backend-pool", failover: "circuit-breaker", llm: "foundry-models", mcp: "mcp", entra: "entra-id" };
+function barTable(rows) {
+  if (!Array.isArray(rows)) return `<div class="muted">${escapeHtml(rows && rows.error || "no data")}</div>`;
+  if (!rows.length) return `<div class="muted" style="padding:6px 0">No rows in this window yet (gateway logs arrive 2-5 minutes after a call).</div>`;
+  const cols = Object.keys(rows[0]), isCode = c => /code$/i.test(c);
+  const num = cols.find(c => !isCode(c) && rows.every(r => r[c] === "" || r[c] === null || !isNaN(+r[c])));
+  const max = num ? Math.max(1, ...rows.map(r => +r[num] || 0)) : 1;
+  const cell = (c, v) => isCode(c) && v !== "" && v !== null ? `<td><span class="status ${statusClass(+v)}">${escapeHtml(v)}</span></td>`
+    : c === num ? `<td class="bar"><i style="width:calc((100% - 12px) * ${((+v || 0) / max).toFixed(3)})"></i><b>${escapeHtml(v)}</b></td>` : `<td>${escapeHtml(v)}</td>`;
+  return `<table><thead><tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${cols.map(c => cell(c, r[c])).join("")}</tr>`).join("")}</tbody></table>`;
 }
 async function loadPolicyEvidence() {
   $("evStatus").textContent = "Querying Log Analytics…"; $("btnEvidence").disabled = true;
   try {
     const d = await (await fetch("/api/policy-evidence", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ window: $("evWindow").value }) })).json();
     if (d.error) throw new Error(d.error);
-    $("policyEvidence").innerHTML = Object.values(d).map(x => `<div class="evtbl"><h3>${escapeHtml(x.title)} ${portalLink(x.portalLink)}</h3>${table(x.rows)}</div>`).join("");
-    $("evStatus").textContent = `Updated ${new Date().toLocaleTimeString()}. Gateway diagnostic logs reach Log Analytics 2-5 minutes after a call.`;
+    $("policyEvidence").innerHTML = Object.entries(d).map(([k, x], j) => { const n = Array.isArray(x.rows) ? x.rows.length : 0;
+      return `<details class="kq"${j < 2 ? " open" : ""}><summary>${ico(EV_ICON[k] || "log-analytics", "", "")}<span class="t">${escapeHtml(x.title)}</span><span class="cnt${n ? " has" : ""}">${Array.isArray(x.rows) ? n + " row" + (n === 1 ? "" : "s") : "error"}</span>${x.portalLink ? `<a href="${x.portalLink}" target="_blank" title="Run this query in the Azure portal">Portal ↗</a>` : ""}</summary><div class="body">${barTable(x.rows)}</div></details>`; }).join("");
+    $("evStatus").textContent = `Updated ${new Date().toLocaleTimeString()} · gateway diagnostic logs reach Log Analytics 2-5 minutes after a call.`;
   } catch (e) { $("evStatus").textContent = "Failed: " + e.message; }
   $("btnEvidence").disabled = false;
 }
@@ -1817,6 +2028,8 @@ $("btnEvidence").onclick = loadPolicyEvidence;
 $("evWindow").onchange = loadPolicyEvidence;
 
 const KEY_SOURCES = /validate-azure-ad-token|entra-identity|llm-token-limit|quota-by-key|rate-limit|set-backend-service|backend-pool|forward-request|retry|load-balancer|authentication-managed-identity|return-response|emit-metric/i;
+const secs = (e) => { const m = String(e || "").match(/(\d+):(\d+):([\d.]+)/); return m ? (+m[1] * 3600 + +m[2] * 60 + +m[3]) : 0; };
+const fmtMs = (s) => s * 1000 < 10 ? (s * 1000).toFixed(1) + " ms" : Math.round(s * 1000) + " ms";
 async function loadTrace(traceId) {
   const d = await (await fetch("/api/trace", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ traceId }) })).json();
   if (d.error) return `<div class="muted">${escapeHtml(d.error)}</div>`;
@@ -1824,22 +2037,42 @@ async function loadTrace(traceId) {
   window.gwFlow?.trace(traceId, all);
   if (!all.length) return `<div class="muted">The trace is empty.</div>`;
   const rows = all.filter(x => !/^\{"message": "Expression was successfully evaluated/.test(x.data) && !/^(api-inspector|graphql-configuration-setup|request-payload-handler|response-payload-handler)$/.test(x.source || ""));
-  return `<div class="muted" style="font-size:12px">${rows.length} policy records shown (${all.length - rows.length} expression evaluations and payload reads hidden) · trace id <code>${escapeHtml(traceId)}</code></div><table class="steps"><thead><tr><th>Section</th><th>Policy / source</th><th>Elapsed</th><th>Detail</th></tr></thead><tbody>`
-    + rows.map(x => { const err = /error|denied|unauthori|exceed|status code (4|5)\d\d|"statusCode":\s*(4|5)\d\d/i.test(x.data) && x.section !== "backend" || /on-error/i.test(x.section);
-        return `<tr><td>${escapeHtml(x.section)}</td><td><span class="src ${err ? "err" : KEY_SOURCES.test(x.source) ? "key" : ""}">${escapeHtml(x.source || "")}</span></td><td>${escapeHtml(String(x.elapsed || "").replace(/^00:00:/, ""))}</td>`
-          + `<td style="white-space:normal;font-family:Consolas,monospace;font-size:11px;max-width:420px;word-break:break-word">${escapeHtml(x.data)}</td></tr>`; }).join("")
-    + `</tbody></table>`;
+  const isErr = (x) => /error|denied|unauthori|exceed|status code (4|5)\d\d|"statusCode":\s*(4|5)\d\d/i.test(x.data) && x.section !== "backend" || /on-error/i.test(x.section);
+  // time spent per section, from the cumulative elapsed of each record
+  const segs = [];
+  all.forEach((x, j) => { const t = secs(x.elapsed); if (!segs.length || segs[segs.length - 1].sec !== x.section) segs.push({ sec: x.section, a: t, b: t }); segs[segs.length - 1].b = t;
+    if (j && segs.length > 1 && segs[segs.length - 1].a === t) segs[segs.length - 2].b = t; });
+  const total = Math.max(secs(all[all.length - 1].elapsed), 1e-6);
+  const bar = `<div class="tl">${segs.map(g => { const w = Math.max(4, (g.b - g.a) / total * 100);
+    return `<div class="${escapeHtml(g.sec)}" style="flex:${w} 0 0" title="${escapeHtml(g.sec)} · ${fmtMs(g.b - g.a)}">${escapeHtml(g.sec)} ${fmtMs(g.b - g.a)}</div>`; }).join("")}</div>`
+    + `<div class="tlx"><span>0 ms</span><span>total ${fmtMs(total)}</span></div>`;
+  const keys = []; let last = "";
+  for (const x of rows) { const err = isErr(x); if (!(err || KEY_SOURCES.test(x.source))) continue; const k = x.source + err; if (k === last) continue; last = k; keys.push({ x, err }); }
+  const chips = `<div class="ksteps">${keys.map(({ x, err }, j) => `${j ? '<span class="sep">›</span>' : ""}<span class="ks${err ? " err" : x.section === "backend" ? " bk" : ""}" title="${escapeHtml(x.section + " · " + String(x.data || "").slice(0, 400))}">${escapeHtml(x.source)}<small>+${fmtMs(secs(x.elapsed))}</small></span>`).join("")}</div>`;
+  return bar + chips + `<details class="raw"><summary>All ${rows.length} policy records (${all.length - rows.length} expression evaluations hidden) · trace id <code>${escapeHtml(traceId)}</code></summary><table class="steps"><thead><tr><th>Section</th><th>Policy / source</th><th>Elapsed</th><th>Detail</th></tr></thead><tbody>`
+    + rows.map(x => `<tr><td>${escapeHtml(x.section)}</td><td><span class="src ${isErr(x) ? "err" : KEY_SOURCES.test(x.source) ? "key" : ""}">${escapeHtml(x.source || "")}</span></td><td>${escapeHtml(String(x.elapsed || "").replace(/^00:00:/, ""))}</td>`
+      + `<td style="white-space:normal;font-family:Consolas,monospace;font-size:11px;max-width:420px;word-break:break-word">${escapeHtml(x.data)}</td></tr>`).join("")
+    + `</tbody></table></details>`;
 }
+const EVT_ICON = (t) => /Llm/i.test(t) ? "foundry-models" : /MCP/i.test(t) ? "mcp" : /Gateway/i.test(t) ? "log-analytics" : /trace/i.test(t) ? "cost-management" : /metric/i.test(t) ? "metrics" : "app-insights";
 async function loadEvidence(requestId, surface) {
   const d = await (await fetch("/api/evidence", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId, surface }) })).json();
   if (d.error) return { html: `<div class="muted">${escapeHtml(d.error)}</div>`, found: true };
   const tables = Object.values(d.tables || {}), found = tables.some(t => Array.isArray(t.rows) && t.rows.length);
-  const html = tables.map(t => `<div class="evtbl"><h3><code>${t.table}</code> ${portalLink(t.portalLink)}</h3><div class="muted" style="font-size:12px">${escapeHtml(t.tracks)}</div>`
-    + (Array.isArray(t.rows) && t.rows.length ? vtable(t.rows[0]) : `<div class="muted">${t.rows && t.rows.error ? escapeHtml(t.rows.error) : "No rows yet. Logs arrive 2–5 minutes after the call, and a call blocked before the backend has no model or tool row."}</div>`) + `</div>`).join("");
+  const html = tables.map(t => `<div class="evsrc"><h3>${ico(EVT_ICON(t.table), "", "")}<code>${t.table}</code><span class="info" tabindex="0" data-tip="${escapeHtml(t.tracks)}">i</span>${t.portalLink ? `<a href="${t.portalLink}" target="_blank">Portal ↗</a>` : ""}</h3>`
+    + (Array.isArray(t.rows) && t.rows.length ? vtable(t.rows[0]) : `<div class="muted" style="margin-top:4px">${t.rows && t.rows.error ? escapeHtml(t.rows.error) : "No rows yet. Logs arrive 2–5 minutes after the call, and a call blocked before the backend has no model or tool row."}</div>`) + `</div>`).join("");
   return { html, found };
 }
-function vtable(row) { // one log record as a vertical name / value table
-  return `<table class="steps"><tbody>${Object.entries(row).filter(([, v]) => v !== "" && v !== null).map(([k, v]) => `<tr><td style="width:170px">${k}</td><td style="white-space:normal;word-break:break-word">${escapeHtml(typeof v === "object" ? JSON.stringify(v) : v)}</td></tr>`).join("")}</tbody></table>`;
+const EV_FIRST = ["ResponseCode", "BackendResponseCode", "LastErrorSource", "LastErrorReason", "LastErrorMessage", "ProductId", "ApimSubscriptionId", "BackendId", "BackendUrl", "DeploymentName", "ModelName", "Model",
+  "PromptTokens", "CompletionTokens", "TotalTokens", "ToolName", "ClientName", "ServerName", "Method", "TotalTime", "BackendTime", "Region"];
+function vtable(row) { // one log record: the fields that matter first, the rest folded away
+  const ent = Object.entries(row).filter(([, v]) => v !== "" && v !== null), has = new Set(ent.map(([k]) => k));
+  let first = EV_FIRST.filter(k => has.has(k));
+  if (!first.length) first = ent.slice(0, 6).map(([k]) => k);
+  const val = (k, v) => /ResponseCode$/.test(k) ? `<span class="status ${statusClass(+v)}">${escapeHtml(v)}</span>` : escapeHtml(typeof v === "object" ? JSON.stringify(v) : v);
+  const rest = ent.filter(([k]) => !first.includes(k));
+  return `<div class="evkv">${first.map(k => `<div><span>${k}</span><b>${val(k, row[k])}</b></div>`).join("")}</div>`
+    + (rest.length ? `<details class="raw"><summary>${rest.length} more field${rest.length === 1 ? "" : "s"}</summary><table class="steps"><tbody>${rest.map(([k, v]) => `<tr><td style="width:170px">${k}</td><td style="white-space:normal;word-break:break-word">${val(k, v)}</td></tr>`).join("")}</tbody></table></details>` : "");
 }
 // Request log on the Policies & evidence tab: pick a call to replay it and load its trace and logs without leaving the tab
 let evFilterRun = "all", evBlockedOnly = false;
@@ -1906,7 +2139,7 @@ async function showEvidence(i, attempt = 0, opts = {}) {
   evIndex = i;
   if (!attempt) {
     if (!evLogIdxs().includes(i)) { evFilterRun = "all"; evBlockedOnly = false; } // opened from another tab: make sure the call is visible in the log
-    showTab("policies"); $("evPanel").classList.remove("hidden");
+    showTab("policies"); showPsec("investigate"); $("evPanel").classList.remove("hidden");
     $("evTitle").textContent = `· #${i + 1} · ${r.agent} · ${r.surface} · HTTP ${r.status}`;
     $("evTrace").innerHTML = h["apim-trace-id"] ? `<div class="muted">Fetching the trace…</div>`
       : `<div class="muted">This call was not traced. Tick <b>Trace policies</b> before sending to record a policy-by-policy trace.</div>`;

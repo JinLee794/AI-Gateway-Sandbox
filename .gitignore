@@ -209,3 +209,5 @@ labs/ai-gateway-sandbox/infra/sandbox.generated.json
 # Ignore local environment files
 .env
 .env.local
+# Per-user run history of the AI Gateway Sandbox demo UI (local runs)
+labs/ai-gateway-sandbox/src/.history/
