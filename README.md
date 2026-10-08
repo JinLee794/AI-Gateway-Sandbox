@@ -142,7 +142,7 @@ The [lab README](labs/ai-gateway-sandbox/README.md) explains every policy, price
 
 ## 🗺️ Roadmap: what's not in the Sandbox yet
 
-The upstream labs already show each of these patterns on their own. The Sandbox doesn't include them yet. 🚧 = in progress, 💡 = idea.
+The upstream labs already show each of these patterns on their own. The Sandbox doesn't include them yet. ✅ = now in the Sandbox, 🚧 = in progress, 💡 = idea.
 
 **Scenarios**
 
@@ -157,7 +157,8 @@ The upstream labs already show each of these patterns on their own. The Sandbox 
 | 🚧 | Real users, not keys | Chargeback by Entra ID user, instead of one subscription key per user. | [access-controlling](labs/access-controlling/), [mcp-client-authorization](labs/mcp-client-authorization/) |
 | 💡 | One budget across clouds | Amazon Bedrock and Google Gemini models share the same plans and price list. | [aws-bedrock](labs/aws-bedrock/), [google-gemini-api](labs/google-gemini-api/) |
 | 💡 | Self-hosted showback | Self-hosted models are priced per GPU-second instead of per token. | [serverless-gpu](labs/serverless-gpu/), [self-hosted-ollama](labs/self-hosted-ollama/) |
-| 🚧 | Pricing beyond tokens | Charges per image, for audio tokens and for stateful Responses API calls. | [image-generation](labs/image-generation/), [realtime-audio](labs/realtime-audio/), [secure-responses-api](labs/secure-responses-api/) |
+| ✅ | [Pricing beyond tokens](labs/ai-gateway-sandbox/README.md#pricing-beyond-tokens-responses-api-and-images) | Images are charged per image by quality and size (optional). Responses API calls pay the cached rate for cached input tokens, stored reads are free, and follow-up calls stay on the region that stored the response. Everything draws on the same plan and $ budget. | [image-generation](labs/image-generation/), [secure-responses-api](labs/secure-responses-api/), [session-awareness](labs/session-awareness/) |
+| 💡 | Audio tokens over realtime | APIM runs WebSocket policies only at the handshake. The idea: check entitlement, rate and budget at the handshake, then price audio and text tokens afterwards from the LLM log. | [realtime-audio](labs/realtime-audio/) |
 
 **Ways to deploy**
 
