@@ -8,7 +8,8 @@ and tokens for the telemetry, Log Analytics evidence, request tracing, policy vi
     python app.py [--port 8080] [--config demo-config.private.config]
 
 The config file is written by the lab notebook (step 3) and contains the APIM subscription keys,
-so it is git-ignored (*.private.config).
+so it is git-ignored (*.private.config). When deployed with 'azd up', the UI runs on Azure Container Apps: the config
+comes from the DEMO_CONFIG environment variable and tokens from the UI managed identity instead of the Azure CLI.
 """
 import argparse, base64, gzip, json, os, re, shutil, subprocess, sys, threading, time, urllib.error, urllib.parse, urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -112,6 +113,14 @@ def az_token(resource):
         cached = _token_cache.get(resource)
         if cached and cached[1] - 300 > time.time():
             return cached[0]
+        if os.environ.get("IDENTITY_ENDPOINT"):
+            # Hosted on Azure Container Apps (azd up): tokens of the UI managed identity
+            query = urllib.parse.urlencode({"api-version": "2019-08-01", "resource": resource, "client_id": os.environ.get("AZURE_CLIENT_ID", "")})
+            request = urllib.request.Request(f"{os.environ['IDENTITY_ENDPOINT']}?{query}", headers={"X-IDENTITY-HEADER": os.environ.get("IDENTITY_HEADER", "")})
+            with urllib.request.urlopen(request, timeout=30) as response:
+                data = json.loads(response.read())
+            _token_cache[resource] = (data["access_token"], float(data["expires_on"]))
+            return data["access_token"]
         az = shutil.which("az") or shutil.which("az.cmd")
         if not az:
             raise RuntimeError("Azure CLI not found - install it and run 'az login'")
@@ -519,12 +528,17 @@ def main():
     parser = argparse.ArgumentParser(description="AI Gateway Sandbox demo UI")
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8080)))
     parser.add_argument("--config", default=os.path.join(HERE, "demo-config.private.config"))
+    parser.add_argument("--host", default=os.environ.get("HOST", "127.0.0.1"))
     args = parser.parse_args()
-    if not os.path.exists(args.config):
+    if os.environ.get("DEMO_CONFIG"):
+        # Hosted on Azure Container Apps (azd up): the config is a Container App secret
+        CONFIG.update(json.loads(os.environ["DEMO_CONFIG"]))
+    elif not os.path.exists(args.config):
         sys.exit(f"Config file not found: {args.config}. Run step 3 of the lab notebook first.")
-    with open(args.config, encoding="utf-8") as f:
-        CONFIG.update(json.load(f))
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+    else:
+        with open(args.config, encoding="utf-8") as f:
+            CONFIG.update(json.load(f))
+    server = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"AI Gateway Sandbox demo UI running on http://localhost:{args.port}  (Ctrl+C to stop)")
     try:
         server.serve_forever()

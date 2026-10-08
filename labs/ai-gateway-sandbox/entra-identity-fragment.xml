@@ -23,6 +23,8 @@
             <application-id>04b07795-8ddb-461a-bbee-02f9e1bf7b46</application-id>
             <!-- Sourcing Agent workload identity (user-assigned managed identity of the Container App) -->
             <application-id>{agent-client-id}</application-id>
+            <!-- Hosted demo UI workload identity (azd up only; empty for the notebook deployment) -->
+            {ui-client-application-id}
         </client-application-ids>
         <audiences>
             <audience>https://cognitiveservices.azure.com</audience>
@@ -32,6 +34,7 @@
         var jwt = (Jwt)context.Variables["entraToken"];
         var appId = jwt.Claims.GetValueOrDefault("appid", jwt.Claims.GetValueOrDefault("azp", ""));
         if (appId == "{agent-client-id}") { return "sourcing-agent (managed identity)"; }
+        if (appId == "{ui-client-id}") { return "sandbox-ui (managed identity)"; }
         var user = jwt.Claims.GetValueOrDefault("upn", jwt.Claims.GetValueOrDefault("unique_name", jwt.Claims.GetValueOrDefault("preferred_username", "")));
         return user != "" ? user : "app:" + appId;
     }" />

@@ -37,6 +37,9 @@ param budgetEpoch string = utcNow('yyyyMMddHHmmss')
 @secure()
 param agentBackendSecret string = newGuid()
 
+@description('Client ID of the hosted demo UI managed identity, approved as a gateway caller (set by azd up; empty for the notebook)')
+param uiClientId string = ''
+
 // ------------------
 //    VARIABLES
 // ------------------
@@ -199,7 +202,12 @@ resource entraIdentityFragment 'Microsoft.ApiManagement/service/policyFragments@
   properties: {
     description: 'Validates the caller Microsoft Entra ID token (validate-azure-ad-token) and identifies the caller for chargeback'
     format: 'rawxml'
-    value: replace(replace(loadTextContent('entra-identity-fragment.xml'), '{tenant-id}', tenant().tenantId), '{agent-client-id}', agentIdentity.properties.clientId)
+    value: reduce(items({
+      '{tenant-id}': tenant().tenantId
+      '{agent-client-id}': agentIdentity.properties.clientId
+      '{ui-client-application-id}': empty(uiClientId) ? '' : '<application-id>${uiClientId}</application-id>'
+      '{ui-client-id}': empty(uiClientId) ? 'none' : uiClientId
+    }), loadTextContent('entra-identity-fragment.xml'), (xml, placeholder) => replace(xml, placeholder.key, placeholder.value))
   }
 }
 
@@ -603,6 +611,7 @@ output mcpUrl string = '${apimModule.outputs.gatewayUrl}/${commerceMcp.propertie
 output a2aUrl string = '${apimModule.outputs.gatewayUrl}/${sourcingAgentApi.properties.path}'
 output agentCardUrl string = '${apimModule.outputs.gatewayUrl}/${sourcingAgentApi.properties.path}/.well-known/agent-card.json'
 output agentAppUrl string = 'https://${sourcingAgentApp.properties.configuration.ingress.fqdn}'
+output containerAppsEnvironmentId string = agentEnvironment.id
 output toolPricing string = toolPricing
 output agentPricing string = agentPricing
 

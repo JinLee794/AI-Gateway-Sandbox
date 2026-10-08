@@ -251,6 +251,28 @@ Click a scenario in the UI, or **Run the full demo** to play them all in order (
 
 Proceed by opening the [Jupyter notebook](ai-gateway-sandbox.ipynb), and follow the steps provided.
 
+#### Or deploy everything with one command (azd)
+
+[Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) deploys the same infrastructure as the notebook ([main.bicep](main.bicep)) and also hosts the demo UI on Azure Container Apps, behind Microsoft Entra ID sign-in:
+
+```bash
+cd labs/ai-gateway-sandbox
+azd auth login
+azd up        # asks for an environment name, subscription and region (e.g. swedencentral)
+```
+
+`azd up` takes about 10 minutes and prints the UI URL (`SERVICE_UI_URI`). What it does:
+
+- a `preprovision` hook ([infra/scripts/build_config.py](infra/scripts/build_config.py)) turns [sandbox-config.json](sandbox-config.json) into the lab parameters, the same way step 2️⃣ of the notebook does. Edit `sandbox-config.json` to change regions, models, prices, plans or consumers (it mirrors the notebook's first cell).
+- [infra/main.bicep](infra/main.bicep) creates the resource group `rg-<environment name>`, deploys the lab, then the UI: a container registry, a Container App built from [src/Dockerfile](src/Dockerfile) (built in Azure, no local Docker needed) and an Entra ID app registration that signs users in with a federated credential of the UI managed identity (no client secret).
+- the UI uses its **managed identity** instead of your Azure CLI login: the gateway approves it as a caller (`x-gw-caller: sandbox-ui (managed identity)`), and it has *API Management Service Contributor*, *Log Analytics Reader* and *Monitoring Reader* on the resource group for the traces, policy read-back, budget reset and Azure Monitor queries. The configuration written by step 3️⃣ of the notebook is a Container App secret.
+- only the user who ran `azd up` can sign in. To let others in, assign them to the *AI Gateway Sandbox UI (&lt;environment&gt;)* enterprise application in Microsoft Entra ID.
+
+Run `azd deploy` to ship UI changes only. If your tenant requires a service tree ID on app registrations, run `azd env set AZURE_SERVICE_MANAGEMENT_REFERENCE <id>` first. Remove everything with `azd down --purge` (it also purges the Foundry resources); the app registration is not deleted by `azd down`.
+
+> [!NOTE]
+> The hosted UI image only contains `src/app.py` and `src/static`. Running the UI locally (`python src/app.py`) still works with a notebook deployment.
+
 > [!NOTE]
 > This lab was previously named *AI Gateway Tokenomics* (`labs/ai-gateway-tokenomics`). The notebook derives the resource group from the folder name, so new deployments go to `lab-ai-gateway-sandbox`. If you deployed the lab under its old name and want to keep using that deployment, set `deployment_name = "ai-gateway-tokenomics"` in the first cell (and in the clean-up notebook). A redeploy over an old deployment renames the attribution policy fragment to `payer-attribution`, the custom metric namespace to `ai-gateway-sandbox` and replaces the workbook; delete the old `tokenomics-attribution` fragment and *AI Gateway Tokenomics* workbook afterwards.
 
