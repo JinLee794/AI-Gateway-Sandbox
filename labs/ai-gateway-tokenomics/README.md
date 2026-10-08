@@ -81,8 +81,9 @@ The [API policy](policy.xml) prices every call using the `model-pricing` named v
 
 [src/app.py](src/app.py) is a lightweight web UI that uses only the Python standard library. With it you can:
 
+- run **guided scenarios**: six one-click stories that each send a small, fixed number of real calls through the gateway and explain what it did (see below)
 - pick an agent and a model, which shows the tier limits and whether each model is allowed, downgraded or denied
-- send single requests, bursts or mixed traffic
+- send single requests, bursts (up to 20) or 30 requests of mixed traffic
 - see what the gateway did for every call
 - track each agent's $ budget
 - query the Application Insights breakdown live
@@ -94,16 +95,29 @@ Run it after step 3️⃣ of the notebook, which writes the git-ignored `src/dem
 python src/app.py --port 8080
 ```
 
-Then open http://localhost:8080. The **Azure Monitor** tab and the **Reset budgets** button use your Azure CLI login.
+Then open http://localhost:8080. The **Azure Monitor** tab and the **Reset budgets** button use your Azure CLI login. As a safety net, the UI server refuses more than 60 gateway calls per minute (set `DEMO_MAX_CALLS_PER_MINUTE` to change it).
 
-### Suggested demo script
+### Guided scenarios
+
+Click a scenario in the UI, or **Run the full demo** to play all six in order (about 30 calls, under $0.02 at the demo prices, about 3 minutes):
+
+| # | Scenario | What the customer sees | Calls |
+|---|----------|------------------------|-------|
+| 1 | Same question, every model | Gold agent asks one question on each model. The gateway prices each call (about 24× between `gpt-4.1` and `gpt-4.1-nano`). | 4 |
+| 2 | Model governance | Silver asks for `gpt-4.1` and is downgraded to `gpt-4.1-mini`. Bronze is denied with 403 and nothing reaches Foundry. | 2 |
+| 3 | Output cap | Bronze asks for `max_tokens: 4000` and the gateway caps it at 300. | 1 |
+| 4 | Tokens-per-minute limit | Bronze bursts long generations and gets 429 with Retry-After after 1,500 tokens per minute. | ≤ 10 |
+| 5 | $ budget exhausted | Budgets are reset, then Silver runs long reports until its $0.01 budget is spent and gets 403. | ≤ 12 |
+| 6 | Chargeback | Opens the App Insights view with cost and tokens per agent, tier and model. | 0 |
+
+### Suggested demo script (manual)
 
 1. **Reset budgets** in the UI.
 2. Select **Customer Support Agent** (Gold) and send to `gpt-4.1`, then `DeepSeek-V3.2`. Point out the served model, tokens and cost of each call.
 3. Select **Research Agent** (Silver) and send to `gpt-4.1`. The gateway downgrades the call to `gpt-4.1-mini`.
 4. Select **Marketing Copilot** (Bronze) and send to `gpt-4.1`. The call is denied with 403. Then **Burst ×10** on `gpt-4.1-nano` with the long prompt: 429s appear once the agent passes 1,500 tokens per minute.
 5. Select **Research Agent** and burst the *Long generation* prompt. The $0.01 budget is exhausted and the gateway returns 403.
-6. **Simulate mixed traffic** for a minute. Then open the **Azure Monitor** tab or the **Workbook** to show the breakdown by agent, tier and model.
+6. **Simulate mixed traffic** (30 short requests). Then open the **Azure Monitor** tab or the **Workbook** to show the breakdown by agent, tier and model.
 
 ### Prerequisites
 

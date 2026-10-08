@@ -16,6 +16,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(HERE, "static")
 CONFIG = {}
 _token_cache, _token_lock = {}, threading.Lock()
+# Demo safety net: cap the gateway calls the UI can send, independent of the gateway's own tier limits
+MAX_CALLS_PER_MINUTE = int(os.environ.get("DEMO_MAX_CALLS_PER_MINUTE", 60))
+_recent_calls, _calls_lock = [], threading.Lock()
 
 GW_HEADERS = ["x-gw-agent", "x-gw-tier", "x-gw-model-requested", "x-gw-model-served", "x-gw-governance",
               "x-gw-prompt-tokens", "x-gw-completion-tokens", "x-gw-cost-usd", "x-gw-remaining-tpm",
@@ -76,6 +79,12 @@ def chat(payload):
     agent = agent_by_name(payload.get("agent", ""))
     if not agent:
         return 400, {"error": f"Unknown agent '{payload.get('agent')}'"}
+    with _calls_lock:
+        now = time.time()
+        _recent_calls[:] = [t for t in _recent_calls if now - t < 60]
+        if len(_recent_calls) >= MAX_CALLS_PER_MINUTE:
+            return 429, {"error": f"Demo UI safety limit: at most {MAX_CALLS_PER_MINUTE} calls per minute (set DEMO_MAX_CALLS_PER_MINUTE to change it)"}
+        _recent_calls.append(now)
     body = {"model": payload.get("model"), "messages": [{"role": "user", "content": payload.get("prompt") or "Hello"}]}
     if payload.get("maxTokens"):
         body["max_tokens"] = int(payload["maxTokens"])

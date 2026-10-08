@@ -58,6 +58,15 @@
   .muted { color:var(--muted); font-size:12px; }
   .hidden { display:none; }
   canvas { max-height:260px; }
+  .scenarios { display:grid; gap:6px; }
+  .scenarios button { text-align:left; background:var(--panel2); border:1px solid #33405e; padding:8px 11px; }
+  .scenarios button:hover:not(:disabled) { border-color:var(--accent); }
+  .scenarios button .t { font-weight:600; display:block; } .scenarios button .c { color:var(--muted); font-size:11px; }
+  .scenarios button.all { background:var(--accent); border-color:var(--accent); } .scenarios button.all .c { color:#dfe8ff; }
+  #scenario { margin-bottom:16px; border-color:var(--accent); }
+  #scSteps { margin:10px 0 0; padding-left:20px; line-height:1.9; font-size:13px; }
+  #scTakeaway { margin-top:10px; padding:10px 12px; background:#1b2a47; border-radius:6px; }
+  #scTakeaway:empty { display:none; }
   .toast { position:fixed; bottom:18px; right:18px; background:var(--panel2); border:1px solid var(--accent); padding:10px 14px; border-radius:8px; display:none; max-width:420px; }
 </style>
 </head>
@@ -76,6 +85,11 @@
 
 <main>
   <section>
+    <div class="card" style="margin-bottom:16px">
+      <h2>▶ Guided scenarios</h2>
+      <div class="scenarios" id="scenarios"></div>
+      <div class="muted" style="margin-top:8px">Every scenario sends a small, fixed number of real calls through the gateway to Foundry. Call counts and costs are upper bounds.</div>
+    </div>
     <div class="card">
       <h2>1. Pick an agent</h2>
       <div class="agents" id="agents"></div>
@@ -89,12 +103,12 @@
       <textarea id="prompt" style="margin-top:6px"></textarea>
       <div class="row">
         <div><label>max_tokens</label><input id="maxTokens" type="number" value="200" min="1" /></div>
-        <div><label>Burst size</label><input id="burst" type="number" value="10" min="1" max="100" /></div>
+        <div><label>Burst size (max 20)</label><input id="burst" type="number" value="10" min="1" max="20" /></div>
       </div>
       <div class="actions">
         <button id="btnSend">Send</button>
         <button class="secondary" id="btnBurst">Burst ×N</button>
-        <button class="secondary" id="btnSim" title="Random agents and models, 2 requests/second">Simulate mixed traffic</button>
+        <button class="secondary" id="btnSim" title="30 short requests from random agents and models, 2 per second">Simulate mixed traffic (30)</button>
         <button class="secondary hidden" id="btnStop">Stop</button>
       </div>
       <div class="muted" style="margin-top:10px" id="runStatus"></div>
@@ -102,6 +116,12 @@
   </section>
 
   <section>
+    <div class="card hidden" id="scenario">
+      <h2 id="scTitle"></h2>
+      <div id="scStory" class="muted" style="font-size:13px"></div>
+      <ol id="scSteps"></ol>
+      <div id="scTakeaway"></div>
+    </div>
     <div class="tabs">
       <button class="active" data-tab="live">Live session</button>
       <button data-tab="monitor">Azure Monitor (App Insights)</button>
@@ -201,6 +221,7 @@ async function init() {
   selectAgent(cfg.agents[0].name);
   initCharts();
   renderBudgets();
+  renderScenarios();
 }
 
 function selectAgent(name) {
@@ -236,10 +257,12 @@ function setOutcomes(c, rows) { // rows: [{Agent, resultCode, Calls}]
   c.update();
 }
 
-async function send(agentName, model) {
-  const body = { agent: agentName, model, prompt: $("prompt").value, maxTokens: Number($("maxTokens").value) || undefined };
-  const r = await (await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json();
-  if (r.status === undefined) { toast(r.error || "request failed"); return r; }
+async function send(agentName, model, opts = {}) {
+  const body = { agent: agentName, model, prompt: opts.prompt ?? $("prompt").value,
+                 maxTokens: opts.maxTokens ?? (Number($("maxTokens").value) || undefined) };
+  const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const r = await res.json();
+  if (r.status === undefined) { toast(r.error || "request failed"); return { status: 0, agent: agentName, requestedModel: model, error: r.error }; }
   record(r);
   return r;
 }
@@ -247,7 +270,7 @@ async function send(agentName, model) {
 function record(r) {
   const h = r.headers || {}, cost = Number(h["x-gw-cost-usd"] || 0);
   const tokens = r.usage ? (r.usage.total_tokens || 0) : 0, served = h["x-gw-model-served"] || r.requestedModel;
-  session.calls.push(r);
+  session.calls.push(r); session.totalCost = (session.totalCost || 0) + cost;
   session.costByAgent[r.agent] = (session.costByAgent[r.agent] || 0) + cost;
   if (tokens) session.tokensByModel[served] = (session.tokensByModel[served] || 0) + tokens;
   const key = r.agent + "|" + r.status; session.outcomes[key] = (session.outcomes[key] || 0) + 1;
@@ -256,7 +279,7 @@ function record(r) {
   $("kCalls").textContent = session.calls.length; $("kOk").textContent = ok;
   $("kBlocked").textContent = session.calls.filter(c => c.status === 403 || c.status === 429).length;
   $("kTokens").textContent = Object.values(session.tokensByModel).reduce((a, b) => a + b, 0).toLocaleString();
-  $("kCost").textContent = fmtUsd(Object.values(session.costByAgent).reduce((a, b) => a + b, 0));
+  $("kCost").textContent = fmtUsd(session.totalCost);
 
   const gov = h["x-gw-governance"] && h["x-gw-governance"] !== "none" ? `<span class="gov">${h["x-gw-governance"]}</span>` : "none";
   $("last").innerHTML = `<span class="status ${statusClass(r.status)}">${r.status}</span> <b>${r.agent}</b> (${r.tier}) · ${r.latencyMs} ms
@@ -294,37 +317,43 @@ function renderBudgets() {
 
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function setRunning(on, label = "") {
-  running = on; ["btnSend", "btnBurst", "btnSim"].forEach(id => $(id).disabled = on);
+  running = on; ["btnSend", "btnBurst", "btnSim", "btnReset"].forEach(id => $(id).disabled = on);
+  document.querySelectorAll(".scenarios button").forEach(b => b.disabled = on);
   $("btnStop").classList.toggle("hidden", !on); $("runStatus").textContent = label;
 }
 
 $("btnSend").onclick = async () => { setRunning(true, "Sending…"); await send(selectedAgent.name, $("model").value); setRunning(false); };
 $("btnBurst").onclick = async () => {
-  const n = Number($("burst").value) || 10; setRunning(true);
+  const n = Math.min(20, Math.max(1, Number($("burst").value) || 10)); $("burst").value = n; setRunning(true);
   for (let i = 1; i <= n && running; i++) { $("runStatus").textContent = `Burst ${i}/${n}…`; await send(selectedAgent.name, $("model").value); }
   setRunning(false, `Burst finished.`);
 };
+const SIM_REQUESTS = 30;
 $("btnSim").onclick = async () => {
-  setRunning(true); let i = 0;
-  while (running) {
+  setRunning(true); let i = 0; const inflight = [];
+  while (running && i < SIM_REQUESTS) {
     const a = cfg.agents[Math.floor(Math.random() * cfg.agents.length)], m = cfg.models[Math.floor(Math.random() * cfg.models.length)];
-    $("runStatus").textContent = `Simulating… request ${++i}: ${a.name} → ${m.name}`;
-    send(a.name, m.name); await new Promise(r => setTimeout(r, 500));
+    $("runStatus").textContent = `Simulating… request ${++i}/${SIM_REQUESTS}: ${a.name} → ${m.name}`;
+    inflight.push(send(a.name, m.name, { prompt: PRESETS["Short FAQ answer"], maxTokens: 100 })); await sleep(500);
   }
-  setRunning(false, `Simulation stopped after ${i} requests.`);
+  await Promise.all(inflight);
+  setRunning(false, `Simulation finished after ${i} requests.`);
 };
 $("btnStop").onclick = () => { running = false; };
-$("btnReset").onclick = async () => {
-  if (!confirm("Reset every agent's $ budget and token quota?")) return;
+async function resetBudgets() {
   const r = await (await fetch("/api/reset-budgets", { method: "POST" })).json();
-  if (r.error) return toast("Reset failed: " + r.error);
-  session.costByAgent = {}; renderBudgets(); toast(r.message);
+  if (r.error) { toast("Reset failed: " + r.error); return false; }
+  session.costByAgent = {}; renderBudgets(); toast(r.message); return true;
+}
+$("btnReset").onclick = async () => {
+  if (confirm("Reset every agent's $ budget and token quota?")) await resetBudgets();
 };
-document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
-  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("active", x === b));
-  $("tab-live").classList.toggle("hidden", b.dataset.tab !== "live"); $("tab-monitor").classList.toggle("hidden", b.dataset.tab !== "monitor");
-  if (b.dataset.tab === "monitor" && !charts._loaded) { charts._loaded = true; refreshMonitor(); }
-});
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
+function showTab(tab) {
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("active", x.dataset.tab === tab));
+  $("tab-live").classList.toggle("hidden", tab !== "live"); $("tab-monitor").classList.toggle("hidden", tab !== "monitor");
+  if (tab === "monitor" && !charts._loaded) { charts._loaded = true; refreshMonitor(); }
+}
 $("btnRefresh").onclick = refreshMonitor;
 $("timespan").onchange = refreshMonitor;
 
@@ -352,6 +381,119 @@ async function refreshMonitor() {
     $("monStatus").textContent = "Updated " + new Date().toLocaleTimeString() + " (App Insights ingestion delay is typically 1-3 minutes).";
   } catch (e) { $("monStatus").textContent = "Failed: " + e.message; }
   $("btnRefresh").disabled = false;
+}
+// ---------- Guided scenarios: small, bounded sequences of real calls through the gateway ----------
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const ASK = "In two sentences, explain why an AI gateway helps control LLM costs.";
+const LONG = PRESETS["Long generation (expensive)"];
+const hdr = (r, k) => (r.headers || {})[k];
+const usd = (r) => Number(hdr(r, "x-gw-cost-usd") || 0);
+const tierAgent = (tier) => cfg.agents.find(a => a.tier === tier);
+const modelInfo = (name) => cfg.models.find(m => m.name === name) || { inputPrice: 0, outputPrice: 0 };
+
+function step(r, note = "") {
+  const served = hdr(r, "x-gw-model-served") || "-", g = hdr(r, "x-gw-governance");
+  const gov = g && g !== "none" ? ` · <span class="gov">${g}</span>` : "";
+  const detail = r.status === 200 ? ` · ${hdr(r, "x-gw-prompt-tokens")}+${hdr(r, "x-gw-completion-tokens")} tokens · ${fmtUsd(usd(r))}`
+                                  : ` · ${escapeHtml((r.error || "").slice(0, 100))}`;
+  $("scSteps").insertAdjacentHTML("beforeend", `<li><span class="status ${statusClass(r.status)}">${r.status}</span>
+    ${r.agent} asked <b>${r.requestedModel}</b> → served <b>${served}</b>${gov}${detail}${note ? ` <span class="muted">· ${note}</span>` : ""}</li>`);
+}
+const info = (html) => $("scSteps").insertAdjacentHTML("beforeend", `<li class="muted">${html}</li>`);
+const takeaway = (html) => $("scTakeaway").innerHTML = "💡 " + html;
+
+const SCENARIOS = [
+  { title: "Same question, every model", cost: "4 calls · < $0.002",
+    story: () => `The Gold <b>${tierAgent("gold").displayName}</b> asks one question on each Foundry model. The gateway prices every call from the token usage Foundry returns.`,
+    async run() {
+      const a = tierAgent("gold"), done = [];
+      for (const m of cfg.models) {
+        if (!running) return;
+        const r = await send(a.name, m.name, { prompt: ASK, maxTokens: 120 }); step(r);
+        if (r.status === 200) done.push({ model: m.name, cost: usd(r) });
+      }
+      done.sort((x, y) => x.cost - y.cost);
+      if (done.length > 1) takeaway(`Same question, <b>${(done.at(-1).cost / done[0].cost).toFixed(0)}× cost difference</b>: ${done.at(-1).model} cost ${fmtUsd(done.at(-1).cost)}, ${done[0].model} cost ${fmtUsd(done[0].cost)}. Model choice is the biggest cost lever, and the gateway records the cost of every call per agent and model.`);
+    } },
+  { title: "Model governance: downgrade or deny", cost: "2 calls · < $0.001",
+    story: () => `Silver and Bronze agents ask for a premium model their tier does not allow. Silver is downgraded to <b>${tierOf(tierAgent("silver")).fallbackModel}</b>, and Bronze is denied before any tokens are spent.`,
+    async run() {
+      const s = tierAgent("silver"), b = tierAgent("bronze");
+      const premium = cfg.models.find(m => !tierOf(s).allowedModels.includes(m.name))?.name || cfg.models[0].name;
+      const r1 = await send(s.name, premium, { prompt: ASK, maxTokens: 120 }); step(r1, "silently downgraded, the app still gets an answer");
+      if (!running) return;
+      const r2 = await send(b.name, premium, { prompt: ASK, maxTokens: 120 }); step(r2, "denied at the gateway, Foundry is never called");
+      const saved = r1.status === 200 ? (Number(hdr(r1, "x-gw-prompt-tokens")) * modelInfo(premium).inputPrice + Number(hdr(r1, "x-gw-completion-tokens")) * modelInfo(premium).outputPrice) / 1e6 : 0;
+      takeaway(`Tiers decide which models an agent may use. The downgraded call cost ${fmtUsd(usd(r1))} instead of ${fmtUsd(saved)} on ${premium}, and the Bronze call cost $0.`);
+    } },
+  { title: "Output cap", cost: "1 call · < $0.0005",
+    story: () => `Bronze <b>${tierAgent("bronze").displayName}</b> requests a 1,500-word report with <code>max_tokens: 4000</code>. The gateway rewrites the request to the tier cap of <b>${tierOf(tierAgent("bronze")).maxOutputTokens}</b> output tokens.`,
+    async run() {
+      const b = tierAgent("bronze"), t = tierOf(b), m = t.allowedModels[0];
+      const r = await send(b.name, m, { prompt: LONG, maxTokens: 4000 }); step(r, r.finishReason === "length" ? "response truncated at the cap" : "");
+      const worst = (Number(hdr(r, "x-gw-prompt-tokens") || 0) * modelInfo(m).inputPrice + 4000 * modelInfo(m).outputPrice) / 1e6;
+      if (r.status === 200) takeaway(`The agent asked for up to 4,000 output tokens and got ${hdr(r, "x-gw-completion-tokens")}. Worst-case cost per call went from ${fmtUsd(worst)} to ${fmtUsd(usd(r))}, without changing the agent's code.`);
+    } },
+  { title: "Tokens-per-minute limit", cost: "≤ 10 calls · < $0.002",
+    story: () => `Bronze sends long generations back to back. Its tier allows <b>${tierOf(tierAgent("bronze")).tpm.toLocaleString()} tokens per minute</b>. After that, the gateway answers 429 with Retry-After, and the throttled calls never reach Foundry.`,
+    async run() {
+      const b = tierAgent("bronze"), m = tierOf(b).allowedModels[0];
+      let ok = 0, throttled = 0, retry;
+      for (let i = 0; i < 10 && running && throttled < 2; i++) {
+        const r = await send(b.name, m, { prompt: LONG, maxTokens: 300 });
+        step(r, r.status === 200 ? `remaining TPM ${hdr(r, "x-gw-remaining-tpm")}` : "");
+        if (r.status === 200) ok++; else if (r.status === 429) { throttled++; retry = hdr(r, "retry-after"); }
+      }
+      takeaway(throttled ? `${ok} calls served, then <b>429 Too Many Requests</b> (Retry-After ${retry}s). One noisy agent cannot use up the shared model capacity, and throttled calls cost $0.`
+                         : `${ok} calls served without hitting the limit. The token window may have just rolled over, so run it again.`);
+    } },
+  { title: "$ budget exhausted", cost: "≤ 12 calls · ≈ $0.01",
+    story: () => `Budgets are reset first. Then the Silver <b>${tierAgent("silver").displayName}</b> runs long reports until its <b>$${tierOf(tierAgent("silver")).budgetUsd}</b> budget is spent. The gateway prices each call and cuts the agent off with 403.`,
+    async run() {
+      const s = tierAgent("silver"), t = tierOf(s), m = t.allowedModels[0];
+      info("Resetting budgets (budget-epoch named value)…");
+      if (!await resetBudgets()) return;
+      await sleep(8000);
+      let spent = 0, blocked = null;
+      for (let i = 0; i < 12 && running && !blocked; i++) {
+        const r = await send(s.name, m, { prompt: LONG, maxTokens: t.maxOutputTokens });
+        if (r.status === 200) spent += usd(r);
+        if (r.status === 403) blocked = r;
+        step(r, r.status === 200 ? `spent ${fmtUsd(spent)} of $${t.budgetUsd}` : r.status === 403 ? "budget exhausted" : "");
+        if (r.status === 429) await sleep(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5));
+      }
+      takeaway(blocked ? `The agent spent ${fmtUsd(spent)} against its $${t.budgetUsd} budget and the gateway now answers <b>403</b>. Spend stops at the gateway until the budget period renews (or you reset it). The budget is checked before each call, so the last call can go slightly over.`
+                       : `Spent ${fmtUsd(spent)} so far without exhausting the budget. Run the scenario again to finish it.`);
+    } },
+  { title: "Chargeback in Azure Monitor", cost: "0 calls · $0",
+    story: () => `Opens the Application Insights view: cost and tokens per agent, tier and model, plus every governance action, all recorded by the gateway.`,
+    async run() {
+      charts._loaded = true; showTab("monitor"); await refreshMonitor();
+      takeaway(`Every number comes from gateway telemetry (emit-metric / llm-emit-token-metric), so you can do showback or chargeback per agent with no app instrumentation. New calls take 1-3 minutes to show up. The <b>📊 Workbook</b> link opens the same breakdown in the Azure portal.`);
+    } },
+];
+
+async function runScenario(s) {
+  $("scenario").classList.remove("hidden"); $("scSteps").innerHTML = "";
+  $("scTitle").textContent = "▶ " + s.title; $("scStory").innerHTML = s.story(); $("scTakeaway").innerHTML = "";
+  if (s.title !== "Chargeback in Azure Monitor") showTab("live");
+  try { await s.run(); } catch (e) { info("Scenario failed: " + escapeHtml(e.message)); }
+}
+function renderScenarios() {
+  $("scenarios").innerHTML = SCENARIOS.map((s, i) => `<button data-i="${i}"><span class="t">${i + 1}. ${s.title}</span><span class="c">${s.cost}</span></button>`).join("")
+    + `<button class="all" id="btnAll"><span class="t">Run the full demo (all 6)</span><span class="c">≈ 30 calls · < $0.02 · about 3 minutes</span></button>`;
+  document.querySelectorAll(".scenarios button[data-i]").forEach(b => b.onclick = async () => {
+    setRunning(true, "Running scenario…"); await runScenario(SCENARIOS[b.dataset.i]); setRunning(false, "Scenario finished.");
+  });
+  $("btnAll").onclick = async () => {
+    setRunning(true);
+    for (const [i, s] of SCENARIOS.entries()) {
+      if (!running) break;
+      $("runStatus").textContent = `Full demo: scenario ${i + 1}/${SCENARIOS.length}`;
+      await runScenario(s); await sleep(4000);
+    }
+    setRunning(false, "Full demo finished.");
+  };
 }
 init();
 </script>
