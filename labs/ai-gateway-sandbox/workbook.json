@@ -1361,6 +1361,137 @@
             "styleSettings": {
               "showBorder": true
             }
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "### ⛔ Over budget, switched off\nThe operations loop behind the gateway's real-time `quota-by-key` stop. A **log search alert** (every 5 minutes) adds up each watched subscription's chargeback records per **budget epoch**; at the threshold its action group calls a **Logic App** that **suspends the APIM subscription** with its managed identity and writes a `BudgetBreach` audit event. Expect 3-10 minutes from the breach to the suspension. **Reset budgets** starts a new epoch and re-activates the subscription. Empty unless `budgetSuspend.enabled` is `true` in `sandbox-config.json`."
+            },
+            "name": "budget-suspend-intro"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "customEvents\n| where name == \"BudgetBreach\"\n| extend Action = tostring(customDimensions.action), Subscription = tostring(customDimensions.subscription),\n         BudgetEpoch = tostring(customDimensions.budgetEpoch), PreviousState = tostring(customDimensions.previousState),\n         Reason = tostring(customDimensions.reason), Alert = tostring(customDimensions.alertRule), Run = tostring(customDimensions.logicAppRun)\n| where \"*\" in ({Consumer}) or Subscription in ({Consumer})\n| project timestamp, Action, Subscription, BudgetEpoch, PreviousState, Reason, Alert, Run\n| order by timestamp desc",
+              "size": 0,
+              "title": "Budget breach audit trail (BudgetBreach events from the Logic App)",
+              "noDataMessage": "No budget breach yet. Run the 'Over budget, switched off' scenario.",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.insights/components",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Action",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "suspended",
+                          "representation": "4",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "failed",
+                          "representation": "3",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "success",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            "customWidth": "50",
+            "name": "budget-suspend-events"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let budgets = datatable(Agent:string, AgentName:string, Tier:string, BudgetMicroUsd:long)[{budget-rows}];\ntraces\n| where tostring(customDimensions.record) == \"chargeback\"\n| extend Subscription = tostring(customDimensions.user), BudgetEpoch = tostring(customDimensions.budgetEpoch)\n| where isnotempty(BudgetEpoch) and (\"*\" in ({Consumer}) or Subscription in ({Consumer}))\n| summarize SpentMicroUsd = sum(tolong(customDimensions.costMicroUsd)), Calls = count(), LastCall = max(timestamp) by Subscription, BudgetEpoch\n| join kind=inner budgets on $left.Subscription == $right.Agent\n| project LastCall, Name = AgentName, Subscription, Plan = Tier, BudgetEpoch, Calls, SpentUSD = SpentMicroUsd / 1e6, BudgetUSD = BudgetMicroUsd / 1e6, UsedPercent = round(100.0 * SpentMicroUsd / BudgetMicroUsd, 1)\n| order by LastCall desc",
+              "size": 0,
+              "title": "Spend per budget epoch (what the alert evaluates)",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.insights/components",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    },
+                    "columnMatch": "SpentUSD"
+                  },
+                  {
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 4
+                      }
+                    },
+                    "columnMatch": "BudgetUSD"
+                  },
+                  {
+                    "columnMatch": "UsedPercent",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "greenRed"
+                    },
+                    "numberFormat": {
+                      "unit": 1,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "customWidth": "50",
+            "name": "budget-suspend-spend"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "union isfuzzy=true (datatable(TimeGenerated:datetime, Run:string, Status:string, Started:datetime, Ended:datetime)[]),\n  (AzureDiagnostics\n   | where ResourceProvider == \"MICROSOFT.LOGIC\" and Category == \"WorkflowRuntime\" and OperationName == \"Microsoft.Logic/workflows/workflowRunCompleted\"\n   | where resource_workflowName_s startswith \"la-budget-suspend\"\n   | project TimeGenerated, Run = resource_runId_s, Status = status_s, Started = startTime_t, Ended = endTime_t)\n| order by TimeGenerated desc",
+              "size": 0,
+              "title": "Logic App runs (suspend workflow)",
+              "noDataMessage": "No Logic App runs yet.",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{law-id}"
+              ]
+            },
+            "name": "budget-suspend-runs"
           }
         ]
       },
