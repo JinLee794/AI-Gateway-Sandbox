@@ -8,7 +8,9 @@
               harm categories (Hate / Sexual / SelfHarm / Violence at severity >= threshold), Prompt Shields
               (jailbreak / user prompt attacks, shield-prompt="{cs-shield-prompt}") and a custom blocklist of
               sensitive-data patterns (SSNs, card numbers). A hit returns 403 through on-error with
-              LastError.Source = "llm-content-safety", so the tier policy sets x-gw-blocked-by: llm-content-safety.
+              LastError.Reason = "ContentSafetyPolicyViolated" (Source = "llm-content-safety" for Prompt Shields and harm
+              categories, "request-forwarder" for blocklist matches); the safety-ledger fragment sets
+              x-gw-blocked-by: llm-content-safety for both.
           - Optional Purview DLP (purview-dlp fragment, only when purviewDlp.enabled in sandbox-config.json).
 
         A blocked call never reaches Foundry, the MCP server or the agent: 0 model tokens, $0 model cost.

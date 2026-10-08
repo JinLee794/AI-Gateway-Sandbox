@@ -170,7 +170,7 @@
                             <value>@((string)context.Variables["pvStatus"] == "blocked" ? "purview-dlp-policy" : "purview-verdict-unknown (fail closed)")</value>
                         </set-header>
                         <set-header name="x-gw-safety-cost-usd" exists-action="override">
-                            <value>@((context.Variables.GetValueOrDefault<int>("safetyMicroUsd", 0) / 1000000.0).ToString("0.######", System.Globalization.CultureInfo.InvariantCulture))</value>
+                            <value>@((context.Variables.GetValueOrDefault<int>("safetyMicroUsd", 0) / 1000000.0).ToString("0.000000"))</value>
                         </set-header>
                         <set-header name="x-gw-request-id" exists-action="override">
                             <value>@(context.RequestId.ToString())</value>

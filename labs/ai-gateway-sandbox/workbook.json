@@ -1793,7 +1793,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "ApiManagementGatewayLogs\n| where LastErrorSource == \"llm-content-safety\"\n| extend Surface = case(ApiId == \"inference-api\", \"AI models\", ApiId == \"sourcing-agent\", \"A2A agents\", ApiId in (\"commerce-mcp\", \"commerce-api\"), \"MCP tools\", ApiId)\n| where (\"*\" in ({Plan}) or ProductId in ({Plan})) and (\"*\" in ({Consumer}) or ApimSubscriptionId in ({Consumer}))\n| summarize Blocked = count(), ReachedBackend = countif(BackendResponseCode > 0 or isnotempty(BackendUrl)), LastSeen = max(TimeGenerated) by Surface, Plan = ProductId, ResponseCode, Reason = LastErrorReason\n| order by Blocked desc",
+              "query": "ApiManagementGatewayLogs\n| where LastErrorReason == \"ContentSafetyPolicyViolated\"\n| extend Surface = case(ApiId == \"inference-api\", \"AI models\", ApiId == \"sourcing-agent\", \"A2A agents\", ApiId in (\"commerce-mcp\", \"commerce-api\"), \"MCP tools\", ApiId)\n| where (\"*\" in ({Plan}) or ProductId in ({Plan})) and (\"*\" in ({Consumer}) or ApimSubscriptionId in ({Consumer}))\n| summarize Blocked = count(), ReachedBackend = countif(BackendResponseCode > 0 or isnotempty(BackendUrl)), LastSeen = max(TimeGenerated) by Surface, Plan = ProductId, ResponseCode, Reason = LastErrorReason\n| order by Blocked desc",
               "size": 0,
               "title": "🛡️ Blocked before spend: calls stopped by llm-content-safety (Reached backend should be 0)",
               "timeContextFromParameter": "TimeRange",

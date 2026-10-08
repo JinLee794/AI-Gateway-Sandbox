@@ -70,9 +70,9 @@ POLICY_EVIDENCE_QUERIES = {
             '| summarize Calls = count(), Errors = countif(isnotempty(Error)) by ToolName, ClientName | order by Calls desc'),
     "entra": ("Entra ID: rejected tokens", 'ApiManagementGatewayLogs | where TimeGenerated > ago({window}) and LastErrorSource == "validate-azure-ad-token" '
               '| summarize Rejected = count() by ProductId, LastErrorReason | order by Rejected desc'),
-    "safety": ("Blocked before spend: content safety (BackendResponseCode 0 = never sent to a backend)",
-               'ApiManagementGatewayLogs | where TimeGenerated > ago({window}) and LastErrorSource == "llm-content-safety" '
-               '| summarize Blocked = count() by ApiId, ProductId, ResponseCode, BackendResponseCode, LastErrorReason | order by Blocked desc'),
+    "safety": ("Blocked before spend: content safety (empty BackendUrl = never sent to a backend)",
+               'ApiManagementGatewayLogs | where TimeGenerated > ago({window}) and LastErrorReason == "ContentSafetyPolicyViolated" '
+               '| summarize Blocked = count(), ReachedBackend = countif(isnotempty(BackendUrl)) by ApiId, ProductId, ResponseCode, Source = LastErrorSource | order by Blocked desc'),
 }
 
 # Chargeback records written by the chargeback-record policy fragment (one per billable call). Workspace-based
