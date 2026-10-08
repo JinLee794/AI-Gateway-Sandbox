@@ -57,13 +57,13 @@
         <choose>
             <when condition="@(context.Response.StatusCode == 200 && context.Response.Headers.GetValueOrDefault("Content-Type", "").Contains("application/json"))">
                 <set-variable name="promptTokens" value="@{
-                    var usage = context.Response.Body.As<JObject>(preserveContent: true)["usage"];
+                    var usage = context.Response.Body.As<JObject>(preserveContent: true)["usage"] as JObject;
                     if (usage == null) { return 0; }
                     var tokens = usage["prompt_tokens"] ?? usage["input_tokens"];
                     return tokens == null ? 0 : (int)tokens;
                 }" />
                 <set-variable name="completionTokens" value="@{
-                    var usage = context.Response.Body.As<JObject>(preserveContent: true)["usage"];
+                    var usage = context.Response.Body.As<JObject>(preserveContent: true)["usage"] as JObject;
                     if (usage == null) { return 0; }
                     var tokens = usage["completion_tokens"] ?? usage["output_tokens"];
                     return tokens == null ? 0 : (int)tokens;
