@@ -4,7 +4,7 @@
     {
       "type": 1,
       "content": {
-        "json": "# 🪙 AI Gateway Tokenomics\nWhat every **consumer** (APIM subscription) on every **plan** (APIM product) spends on **AI models**, **MCP tools** and **A2A agents**, priced and enforced by Azure API Management. Use the filters to scope every tab, and click a row in any grid marked 🔎 to drill in."
+        "json": "# 🪙 AI Gateway Tokenomics\nSpend and plan enforcement for every **consumer** (APIM subscription) on every **plan** (APIM product), across **AI models**, **MCP tools** and **A2A agents**. Click a KPI to open its tab, and a 🔎 row to drill in."
       },
       "name": "header"
     },
@@ -130,7 +130,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "let cost = materialize(customMetrics\n  | where name == \"CostMicroUSD\"\n  | extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n           Resource = tostring(customDimensions.Model), Surface = coalesce(tostring(customDimensions.Surface), \"model\"),\n           Via = coalesce(tostring(customDimensions.Via), \"direct\"), Caller = tostring(customDimensions.Caller)\n  | where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n  | extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n  );\nlet tokens = materialize(customMetrics\n  | where name in (\"Prompt Tokens\", \"Completion Tokens\")\n  | extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n           Resource = tostring(customDimensions.Model), Surface = coalesce(tostring(customDimensions.Surface), \"model\"),\n           Via = coalesce(tostring(customDimensions.Via), \"direct\"), Caller = tostring(customDimensions.Caller)\n  | where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n  | extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n  );\nlet gov = materialize(customMetrics\n  | where name == \"GovernanceEvents\"\n  | extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n           Event = tostring(customDimensions.Event), RequestedModel = tostring(customDimensions.Model), Surface = \"model\"\n  | where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer}))\n  );\nlet failover = customMetrics | where name == \"BackendAttempts\" and tostring(customDimensions.Failover) == \"yes\"\n  | extend Plan = tostring(customDimensions.Tier) | where \"*\" in ({Plan}) or Plan in ({Plan});\nlet spend = toscalar(cost | summarize sum(valueSum)) / 1e6;\nlet calls = toscalar(cost | summarize sum(valueCount));\nlet consumers = toscalar(cost | summarize dcount(Consumer));\nprint Order = 1, Metric = \"Spend (USD)\", Value = round(spend, 4), Detail = strcat(\"across \", calls, \" priced calls\")\n| union (print Order = 2, Metric = \"Avg cost per call (USD)\", Value = round(iff(calls > 0, spend / calls, 0.0), 6), Detail = strcat(consumers, \" consumers\"))\n| union (tokens | summarize v = sum(valueSum) | project Order = 3, Metric = \"Tokens\", Value = v, Detail = \"prompt + completion\")\n| union (gov | summarize v = sum(valueSum) | project Order = 4, Metric = \"Plan enforcements\", Value = v, Detail = \"downgrades, denials, caps\")\n| union (failover | summarize v = sum(valueCount) | project Order = 5, Metric = \"Regional failovers\", Value = v, Detail = \"retried on another region\")\n| order by Order asc",
+        "query": "let cost = materialize(customMetrics\n  | where name == \"CostMicroUSD\"\n  | extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n           Resource = tostring(customDimensions.Model), Surface = coalesce(tostring(customDimensions.Surface), \"model\"),\n           Via = coalesce(tostring(customDimensions.Via), \"direct\"), Caller = tostring(customDimensions.Caller)\n  | where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n  | extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n  );\nlet tokens = customMetrics\n  | where name in (\"Prompt Tokens\", \"Completion Tokens\")\n  | extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n           Resource = tostring(customDimensions.Model), Surface = coalesce(tostring(customDimensions.Surface), \"model\"),\n           Via = coalesce(tostring(customDimensions.Via), \"direct\"), Caller = tostring(customDimensions.Caller)\n  | where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n  | extend SurfaceName = case(Surface == \"model\", \"AI models\", Surface == \"tool\", \"MCP tools\", Surface == \"agent\", \"A2A agents\", Surface)\n  ;\nlet gov = customMetrics\n  | where name == \"GovernanceEvents\"\n  | extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier),\n           Event = tostring(customDimensions.Event), RequestedModel = tostring(customDimensions.Model), Surface = \"model\"\n  | where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer}))\n  ;\nlet failover = customMetrics | where name == \"BackendAttempts\" and tostring(customDimensions.Failover) == \"yes\"\n  | extend Plan = tostring(customDimensions.Tier), Consumer = tostring(customDimensions.Agent), Surface = \"model\"\n  | where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer}));\nlet gateway = workspace(\"{law-id}\").ApiManagementGatewayLogs\n  | where ApiId in (\"inference-api\", \"commerce-mcp\", \"commerce-api\", \"sourcing-agent\")\n  | extend Plan = ProductId, Consumer = ApimSubscriptionId,\n           Surface = case(ApiId == \"inference-api\", \"model\", ApiId == \"sourcing-agent\", \"agent\", \"tool\")\n  | where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}));\nlet tiles = datatable(Order:int, Metric:string, Tab:string)[\n  1, \"Spend ($)\", \"overview\", 2, \"Cost per 1K calls ($)\", \"chargeback\", 3, \"Tokens\", \"overview\",\n  4, \"Gateway calls\", \"evidence\", 5, \"Blocked by policy (%)\", \"governance\", 6, \"Plan enforcements\", \"governance\",\n  7, \"Regional failovers\", \"evidence\"];\nunion\n  (cost | make-series s = sum(valueSum), c = sum(valueCount) default = 0 on timestamp step {TimeRange:grain}\n   | extend S = array_sum(s), C = array_sum(c)\n   | project Row = pack_array(\n       bag_pack(\"Order\", 1, \"Value\", S / 1e6, \"Detail\", strcat(tolong(C), \" priced calls\"), \"Trend\", series_multiply(s, 1e-6)),\n       bag_pack(\"Order\", 2, \"Value\", iff(C > 0, 1000 * S / 1e6 / C, 0.0), \"Detail\", \"average, all surfaces\",\n                \"Trend\", series_multiply(series_divide(s, series_add(c, 1e-9)), 1e-3)))\n   | mv-expand Row),\n  (tokens | make-series v = sum(valueSum) default = 0 on timestamp step {TimeRange:grain} | project Row = bag_pack(\"Order\", 3, \"Value\", array_sum(v), \"Detail\", \"prompt + completion\", \"Trend\", v)),\n  (gateway | make-series n = count(), b = countif(ResponseCode in (401, 403, 429)) default = 0 on TimeGenerated step {TimeRange:grain}\n   | extend N = array_sum(n), B = array_sum(b)\n   | project Row = pack_array(\n       bag_pack(\"Order\", 4, \"Value\", N, \"Detail\", \"models, tools and agents\", \"Trend\", n),\n       bag_pack(\"Order\", 5, \"Value\", round(100.0 * B / iff(N == 0, 1.0, N), 1), \"Detail\", strcat(tolong(B), \" calls got 401, 403 or 429\"),\n                \"Trend\", b))\n   | mv-expand Row),\n  (gov | make-series v = sum(valueSum) default = 0 on timestamp step {TimeRange:grain} | project Row = bag_pack(\"Order\", 6, \"Value\", array_sum(v), \"Detail\", \"downgrades, denials, caps\", \"Trend\", v)),\n  (failover | make-series v = sum(valueCount) default = 0 on timestamp step {TimeRange:grain} | project Row = bag_pack(\"Order\", 7, \"Value\", array_sum(v), \"Detail\", \"retried in another region\", \"Trend\", v))\n| project Order = toint(Row.Order), Value = todouble(Row.Value), Detail = tostring(Row.Detail), Trend = Row.Trend\n| join kind=rightouter tiles on Order\n| project Order = Order1, Metric, Value = coalesce(Value, 0.0), Detail = coalesce(Detail, \"none in this time range\"), Trend, Tab\n| order by Order asc",
         "size": 3,
         "title": "",
         "timeContextFromParameter": "TimeRange",
@@ -146,7 +146,7 @@
             "columnMatch": "Value",
             "formatter": 12,
             "formatOptions": {
-              "palette": "none"
+              "palette": "auto"
             },
             "numberFormat": {
               "unit": 17,
@@ -160,82 +160,25 @@
             "columnMatch": "Detail",
             "formatter": 1
           },
-          "showBorder": true,
-          "size": "auto"
-        }
-      },
-      "name": "kpi-spend",
-      "customWidth": "70",
-      "styleSettings": {
-        "showBorder": true
-      }
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "ApiManagementGatewayLogs\n| where ApiId in (\"inference-api\", \"commerce-mcp\", \"commerce-api\", \"sourcing-agent\")\n| extend Plan = ProductId, Consumer = ApimSubscriptionId,\n         Surface = case(ApiId == \"inference-api\", \"model\", ApiId == \"sourcing-agent\", \"agent\", \"tool\")\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer})) and (\"*\" in ({Surface}) or Surface in ({Surface}))\n| extend Outcome = case(ResponseCode between (200 .. 299), \"Allowed\", ResponseCode == 401, \"Unauthenticated (401)\",\n                        ResponseCode == 403, \"Denied: plan, quota or budget (403)\", ResponseCode == 429, \"Throttled (429)\",\n                        ResponseCode >= 500 or ResponseCode == 0, \"Backend error (5xx)\", \"Other (4xx)\"),\n         Policy = iff(isempty(LastErrorSource), \"(none: call passed)\", LastErrorSource)\n| summarize Calls = count(), Blocked = countif(ResponseCode in (401, 403, 429))\n| project Rows = pack_array(\n    bag_pack(\"Order\", 1, \"Metric\", \"Gateway calls\", \"Value\", Calls, \"Detail\", \"all surfaces\"),\n    bag_pack(\"Order\", 2, \"Metric\", \"Blocked by policy (%)\", \"Value\", round(100.0 * Blocked / iff(Calls == 0, 1, Calls), 1),\n             \"Detail\", strcat(Blocked, \" calls: 401, 403, 429\")))\n| mv-expand Row = Rows\n| project Order = toint(Row.Order), Metric = tostring(Row.Metric), Value = todouble(Row.Value), Detail = tostring(Row.Detail)\n| order by Order asc",
-        "size": 3,
-        "title": "",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "visualization": "tiles",
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "crossComponentResources": [
-          "{law-id}"
-        ],
-        "tileSettings": {
-          "titleContent": {
-            "columnMatch": "Metric",
-            "formatter": 1
-          },
-          "leftContent": {
-            "columnMatch": "Value",
-            "formatter": 12,
+          "rightContent": {
+            "columnMatch": "Trend",
+            "formatter": 10,
             "formatOptions": {
-              "palette": "none"
-            },
-            "numberFormat": {
-              "unit": 17,
-              "options": {
-                "style": "decimal",
-                "maximumSignificantDigits": 3
-              }
+              "palette": "blue"
             }
-          },
-          "secondaryContent": {
-            "columnMatch": "Detail",
-            "formatter": 1
           },
           "showBorder": true,
           "size": "auto"
-        }
+        },
+        "exportFieldName": "Tab",
+        "exportParameterName": "Tab",
+        "exportDefaultValue": "overview"
       },
-      "name": "kpi-calls",
-      "customWidth": "30",
+      "name": "kpi",
+      "customWidth": "100",
       "styleSettings": {
         "showBorder": true
       }
-    },
-    {
-      "type": 12,
-      "content": {
-        "version": "NotebookGroup/1.0",
-        "groupType": "editable",
-        "items": [
-          {
-            "type": 1,
-            "content": {
-              "json": "**Where the numbers come from**\n\n| Data | Source | Notes |\n|---|---|---|\n| Spend, tokens | `customMetrics` (`CostMicroUSD`, token metrics) | Priced at the gateway from the `model-pricing`, `tool-pricing` and `agent-pricing` named values |\n| Plan enforcement | `customMetrics` (`GovernanceEvents`) | Model downgrade or deny, output caps, tool or agent denied |\n| Failover | `customMetrics` (`BackendAttempts`) | Attempts per request and the region that answered |\n| Chargeback | `traces` (`record == \"chargeback\"`) | One record per priced call with team, cost center, user and session. Custom metrics allow at most 5 dimensions, so per-user and per-session data lives here |\n| Policy evidence | Log Analytics: `ApiManagementGatewayLogs`, `ApiManagementGatewayLlmLog`, `ApiManagementGatewayMCPLog` | `CorrelationId` equals the `x-gw-request-id` response header |\n\n**Via** is the A2A agent that spent on the consumer's behalf: an agent's model and tool calls are charged back to the consumer that sent it the task, so a session total is the fully loaded cost. Metrics arrive 1 to 3 minutes after a call, diagnostic logs 2 to 5 minutes."
-            },
-            "name": "about-text"
-          }
-        ],
-        "title": "ℹ️ How this workbook works",
-        "expandable": true,
-        "expanded": false
-      },
-      "name": "about"
     },
     {
       "type": 11,
@@ -274,6 +217,14 @@
             "linkTarget": "parameter",
             "linkLabel": "🔍 Gateway evidence",
             "subTarget": "evidence",
+            "style": "link"
+          },
+          {
+            "id": "86191030-5c51-5ace-843f-a6658a5b67a2",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "ℹ️ About",
+            "subTarget": "about",
             "style": "link"
           }
         ]
@@ -1776,6 +1727,28 @@
         "parameterName": "Tab",
         "comparison": "isEqualTo",
         "value": "evidence"
+      }
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "**Where the numbers come from**\n\n| Data | Source | Notes |\n|---|---|---|\n| Spend, tokens | `customMetrics` (`CostMicroUSD`, token metrics) | Priced at the gateway from the `model-pricing`, `tool-pricing` and `agent-pricing` named values |\n| Plan enforcement | `customMetrics` (`GovernanceEvents`) | Model downgrade or deny, output caps, tool or agent denied |\n| Failover | `customMetrics` (`BackendAttempts`) | Attempts per request and the region that answered |\n| Chargeback | `traces` (`record == \"chargeback\"`) | One record per priced call with team, cost center, user and session. Custom metrics allow at most 5 dimensions, so per-user and per-session data lives here |\n| Policy evidence | Log Analytics: `ApiManagementGatewayLogs`, `ApiManagementGatewayLlmLog`, `ApiManagementGatewayMCPLog` | `CorrelationId` equals the `x-gw-request-id` response header |\n\n**Via** is the A2A agent that spent on the consumer's behalf: an agent's model and tool calls are charged back to the consumer that sent it the task, so a session total is the fully loaded cost. Metrics arrive 1 to 3 minutes after a call, diagnostic logs 2 to 5 minutes."
+            },
+            "name": "about-text"
+          }
+        ]
+      },
+      "name": "about",
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "about"
       }
     }
   ],

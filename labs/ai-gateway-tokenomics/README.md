@@ -134,8 +134,8 @@ Every gateway response returns `x-gw-request-id`, so any call in the UI can be l
 
 - The **AI Gateway Tokenomics** Azure Monitor workbook, deployed with the lab, has:
   - **filters** for time range, plan, consumer and surface (AI models, MCP tools, A2A agents), which apply to every tab
-  - a **KPI strip**: spend, average cost per call, tokens, gateway calls, blocked %, plan enforcements and regional failovers
-  - four tabs, each with a drill-down:
+  - a **KPI strip** with a trend sparkline per KPI: spend, cost per 1K calls, tokens, gateway calls, blocked %, plan enforcements and regional failovers. Click a KPI to open the tab that explains it.
+  - four tabs, each with a drill-down, plus an **About** tab that lists the data sources:
     - **Overview**: spend over time and by surface, top consumers and top resources. Select a consumer to see its resources, direct vs via-agent spend, line items with the Entra ID caller, and its plan enforcement events.
     - **Chargeback**: cost by team and cost center and by user or app, plus a Team › User › Session tree. Select a session to see its cumulative spend and a call-by-call ledger.
     - **Budgets & governance**: budget burn per consumer, enforcement events and gateway outcomes by plan, blocked calls over time, and who hit which limit
