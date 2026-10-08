@@ -72,6 +72,7 @@
                     <dimension name="Model" value="@((string)context.Variables["agentId"])" />
                     <dimension name="Surface" value="agent" />
                     <dimension name="Via" value="direct" />
+                    <dimension name="Caller" value="@(context.Variables.GetValueOrDefault<string>("caller", "unknown"))" />
                 </emit-metric>
                 <set-header name="x-gw-agent-fee-usd" exists-action="override">
                     <value>@(((int)context.Variables["agentFeeMicroUsd"] / 1000000.0).ToString("0.000000"))</value>

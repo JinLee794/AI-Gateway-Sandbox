@@ -72,16 +72,23 @@ module apimModule '../../modules/apim/v3/apim.bicep' = {
   }
 }
 
-// 4. Microsoft Foundry with the model deployments
-module foundryModule '../../modules/cognitive-services/v3/foundry.bicep' = {
-  name: 'foundryModule'
+// 4. Microsoft Foundry with the model deployments: one Foundry resource per region (aiServicesConfig). The gateway
+//    load-balances them as a priority backend pool (priority 1 = primary, priority 2 = spillover). A model can set
+//    primaryCapacity to give the priority-1 resource less capacity (e.g. a small PTU-like reservation), so the demo
+//    can show the primary being throttled and the gateway failing over to the secondary region.
+module foundryModule '../../modules/cognitive-services/v3/foundry.bicep' = [for config in aiServicesConfig: {
+  name: 'foundryModule-${config.name}'
   params: {
-    aiServicesConfig: aiServicesConfig
-    modelsConfig: modelsConfig
+    aiServicesConfig: [
+      config
+    ]
+    modelsConfig: map(modelsConfig, model => union(model, {
+      capacity: (config.?priority ?? 1) == 1 ? (model.?primaryCapacity ?? model.capacity) : model.capacity
+    }))
     apimPrincipalId: apimModule.outputs.principalId
     foundryProjectName: foundryProjectName
   }
-}
+}]
 
 resource apim 'Microsoft.ApiManagement/service@2024-06-01-preview' existing = {
   name: 'apim-${resourceSuffix}'
@@ -153,7 +160,25 @@ resource attributionFragment 'Microsoft.ApiManagement/service/policyFragments@20
   }
 }
 
-// 6. AI model API (OpenAI v1 compatible) with the API-level tokenomics policy
+// Workload identity of the Sourcing Agent: it presents an Entra ID token of this identity to the gateway
+resource agentIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-sourcing-agent-${resourceSuffix}'
+  location: agentLocation
+}
+
+// Zero-trust: Entra ID token validation, included first by every tier policy (models, MCP tools and A2A agents)
+resource entraIdentityFragment 'Microsoft.ApiManagement/service/policyFragments@2024-06-01-preview' = {
+  parent: apim
+  name: 'entra-identity'
+  properties: {
+    description: 'Validates the caller Microsoft Entra ID token (validate-azure-ad-token) and identifies the caller for chargeback'
+    format: 'rawxml'
+    value: replace(replace(loadTextContent('entra-identity-fragment.xml'), '{tenant-id}', tenant().tenantId), '{agent-client-id}', agentIdentity.properties.clientId)
+  }
+}
+
+// 6. AI model API (OpenAI v1 compatible) with the API-level tokenomics policy. With more than one Foundry resource the
+//    module creates a backend per resource (with a circuit breaker that trips on 429) and a priority backend pool.
 module inferenceAPIModule '../../modules/apim/v3/inference-api.bicep' = {
   name: 'inferenceAPIModule'
   params: {
@@ -161,9 +186,10 @@ module inferenceAPIModule '../../modules/apim/v3/inference-api.bicep' = {
     apimLoggerId: apimModule.outputs.loggerId
     appInsightsId: appInsightsModule.outputs.id
     appInsightsInstrumentationKey: appInsightsModule.outputs.instrumentationKey
-    aiServicesConfig: foundryModule.outputs.extendedAIServicesConfig
+    aiServicesConfig: [for (config, i) in aiServicesConfig: foundryModule[i].outputs.extendedAIServicesConfig[0]]
     inferenceAPIType: inferenceAPIType
     inferenceAPIPath: inferenceAPIPath
+    configureCircuitBreaker: true
   }
   dependsOn: [
     modelPricingNamedValue
@@ -295,6 +321,12 @@ resource agentPlatformSubscription 'Microsoft.ApiManagement/service/subscription
 resource sourcingAgentApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: 'sourcing-agent-${resourceSuffix}'
   location: agentLocation
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${agentIdentity.id}': {}
+    }
+  }
   properties: {
     managedEnvironmentId: agentEnvironment.id
     configuration: {
@@ -329,6 +361,7 @@ resource sourcingAgentApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'MCP_URL', value: '${apimModule.outputs.gatewayUrl}/${commerceMcp.properties.path}/mcp' }
             { name: 'INFERENCE_URL', value: '${apimModule.outputs.gatewayUrl}/${inferenceAPIPath}/openai/v1' }
             { name: 'MODEL', value: sourcingAgentModel }
+            { name: 'AZURE_CLIENT_ID', value: agentIdentity.properties.clientId }
           ]
         }
       ]
@@ -475,6 +508,7 @@ resource tierProductPolicy 'Microsoft.ApiManagement/service/products/policies@20
   }
   dependsOn: [
     budgetEpochNamedValue
+    entraIdentityFragment
     tierProductApiLink
     tierProductMcpLink
     tierProductAgentLink
@@ -507,7 +541,7 @@ resource tokenomicsWorkbook 'Microsoft.Insights/workbooks@2022-04-01' = {
   kind: 'shared'
   properties: {
     displayName: 'AI Gateway Tokenomics'
-    serializedData: replace(loadTextContent('workbook.json'), '{budget-rows}', budgetRows)
+    serializedData: replace(replace(loadTextContent('workbook.json'), '{budget-rows}', budgetRows), '{law-id}', lawModule.outputs.id)
     sourceId: appInsightsModule.outputs.id
     category: 'workbook'
   }
@@ -518,6 +552,15 @@ resource tokenomicsWorkbook 'Microsoft.Insights/workbooks@2022-04-01' = {
 // ------------------
 
 output logAnalyticsWorkspaceId string = lawModule.outputs.customerId
+output logAnalyticsResourceId string = lawModule.outputs.id
+output tenantId string = tenant().tenantId
+output agentIdentityClientId string = agentIdentity.properties.clientId
+output foundryBackends array = [for (config, i) in aiServicesConfig: {
+  name: config.name
+  location: config.location
+  priority: config.?priority ?? 1
+  endpoint: foundryModule[i].outputs.extendedAIServicesConfig[0].endpoint
+}]
 output appInsightsId string = appInsightsModule.outputs.id
 output appInsightsAppId string = appInsightsModule.outputs.appId
 output appInsightsName string = appInsightsModule.outputs.name

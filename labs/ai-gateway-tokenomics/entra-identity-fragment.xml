@@ -1,0 +1,45 @@
+<fragment>
+    <!--
+        AI Gateway Tokenomics - "entra-identity" policy fragment (included first by every tier policy).
+
+        Zero-trust front door for models, MCP tools and A2A agents: every call needs BOTH
+          - an APIM subscription key  -> WHICH plan/contract pays (tier, limits, $ budget), and
+          - a Microsoft Entra ID token -> WHO is calling (a signed-in user or a workload managed identity).
+
+        validate-azure-ad-token checks the signature, issuer (tenant {tenant-id}), audience
+        (https://cognitiveservices.azure.com, the same token apps already use for Microsoft Foundry) and that the
+        token was issued to an approved client application. A missing or invalid token is rejected with 401
+        before any tokens are spent; the tier policy's on-error section returns the x-gw-blocked-by header.
+
+        Sets the "caller" variable (user principal name, or the workload identity name) used by the cost metrics
+        and the x-gw-caller response header, writes a trace record (App Insights traces + gateway log TraceRecords)
+        and removes the token so it is never forwarded to the backends (Foundry uses the gateway's managed identity).
+    -->
+    <validate-azure-ad-token tenant-id="{tenant-id}" header-name="Authorization" failed-validation-httpcode="401"
+        failed-validation-error-message="Microsoft Entra ID token missing or invalid. Send 'Authorization: Bearer &lt;token&gt;' for audience https://cognitiveservices.azure.com from an approved client application."
+        output-token-variable-name="entraToken">
+        <client-application-ids>
+            <!-- Azure CLI / developer sign-in (the demo UI and the notebook use az account get-access-token) -->
+            <application-id>04b07795-8ddb-461a-bbee-02f9e1bf7b46</application-id>
+            <!-- Sourcing Agent workload identity (user-assigned managed identity of the Container App) -->
+            <application-id>{agent-client-id}</application-id>
+        </client-application-ids>
+        <audiences>
+            <audience>https://cognitiveservices.azure.com</audience>
+        </audiences>
+    </validate-azure-ad-token>
+    <set-variable name="caller" value="@{
+        var jwt = (Jwt)context.Variables["entraToken"];
+        var appId = jwt.Claims.GetValueOrDefault("appid", jwt.Claims.GetValueOrDefault("azp", ""));
+        if (appId == "{agent-client-id}") { return "sourcing-agent (managed identity)"; }
+        var user = jwt.Claims.GetValueOrDefault("upn", jwt.Claims.GetValueOrDefault("unique_name", jwt.Claims.GetValueOrDefault("preferred_username", "")));
+        return user != "" ? user : "app:" + appId;
+    }" />
+    <set-variable name="callerType" value="@(((Jwt)context.Variables["entraToken"]).Claims.GetValueOrDefault("idtyp", "user"))" />
+    <set-header name="Authorization" exists-action="delete" />
+    <trace source="entra-identity" severity="information">
+        <message>@("Entra ID token validated: " + (string)context.Variables["caller"] + " (" + (string)context.Variables["callerType"] + ") on subscription " + (context.Subscription?.Id ?? "none"))</message>
+        <metadata name="caller" value="@((string)context.Variables["caller"])" />
+        <metadata name="callerType" value="@((string)context.Variables["callerType"])" />
+    </trace>
+</fragment>

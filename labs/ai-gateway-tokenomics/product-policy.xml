@@ -6,6 +6,9 @@
     Each API sets the "surface" variable (model | tool | agent) before calling <base />, so this policy
     knows what is being consumed:
 
+      All surfaces (first)
+        - Entra ID           - entra-identity fragment: validate-azure-ad-token (401 without a valid token),
+                               identifies the caller (user or workload managed identity) for chargeback
       AI models (inference-api)
         1. Model governance  - models outside {allowed-models} are downgraded to {fallback-model} or denied (403)
         2. Output token cap   - max_tokens / max_completion_tokens / max_output_tokens capped to {max-output-tokens}
@@ -21,10 +24,15 @@
                                models, tool calls and agent tasks (fee + everything the agent spent downstream).
 
     The {{budget-epoch}} named value is part of every counter key, so changing it resets all budgets and quotas.
+
+    Every response carries x-gw-request-id (= context.RequestId = CorrelationId in the ApiManagementGatewayLogs,
+    ApiManagementGatewayLlmLog and ApiManagementGatewayMCPLog tables) so a single call can be traced to its
+    log records in Azure Monitor. Blocked calls also carry x-gw-blocked-by (the policy that stopped them).
 -->
 <policies>
     <inbound>
         <base />
+        <include-fragment fragment-id="entra-identity" />
         <set-variable name="budgetEpoch" value="{{budget-epoch}}" />
         <set-variable name="governanceActions" value="none" />
         <choose>
@@ -57,6 +65,12 @@
                                     </set-header>
                                     <set-header name="x-gw-governance" exists-action="override">
                                         <value>model-denied</value>
+                                    </set-header>
+                                    <set-header name="x-gw-blocked-by" exists-action="override">
+                                        <value>model-entitlement</value>
+                                    </set-header>
+                                    <set-header name="x-gw-request-id" exists-action="override">
+                                        <value>@(context.RequestId.ToString())</value>
                                     </set-header>
                                     <set-body>@(new JObject(new JProperty("error", new JObject(
                                         new JProperty("code", "ModelNotAllowed"),
@@ -132,6 +146,12 @@
                             <set-header name="x-gw-governance" exists-action="override">
                                 <value>tool-denied</value>
                             </set-header>
+                            <set-header name="x-gw-blocked-by" exists-action="override">
+                                <value>tool-entitlement</value>
+                            </set-header>
+                            <set-header name="x-gw-request-id" exists-action="override">
+                                <value>@(context.RequestId.ToString())</value>
+                            </set-header>
                             <set-body>@(new JObject(
                                 new JProperty("jsonrpc", "2.0"),
                                 new JProperty("id", context.Variables.GetValueOrDefault<string>("rpcId", "")),
@@ -163,6 +183,12 @@
                             <set-header name="x-gw-governance" exists-action="override">
                                 <value>agent-denied</value>
                             </set-header>
+                            <set-header name="x-gw-blocked-by" exists-action="override">
+                                <value>agent-entitlement</value>
+                            </set-header>
+                            <set-header name="x-gw-request-id" exists-action="override">
+                                <value>@(context.RequestId.ToString())</value>
+                            </set-header>
                             <set-body>@(new JObject(
                                 new JProperty("jsonrpc", "2.0"),
                                 new JProperty("id", context.Variables.GetValueOrDefault<string>("rpcId", "")),
@@ -189,8 +215,28 @@
     </backend>
     <outbound>
         <base />
+        <set-header name="x-gw-request-id" exists-action="override">
+            <value>@(context.RequestId.ToString())</value>
+        </set-header>
+        <set-header name="x-gw-caller" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("caller", ""))</value>
+        </set-header>
     </outbound>
     <on-error>
         <base />
+        <!-- policy errors (401 Entra ID, 429 rate / token limits, 403 quota or $ budget, backend failures):
+             tell the caller which policy blocked the call and how to find it in the gateway logs -->
+        <set-header name="x-gw-request-id" exists-action="override">
+            <value>@(context.RequestId.ToString())</value>
+        </set-header>
+        <set-header name="x-gw-blocked-by" exists-action="override">
+            <value>@(context.LastError?.Source ?? "")</value>
+        </set-header>
+        <set-header name="x-gw-block-reason" exists-action="override">
+            <value>@(context.LastError?.Reason ?? "")</value>
+        </set-header>
+        <set-header name="x-gw-caller" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("caller", ""))</value>
+        </set-header>
     </on-error>
 </policies>

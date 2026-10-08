@@ -8,6 +8,11 @@
     - Prices every call with the {{model-pricing}} named value (USD per 1M tokens), emits the cost as a custom
       metric and returns it to the caller in the x-gw-* response headers.
     - The calculated cost (micro-USD) feeds the per-subscription $ budget enforced in product-policy.xml.
+    - Load balancing + failover: {backend-id} is a backend POOL of Foundry resources in two regions. The pool sends
+      traffic to the priority-1 (primary) backend; when it is throttled (429) its circuit breaker trips for the
+      Retry-After period and the retry below re-sends the request to the priority-2 (secondary) backend, so the
+      caller gets a 200 instead of a 429. Every attempt is recorded in x-gw-route; the BackendAttempts metric
+      records the attempt count per request, split by the backend that served it and whether it failed over.
 -->
 <policies>
     <inbound>
@@ -24,10 +29,29 @@
         </llm-emit-token-metric>
     </inbound>
     <backend>
-        <base />
+        <retry condition="@(context.Response.StatusCode == 429 || context.Response.StatusCode >= 500)" count="2" interval="0" first-fast-retry="true">
+            <forward-request buffer-request-body="true" />
+            <set-variable name="attemptBackend" value="@(context.Request.Url.Host.Split('.')[0].Split('-')[0])" />
+            <set-variable name="attemptRegion" value="@(context.Response.Headers.GetValueOrDefault("x-ms-region", "unknown"))" />
+            <set-variable name="route" value="@{
+                var hop = (string)context.Variables["attemptBackend"] + " (" + (string)context.Variables["attemptRegion"] + ") " + context.Response.StatusCode;
+                var previous = context.Variables.GetValueOrDefault<string>("route", "");
+                return previous == "" ? hop : previous + " > " + hop;
+            }" />
+            <set-variable name="attempts" value="@(context.Variables.GetValueOrDefault<int>("attempts", 0) + 1)" />
+        </retry>
     </backend>
     <outbound>
         <base />
+        <!-- emit-metric is not allowed in <backend>, so the routing outcome is emitted once per request here -->
+        <emit-metric name="BackendAttempts" value="@((double)context.Variables.GetValueOrDefault<int>("attempts", 1))" namespace="ai-gateway-tokenomics">
+            <dimension name="Backend" value="@(context.Variables.GetValueOrDefault<string>("attemptBackend", "unknown"))" />
+            <dimension name="Region" value="@(context.Variables.GetValueOrDefault<string>("attemptRegion", "unknown"))" />
+            <dimension name="Failover" value="@(context.Variables.GetValueOrDefault<int>("attempts", 1) > 1 ? "yes" : "no")" />
+            <dimension name="Status" value="@(context.Response.StatusCode.ToString())" />
+            <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("servedModel", "unknown"))" />
+            <dimension name="Tier" value="@(context.Variables.GetValueOrDefault<string>("payerTier", "none"))" />
+        </emit-metric>
         <set-variable name="modelPricing" value="{{model-pricing}}" />
         <choose>
             <when condition="@(context.Response.StatusCode == 200 && context.Response.Headers.GetValueOrDefault("Content-Type", "").Contains("application/json"))">
@@ -63,6 +87,7 @@
                     <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("servedModel", "unknown"))" />
                     <dimension name="Surface" value="model" />
                     <dimension name="Via" value="@((string)context.Variables["via"])" />
+                    <dimension name="Caller" value="@(context.Variables.GetValueOrDefault<string>("caller", "unknown"))" />
                 </emit-metric>
                 <set-header name="x-gw-prompt-tokens" exists-action="override">
                     <value>@(((int)context.Variables["promptTokens"]).ToString())</value>
@@ -93,6 +118,21 @@
         <set-header name="x-gw-governance" exists-action="override">
             <value>@(context.Variables.GetValueOrDefault<string>("governanceActions", "none"))</value>
         </set-header>
+        <set-header name="x-gw-route" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("route", ""))</value>
+        </set-header>
+        <set-header name="x-gw-backend" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("attemptBackend", ""))</value>
+        </set-header>
+        <choose>
+            <when condition="@(context.Variables.GetValueOrDefault<string>("route", "").Contains(" > "))">
+                <trace source="load-balancer" severity="information">
+                    <message>@("Failover: " + (string)context.Variables["route"])</message>
+                    <metadata name="route" value="@((string)context.Variables["route"])" />
+                    <metadata name="servedBy" value="@((string)context.Variables["attemptBackend"])" />
+                </trace>
+            </when>
+        </choose>
     </outbound>
     <on-error>
         <base />

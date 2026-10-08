@@ -9,14 +9,16 @@ The agent is published through Azure API Management as an A2A agent API. For eac
   3. returns an A2A task with the result and a cost breakdown
 
 It calls the gateway with its own platform identity (an APIM subscription of the internal agent-platform
-product) and propagates the x-gw-on-behalf-of* headers stamped by the gateway, so every model token and
+product) plus a Microsoft Entra ID token of its user-assigned managed identity (the gateway validates it with
+validate-azure-ad-token), and propagates the x-gw-on-behalf-of* headers stamped by the gateway, so every model token and
 tool call it makes is charged back to the subscription that delegated the task. It reports the downstream
 spend in the x-agent-downstream-cost-micro-usd response header so the gateway can charge the fully-loaded
 cost to the caller's budget.
 
-Environment variables: GATEWAY_KEY, MCP_URL, INFERENCE_URL, MODEL, AGENT_BACKEND_SECRET, PORT
+Environment variables: GATEWAY_KEY, MCP_URL, INFERENCE_URL, MODEL, AGENT_BACKEND_SECRET, PORT, AZURE_CLIENT_ID
+(+ IDENTITY_ENDPOINT / IDENTITY_HEADER injected by Azure Container Apps)
 """
-import json, os, re, time, urllib.error, urllib.request, uuid
+import json, os, re, threading, time, urllib.error, urllib.parse, urllib.request, uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 GATEWAY_KEY = os.environ.get("GATEWAY_KEY", "")
@@ -24,7 +26,32 @@ MCP_URL = os.environ.get("MCP_URL", "")
 INFERENCE_URL = os.environ.get("INFERENCE_URL", "")
 MODEL = os.environ.get("MODEL", "gpt-4.1-mini")
 BACKEND_SECRET = os.environ.get("AGENT_BACKEND_SECRET", "")
+AZURE_CLIENT_ID = os.environ.get("AZURE_CLIENT_ID", "")
+TOKEN_AUDIENCE = "https://cognitiveservices.azure.com"
 PROPAGATED = ("x-gw-on-behalf-of", "x-gw-on-behalf-of-tier", "x-gw-via-agent")
+_token_cache = {"value": "", "expires": 0}
+_token_lock = threading.Lock()
+
+
+def entra_token():
+    """Entra ID token of the Container App's user-assigned managed identity (Container Apps identity endpoint)."""
+    endpoint, secret = os.environ.get("IDENTITY_ENDPOINT"), os.environ.get("IDENTITY_HEADER")
+    if not endpoint or not secret:
+        return ""
+    with _token_lock:
+        if _token_cache["value"] and _token_cache["expires"] - 300 > time.time():
+            return _token_cache["value"]
+        query = urllib.parse.urlencode({"resource": TOKEN_AUDIENCE, "api-version": "2019-08-01",
+                                        **({"client_id": AZURE_CLIENT_ID} if AZURE_CLIENT_ID else {})})
+        request = urllib.request.Request(f"{endpoint}?{query}", headers={"X-IDENTITY-HEADER": secret})
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                data = json.loads(response.read())
+        except (urllib.error.URLError, ValueError) as error:
+            print(f"managed identity token request failed: {error}", flush=True)
+            return ""
+        _token_cache.update(value=data["access_token"], expires=int(data.get("expires_on", time.time() + 600)))
+        return _token_cache["value"]
 
 
 def agent_card(base_url):
@@ -82,6 +109,9 @@ def micro_usd(headers):
 class Task:
     def __init__(self, upstream_headers):
         self.base = {"api-key": GATEWAY_KEY, **{h: upstream_headers[h] for h in PROPAGATED if h in upstream_headers}}
+        token = entra_token()
+        if token:
+            self.base["Authorization"] = f"Bearer {token}"
         self.steps, self.session, self.next_id = [], None, 0
 
     def mcp(self, method, params=None, notify=False):

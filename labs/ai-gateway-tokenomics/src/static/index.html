@@ -114,6 +114,19 @@
   .flow .arrow { color:var(--muted); }
   .steps { margin-top:10px; } .steps td, .steps th { padding:4px 8px; }
   code { background:var(--panel2); border:1px solid var(--divider); border-radius:3px; padding:0 4px; font-size:12px; }
+  .toggles { display:flex; gap:16px; margin-top:12px; font-size:13px; } .toggles label { display:flex; align-items:center; gap:6px; margin:0; font-weight:400; }
+  .toggles input { width:auto; min-height:0; }
+  .pipe { display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; margin-top:8px; }
+  .pipe .stage { border:1px solid var(--border); border-radius:6px; padding:10px 12px; background:#fff; font-size:12px; line-height:1.55; position:relative; }
+  .pipe .stage b { display:block; font-size:13px; margin-bottom:4px; } .pipe .stage.gw { border-color:#c7e0f4; background:var(--accent-light); }
+  .pipe .stage code { font-size:11px; }
+  .pipe .stage .sec { font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); font-weight:600; }
+  pre.xml { background:#faf9f8; border:1px solid var(--divider); border-radius:4px; padding:10px 12px; font:12px/1.45 Consolas,monospace; max-height:360px; overflow:auto; white-space:pre; margin:8px 0 0; }
+  details.pol { border:1px solid var(--divider); border-radius:4px; padding:6px 10px; margin-top:6px; } details.pol summary { cursor:pointer; font-size:13px; }
+  .evtbl { margin-top:14px; } .evtbl h3 { font-size:13px; margin:0 0 2px; display:flex; gap:10px; align-items:baseline; } .evtbl h3 a { font-weight:400; font-size:12px; }
+  .src { font-family:Consolas,monospace; font-size:12px; } .src.key { color:var(--accent); font-weight:600; } .src.err { color:var(--bad); font-weight:600; }
+  .s401 { background:var(--bad-bg); color:var(--bad); }
+  a.ev { cursor:pointer; }
 </style>
 </head>
 <body>
@@ -126,6 +139,7 @@
   </div>
   <div class="cmdbar">
     <a class="cmd" id="lnkWorkbook" target="_blank"><svg viewBox="0 0 16 16"><path d="M2 13h12v1H2zM3 8h2v4H3zm4-3h2v7H7zm4-3h2v10h-2z"/></svg>Workbook</a>
+    <a class="cmd" id="lnkLogs" target="_blank"><svg viewBox="0 0 16 16"><path d="M3 2h10v1H3zm0 3h10v1H3zm0 3h7v1H3zm0 3h10v1H3z"/></svg>Log Analytics</a>
     <a class="cmd" id="lnkAppInsights" target="_blank"><svg viewBox="0 0 16 16"><path d="M8 1a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9zm2 8.5V11H6V9.5A4 4 0 1 1 10 9.5zM6 13h4v1H6zm1 1.5h2v.5H7z"/></svg>Application Insights</a>
     <a class="cmd" id="lnkApim" target="_blank"><svg viewBox="0 0 16 16"><path d="M8 1 2 3.5V8c0 3.3 2.6 6.2 6 7 3.4-.8 6-3.7 6-7V3.5L8 1zm5 7c0 2.7-2.1 5.1-5 5.9C5.1 13.1 3 10.7 3 8V4.2L8 2.1l5 2.1V8z"/><path d="M7 9.3 5.4 7.7l-.7.7L7 10.7l4.3-4.3-.7-.7z"/></svg>API Management</a>
     <button class="cmd danger" id="btnReset" title="Changes the budget-epoch named value, which resets every $ budget and token quota"><svg viewBox="0 0 16 16"><path d="M8 2a6 6 0 0 0-5.2 3V2h-1v4.5h4.5v-1H3.6A5 5 0 1 1 3 8H2a6 6 0 1 0 6-6z"/></svg>Reset budgets</button>
@@ -173,6 +187,10 @@
         <textarea id="agentTask">Source 500 units of SKU-1042 for the Q3 electronics promotion. Recommend a supplier.</textarea>
         <div class="muted" style="margin-top:6px">The agent calls 3 MCP tools and 1 model through the gateway. Its spend plus a per-task fee is charged to the calling agent.</div>
       </div>
+      <div class="toggles">
+        <label title="Microsoft Entra ID token from your az login, validated by validate-azure-ad-token"><input type="checkbox" id="useToken" checked /> Send Entra ID token</label>
+        <label title="Requests an APIM debug credential so the gateway records a policy-by-policy trace"><input type="checkbox" id="useTrace" /> Trace policies</label>
+      </div>
       <div class="actions">
         <button id="btnSend">Send</button>
         <button class="secondary" id="btnBurst">Burst ×N</button>
@@ -195,7 +213,60 @@
     <div class="tabs">
       <button class="active" data-tab="live">Live session</button>
       <button data-tab="plans">Products &amp; plans</button>
+      <button data-tab="policies">Policies &amp; evidence</button>
       <button data-tab="monitor">Azure Monitor (App Insights)</button>
+    </div>
+
+    <div id="tab-policies" class="hidden">
+      <div class="card hidden" id="evPanel">
+        <h2>Evidence for one request <span class="muted" id="evTitle"></span></h2>
+        <div class="grid2">
+          <div><h3 style="font-size:14px;margin:0 0 4px">Policy trace <span class="muted">(APIM request tracing)</span></h3><div id="evTrace" class="scroll" style="max-height:420px"></div></div>
+          <div><h3 style="font-size:14px;margin:0 0 4px">Azure Monitor <span class="muted">(Log Analytics, same request id)</span></h3><div id="evLogs" class="scroll" style="max-height:420px"></div></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:0">
+        <h2>Request pipeline: the policies every call goes through</h2>
+        <div class="muted" style="font-size:13px">Policies run in scopes: <b>product</b> (the plan) wraps the <b>API</b> policy. A call is rejected by the first policy that fails, before it costs anything.
+          Every response carries <code>x-gw-request-id</code>, the key that finds the same call in the trace and in every Log Analytics table.</div>
+        <div class="pipe">
+          <div class="stage"><span class="sec">Client</span><b>Agent / app</b><code>api-key</code> = which plan pays<br/><code>Authorization: Bearer</code> = who calls</div>
+          <div class="stage gw"><span class="sec">Product · inbound</span><b>Identity</b><code>validate-azure-ad-token</code> (fragment <code>entra-identity</code>): tenant, audience, allowed client apps → <b>401</b><br/>caller → chargeback dimension</div>
+          <div class="stage gw"><span class="sec">Product · inbound</span><b>Plan enforcement</b>model / tool / agent entitlement → downgrade or <b>403</b><br/><code>llm-token-limit</code> TPM + quota → <b>429</b><br/><code>quota-by-key</code> $ budget → <b>403</b></div>
+          <div class="stage gw"><span class="sec">API · inbound + backend</span><b>Routing &amp; resilience</b><code>set-backend-service</code> → priority pool<br/><code>retry</code> on 429 / 5xx → next region<br/>circuit breaker trips a throttled region<br/><code>authentication-managed-identity</code> → Foundry</div>
+          <div class="stage gw"><span class="sec">Outbound</span><b>Metering &amp; logging</b><code>llm-emit-token-metric</code>, <code>emit-metric</code> (cost, caller, backend)<br/>LLM / MCP / gateway logs → Log Analytics<br/><code>x-gw-*</code> response headers</div>
+        </div>
+        <div class="kv" id="backendsKv" style="grid-template-columns:170px 1fr"></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2>What each log tracks</h2>
+        <table>
+          <thead><tr><th>Evidence</th><th>Written by</th><th>What it records</th><th>Find a call by</th><th>Delay</th></tr></thead>
+          <tbody>
+            <tr><td><code>x-gw-*</code> response headers</td><td><code>set-header</code> policies</td><td style="white-space:normal">plan, served model, tokens, cost, remaining limits, caller, backend route, blocking policy</td><td>the response</td><td>instant</td></tr>
+            <tr><td>Request trace</td><td>APIM tracing (debug credential)</td><td style="white-space:normal">every policy executed, in order, with timings, variables, retries and the backend URL of each attempt</td><td><code>apim-trace-id</code></td><td>instant</td></tr>
+            <tr><td><code>ApiManagementGatewayLogs</code></td><td>diagnostic setting → Log Analytics</td><td style="white-space:normal">product, subscription, backend, status codes, timings, client IP and the policy that failed (<code>LastErrorSource</code>, <code>LastErrorReason</code>)</td><td><code>CorrelationId</code></td><td>2-5 min</td></tr>
+            <tr><td><code>ApiManagementGatewayLlmLog</code></td><td>LLM logging (diagnostic setting)</td><td style="white-space:normal">deployment, model, prompt / completion / total tokens, streaming; optionally the prompt and completion</td><td><code>CorrelationId</code></td><td>2-5 min</td></tr>
+            <tr><td><code>ApiManagementGatewayMCPLog</code></td><td>MCP logging (diagnostic setting)</td><td style="white-space:normal">MCP client and server, method, tool name, session, authentication method, errors</td><td><code>CorrelationId</code></td><td>2-5 min</td></tr>
+            <tr><td>App Insights <code>requests</code></td><td>API diagnostics → Application Insights</td><td style="white-space:normal">every request with product and subscription name, duration and result code, correlated to the backend dependency</td><td>operation id</td><td>1-3 min</td></tr>
+            <tr><td>App Insights <code>customMetrics</code></td><td><code>emit-metric</code>, <code>llm-emit-token-metric</code></td><td style="white-space:normal">cost, tokens, governance events and backend attempts per agent, tier, model, caller, region</td><td>dimensions (aggregated)</td><td>1-3 min</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="row" style="align-items:end">
+          <h2 style="flex:1;margin:0">Policies in action: Azure Monitor evidence</h2>
+          <div style="flex:0 0 160px"><select id="evWindow"><option value="15m">Last 15 minutes</option><option value="1h" selected>Last hour</option><option value="1d">Last 24 hours</option></select></div>
+          <div style="flex:0 0 auto"><button class="secondary" id="btnEvidence">Query Log Analytics</button></div>
+        </div>
+        <div class="muted" id="evStatus" style="margin-top:6px">Live KQL over the gateway's Log Analytics tables. Every result has an <b>Open in Azure portal</b> link that runs the same query in the portal.</div>
+        <div id="policyEvidence"></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2>Deployed policies <span class="muted">(read back from Azure Resource Manager)</span></h2>
+        <div class="muted" style="font-size:13px">In the portal: API Management › APIs › <i>API</i> › All operations › Inbound processing › Policy code editor; Products › <i>plan</i> › Policies; APIs › Policy fragments; Backends.</div>
+        <div id="deployedPolicies" class="muted" style="margin-top:8px">Loading…</div>
+      </div>
     </div>
 
     <div id="tab-plans" class="hidden">
@@ -227,7 +298,7 @@
       <div class="kpis">
         <div class="kpi"><div class="l">Requests</div><div class="v" id="kCalls">0</div></div>
         <div class="kpi ok"><div class="l">Allowed (200)</div><div class="v" id="kOk">0</div></div>
-        <div class="kpi bad"><div class="l">Blocked (403/429)</div><div class="v" id="kBlocked">0</div></div>
+        <div class="kpi bad"><div class="l">Blocked (401/403/429)</div><div class="v" id="kBlocked">0</div></div>
         <div class="kpi"><div class="l">Tokens</div><div class="v" id="kTokens">0</div></div>
         <div class="kpi cost"><div class="l">Cost (USD)</div><div class="v" id="kCost">$0.000000</div></div>
       </div>
@@ -249,7 +320,7 @@
       <div class="card" style="margin-top:16px">
         <h2>Request log</h2>
         <div class="scroll"><table>
-          <thead><tr><th>Time</th><th>Agent</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Governance</th><th>Tokens</th><th>Cost USD</th><th>Billed to</th><th>Latency</th><th>Detail</th></tr></thead>
+          <thead><tr><th>Time</th><th>Agent</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Governance</th><th>Tokens</th><th>Cost USD</th><th>Billed to</th><th>Backend</th><th>Latency</th><th>Detail</th><th>Evidence</th></tr></thead>
           <tbody id="log"></tbody>
         </table></div>
       </div>
@@ -291,7 +362,7 @@ const PRESETS = {
   "Marketing tagline": "Give me 3 catchy taglines for a reusable water bottle.",
 };
 const COLORS = ["#0078d4", "#8764b8", "#00b7c3", "#ca5010", "#e3008c", "#498205", "#4f6bed"];
-const STATUS_COLORS = { "200": "#107c10", "403": "#d13438", "429": "#f7630c", "other": "#a19f9d" };
+const STATUS_COLORS = { "200": "#107c10", "401": "#a4262c", "403": "#d13438", "429": "#f7630c", "other": "#a19f9d" };
 let cfg, selectedAgent, running = false, surface = "model";
 const session = { calls: [], costByAgent: {}, costBySurface: {}, costByAgentSurface: {}, outcomes: {} };
 const charts = {};
@@ -303,7 +374,7 @@ const TOOL_ARGS = { "search-products": { category: "electronics" }, "check-inven
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 5000); }
 function tierOf(agent) { return cfg.tiers.find(t => t.name === agent.tier) || {}; }
 function fmtUsd(v) { return "$" + Number(v || 0).toFixed(6); }
-function statusClass(s) { return ["200", "403", "429"].includes(String(s)) ? "s" + s : "sother"; }
+function statusClass(s) { return ["200", "401", "403", "429"].includes(String(s)) ? "s" + s : "sother"; }
 const surfChip = (s) => `<span class="surf ${s}">${{ model: "AI model", tool: "MCP tool", agent: "A2A agent" }[s] || s}</span>`;
 const toolPrice = (name) => (cfg.tools.find(t => t.name === name) || {}).priceUsd || 0;
 const list = (xs) => (xs && xs.length ? xs.join(", ") : "<i>none</i>");
@@ -311,7 +382,7 @@ const list = (xs) => (xs && xs.length ? xs.join(", ") : "<i>none</i>");
 async function init() {
   cfg = await (await fetch("/api/config")).json();
   cfg.tools = cfg.tools || []; cfg.a2aAgents = cfg.a2aAgents || [];
-  for (const [k, id] of [["workbook", "lnkWorkbook"], ["appInsights", "lnkAppInsights"], ["apim", "lnkApim"]]) {
+  for (const [k, id] of [["workbook", "lnkWorkbook"], ["appInsights", "lnkAppInsights"], ["logAnalytics", "lnkLogs"], ["apim", "lnkApim"]]) {
     if (cfg.links[k]) $(id).href = cfg.links[k]; else $(id).classList.add("hidden");
   }
   $("agents").innerHTML = cfg.agents.map(a => {
@@ -414,6 +485,8 @@ function setOutcomes(c, rows) { // rows: [{Agent, resultCode, Calls}]
   c.update();
 }
 
+// opts.noToken / opts.trace override the "Send Entra ID token" and "Trace policies" toggles (used by the scenarios)
+function authOpts(opts = {}) { return { noToken: opts.noToken ?? !$("useToken").checked, trace: opts.trace ?? $("useTrace").checked }; }
 async function post(path, body) {
   const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const r = await res.json();
@@ -423,11 +496,11 @@ async function post(path, body) {
 }
 function send(agentName, model, opts = {}) {
   return post("/api/chat", { agent: agentName, model, prompt: opts.prompt ?? $("prompt").value,
-                             maxTokens: opts.maxTokens ?? (Number($("maxTokens").value) || undefined) });
+                             maxTokens: opts.maxTokens ?? (Number($("maxTokens").value) || undefined), ...authOpts(opts) });
 }
-function callTool(agentName, tool, args) { return post("/api/mcp", { agent: agentName, action: "call", tool, arguments: args ?? TOOL_ARGS[tool] ?? {} }); }
-function listTools(agentName) { return post("/api/mcp", { agent: agentName, action: "list" }); }
-function callAgent(agentName, prompt) { return post("/api/a2a", { agent: agentName, action: "send", prompt: prompt ?? $("agentTask").value }); }
+function callTool(agentName, tool, args, opts = {}) { return post("/api/mcp", { agent: agentName, action: "call", tool, arguments: args ?? TOOL_ARGS[tool] ?? {}, ...authOpts(opts) }); }
+function listTools(agentName, opts = {}) { return post("/api/mcp", { agent: agentName, action: "list", ...authOpts(opts) }); }
+function callAgent(agentName, prompt, opts = {}) { return post("/api/a2a", { agent: agentName, action: "send", prompt: prompt ?? $("agentTask").value, ...authOpts(opts) }); }
 function agentCard(agentName) { return post("/api/a2a", { agent: agentName, action: "card" }); }
 
 function resourceOf(r) {
@@ -451,7 +524,7 @@ function record(r) {
   const h = r.headers || {}, cost = r.status === 200 ? Number(h["x-gw-cost-usd"] || 0) : 0;
   const tokens = r.usage ? (r.usage.total_tokens || 0) : (r.steps || []).reduce((s, x) => s + (x.tokens || 0), 0);
   r.tokens = tokens;
-  session.calls.push(r); session.totalCost = (session.totalCost || 0) + cost; session.tokens = (session.tokens || 0) + tokens;
+  const idx = session.calls.push(r) - 1; session.totalCost = (session.totalCost || 0) + cost; session.tokens = (session.tokens || 0) + tokens;
   session.costByAgent[r.agent] = (session.costByAgent[r.agent] || 0) + cost;
   for (const [s, v] of Object.entries(costParts(r))) {
     session.costBySurface[s] = (session.costBySurface[s] || 0) + v;
@@ -461,7 +534,7 @@ function record(r) {
 
   const ok = session.calls.filter(c => c.status === 200).length;
   $("kCalls").textContent = session.calls.length; $("kOk").textContent = ok;
-  $("kBlocked").textContent = session.calls.filter(c => c.status === 403 || c.status === 429).length;
+  $("kBlocked").textContent = session.calls.filter(c => [401, 403, 429].includes(c.status)).length;
   $("kTokens").textContent = session.tokens.toLocaleString();
   $("kCost").textContent = fmtUsd(session.totalCost);
 
@@ -476,6 +549,10 @@ function record(r) {
       <div>Remaining agent tasks (minute)</div><div>${h["x-gw-remaining-agent-calls"] ?? "-"}</div>`;
   kv += `<div>Cost of this call</div><div>${cost ? "<b>" + fmtUsd(cost) + "</b>" : "-"}</div><div>Billed to</div><div>${billed}</div>`;
   if (h["retry-after"]) kv += `<div>Retry-After</div><div>${h["retry-after"]} s</div>`;
+  kv += `<div>Caller (Entra ID)</div><div>${h["x-gw-caller"] ? escapeHtml(h["x-gw-caller"]) : r.entraToken === false ? "<i>no token sent</i>" : "-"}</div>`;
+  if (h["x-gw-blocked-by"]) kv += `<div>Blocked by policy</div><div><span class="src err">${escapeHtml(h["x-gw-blocked-by"])}</span></div>`;
+  if (h["x-gw-route"]) kv += `<div>Backend route</div><div>${escapeHtml(h["x-gw-route"])}${h["x-gw-route"].includes(" > ") ? ' <span class="gov">failover</span>' : ""}</div>`;
+  kv += `<div>Request id</div><div><code>${escapeHtml(h["x-gw-request-id"] || "-")}</code> <a class="ev" onclick="showEvidence(${idx})">${h["apim-trace-id"] ? "trace + logs" : "logs"} ›</a></div>`;
   let body = r.status === 200 ? (r.content || "") : (r.error || "");
   if (r.tools) body = r.tools.map(t => `${t.name}: ${t.description}`).join("\n");
   if (r.card) body = JSON.stringify({ name: r.card.name, url: r.card.url, preferredTransport: r.card.preferredTransport, skills: (r.card.skills || []).map(s => s.name), securitySchemes: r.card.securitySchemes }, null, 2);
@@ -490,7 +567,10 @@ function record(r) {
   const tok = r.surface === "model" ? `${h["x-gw-prompt-tokens"] || "-"} / ${h["x-gw-completion-tokens"] || "-"}` : (tokens ? tokens : "-");
   $("log").insertAdjacentHTML("afterbegin", `<tr><td>${new Date().toLocaleTimeString()}</td><td>${r.agent}</td><td>${surfChip(r.surface)}</td>
     <td><span class="status ${statusClass(r.status)}">${r.status}</span></td><td>${resourceOf(r)}</td><td>${gov}</td>
-    <td>${tok}</td><td>${cost ? cost.toFixed(6) : "-"}</td><td>${billed}</td><td>${r.latencyMs ?? "-"} ms</td><td title="${escapeHtml(detail)}">${escapeHtml(detail.slice(0, 60))}</td></tr>`);
+    <td>${tok}</td><td>${cost ? cost.toFixed(6) : "-"}</td><td>${billed}</td>
+    <td title="${escapeHtml(h["x-gw-route"] || "")}">${escapeHtml(h["x-gw-backend"] || "-")}${(h["x-gw-route"] || "").includes(" > ") ? " ⤳" : ""}</td>
+    <td>${r.latencyMs ?? "-"} ms</td><td title="${escapeHtml(detail)}">${escapeHtml(detail.slice(0, 60))}</td>
+    <td>${h["x-gw-request-id"] ? `<a class="ev" onclick="showEvidence(${idx})">${h["apim-trace-id"] ? "trace + logs" : "logs"}</a>` : "-"}</td></tr>`);
 
   const agents = [...new Set(Object.keys(session.costByAgentSurface).map(k => k.split("|")[0]))];
   charts.costAgent.data.labels = agents;
@@ -567,8 +647,92 @@ $("btnReset").onclick = async () => {
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
 function showTab(tab) {
   document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("active", x.dataset.tab === tab));
-  for (const t of ["live", "plans", "monitor"]) $("tab-" + t).classList.toggle("hidden", tab !== t);
+  for (const t of ["live", "plans", "policies", "monitor"]) $("tab-" + t).classList.toggle("hidden", tab !== t);
   if (tab === "monitor" && !charts._loaded) { charts._loaded = true; refreshMonitor(); }
+  if (tab === "policies" && !policiesLoaded) { policiesLoaded = true; loadPolicies(); loadPolicyEvidence(); }
+}
+
+// ---------- Policies & evidence: deployed policies (ARM), request traces (APIM tracing) and Log Analytics evidence ----------
+let policiesLoaded = false, evRun = 0, evIndex = -1;
+const shortId = (id) => String(id || "").split("/").pop();
+const portalLink = (href) => href ? `<a href="${href}" target="_blank">Open in Azure portal ↗</a>` : "";
+function cbText(rules) {
+  return (rules || []).map(c => {
+    const f = c.failureCondition || {}, codes = (f.statusCodeRanges || []).map(x => x.min === x.max ? x.min : `${x.min}-${x.max}`).join(", ");
+    return `trips after ${f.count ?? f.percentage + "%"} × ${codes || "error"} within ${f.interval}, opens for ${c.tripDuration}${c.acceptRetryAfter ? " (honours Retry-After)" : ""}`;
+  }).join("; ");
+}
+async function loadPolicies() {
+  try {
+    const d = await (await fetch("/api/policies", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).json();
+    if (d.error) throw new Error(d.error);
+    const singles = Object.fromEntries((d.backends || []).filter(b => b.type !== "Pool").map(b => [b.name, b]));
+    const regions = Object.fromEntries((cfg.foundryBackends || []).map(b => [b.name, b.location]));
+    $("backendsKv").innerHTML = (d.backends || []).filter(b => b.type === "Pool").map(p => `<div>Backend pool <code>${p.name}</code></div><div>`
+      + (p.pool || []).map(s => { const n = shortId(s.id), b = singles[n] || {};
+          return `<b>priority ${s.priority ?? 1}</b> · <code>${n}</code> ${regions[n] ? "(" + regions[n] + ")" : ""}${b.circuitBreaker ? ` · circuit breaker: ${cbText(b.circuitBreaker)}` : ""}`; }).join("<br/>")
+      + `</div>`).join("") || `<div>Backends</div><div class="muted">no backend pool found</div>`;
+    $("deployedPolicies").classList.remove("muted");
+    $("deployedPolicies").innerHTML = (d.policies || []).map(p => `<details class="pol"><summary><span class="badge">${p.scope}</span> ${escapeHtml(p.name)}</summary><pre class="xml">${escapeHtml(p.xml)}</pre></details>`).join("");
+  } catch (e) { $("deployedPolicies").textContent = "Failed to read policies: " + e.message; }
+}
+async function loadPolicyEvidence() {
+  $("evStatus").textContent = "Querying Log Analytics…"; $("btnEvidence").disabled = true;
+  try {
+    const d = await (await fetch("/api/policy-evidence", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ window: $("evWindow").value }) })).json();
+    if (d.error) throw new Error(d.error);
+    $("policyEvidence").innerHTML = Object.values(d).map(x => `<div class="evtbl"><h3>${escapeHtml(x.title)} ${portalLink(x.portalLink)}</h3>${table(x.rows)}</div>`).join("");
+    $("evStatus").textContent = `Updated ${new Date().toLocaleTimeString()}. Gateway diagnostic logs reach Log Analytics 2-5 minutes after a call.`;
+  } catch (e) { $("evStatus").textContent = "Failed: " + e.message; }
+  $("btnEvidence").disabled = false;
+}
+$("btnEvidence").onclick = loadPolicyEvidence;
+$("evWindow").onchange = loadPolicyEvidence;
+
+const KEY_SOURCES = /validate-azure-ad-token|entra-identity|llm-token-limit|quota-by-key|rate-limit|set-backend-service|backend-pool|forward-request|retry|load-balancer|authentication-managed-identity|return-response|emit-metric/i;
+async function loadTrace(traceId) {
+  const d = await (await fetch("/api/trace", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ traceId }) })).json();
+  if (d.error) return `<div class="muted">${escapeHtml(d.error)}</div>`;
+  const all = d.timeline || [];
+  if (!all.length) return `<div class="muted">The trace is empty.</div>`;
+  const rows = all.filter(x => !/^\{"message": "Expression was successfully evaluated/.test(x.data) && !/^(api-inspector|graphql-configuration-setup|request-payload-handler|response-payload-handler)$/.test(x.source || ""));
+  return `<div class="muted" style="font-size:12px">${rows.length} policy records shown (${all.length - rows.length} expression evaluations and payload reads hidden) · trace id <code>${escapeHtml(traceId)}</code></div><table class="steps"><thead><tr><th>Section</th><th>Policy / source</th><th>Elapsed</th><th>Detail</th></tr></thead><tbody>`
+    + rows.map(x => { const err = /error|denied|unauthori|exceed|status code (4|5)\d\d|"statusCode":\s*(4|5)\d\d/i.test(x.data) && x.section !== "backend" || /on-error/i.test(x.section);
+        return `<tr><td>${escapeHtml(x.section)}</td><td><span class="src ${err ? "err" : KEY_SOURCES.test(x.source) ? "key" : ""}">${escapeHtml(x.source || "")}</span></td><td>${escapeHtml(String(x.elapsed || "").replace(/^00:00:/, ""))}</td>`
+          + `<td style="white-space:normal;font-family:Consolas,monospace;font-size:11px;max-width:420px;word-break:break-word">${escapeHtml(x.data)}</td></tr>`; }).join("")
+    + `</tbody></table>`;
+}
+async function loadEvidence(requestId, surface) {
+  const d = await (await fetch("/api/evidence", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId, surface }) })).json();
+  if (d.error) return { html: `<div class="muted">${escapeHtml(d.error)}</div>`, found: true };
+  const tables = Object.values(d.tables || {}), found = tables.some(t => Array.isArray(t.rows) && t.rows.length);
+  const html = tables.map(t => `<div class="evtbl"><h3><code>${t.table}</code> ${portalLink(t.portalLink)}</h3><div class="muted" style="font-size:12px">${escapeHtml(t.tracks)}</div>`
+    + (Array.isArray(t.rows) && t.rows.length ? vtable(t.rows[0]) : `<div class="muted">${t.rows && t.rows.error ? escapeHtml(t.rows.error) : "No rows yet. Logs arrive 2–5 minutes after the call, and a call blocked before the backend has no model or tool row."}</div>`) + `</div>`).join("");
+  return { html, found };
+}
+function vtable(row) { // one log record as a vertical name / value table
+  return `<table class="steps"><tbody>${Object.entries(row).filter(([, v]) => v !== "" && v !== null).map(([k, v]) => `<tr><td style="width:170px">${k}</td><td style="white-space:normal;word-break:break-word">${escapeHtml(typeof v === "object" ? JSON.stringify(v) : v)}</td></tr>`).join("")}</tbody></table>`;
+}
+async function showEvidence(i, attempt = 0) {
+  const r = session.calls[i], h = r.headers || {}, run = attempt ? evRun : ++evRun;
+  evIndex = i;
+  if (!attempt) {
+    showTab("policies"); $("evPanel").classList.remove("hidden");
+    $("evTitle").textContent = `· ${r.agent} · ${r.surface} · HTTP ${r.status}`;
+    $("evTrace").innerHTML = h["apim-trace-id"] ? `<div class="muted">Fetching the trace…</div>`
+      : `<div class="muted">This call was not traced. Tick <b>Trace policies</b> before sending to record a policy-by-policy trace.</div>`;
+    $("evLogs").innerHTML = `<div class="muted">Querying Log Analytics for request <code>${escapeHtml(h["x-gw-request-id"] || "-")}</code>…</div>`;
+    $("evPanel").scrollIntoView({ behavior: "smooth" });
+    if (h["apim-trace-id"]) loadTrace(h["apim-trace-id"]).then(html => { if (run === evRun) $("evTrace").innerHTML = html; });
+  }
+  if (!h["x-gw-request-id"]) { $("evLogs").innerHTML = `<div class="muted">The response has no x-gw-request-id header.</div>`; return; }
+  const ev = await loadEvidence(h["x-gw-request-id"], r.surface);
+  if (run !== evRun) return;
+  $("evLogs").innerHTML = ev.html;
+  if (!ev.found && attempt < 10) { // diagnostic logs arrive 2-5 minutes after the call: poll every 30 s for up to 5 minutes
+    $("evLogs").insertAdjacentHTML("afterbegin", `<div class="muted" style="margin-bottom:6px">Waiting for Log Analytics ingestion (usually 2-5 minutes) · check ${attempt + 1}/10, next in 30 s…</div>`);
+    setTimeout(() => { if (run === evRun) showEvidence(i, attempt + 1); }, 30000);
+  }
 }
 $("btnRefresh").onclick = refreshMonitor;
 $("timespan").onchange = refreshMonitor;
@@ -735,23 +899,65 @@ const SCENARIOS = [
       takeaway(blocked ? `Silver spent ${fmtUsd(spent)} of its $${t.budgetUsd} budget across an A2A task, model calls and tool calls, and is now blocked with <b>403</b> on <i>every</i> surface. One plan, one contract, one budget. The product owner sets it once and the gateway enforces it everywhere.`
                        : `Spent ${fmtUsd(spent)} without exhausting the budget. Run the scenario again to finish it.`);
     } },
-  { title: "Chargeback in Azure Monitor", cost: "0 calls · $0",
+  { title: "Chargeback in Azure Monitor", cost: "0 calls · $0", tab: "monitor",
     story: () => `Opens the Application Insights view: cost per agent and tier, split by surface (AI models, MCP tools, A2A agents) and by route (direct, or via the Sourcing Agent).`,
     async run() {
       charts._loaded = true; showTab("monitor"); await refreshMonitor();
       takeaway(`Every number comes from gateway telemetry (emit-metric / llm-emit-token-metric), so you can do showback or chargeback per agent with no app instrumentation. Spend that an A2A agent makes on a caller's behalf shows up under the <b>caller</b>, with <code>Via = sourcing-agent</code>. New calls take 1-3 minutes to show up. The <b>Workbook</b> command opens the same breakdown in the Azure portal.`);
+    } },
+  { title: "Zero trust: Microsoft Entra ID", cost: "3 calls · < $0.0005",
+    story: () => `Every plan requires a <b>Microsoft Entra ID</b> token on top of the subscription key: the key says <i>which plan pays</i>, the token says <i>who is calling</i>. The <code>validate-azure-ad-token</code> policy checks the tenant, the audience and an allow-list of client apps before any limit, budget or model is touched.`,
+    async run() {
+      const g = tierAgent("gold"), m = tierOf(g).allowedModels.find(x => x !== "gpt-4.1-nano") || tierOf(g).allowedModels[0];
+      const r1 = await send(g.name, m, { prompt: ASK, maxTokens: 60, noToken: true });
+      step(r1, `no token · blocked by <code>${escapeHtml(hdr(r1, "x-gw-blocked-by") || "?")}</code>`);
+      if (!running) return;
+      const r2 = await callTool(g.name, "search-products", undefined, { noToken: true });
+      step(r2, `same rule on the MCP server · blocked by <code>${escapeHtml(hdr(r2, "x-gw-blocked-by") || "?")}</code>`);
+      if (!running) return;
+      const r3 = await send(g.name, m, { prompt: ASK, maxTokens: 60, noToken: false });
+      step(r3, `valid token · caller <b>${escapeHtml(hdr(r3, "x-gw-caller") || "-")}</b>`);
+      takeaway(`A leaked subscription key is not enough: without a token from an allowed app in this tenant the gateway answers <b>${r1.status}</b> on every surface and nothing is billed. With a token the call goes through and the caller identity (<b>${escapeHtml(hdr(r3, "x-gw-caller") || "-")}</b>) is attached to the metrics and logs. The Sourcing Agent calls with its own managed identity, so its downstream calls show up under that identity.`);
+    } },
+  { title: "Load balancing & regional failover", cost: "≤ 8 calls · < $0.002",
+    story: () => { const b = cfg.foundryBackends || [], p = b.find(x => x.priority === 1) || {}, s = b.find(x => x.priority !== 1) || {};
+      return `The models are deployed in two Foundry resources behind one <b>priority backend pool</b>: <b>${p.name || "foundry1"}</b> (${p.location || "primary"}) first, <b>${s.name || "foundry2"}</b> (${s.location || "secondary"}) as spillover. The primary gpt-4.1-nano deployment is deliberately tiny. Gold sends a burst: when the primary answers 429, the <code>retry</code> policy re-sends to the secondary and the <b>circuit breaker</b> takes the primary out of rotation, so the agent keeps getting 200s.`; },
+    async run() {
+      const g = tierAgent("gold"), nano = cfg.models.find(x => x.name === "gpt-4.1-nano")?.name || tierOf(g).allowedModels[0];
+      let ok = 0, failovers = 0; const served = {};
+      for (let i = 0; i < 8 && running; i++) {
+        const r = await send(g.name, nano, { prompt: LONG, maxTokens: 250 });
+        const route = hdr(r, "x-gw-route") || "";
+        if (r.status === 200) { ok++; served[hdr(r, "x-gw-backend") || "?"] = (served[hdr(r, "x-gw-backend") || "?"] || 0) + 1; }
+        if (route.includes(" > ")) failovers++;
+        step(r, `route <code>${escapeHtml(route || "-")}</code>`);
+      }
+      const split = Object.entries(served).map(([k, v]) => `${k}: ${v}`).join(", ");
+      takeaway(failovers || Object.keys(served).length > 1
+        ? `${ok}/8 calls answered 200 (${split}), with <b>${failovers} in-request failover${failovers === 1 ? "" : "s"}</b>: the primary's 429 never reached the agent. Once the circuit breaker trips, calls go straight to the secondary until the primary recovers. <code>x-gw-route</code> shows every attempt and the <code>BackendAttempts</code> metric and <code>ApiManagementGatewayLogs.BackendUrl</code> record which region served each call.`
+        : `${ok}/8 calls served by ${split || "-"} without a failover; the primary still had capacity. Run it again to push it over its limit.`);
+    } },
+  { title: "Policy trace & Azure Monitor evidence", cost: "1 call · < $0.0005", tab: "policies",
+    story: () => `Sends one <b>traced</b> call (Silver asks for a premium model) with an APIM debug credential. The <b>Policies &amp; evidence</b> tab shows the gateway's own policy-by-policy trace, then the same request in the Log Analytics tables, found by its <code>x-gw-request-id</code>. Every table links to the same query in the Azure portal.`,
+    async run() {
+      const s = tierAgent("silver"), premium = cfg.models.find(m => !tierOf(s).allowedModels.includes(m.name))?.name || cfg.models[0].name;
+      const r = await send(s.name, premium, { prompt: ASK, maxTokens: 80, trace: true, noToken: false });
+      step(r, `trace id <code>${escapeHtml(hdr(r, "apim-trace-id") || "-")}</code> · request id <code>${escapeHtml(hdr(r, "x-gw-request-id") || "-")}</code>`);
+      showEvidence(session.calls.length - 1);
+      policiesLoaded = true; loadPolicies(); loadPolicyEvidence();
+      takeaway(`The trace shows each policy as it ran: Entra validation and caller, the plan's model downgrade, token limit and budget checks, the backend pool and retry, and the cost metric. The same request then shows up in <code>ApiManagementGatewayLogs</code> (product, backend, status, failing policy) and <code>ApiManagementGatewayLlmLog</code> (deployment and tokens) about 2-5 minutes later; the panel keeps checking. <b>Open in Azure portal</b> runs each query in Log Analytics.`);
     } },
 ];
 
 async function runScenario(s) {
   $("scenario").classList.remove("hidden"); $("scSteps").innerHTML = "";
   $("scTitle").textContent = s.title; $("scStory").innerHTML = s.story(); $("scTakeaway").innerHTML = "";
-  if (s.title !== "Chargeback in Azure Monitor") showTab("live");
+  if (!s.tab) showTab("live");
   try { await s.run(); } catch (e) { info("Scenario failed: " + escapeHtml(e.message)); }
 }
 function renderScenarios() {
   $("scenarios").innerHTML = SCENARIOS.map((s, i) => `<button data-i="${i}"><span class="n">${i + 1}</span><span><span class="t">${s.title}</span><span class="c">${s.cost}</span></span></button>`).join("")
-    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.length})</span><span class="c">≈ 45 calls · < $0.05 · about 5 minutes</span></span></button>`;
+    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.length})</span><span class="c">≈ 57 calls · < $0.05 · about 7 minutes</span></span></button>`;
   document.querySelectorAll(".scenarios button[data-i]").forEach(b => b.onclick = async () => {
     setRunning(true, "Running scenario…"); await runScenario(SCENARIOS[b.dataset.i]); setRunning(false, "Scenario finished.");
   });

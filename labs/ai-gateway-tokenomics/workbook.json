@@ -58,7 +58,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "let cost = toscalar(customMetrics | where name == \"CostMicroUSD\" | summarize sum(valueSum)) / 1e6;\nlet tokens = toscalar(customMetrics | where name == \"Total Tokens\" | summarize sum(valueSum));\nlet calls = toscalar(requests\n| where url has \"/openai/\" or url has \"/commerce-mcp\" or url has \"/sourcing-agent\"\n| extend Agent = tostring(customDimensions[\"Subscription Name\"]), Tier = tostring(customDimensions[\"Product Name\"])\n| count);\nlet blocked = toscalar(requests\n| where url has \"/openai/\" or url has \"/commerce-mcp\" or url has \"/sourcing-agent\"\n| extend Agent = tostring(customDimensions[\"Subscription Name\"]), Tier = tostring(customDimensions[\"Product Name\"])\n| where resultCode in (\"403\", \"429\") | count);\nprint Metric = \"Total cost (USD)\", Value = round(cost, 4)\n| union (print Metric = \"Total tokens\", Value = todouble(tokens))\n| union (print Metric = \"Gateway calls\", Value = todouble(calls))\n| union (print Metric = \"Blocked by policy (403/429)\", Value = todouble(blocked))",
+        "query": "let cost = toscalar(customMetrics | where name == \"CostMicroUSD\" | summarize sum(valueSum)) / 1e6;\nlet tokens = toscalar(customMetrics | where name == \"Total Tokens\" | summarize sum(valueSum));\nlet calls = toscalar(requests\n| where url has \"/openai/\" or url has \"/commerce-mcp\" or url has \"/sourcing-agent\"\n| extend Agent = tostring(customDimensions[\"Subscription Name\"]), Tier = tostring(customDimensions[\"Product Name\"])\n| count);\nlet blocked = toscalar(requests\n| where url has \"/openai/\" or url has \"/commerce-mcp\" or url has \"/sourcing-agent\"\n| extend Agent = tostring(customDimensions[\"Subscription Name\"]), Tier = tostring(customDimensions[\"Product Name\"])\n| where resultCode in (\"401\", \"403\", \"429\") | count);\nprint Metric = \"Total cost (USD)\", Value = round(cost, 4)\n| union (print Metric = \"Total tokens\", Value = todouble(tokens))\n| union (print Metric = \"Gateway calls\", Value = todouble(calls))\n| union (print Metric = \"Blocked by policy (401/403/429)\", Value = todouble(blocked))",
         "size": 0,
         "title": "Totals",
         "timeContextFromParameter": "TimeRange",
@@ -286,7 +286,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "requests\n| where url has \"/openai/\" or url has \"/commerce-mcp\" or url has \"/sourcing-agent\"\n| extend Agent = tostring(customDimensions[\"Subscription Name\"]), Tier = tostring(customDimensions[\"Product Name\"])\n| where resultCode in (\"403\", \"429\")\n| summarize Calls = count() by resultCode, bin(timestamp, 1m)",
+        "query": "requests\n| where url has \"/openai/\" or url has \"/commerce-mcp\" or url has \"/sourcing-agent\"\n| extend Agent = tostring(customDimensions[\"Subscription Name\"]), Tier = tostring(customDimensions[\"Product Name\"])\n| where resultCode in (\"401\", \"403\", \"429\")\n| summarize Calls = count() by resultCode, bin(timestamp, 1m)",
         "size": 0,
         "title": "Blocked calls over time (429 = rate limit, 403 = entitlement / quota / budget)",
         "timeContextFromParameter": "TimeRange",
@@ -295,6 +295,133 @@
         "visualization": "timechart"
       },
       "name": "blocked-timeline",
+      "customWidth": "50"
+    },
+    {
+      "type": 1,
+      "name": "policies-header",
+      "content": {
+        "json": "## Policies in action\nEvidence of the gateway policies, from the **Log Analytics** diagnostic tables (`ApiManagementGatewayLogs`, `ApiManagementGatewayLlmLog`, `ApiManagementGatewayMCPLog`) and the gateway's custom metrics. `LastErrorSource` is the policy that stopped a call; `CorrelationId` equals the `x-gw-request-id` response header."
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayLogs\n| where ApiId in (\"inference-api\", \"commerce-mcp\", \"sourcing-agent\")\n| extend Policy = iff(isempty(LastErrorSource), \"(passed)\", LastErrorSource)\n| summarize Requests = count() by Policy, ResponseCode, Plan = ProductId\n| order by Requests desc",
+        "size": 0,
+        "title": "Gateway outcomes by policy (LastErrorSource = the policy that stopped the call)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table",
+        "crossComponentResources": [
+          "{law-id}"
+        ]
+      },
+      "name": "policy-outcomes",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayLogs\n| where LastErrorSource == \"validate-azure-ad-token\"\n| summarize Rejected = count() by Plan = ProductId, ApiId, LastErrorReason\n| order by Rejected desc",
+        "size": 0,
+        "title": "Microsoft Entra ID: rejected calls (validate-azure-ad-token)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table",
+        "crossComponentResources": [
+          "{law-id}"
+        ]
+      },
+      "name": "entra-rejections",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayLogs\n| where ApiId == \"inference-api\" and isnotempty(BackendUrl)\n| extend Backend = tostring(split(parse_url(BackendUrl).Host, \".\")[0])\n| summarize Calls = count() by Backend, bin(TimeGenerated, 1m)",
+        "size": 0,
+        "title": "Load balancing: which Foundry region served the AI model calls",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "timechart",
+        "crossComponentResources": [
+          "{law-id}"
+        ]
+      },
+      "name": "backend-regions",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "customMetrics\n| where name == \"BackendAttempts\"\n| extend Backend = tostring(customDimensions[\"Backend\"]), Region = tostring(customDimensions[\"Region\"]), Failover = tostring(customDimensions[\"Failover\"]), Model = tostring(customDimensions[\"Model\"])\n| summarize Requests = sum(valueCount), Attempts = sum(valueSum) by Backend, Region, Failover, Model\n| order by Requests desc",
+        "size": 0,
+        "title": "Failover: gateway attempts per request (BackendAttempts metric, Failover = retried on another region)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table"
+      },
+      "name": "failover",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayLlmLog\n| where isnotempty(DeploymentName)\n| summarize Calls = dcount(CorrelationId), PromptTokens = sum(PromptTokens), CompletionTokens = sum(CompletionTokens) by DeploymentName\n| order by PromptTokens desc",
+        "size": 0,
+        "title": "Tokens counted by the gateway per deployment (ApiManagementGatewayLlmLog)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table",
+        "crossComponentResources": [
+          "{law-id}"
+        ]
+      },
+      "name": "llm-tokens",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayMCPLog\n| where isnotempty(ToolName)\n| summarize Calls = count(), Errors = countif(isnotempty(Error)) by ToolName, ClientName, AuthenticationMethod\n| order by Calls desc",
+        "size": 0,
+        "title": "MCP tool calls (ApiManagementGatewayMCPLog)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table",
+        "crossComponentResources": [
+          "{law-id}"
+        ]
+      },
+      "name": "mcp-tools",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Caller = coalesce(tostring(customDimensions[\"Caller\"]), \"unknown\"), Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"])\n| summarize CostUSD = round(sum(valueSum) / 1e6, 6), Calls = sum(valueCount) by Caller, Agent, Tier\n| order by CostUSD desc",
+        "size": 0,
+        "title": "Cost by caller identity (Entra ID) and plan",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table"
+      },
+      "name": "callers",
       "customWidth": "50"
     }
   ],

@@ -62,6 +62,7 @@
                     <dimension name="Model" value="@((string)context.Variables["toolName"])" />
                     <dimension name="Surface" value="tool" />
                     <dimension name="Via" value="@((string)context.Variables["via"])" />
+                    <dimension name="Caller" value="@(context.Variables.GetValueOrDefault<string>("caller", "unknown"))" />
                 </emit-metric>
                 <set-header name="x-gw-tool" exists-action="override">
                     <value>@((string)context.Variables["toolName"])</value>
