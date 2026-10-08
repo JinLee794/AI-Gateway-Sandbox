@@ -1,0 +1,66 @@
+{
+  "$comment": "Lab configuration used by 'azd up' (infra/scripts/build_config.py turns it into the Bicep parameters). Mirrors step 0 of the notebook: change models, plans, prices and agents here.",
+  "foundryRegions": [
+    { "name": "foundry1", "location": "swedencentral", "priority": 1 },
+    { "name": "foundry2", "location": "francecentral", "priority": 2 }
+  ],
+  "models": [
+    { "name": "gpt-4.1", "publisher": "OpenAI", "version": "2025-04-14", "sku": "GlobalStandard", "capacity": 50, "inputPrice": 2.00, "outputPrice": 8.00 },
+    { "name": "gpt-4.1-mini", "publisher": "OpenAI", "version": "2025-04-14", "sku": "GlobalStandard", "capacity": 50, "inputPrice": 0.40, "outputPrice": 1.60 },
+    { "name": "gpt-4.1-nano", "publisher": "OpenAI", "version": "2025-04-14", "sku": "GlobalStandard", "capacity": 50, "primaryCapacity": 1, "inputPrice": 0.10, "outputPrice": 0.40 },
+    { "name": "DeepSeek-V3.2", "publisher": "DeepSeek", "version": "1", "sku": "GlobalStandard", "capacity": 50, "inputPrice": 0.58, "outputPrice": 1.68 }
+  ],
+  "tiers": [
+    {
+      "name": "gold", "displayName": "Gold", "description": "Premium plan: every model, every MCP tool (incl. premium data), the Sourcing Agent, generous limits",
+      "allowedModels": ["gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "DeepSeek-V3.2"], "fallbackModel": "gpt-4.1-mini", "onDisallowedModel": "downgrade",
+      "maxOutputTokens": 2000, "tpm": 20000, "tokenQuota": 1000000, "tokenQuotaPeriod": "Monthly", "budgetUsd": 5.00, "sessionBudgetUsd": 0.02,
+      "allowedTools": ["search-products", "check-inventory", "get-supplier-quote"], "toolCallsPerMinute": 60,
+      "allowedAgents": ["sourcing-agent"], "agentCallsPerMinute": 10
+    },
+    {
+      "name": "silver", "displayName": "Silver", "description": "Standard plan: cost-efficient models, standard MCP tools, the Sourcing Agent; premium requests are downgraded",
+      "allowedModels": ["gpt-4.1-mini", "gpt-4.1-nano", "DeepSeek-V3.2"], "fallbackModel": "gpt-4.1-mini", "onDisallowedModel": "downgrade",
+      "maxOutputTokens": 800, "tpm": 12000, "tokenQuota": 200000, "tokenQuotaPeriod": "Monthly", "budgetUsd": 0.01, "sessionBudgetUsd": 0.01,
+      "allowedTools": ["search-products", "check-inventory"], "toolCallsPerMinute": 30,
+      "allowedAgents": ["sourcing-agent"], "agentCallsPerMinute": 3
+    },
+    {
+      "name": "bronze", "displayName": "Bronze", "description": "Low-cost plan: nano model only, catalog search tool only, no agents, tight token limits",
+      "allowedModels": ["gpt-4.1-nano"], "fallbackModel": "gpt-4.1-nano", "onDisallowedModel": "deny",
+      "maxOutputTokens": 300, "tpm": 1500, "tokenQuota": 20000, "tokenQuotaPeriod": "Daily", "budgetUsd": 0.02, "sessionBudgetUsd": 0.01,
+      "allowedTools": ["search-products"], "toolCallsPerMinute": 10,
+      "allowedAgents": [], "agentCallsPerMinute": 1
+    },
+    {
+      "name": "agent-platform", "displayName": "Agent Platform (internal)", "description": "Internal plan for platform agents: their model and tool calls are charged back to the calling subscription",
+      "allowedModels": ["gpt-4.1-mini", "gpt-4.1-nano"], "fallbackModel": "gpt-4.1-mini", "onDisallowedModel": "downgrade",
+      "maxOutputTokens": 600, "tpm": 50000, "tokenQuota": 2000000, "tokenQuotaPeriod": "Monthly", "budgetUsd": 5.00, "sessionBudgetUsd": 1.00,
+      "allowedTools": ["search-products", "check-inventory", "get-supplier-quote"], "toolCallsPerMinute": 120,
+      "allowedAgents": [], "agentCallsPerMinute": 1, "internal": true
+    }
+  ],
+  "budgetPeriodSeconds": 2592000,
+  "tools": [
+    { "name": "search-products", "priceUsd": 0.0005, "description": "Search the product catalog" },
+    { "name": "check-inventory", "priceUsd": 0.0002, "description": "Stock level of a SKU per warehouse" },
+    { "name": "get-supplier-quote", "priceUsd": 0.0020, "description": "Premium: live supplier quotes for a SKU and quantity" }
+  ],
+  "a2aAgents": [
+    { "name": "sourcing-agent", "feeUsd": 0.0050, "description": "Sources a product: searches the catalog, checks stock, gets supplier quotes and recommends a supplier" }
+  ],
+  "agents": [
+    { "name": "support-agent", "displayName": "Customer Support Agent", "tier": "gold", "kind": "agent", "team": "Customer Care", "costCenter": "CC-1001" },
+    { "name": "research-agent", "displayName": "Research Agent", "tier": "silver", "kind": "agent", "team": "Supply Chain", "costCenter": "CC-2002" },
+    { "name": "marketing-agent", "displayName": "Marketing Copilot", "tier": "bronze", "kind": "agent", "team": "Marketing", "costCenter": "CC-3003" },
+    { "name": "user-alice", "displayName": "Alice Chen", "tier": "gold", "kind": "user", "team": "Customer Care", "costCenter": "CC-1001" },
+    { "name": "user-ben", "displayName": "Ben Okafor", "tier": "silver", "kind": "user", "team": "Customer Care", "costCenter": "CC-1001" },
+    { "name": "user-chloe", "displayName": "Chloe Martin", "tier": "bronze", "kind": "user", "team": "Marketing", "costCenter": "CC-3003" },
+    { "name": "user-dev", "displayName": "Dev Patel", "tier": "gold", "kind": "user", "team": "Supply Chain", "costCenter": "CC-2002" }
+  ],
+  "apimSku": "Basicv2",
+  "agentLocation": "westeurope",
+  "inferenceAPIPath": "inference",
+  "inferenceAPIType": "AzureOpenAIV1",
+  "foundryProjectName": "ai-gateway-sandbox"
+}

@@ -37,7 +37,7 @@ param budgetEpoch string = utcNow('yyyyMMddHHmmss')
 @secure()
 param agentBackendSecret string = newGuid()
 
-@description('Host the demo UI on Azure App Service behind App Service authentication (Easy Auth), so only users of this tenant can open it. Needs permission to create an app registration.')
+@description('Host the demo UI on Azure App Service behind App Service authentication (Easy Auth), so only users of this tenant can open it. Needs permission to create an app registration. Not used by azd up, which hosts the UI on Container Apps.')
 param hostDemoUi bool = false
 
 @description('Region of the App Service that hosts the demo UI')
@@ -45,6 +45,9 @@ param demoUiLocation string = resourceGroup().location
 
 @description('App Service plan SKU of the hosted demo UI')
 param demoUiSku string = 'B1'
+
+@description('Client ID of the hosted demo UI managed identity, approved as a gateway caller (set by azd up; empty for the notebook)')
+param uiClientId string = ''
 
 // ------------------
 //    VARIABLES
@@ -206,7 +209,8 @@ resource uiIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31
   name: 'id-sandbox-ui-${resourceSuffix}'
   location: demoUiLocation
 }
-var uiClientId = hostDemoUi ? uiIdentity!.properties.clientId : 'not-hosted'
+// The App Service UI identity (notebook, hostDemoUi) or the Container Apps UI identity (azd up, uiClientId)
+var demoUiClientId = hostDemoUi ? uiIdentity!.properties.clientId : uiClientId
 
 // Zero-trust: Entra ID token validation, included first by every tier policy (models, MCP tools and A2A agents)
 resource entraIdentityFragment 'Microsoft.ApiManagement/service/policyFragments@2024-06-01-preview' = {
@@ -215,8 +219,12 @@ resource entraIdentityFragment 'Microsoft.ApiManagement/service/policyFragments@
   properties: {
     description: 'Validates the caller Microsoft Entra ID token (validate-azure-ad-token) and identifies the caller for chargeback'
     format: 'rawxml'
-    value: replace(replace(replace(replace(loadTextContent('entra-identity-fragment.xml'), '{tenant-id}', tenant().tenantId), '{agent-client-id}', agentIdentity.properties.clientId),
-      '<!-- {ui-application-id} -->', hostDemoUi ? '<application-id>${uiClientId}</application-id>' : '<!-- (demo UI not hosted) -->'), '{ui-client-id}', uiClientId)
+    value: reduce(items({
+      '{tenant-id}': tenant().tenantId
+      '{agent-client-id}': agentIdentity.properties.clientId
+      '{ui-client-application-id}': empty(demoUiClientId) ? '' : '<application-id>${demoUiClientId}</application-id>'
+      '{ui-client-id}': empty(demoUiClientId) ? 'none' : demoUiClientId
+    }), loadTextContent('entra-identity-fragment.xml'), (xml, placeholder) => replace(xml, placeholder.key, placeholder.value))
   }
 }
 
@@ -636,6 +644,7 @@ output mcpUrl string = '${apimModule.outputs.gatewayUrl}/${commerceMcp.propertie
 output a2aUrl string = '${apimModule.outputs.gatewayUrl}/${sourcingAgentApi.properties.path}'
 output agentCardUrl string = '${apimModule.outputs.gatewayUrl}/${sourcingAgentApi.properties.path}/.well-known/agent-card.json'
 output agentAppUrl string = 'https://${sourcingAgentApp.properties.configuration.ingress.fqdn}'
+output containerAppsEnvironmentId string = agentEnvironment.id
 output toolPricing string = toolPricing
 output agentPricing string = agentPricing
 output demoUiUrl string = hostDemoUi ? demoUi!.outputs.url : ''

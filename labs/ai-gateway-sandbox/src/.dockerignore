@@ -1,0 +1,4 @@
+*.private.config
+__pycache__/
+agent/
+tools/

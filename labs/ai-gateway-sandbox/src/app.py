@@ -4,13 +4,15 @@ AI Gateway Sandbox - lightweight demo UI.
 Standard library only (no extra packages). Azure tokens are obtained from the Azure CLI (`az login` is a
 prerequisite of the lab): a Microsoft Entra ID token for the gateway (validated by validate-azure-ad-token),
 and tokens for the telemetry, Log Analytics evidence, request tracing, policy viewer and budget-reset features.
-When hosted on Azure App Service (hostDemoUi), the same tokens come from the app's user-assigned managed identity,
-and App Service authentication (Easy Auth) signs users in; the signed-in user is forwarded to the gateway as the presenter.
+When hosted on Azure App Service (notebook, hostDemoUi) or Azure Container Apps ('azd up'), the same tokens come from the
+UI's user-assigned managed identity, and the platform authentication (Easy Auth) signs users in; the signed-in user is
+forwarded to the gateway as the presenter.
 
     python app.py [--host 127.0.0.1] [--port 8080] [--config demo-config.private.config]
 
 The config file is written by the lab notebook (step 3) and contains the APIM subscription keys,
-so it is git-ignored (*.private.config).
+so it is git-ignored (*.private.config). With 'azd up', the config comes from the DEMO_CONFIG environment variable
+(a Container App secret) instead.
 """
 import argparse, base64, collections, gzip, json, os, re, shutil, subprocess, sys, threading, time, urllib.error, urllib.parse, urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -19,7 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(HERE, "static")
 IMAGES = os.path.normpath(os.path.join(HERE, "..", "..", "..", "images"))
 IMAGES_FALLBACK = "https://raw.githubusercontent.com/Azure-Samples/AI-Gateway/main/images"
-# Hosted on App Service with a managed identity (IDENTITY_ENDPOINT / IDENTITY_HEADER are set by the platform)
+# Hosted on App Service or Container Apps with a managed identity (IDENTITY_ENDPOINT / IDENTITY_HEADER are set by the platform)
 HOSTED = bool(os.environ.get("IDENTITY_ENDPOINT") and os.environ.get("IDENTITY_HEADER"))
 CONFIG = {}
 _token_cache, _token_lock = {}, threading.Lock()
@@ -702,14 +704,18 @@ class Handler(SimpleHTTPRequestHandler):
 
 def main():
     parser = argparse.ArgumentParser(description="AI Gateway Sandbox demo UI")
-    parser.add_argument("--host", default="127.0.0.1", help="interface to bind (App Service uses 0.0.0.0)")
+    parser.add_argument("--host", default=os.environ.get("HOST", "127.0.0.1"), help="interface to bind (hosted: 0.0.0.0)")
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8080)))
     parser.add_argument("--config", default=os.path.join(HERE, "demo-config.private.config"))
     args = parser.parse_args()
-    if not os.path.exists(args.config):
+    if os.environ.get("DEMO_CONFIG"):
+        # Hosted on Azure Container Apps (azd up): the config is a Container App secret
+        CONFIG.update(json.loads(os.environ["DEMO_CONFIG"]))
+    elif not os.path.exists(args.config):
         sys.exit(f"Config file not found: {args.config}. Run step 3 of the lab notebook first.")
-    with open(args.config, encoding="utf-8") as f:
-        CONFIG.update(json.load(f))
+    else:
+        with open(args.config, encoding="utf-8") as f:
+            CONFIG.update(json.load(f))
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"AI Gateway Sandbox demo UI running on http://{'localhost' if args.host == '127.0.0.1' else args.host}:{args.port}"
           f"{'  (hosted: managed identity)' if HOSTED else '  (Ctrl+C to stop)'}", flush=True)

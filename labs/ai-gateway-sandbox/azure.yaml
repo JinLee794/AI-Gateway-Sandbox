@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+# 'azd up' from this folder deploys the whole AI Gateway Sandbox: the lab infrastructure (main.bicep, same as the
+# notebook) plus the demo UI hosted on Azure Container Apps behind Microsoft Entra ID sign-in.
+name: ai-gateway-sandbox
+infra:
+  provider: bicep
+  path: infra
+  module: main
+hooks:
+  preprovision:
+    windows:
+      shell: pwsh
+      run: python ./infra/scripts/build_config.py
+      continueOnError: false
+    posix:
+      shell: sh
+      run: python3 ./infra/scripts/build_config.py
+      continueOnError: false
+services:
+  ui:
+    project: ./src
+    language: python
+    host: containerapp
+    docker:
+      path: Dockerfile
+      remoteBuild: true

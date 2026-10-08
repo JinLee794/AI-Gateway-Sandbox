@@ -23,8 +23,8 @@
             <application-id>04b07795-8ddb-461a-bbee-02f9e1bf7b46</application-id>
             <!-- Sourcing Agent workload identity (user-assigned managed identity of the Container App) -->
             <application-id>{agent-client-id}</application-id>
-            <!-- Hosted demo UI (user-assigned managed identity of the App Service, behind Easy Auth); set by main.bicep when hostDemoUi is true -->
-            <!-- {ui-application-id} -->
+            <!-- Hosted demo UI workload identity: App Service (notebook, hostDemoUi) or Container Apps (azd up); empty when the UI is not hosted -->
+            {ui-client-application-id}
         </client-application-ids>
         <audiences>
             <audience>https://cognitiveservices.azure.com</audience>
@@ -37,7 +37,7 @@
         if (appId == "{ui-client-id}") {
             // The hosted demo UI forwards the Easy Auth signed-in user; only trusted on a token of the UI's own identity
             var presenter = context.Request.Headers.GetValueOrDefault("x-demo-presenter", "");
-            if (presenter == "") { presenter = "presenter"; }
+            if (presenter == "") { return "sandbox-ui (managed identity)"; }
             if (presenter.Length > 128) { presenter = presenter.Substring(0, 128); }
             return presenter + " (via demo UI)";
         }
