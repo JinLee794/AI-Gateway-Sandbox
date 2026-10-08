@@ -10,7 +10,8 @@ The agent is published through Azure API Management as an A2A agent API. For eac
 
 It calls the gateway with its own platform identity (an APIM subscription of the internal agent-platform
 product) plus a Microsoft Entra ID token of its user-assigned managed identity (the gateway validates it with
-validate-azure-ad-token), and propagates the x-gw-on-behalf-of* headers stamped by the gateway, so every model token and
+validate-azure-ad-token), and propagates the x-gw-on-behalf-of* headers stamped by the gateway (payer, tier, via and
+session), so every model token and
 tool call it makes is charged back to the subscription that delegated the task. It reports the downstream
 spend in the x-agent-downstream-cost-micro-usd response header so the gateway can charge the fully-loaded
 cost to the caller's budget.
@@ -28,7 +29,7 @@ MODEL = os.environ.get("MODEL", "gpt-4.1-mini")
 BACKEND_SECRET = os.environ.get("AGENT_BACKEND_SECRET", "")
 AZURE_CLIENT_ID = os.environ.get("AZURE_CLIENT_ID", "")
 TOKEN_AUDIENCE = "https://cognitiveservices.azure.com"
-PROPAGATED = ("x-gw-on-behalf-of", "x-gw-on-behalf-of-tier", "x-gw-via-agent")
+PROPAGATED = ("x-gw-on-behalf-of", "x-gw-on-behalf-of-tier", "x-gw-via-agent", "x-gw-on-behalf-of-session")
 _token_cache = {"value": "", "expires": 0}
 _token_lock = threading.Lock()
 
@@ -228,7 +229,7 @@ class Handler(BaseHTTPRequestHandler):
             "status": {"state": "completed", "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
             "artifacts": [{"artifactId": str(uuid.uuid4()), "name": "sourcing-recommendation", "parts": [{"kind": "text", "text": answer}]}],
             "metadata": {"steps": task.steps, "downstreamCostMicroUsd": downstream, "durationMs": int((time.time() - started) * 1000),
-                         "billedTo": self.headers.get("x-gw-on-behalf-of")},
+                         "billedTo": self.headers.get("x-gw-on-behalf-of"), "session": self.headers.get("x-gw-on-behalf-of-session")},
         }
         self.reply(200, {"jsonrpc": "2.0", "id": rpc_id, "result": result}, {"x-agent-downstream-cost-micro-usd": str(downstream)})
 

@@ -5,7 +5,8 @@
       (before <base />, so the tier policy can enforce tool entitlements and tool rate limits).
     - Prices every tools/call with the {{tool-pricing}} named value (micro-USD per call). The cost feeds the
       same per-subscription $ budget as the AI models (quota-by-key in the tier policy).
-    - Attributes the spend (tokenomics-attribution fragment) and emits ToolCalls / CostMicroUSD metrics.
+    - Attributes the spend (tokenomics-attribution fragment), emits ToolCalls / CostMicroUSD metrics and writes a
+      chargeback record (chargeback-record fragment) with the user, team, cost center and session.
     - Never touches context.Response.Body: MCP responses are streamed, so the cost is returned in headers only.
 -->
 <policies>
@@ -62,7 +63,6 @@
                     <dimension name="Model" value="@((string)context.Variables["toolName"])" />
                     <dimension name="Surface" value="tool" />
                     <dimension name="Via" value="@((string)context.Variables["via"])" />
-                    <dimension name="Caller" value="@(context.Variables.GetValueOrDefault<string>("caller", "unknown"))" />
                 </emit-metric>
                 <set-header name="x-gw-tool" exists-action="override">
                     <value>@((string)context.Variables["toolName"])</value>
@@ -72,6 +72,8 @@
                 </set-header>
             </when>
         </choose>
+        <!-- one chargeback record per billable tool call: user, team, cost center, session, tool, cost -->
+        <include-fragment fragment-id="chargeback-record" />
         <set-header name="x-gw-agent" exists-action="override">
             <value>@(context.Subscription?.Id ?? "anonymous")</value>
         </set-header>

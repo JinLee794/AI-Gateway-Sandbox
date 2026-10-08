@@ -9,7 +9,9 @@
       plus the downstream model + tool spend reported by the agent in the x-agent-downstream-cost-micro-usd
       header (headers only - A2A response bodies are not deserialized by the gateway).
     - Emits AgentTasks / CostMicroUSD metrics. The cost metric carries the fee only; downstream calls already
-      emitted their own cost under the same payer, so App Insights totals are not double counted.
+      emitted their own cost under the same payer, so App Insights totals are not double counted. The chargeback
+      record (chargeback-record fragment) follows the same rule, and the caller's session is propagated to the
+      agent (x-gw-on-behalf-of-session) so its downstream calls are recorded in that session.
 -->
 <policies>
     <inbound>
@@ -19,12 +21,21 @@
             if (context.Request.Method != "POST") { return ""; }
             try { return context.Request.Body?.As<JObject>(preserveContent: true)?["id"]?.ToString() ?? ""; } catch { return ""; }
         }" />
+        <!-- A2A contextId groups the messages of one conversation: used as the session when no x-session-id is sent -->
+        <set-variable name="a2aContextId" value="@{
+            if (context.Request.Method != "POST") { return ""; }
+            try { return context.Request.Body?.As<JObject>(preserveContent: true)?["params"]?["message"]?["contextId"]?.ToString() ?? ""; } catch { return ""; }
+        }" />
         <base />
         <set-header name="x-gw-on-behalf-of" exists-action="override">
             <value>@(context.Subscription?.Id ?? "anonymous")</value>
         </set-header>
         <set-header name="x-gw-on-behalf-of-tier" exists-action="override">
             <value>@(context.Product?.Id ?? "none")</value>
+        </set-header>
+        <!-- the agent's downstream model and tool calls are recorded (and capped) in the caller's session -->
+        <set-header name="x-gw-on-behalf-of-session" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("session", "no-session"))</value>
         </set-header>
         <set-header name="x-gw-via-agent" exists-action="override">
             <value>@((string)context.Variables["agentId"])</value>
@@ -72,7 +83,6 @@
                     <dimension name="Model" value="@((string)context.Variables["agentId"])" />
                     <dimension name="Surface" value="agent" />
                     <dimension name="Via" value="direct" />
-                    <dimension name="Caller" value="@(context.Variables.GetValueOrDefault<string>("caller", "unknown"))" />
                 </emit-metric>
                 <set-header name="x-gw-agent-fee-usd" exists-action="override">
                     <value>@(((int)context.Variables["agentFeeMicroUsd"] / 1000000.0).ToString("0.000000"))</value>
@@ -83,8 +93,12 @@
                 <set-header name="x-gw-cost-usd" exists-action="override">
                     <value>@(((int)context.Variables["costMicroUsd"] / 1000000.0).ToString("0.000000"))</value>
                 </set-header>
+                <!-- the chargeback record carries the fee only: the downstream calls wrote their own records
+                     under the same payer and session (chargedMicroUsd = fully-loaded cost charged to the budget) -->
+                <set-variable name="chargebackMicroUsd" value="@((int)context.Variables["agentFeeMicroUsd"])" />
             </when>
         </choose>
+        <include-fragment fragment-id="chargeback-record" />
         <set-header name="x-gw-agent" exists-action="override">
             <value>@(context.Subscription?.Id ?? "anonymous")</value>
         </set-header>

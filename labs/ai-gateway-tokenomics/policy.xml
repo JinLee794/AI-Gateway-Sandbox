@@ -7,6 +7,7 @@
     - Emits token metrics to Application Insights, split by Agent (payer), Tier, Model, Surface and Via.
     - Prices every call with the {{model-pricing}} named value (USD per 1M tokens), emits the cost as a custom
       metric and returns it to the caller in the x-gw-* response headers.
+    - Writes a chargeback record (chargeback-record fragment) with the user, team, cost center and session.
     - The calculated cost (micro-USD) feeds the per-subscription $ budget enforced in product-policy.xml.
     - Load balancing + failover: {backend-id} is a backend POOL of Foundry resources in two regions. The pool sends
       traffic to the priority-1 (primary) backend; when it is throttled (429) its circuit breaker trips for the
@@ -87,7 +88,6 @@
                     <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("servedModel", "unknown"))" />
                     <dimension name="Surface" value="model" />
                     <dimension name="Via" value="@((string)context.Variables["via"])" />
-                    <dimension name="Caller" value="@(context.Variables.GetValueOrDefault<string>("caller", "unknown"))" />
                 </emit-metric>
                 <set-header name="x-gw-prompt-tokens" exists-action="override">
                     <value>@(((int)context.Variables["promptTokens"]).ToString())</value>
@@ -100,6 +100,8 @@
                 </set-header>
             </when>
         </choose>
+        <!-- one chargeback record per billable call: user, team, cost center, session, model, tokens, cost -->
+        <include-fragment fragment-id="chargeback-record" />
         <set-header name="x-gw-agent" exists-action="override">
             <value>@(context.Subscription?.Id ?? "anonymous")</value>
         </set-header>

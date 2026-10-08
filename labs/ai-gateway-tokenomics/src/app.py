@@ -26,7 +26,7 @@ GW_HEADERS = ["x-gw-agent", "x-gw-tier", "x-gw-model-requested", "x-gw-model-ser
               "x-gw-remaining-quota-tokens", "x-gw-tokens-consumed", "x-gw-block-reason", "retry-after",
               "x-gw-billed-to", "x-gw-tool", "x-gw-remaining-tool-calls", "x-gw-remaining-agent-calls",
               "x-gw-agent-fee-usd", "x-gw-downstream-cost-usd", "mcp-session-id", "x-gw-request-id", "x-gw-caller",
-              "x-gw-route", "x-gw-backend", "x-gw-blocked-by", "x-ms-region", "apim-trace-id"]
+              "x-gw-route", "x-gw-backend", "x-gw-blocked-by", "x-ms-region", "apim-trace-id", "x-gw-session"]
 GATEWAY_AUDIENCE = "https://cognitiveservices.azure.com"
 ARM = "https://management.azure.com"
 TRACE_APIS = {"model": "inference-api", "tool": "commerce-mcp", "agent": "sourcing-agent"}
@@ -61,6 +61,27 @@ POLICY_EVIDENCE_QUERIES = {
             '| summarize Calls = count(), Errors = countif(isnotempty(Error)) by ToolName, ClientName | order by Calls desc'),
     "entra": ("Entra ID: rejected tokens", 'ApiManagementGatewayLogs | where TimeGenerated > ago({window}) and LastErrorSource == "validate-azure-ad-token" '
               '| summarize Rejected = count() by ProductId, LastErrorReason | order by Rejected desc'),
+}
+
+# Chargeback records written by the chargeback-record policy fragment (one per billable call). Workspace-based
+# Application Insights stores them in the AppTraces table, with the trace metadata in Properties.
+CHARGEBACK_BASE = ('AppTraces | where TimeGenerated > ago({window}) and tostring(Properties.record) == "chargeback" '
+                   '| extend Team = tostring(Properties.team), CostCenter = tostring(Properties.costCenter), User = tostring(Properties.user), '
+                   'DisplayName = tostring(Properties.displayName), Kind = tostring(Properties.kind), Session = tostring(Properties.session), '
+                   'Surface = tostring(Properties.surface), Item = tostring(Properties.item), Via = tostring(Properties.via), '
+                   'CostMicroUsd = tolong(Properties.costMicroUsd), ChargedMicroUsd = tolong(Properties.chargedMicroUsd), '
+                   'PromptTokens = tolong(Properties.promptTokens), CompletionTokens = tolong(Properties.completionTokens), '
+                   'Caller = tostring(Properties.caller), RequestId = tostring(Properties.requestId) ')
+CHARGEBACK_QUERIES = {
+    "teams": ("Chargeback by team and cost center",
+              '| summarize CostUSD = round(sum(CostMicroUsd) / 1e6, 6), Calls = count(), Users = dcount(User), Sessions = dcount(Session) by Team, CostCenter '
+              '| order by CostUSD desc'),
+    "sessions": ("Chargeback by user and session",
+                 '| summarize CostUSD = round(sum(CostMicroUsd) / 1e6, 6), Calls = count(), Models = round(sumif(CostMicroUsd, Surface == "model") / 1e6, 6), '
+                 'Tools = round(sumif(CostMicroUsd, Surface == "tool") / 1e6, 6), Agents = round(sumif(CostMicroUsd, Surface == "agent") / 1e6, 6), '
+                 'ViaAgent = round(sumif(CostMicroUsd, Via != "direct") / 1e6, 6), PromptTokens = sum(PromptTokens), CompletionTokens = sum(CompletionTokens), '
+                 'Started = min(TimeGenerated), LastCall = max(TimeGenerated) by Team, CostCenter, User, DisplayName, Kind, Session '
+                 '| order by Team asc, DisplayName asc, Started asc'),
 }
 
 # The Model dimension carries the model, MCP tool or A2A agent that was billed (metrics allow at most 5 custom dimensions)
@@ -134,6 +155,10 @@ def gw_headers(headers):
     return {h: lower[h] for h in GW_HEADERS if h in lower}
 
 
+def valid_session(session):
+    return isinstance(session, str) and re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", session) is not None
+
+
 def debug_token(surface):
     """Short-lived APIM debug credential (Apim-Debug-Authorization) that turns on request tracing for one API."""
     cached = _token_cache.get("debug:" + surface)
@@ -151,8 +176,10 @@ def debug_token(surface):
 
 
 def gateway_auth(agent, payload, surface):
-    """Subscription key (which plan pays) + Entra ID token (who is calling) + optional request tracing."""
+    """Subscription key (which plan pays) + Entra ID token (who is calling) + session id + optional request tracing."""
     headers = {"api-key": agent["key"]}
+    if valid_session(payload.get("session")):
+        headers["x-session-id"] = payload["session"]
     if not payload.get("noToken"):
         headers["Authorization"] = f"Bearer {az_token(GATEWAY_AUDIENCE)}"
     if payload.get("trace"):
@@ -274,6 +301,8 @@ def a2a(payload):
         return 200, result
     message = {"role": "user", "messageId": f"ui-{int(time.time() * 1000)}", "kind": "message",
                "parts": [{"kind": "text", "text": payload.get("prompt") or "Source 100 units of SKU-1001"}]}
+    if valid_session(payload.get("session")):
+        message["contextId"] = payload["session"]  # one A2A conversation per session
     request = {"jsonrpc": "2.0", "id": 1, "method": "message/send", "params": {"message": message}}
     status, headers_out, text, elapsed = http("POST", CONFIG["a2aUrl"], request, headers, timeout=180)
     data = parse_rpc(text)
@@ -287,6 +316,7 @@ def a2a(payload):
         result["content"] = "\n".join(texts)
         result["state"] = (task.get("status") or {}).get("state")
         result["steps"] = (task.get("metadata") or {}).get("steps", [])
+        result["agentSession"] = (task.get("metadata") or {}).get("session")
     else:
         result["error"] = error_message(status, data, text)
     return 200, result
@@ -353,6 +383,22 @@ def policy_evidence(payload):
     return 200, results
 
 
+def chargeback(payload):
+    """Chargeback by team, cost center, user and session, from the chargeback records the gateway writes (AppTraces)."""
+    window = payload.get("window", "1d") if re.fullmatch(r"\d{1,3}[mhd]", payload.get("window", "1d")) else "1d"
+    results = {}
+    for name, (title, template) in CHARGEBACK_QUERIES.items():
+        query = CHARGEBACK_BASE.replace("{window}", window) + template
+        results[name] = {"title": title, "query": query, "portalLink": portal_logs_link(query), "rows": law_query(query)}
+    session = payload.get("session")
+    if valid_session(session):
+        query = (CHARGEBACK_BASE.replace("{window}", window) + f'| where Session == "{session}" '
+                 '| project TimeGenerated, DisplayName, Surface, Item, Via, CostUSD = round(CostMicroUsd / 1e6, 6), '
+                 'BudgetDrawUSD = round(ChargedMicroUsd / 1e6, 6), PromptTokens, CompletionTokens, Caller, RequestId | order by TimeGenerated asc')
+        results["session"] = {"title": f"Session {session}: every billable call", "query": query, "portalLink": portal_logs_link(query), "rows": law_query(query)}
+    return 200, results
+
+
 def trace(payload):
     """Fetches an APIM request trace (listTrace) and condenses it into a policy-by-policy timeline."""
     trace_id = payload.get("traceId", "")
@@ -387,7 +433,8 @@ def policies(_payload):
              ("API", "MCP server (commerce-mcp)", f"{apim}/apis/commerce-mcp/policies/policy"),
              ("API", "A2A agent (sourcing-agent)", f"{apim}/apis/sourcing-agent/policies/policy"),
              ("Fragment", "entra-identity", f"{apim}/policyFragments/entra-identity"),
-             ("Fragment", "tokenomics-attribution", f"{apim}/policyFragments/tokenomics-attribution")]
+             ("Fragment", "tokenomics-attribution", f"{apim}/policyFragments/tokenomics-attribution"),
+             ("Fragment", "chargeback-record", f"{apim}/policyFragments/chargeback-record")]
     items += [("Product", f"{t['displayName']} ({t['name']})", f"{apim}/products/{t['name']}/policies/policy") for t in CONFIG.get("tiers", [])]
     result = []
     for scope, name, url in items:
@@ -455,7 +502,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         routes = {"/api/chat": chat, "/api/mcp": mcp, "/api/a2a": a2a, "/api/telemetry": telemetry, "/api/reset-budgets": reset_budgets,
-                  "/api/trace": trace, "/api/evidence": evidence, "/api/policy-evidence": policy_evidence, "/api/policies": policies}
+                  "/api/trace": trace, "/api/evidence": evidence, "/api/policy-evidence": policy_evidence, "/api/policies": policies,
+                  "/api/chargeback": chargeback}
         handler = routes.get(self.path)
         if not handler:
             return self.send_json(404, {"error": "not found"})

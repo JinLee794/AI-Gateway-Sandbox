@@ -18,10 +18,10 @@ param toolPricing string
 @description('A2A agent fee list (micro-USD per task, on top of the downstream model and tool spend). Format: "<agent>=<micro-USD>;..."')
 param agentPricing string
 
-@description('Tiers (APIM products) with their governance settings: name, displayName, description, allowedModels, fallbackModel, onDisallowedModel (downgrade|deny), maxOutputTokens, tpm, tokenQuota, tokenQuotaPeriod, allowedTools, toolCallsPerMinute, allowedAgents, agentCallsPerMinute, budgetMicroUsd, budgetPeriodSeconds, internal (optional). The tier named "agent-platform" is the internal product used by platform agents.')
+@description('Tiers (APIM products) with their governance settings: name, displayName, description, allowedModels, fallbackModel, onDisallowedModel (downgrade|deny), maxOutputTokens, tpm, tokenQuota, tokenQuotaPeriod, allowedTools, toolCallsPerMinute, allowedAgents, agentCallsPerMinute, budgetMicroUsd, budgetPeriodSeconds, sessionBudgetMicroUsd, internal (optional). The tier named "agent-platform" is the internal product used by platform agents.')
 param tiersConfig array = []
 
-@description('Agents (APIM subscriptions): name, displayName, tier')
+@description('Agents and demo users (APIM subscriptions): name, displayName, tier, and optionally kind (agent | user), team and costCenter for chargeback')
 param agentsConfig array = []
 
 @description('Model used by the Sourcing Agent (must be allowed in the agent-platform tier)')
@@ -160,6 +160,32 @@ resource attributionFragment 'Microsoft.ApiManagement/service/policyFragments@20
   }
 }
 
+// Chargeback directory: who owns each subscription (display name, team, cost center, agent or user). The demo users are
+// plain subscriptions (one key each), so no Entra ID identities are needed; in production derive the user from the token.
+resource chargebackDirectoryNamedValue 'Microsoft.ApiManagement/service/namedValues@2024-06-01-preview' = {
+  parent: apim
+  name: 'chargeback-directory'
+  properties: {
+    displayName: 'chargeback-directory'
+    value: join(map(agentsConfig, agent => '${agent.name}=${agent.displayName}|${agent.?team ?? 'Unassigned'}|${agent.?costCenter ?? 'n/a'}|${agent.?kind ?? 'agent'}'), ';')
+    secret: false
+  }
+}
+
+// One chargeback record (App Insights trace) per billable call: user, team, cost center, session, item, tokens, cost
+resource chargebackFragment 'Microsoft.ApiManagement/service/policyFragments@2024-06-01-preview' = {
+  parent: apim
+  name: 'chargeback-record'
+  properties: {
+    description: 'Writes a chargeback record per billable call (user, team, cost center, session, item, tokens, cost) to Application Insights'
+    format: 'rawxml'
+    value: loadTextContent('chargeback-fragment.xml')
+  }
+  dependsOn: [
+    chargebackDirectoryNamedValue
+  ]
+}
+
 // Workload identity of the Sourcing Agent: it presents an Entra ID token of this identity to the gateway
 resource agentIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: 'id-sourcing-agent-${resourceSuffix}'
@@ -195,6 +221,7 @@ module inferenceAPIModule '../../modules/apim/v3/inference-api.bicep' = {
     modelPricingNamedValue
     budgetEpochNamedValue
     attributionFragment
+    chargebackFragment
   ]
 }
 
@@ -266,6 +293,7 @@ resource commerceMcpPolicy 'Microsoft.ApiManagement/service/apis/policies@2024-0
   dependsOn: [
     toolPricingNamedValue
     attributionFragment
+    chargebackFragment
   ]
 }
 
@@ -414,6 +442,7 @@ resource sourcingAgentApiPolicy 'Microsoft.ApiManagement/service/apis/policies@2
   dependsOn: [
     agentPricingNamedValue
     agentBackendSecretNamedValue
+    chargebackFragment
   ]
 }
 
@@ -496,6 +525,7 @@ resource tierProductPolicy 'Microsoft.ApiManagement/service/products/policies@20
       '{on-disallowed-model}': tier.onDisallowedModel
       '{max-output-tokens}': string(tier.maxOutputTokens)
       '{budget-micro-usd}': string(tier.budgetMicroUsd)
+      '{session-budget-micro-usd}': string(tier.?sessionBudgetMicroUsd ?? tier.budgetMicroUsd)
       '{budget-period-seconds}': string(tier.budgetPeriodSeconds)
       '{tpm}': string(tier.tpm)
       '{token-quota}': string(tier.tokenQuota)
@@ -581,5 +611,8 @@ output agentKeys array = [for (agent, i) in agentsConfig: {
   name: agent.name
   displayName: agent.displayName
   tier: agent.tier
+  kind: agent.?kind ?? 'agent'
+  team: agent.?team ?? 'Unassigned'
+  costCenter: agent.?costCenter ?? 'n/a'
   key: agentSubscription[i].listSecrets().primaryKey
 }]

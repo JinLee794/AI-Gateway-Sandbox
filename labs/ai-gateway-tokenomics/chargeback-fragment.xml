@@ -1,0 +1,66 @@
+<fragment>
+    <!--
+        AI Gateway Tokenomics - "chargeback-record" policy fragment (included in the outbound section of the model,
+        MCP tool and A2A agent APIs).
+
+        Writes ONE chargeback record per billable call (200 with a cost) to Application Insights (traces table) with
+        everything FinOps needs to slice spend by team, cost center, user and session:
+
+          record=chargeback, user (the paying subscription), displayName, team, costCenter, kind (user | agent),
+          session, surface (model | tool | agent), item (model / tool / agent id), costMicroUsd, promptTokens,
+          completionTokens, tier, via (direct | agent id), caller (Entra ID identity), requestId
+
+        Why a trace record and not a metric dimension: emit-metric accepts at most 5 custom dimensions per policy
+        and 100 unique values per dimension, and values over the limits are silently dropped. Sessions are
+        unbounded, so they are logged as records and aggregated with KQL.
+
+        The owner of each subscription (display name, team, cost center, kind) comes from the {{chargeback-directory}}
+        named value ("<subscription>=<display name>|<team>|<cost center>|<kind>;..."). In production, derive the user
+        from the Entra ID token (oid claim) and the team / cost center from your HR or CMDB directory.
+
+        Expects: payer, payerTier, via (tokenomics-attribution fragment; falls back to the calling subscription),
+        session (tier policy), surface, costMicroUsd and optionally chargebackMicroUsd (the A2A API records the agent
+        fee only, because the agent's downstream calls write their own records under the same payer and session).
+    -->
+    <set-variable name="chargebackMicroUsd" value="@(context.Variables.GetValueOrDefault<int>("chargebackMicroUsd", context.Variables.GetValueOrDefault<int>("costMicroUsd", 0)))" />
+    <choose>
+        <when condition="@(context.Response.StatusCode == 200 && (int)context.Variables["chargebackMicroUsd"] > 0)">
+            <set-variable name="chargebackDirectory" value="{{chargeback-directory}}" />
+            <set-variable name="chargebackPayer" value="@(context.Variables.GetValueOrDefault<string>("payer", context.Subscription?.Id ?? "anonymous"))" />
+            <set-variable name="chargebackOwner" value="@{
+                var payer = (string)context.Variables["chargebackPayer"];
+                foreach (var entry in ((string)context.Variables["chargebackDirectory"]).Split(';')) {
+                    var parts = entry.Split('=');
+                    if (parts.Length == 2 && parts[0].Trim() == payer) { return parts[1] + "|||"; }
+                }
+                return payer + "|Unassigned|n/a|unknown|||";
+            }" />
+            <set-variable name="chargebackItem" value="@{
+                var surface = context.Variables.GetValueOrDefault<string>("surface", "");
+                return surface == "tool" ? context.Variables.GetValueOrDefault<string>("toolName", "")
+                    : surface == "agent" ? context.Variables.GetValueOrDefault<string>("agentId", "")
+                    : context.Variables.GetValueOrDefault<string>("servedModel", "");
+            }" />
+            <trace source="chargeback" severity="information">
+                <message>@("Chargeback: " + (string)context.Variables["chargebackPayer"] + " session " + context.Variables.GetValueOrDefault<string>("session", "no-session") + " " + context.Variables.GetValueOrDefault<string>("surface", "") + " " + (string)context.Variables["chargebackItem"] + " " + (int)context.Variables["chargebackMicroUsd"] + " micro-USD")</message>
+                <metadata name="record" value="chargeback" />
+                <metadata name="user" value="@((string)context.Variables["chargebackPayer"])" />
+                <metadata name="displayName" value="@(((string)context.Variables["chargebackOwner"]).Split('|')[0])" />
+                <metadata name="team" value="@(((string)context.Variables["chargebackOwner"]).Split('|')[1])" />
+                <metadata name="costCenter" value="@(((string)context.Variables["chargebackOwner"]).Split('|')[2])" />
+                <metadata name="kind" value="@(((string)context.Variables["chargebackOwner"]).Split('|')[3])" />
+                <metadata name="session" value="@(context.Variables.GetValueOrDefault<string>("session", "no-session"))" />
+                <metadata name="surface" value="@(context.Variables.GetValueOrDefault<string>("surface", ""))" />
+                <metadata name="item" value="@((string)context.Variables["chargebackItem"])" />
+                <metadata name="costMicroUsd" value="@(((int)context.Variables["chargebackMicroUsd"]).ToString())" />
+                <metadata name="chargedMicroUsd" value="@(context.Variables.GetValueOrDefault<int>("costMicroUsd", 0).ToString())" />
+                <metadata name="promptTokens" value="@(context.Variables.GetValueOrDefault<int>("promptTokens", 0).ToString())" />
+                <metadata name="completionTokens" value="@(context.Variables.GetValueOrDefault<int>("completionTokens", 0).ToString())" />
+                <metadata name="tier" value="@(context.Variables.GetValueOrDefault<string>("payerTier", context.Product?.Id ?? "none"))" />
+                <metadata name="via" value="@(context.Variables.GetValueOrDefault<string>("via", "direct"))" />
+                <metadata name="caller" value="@(context.Variables.GetValueOrDefault<string>("caller", "unknown"))" />
+                <metadata name="requestId" value="@(context.RequestId.ToString())" />
+            </trace>
+        </when>
+    </choose>
+</fragment>

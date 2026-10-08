@@ -39,7 +39,7 @@
   select:focus, textarea:focus, input:focus { outline:none; border-color:var(--accent); box-shadow:inset 0 -2px 0 var(--accent); }
   textarea { resize:vertical; min-height:72px; }
   label { color:var(--text); font-size:13px; font-weight:600; display:block; margin:12px 0 4px; }
-  main { display:grid; grid-template-columns:390px 1fr; gap:16px; padding:16px 24px 32px; max-width:1680px; }
+  main { padding:0 24px 32px; max-width:1680px; }
   .card { background:var(--panel); border-radius:6px; padding:16px 18px; box-shadow:var(--shadow); }
   .card h2 { font-size:16px; margin:0 0 12px; font-weight:600; display:flex; align-items:center; gap:8px; }
   .card h2 .step { width:22px; height:22px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; display:inline-grid; place-items:center; }
@@ -53,6 +53,13 @@
   .agent.selected { border-color:var(--accent); background:var(--accent-light); box-shadow:inset 0 0 0 1px var(--accent); }
   .agent .name { font-weight:600; display:flex; justify-content:space-between; align-items:center; }
   .agent .meta { color:var(--muted); font-size:12px; margin-top:4px; line-height:1.6; }
+  .agrp { font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin:6px 0 -2px; }
+  .agrp span { text-transform:none; letter-spacing:0; font-weight:400; }
+  .users { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .users .agent { padding:8px 10px; } .users .agent .meta { line-height:1.45; }
+  .sessrow { display:flex; gap:8px; align-items:end; margin-top:10px; } .sessrow > div { flex:1; } .sessrow input { font-family:Consolas,monospace; font-size:12px; }
+  .sess { font-family:Consolas,monospace; font-size:11px; color:#005a9e; }
+  tr.sub td { background:#f3f2f1; font-weight:600; } tr.click { cursor:pointer; } tr.click:hover td { background:var(--accent-light); }
   .badge { font-size:11px; padding:1px 8px; border-radius:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; border:1px solid transparent; }
   .badge.gold { background:var(--gold); color:#8a5300; border-color:#f2d58a; } .badge.silver { background:var(--silver); color:#484644; border-color:#c8c6c4; }
   .badge.bronze { background:var(--bronze); color:#8e3c14; border-color:#f4b9a0; }
@@ -91,11 +98,11 @@
   .scenarios button.all:hover:not(:disabled) { background:var(--accent-hover); } .scenarios button.all .c { color:#deecf9; }
   .scenarios button:disabled { background:#faf9f8; color:#a19f9d; border-color:var(--divider); }
   #scenario { margin-bottom:16px; border-left:4px solid var(--accent); }
-  #scSteps { margin:12px 0 0; padding-left:22px; line-height:2; font-size:13px; }
-  #scTakeaway { margin-top:12px; padding:10px 12px 10px 38px; background:var(--accent-light); border:1px solid #c7e0f4; border-radius:4px; position:relative; font-size:13px; }
-  #scTakeaway::before { content:"i"; position:absolute; left:12px; top:10px; width:16px; height:16px; border-radius:50%; background:var(--accent); color:#fff;
+  #scSteps, .rsteps { margin:12px 0 0; padding-left:22px; line-height:2; font-size:13px; }
+  #scTakeaway, .rtake { margin-top:12px; padding:10px 12px 10px 38px; background:var(--accent-light); border:1px solid #c7e0f4; border-radius:4px; position:relative; font-size:13px; }
+  #scTakeaway::before, .rtake::before { content:"i"; position:absolute; left:12px; top:10px; width:16px; height:16px; border-radius:50%; background:var(--accent); color:#fff;
                         font:600 11px/16px Georgia,serif; text-align:center; }
-  #scTakeaway:empty { display:none; }
+  #scTakeaway:empty, .rtake:empty { display:none; }
   .toast { position:fixed; bottom:20px; right:20px; background:#fff; border-left:4px solid var(--accent); box-shadow:0 6.4px 14.4px rgba(0,0,0,.13),0 1.2px 3.6px rgba(0,0,0,.11);
            padding:12px 16px; border-radius:4px; display:none; max-width:420px; }
   .pivot { display:flex; border:1px solid #8a8886; border-radius:4px; overflow:hidden; margin-bottom:4px; }
@@ -127,7 +134,103 @@
   .src { font-family:Consolas,monospace; font-size:12px; } .src.key { color:var(--accent); font-weight:600; } .src.err { color:var(--bad); font-weight:600; }
   .s401 { background:var(--bad-bg); color:var(--bad); }
   a.ev { cursor:pointer; }
-</style>
+  /* Scenario preview: hover card with a small diagram of what a guided scenario does */
+  .preview { position:fixed; z-index:50; width:540px; max-width:calc(100vw - 16px); background:#fff; border-radius:8px; padding:14px 16px 12px; pointer-events:none;
+             box-shadow:0 25.6px 57.6px rgba(0,0,0,.22),0 4.8px 14.4px rgba(0,0,0,.18); opacity:0; visibility:hidden; transform:translateX(-6px); transition:opacity .12s, transform .12s; }
+  .preview.show { opacity:1; visibility:visible; transform:none; }
+  .preview .ph { display:flex; gap:10px; align-items:flex-start; }
+  .preview .ph .n { width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-weight:600; font-size:12px; display:grid; place-items:center; flex:0 0 24px; }
+  .preview .ph b { font-size:14px; } .preview .gist { color:var(--muted); font-size:12px; line-height:1.5; margin-top:2px; }
+  .preview .pf { display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin-top:10px; font-size:11px; color:var(--muted); }
+  .preview .pf code { font-size:11px; } .preview .pf .sp { flex:1; }
+  .dgm { margin-top:10px; background:var(--panel2); border:1px solid var(--divider); border-radius:6px; padding:12px; display:grid; gap:10px; }
+  .dr { display:flex; align-items:center; width:100%; }
+  .dc { display:grid; gap:6px; flex:1; }
+  .dn { border:1px solid var(--border); background:#fff; border-radius:6px; padding:4px 8px; font-size:11px; line-height:1.3; text-align:center; flex:0 0 auto; max-width:120px; }
+  .dn b { display:block; font-size:12px; font-weight:600; } .dn > span { color:var(--muted); font-size:10.5px; display:block; }
+  .dn .badge { font-size:9px; padding:0 5px; }
+  .dn.gw { border-color:var(--accent); background:var(--accent-light); } .dn.gw b { color:#005a9e; }
+  .dn.model { border-color:#9fc5ea; } .dn.tool { border-color:#7fc8cd; background:#f2fafa; } .dn.a2a { border-color:#b9a4d8; background:#f9f6fc; }
+  .dn.mon { border-color:#c3b3e0; } .dn.x { border-color:#e8a3a7; background:var(--bad-bg); } .dn.x b { color:var(--bad); }
+  .dn.dim { border-style:dashed; color:var(--muted); }
+  .da { --c:#8a8886; flex:1 1 0; min-width:26px; display:flex; flex-direction:column; align-items:center; font-size:10px; color:var(--muted); padding:0 3px; text-align:center; line-height:1.2; }
+  .da > span { white-space:nowrap; margin-bottom:2px; }
+  .da i { display:block; width:100%; height:2px; background:var(--c); position:relative; }
+  .da i::after { content:""; position:absolute; right:-2px; top:-4px; border:5px solid transparent; border-left:7px solid var(--c); border-right:0; }
+  .da.ok { --c:#107c10; } .da.bad { --c:#d13438; } .da.warn { --c:#ca5010; } .da.ok > span { color:var(--ok); } .da.bad > span { color:var(--bad); } .da.warn > span { color:var(--warn); }
+  .da.dash i { background:repeating-linear-gradient(90deg,var(--c) 0 4px,transparent 4px 7px); }
+  .dr > .status { margin-left:6px; flex:0 0 auto; }
+  .db { display:grid; grid-template-columns:110px 1fr 120px; gap:8px; align-items:center; font-size:11px; }
+  .db .t { height:10px; background:#edebe9; border-radius:5px; overflow:hidden; display:flex; } .db .t span { display:block; height:100%; }
+  .db .t span + span { border-left:2px solid #fff; }
+  .db .r { color:var(--muted); text-align:right; }
+  .dseq { display:flex; gap:4px; align-items:center; font-size:11px; color:var(--muted); }
+  .dseq .dq { font-size:10px; font-weight:600; border-radius:3px; padding:2px 5px; }
+  .dnote { font-size:11px; color:var(--muted); line-height:1.5; }
+  .dmx { font-size:11px; } .dmx th, .dmx td { padding:3px 6px; text-align:center; } .dmx th:first-child, .dmx td:first-child { text-align:left; }
+  .dmx th { position:static; background:transparent; }
+  .dchips { display:flex; flex-wrap:wrap; gap:4px; align-items:center; font-size:10.5px; }
+  .dchips span { background:#fff; border:1px solid #c7e0f4; border-radius:10px; padding:1px 8px; color:#005a9e; } .dchips i { color:var(--muted); font-style:normal; }
+  /* Launch panel: choose ONE way to drive the gateway (guided scenario OR your own request); it collapses to a sticky bar while results are in focus */
+  .card h2.lh, .lbody h2 { font-size:15px; margin:0 0 10px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .lbody h2 .step { width:22px; height:22px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; display:inline-grid; place-items:center; }
+  .launch { background:var(--panel); border-radius:6px; box-shadow:var(--shadow); margin:16px 0; border-top:3px solid var(--accent); }
+  .launch.collapsed { position:sticky; top:0; z-index:20; box-shadow:0 6.4px 14.4px rgba(0,0,0,.13),0 1.2px 3.6px rgba(0,0,0,.11); }
+  .lbar { display:flex; align-items:center; gap:10px; padding:12px 18px; flex-wrap:wrap; }
+  .launch:not(.collapsed) .lbar { border-bottom:1px solid var(--divider); }
+  .lbar .q { font-weight:600; font-size:16px; margin-right:6px; } .launch.collapsed .lbar .q { display:none; }
+  .lbar .sp { flex:1; }
+  .modes { display:flex; align-items:center; gap:8px; }
+  .mode { background:#fff; color:var(--text); border:1px solid var(--border); border-radius:6px; height:auto; padding:8px 14px 8px 10px; font-weight:400; display:inline-flex; align-items:center; gap:10px; text-align:left; }
+  .mode:hover:not(:disabled) { background:#faf9f8; border-color:#8a8886; color:var(--text); }
+  .mode.active, .mode.active:hover:not(:disabled) { border-color:var(--accent); background:var(--accent-light); box-shadow:inset 0 0 0 1px var(--accent); }
+  .mode .ic { width:28px; height:28px; border-radius:50%; background:#edebe9; color:var(--muted); display:grid; place-items:center; font-size:13px; flex:0 0 28px; }
+  .mode.active .ic { background:var(--accent); color:#fff; }
+  .mode b { display:block; font-size:14px; font-weight:600; } .mode small { display:block; color:var(--muted); font-size:12px; font-weight:400; }
+  .launch.collapsed .mode { padding:4px 12px 4px 6px; } .launch.collapsed .mode small { display:none; } .launch.collapsed .mode b { font-size:13px; }
+  .launch.collapsed .mode .ic { width:22px; height:22px; flex-basis:22px; font-size:11px; }
+  .launch.collapsed .mode:not(.active) { opacity:.75; }
+  .modes .or { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; background:var(--bg); border-radius:10px; padding:2px 8px; }
+  .lsum { font-size:13px; max-width:480px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-left:12px; border-left:1px solid var(--divider); }
+  .lstat { display:inline-flex; align-items:center; gap:6px; max-width:460px; } .lstat #runStatus { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lstat .live { width:8px; height:8px; border-radius:50%; background:var(--ok); display:none; animation:pulse 1.2s ease-in-out infinite; flex:0 0 8px; }
+  .launch.running .lstat .live { display:inline-block; }
+  @keyframes pulse { 50% { opacity:.25; } }
+  .lbody { padding:16px 18px 18px; }
+  .guided .scenarios { grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); }
+  .guided .scenarios button.all { grid-column:1 / -1; }
+  .build { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(340px,1fr); gap:24px; align-items:start; }
+  .build .agents { grid-template-columns:repeat(3,minmax(0,1fr)); } .build .agrp, .build .users { grid-column:1 / -1; }
+  .build .users { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .build .form { border-left:1px solid var(--divider); padding-left:24px; }
+  #sessionArea.idle #tab-live > :not(.idlehint) { opacity:.45; filter:grayscale(.5); }
+  .idlehint { border:1px dashed #8a8886; border-radius:6px; padding:10px 14px; margin-bottom:14px; font-size:13px; background:#fff; }
+  #sessionArea:not(.idle) .idlehint { display:none; }
+  .lsum { cursor:pointer; } .lsum:hover { color:var(--accent); text-decoration:underline; }
+  /* Run history: every scenario, full demo or custom request is a run you can analyze afterwards */
+  .tabs .pill { font-size:11px; font-weight:600; background:#edebe9; color:#484644; border-radius:10px; padding:1px 7px; margin-left:4px; }
+  .runs { display:grid; grid-template-columns:320px minmax(0,1fr); gap:16px; align-items:start; }
+  .rlist { padding:14px 10px; position:sticky; top:72px; max-height:calc(100vh - 90px); overflow:auto; } .rlist h2 { padding:0 8px; }
+  .ritem { display:block; width:100%; text-align:left; background:#fff; color:var(--text); border:1px solid transparent; border-radius:4px; height:auto; padding:8px 10px; font-weight:400; margin-bottom:2px; }
+  .ritem:hover:not(:disabled) { background:#f3f2f1; color:var(--text); border-color:transparent; }
+  .ritem.sel, .ritem.sel:hover:not(:disabled) { background:var(--accent-light); border-color:var(--accent); }
+  .ritem .top { display:flex; gap:6px; align-items:center; } .ritem .ttl { font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ritem .meta { font-size:12px; color:var(--muted); margin-top:3px; }
+  .ritem .cbar { height:4px; background:#edebe9; border-radius:2px; margin-top:6px; overflow:hidden; } .ritem .cbar i { display:block; height:100%; background:#8764b8; }
+  .kind { font-size:10.5px; font-weight:600; border-radius:10px; padding:1px 7px; white-space:nowrap; flex:0 0 auto; }
+  .kind.scenario { background:var(--accent-light); color:#005a9e; } .kind.demo { background:#0078d4; color:#fff; } .kind.custom { background:#f3eefa; color:#5c2e91; }
+  .rtag { font-size:10.5px; font-weight:600; color:#484644; background:#edebe9; border-radius:8px; padding:0 6px; cursor:pointer; text-decoration:none; flex:0 0 auto; }
+  a.rtag:hover { background:var(--accent); color:#fff; }
+  .rhead { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:16px; } .rhead h2 { margin:0; flex:1; min-width:200px; }
+  .rhead .rtag { font-size:13px; padding:2px 9px; } .rhead .kind { font-size:12px; padding:2px 9px; }
+  .rkpis { grid-template-columns:repeat(6,1fr); } .rkpis .kpi .v { font-size:20px; }
+  .rpart + .rpart { margin-top:10px; } .rpart summary { cursor:pointer; font-weight:600; font-size:13px; padding:4px 0; } .rpart summary .muted { font-weight:400; }
+  .rkv { grid-template-columns:130px 1fr; }
+  #runDetail tr.click.sel td { background:var(--accent-light); }
+  .runempty { padding:40px; text-align:center; color:var(--muted); }
+  @media (max-width:1180px) { .runs { grid-template-columns:1fr; } .rlist { position:static; max-height:320px; } .rkpis { grid-template-columns:repeat(3,1fr); } }
+  @media (max-width:1180px) { .build { grid-template-columns:1fr; } .build .form { border-left:0; padding-left:0; } .build .agents, .build .users { grid-template-columns:1fr 1fr; } }
+  @media (max-width:760px) { .modes { flex-wrap:wrap; } .build .agents, .build .users { grid-template-columns:1fr; } }</style>
 </head>
 <body>
 <div class="topbar"><span class="brand">Microsoft Azure</span><span class="sep"></span><span>AI Gateway</span><span class="spacer"></span><span class="env">Live demo · Azure API Management + Microsoft Foundry</span></div>
@@ -147,17 +250,32 @@
 </div>
 
 <main>
-  <section>
-    <div class="card" style="margin-bottom:16px">
-      <h2>Guided scenarios</h2>
-      <div class="scenarios" id="scenarios"></div>
-      <div class="muted" style="margin-top:8px">Every scenario sends a small, fixed number of real calls through the gateway to Foundry. Call counts and costs are upper bounds.</div>
+  <section class="launch" id="launch">
+    <div class="lbar">
+      <span class="q">How do you want to drive the gateway?</span>
+      <div class="modes" role="tablist" aria-label="Choose one">
+        <button class="mode active" data-mode="guided" role="tab" aria-selected="true"><span class="ic">▶</span><span><b>Run a guided scenario</b><small>one click · a scripted story with a takeaway</small></span></button>
+        <span class="or">or</span>
+        <button class="mode" data-mode="build" role="tab" aria-selected="false"><span class="ic">✎</span><span><b>Build your own request</b><small>pick an agent, a target and a prompt</small></span></button>
+      </div>
+      <span class="lsum hidden" id="lsum"></span>
+      <span class="sp"></span>
+      <span class="lstat"><span class="live"></span><span class="muted" id="runStatus"></span></span>
+      <button class="secondary hidden" id="btnStop">Stop</button>
+      <button class="secondary hidden" id="btnAgain">↻ Run again</button>
+      <button class="secondary" id="btnToggle">Collapse ▴</button>
     </div>
-    <div class="card">
-      <h2><span class="step">1</span>Pick an agent</h2>
+    <div class="lbody" id="lbody">
+    <div class="guided" id="mode-guided">
+      <div class="scenarios" id="scenarios"></div>
+      <div class="muted" style="margin-top:8px">Hover over a scenario to see what it does. Every scenario sends a small, fixed number of real calls through the gateway to Foundry. Call counts and costs are upper bounds.</div>
+    </div>
+    <div class="build hidden" id="mode-build">
+    <div>
+      <h2><span class="step">1</span>Pick an agent or a user</h2>
       <div class="agents" id="agents"></div>
     </div>
-    <div class="card" style="margin-top:16px">
+    <div class="form">
       <h2><span class="step">2</span>Send requests through the gateway</h2>
       <div class="pivot" id="surfacePivot">
         <button class="active" data-surface="model">AI model</button>
@@ -187,6 +305,10 @@
         <textarea id="agentTask">Source 500 units of SKU-1042 for the Q3 electronics promotion. Recommend a supplier.</textarea>
         <div class="muted" style="margin-top:6px">The agent calls 3 MCP tools and 1 model through the gateway. Its spend plus a per-task fee is charged to the calling agent.</div>
       </div>
+      <div class="sessrow">
+        <div><label title="Sent as the x-session-id header. The gateway caps spend per session and tags every chargeback record with it.">Session id <span class="muted">(x-session-id: per-session $ cap + chargeback key)</span></label><input id="sessionId" /></div>
+        <button class="secondary" id="btnNewSession" style="flex:0 0 auto">New session</button>
+      </div>
       <div class="toggles">
         <label title="Microsoft Entra ID token from your az login, validated by validate-azure-ad-token"><input type="checkbox" id="useToken" checked /> Send Entra ID token</label>
         <label title="Requests an APIM debug credential so the gateway records a policy-by-policy trace"><input type="checkbox" id="useTrace" /> Trace policies</label>
@@ -197,13 +319,13 @@
         <button class="secondary hidden" id="btnList">List tools</button>
         <button class="secondary hidden" id="btnCard">Get agent card</button>
         <button class="secondary" id="btnSim" title="30 short requests from random agents: AI models and MCP tools, 2 per second">Simulate mixed traffic (30)</button>
-        <button class="secondary hidden" id="btnStop">Stop</button>
       </div>
-      <div class="muted" style="margin-top:10px" id="runStatus"></div>
+    </div>
+    </div>
     </div>
   </section>
 
-  <section>
+  <section class="idle" id="sessionArea">
     <div class="card hidden" id="scenario">
       <h2 id="scTitle"></h2>
       <div id="scStory" class="muted" style="font-size:13px"></div>
@@ -212,9 +334,18 @@
     </div>
     <div class="tabs">
       <button class="active" data-tab="live">Live session</button>
+      <button data-tab="runs">Run history <span class="pill" id="runCount">0</span></button>
+      <button data-tab="chargeback">Chargeback: users &amp; sessions</button>
       <button data-tab="plans">Products &amp; plans</button>
       <button data-tab="policies">Policies &amp; evidence</button>
       <button data-tab="monitor">Azure Monitor (App Insights)</button>
+    </div>
+
+    <div id="tab-runs" class="hidden">
+      <div class="runs">
+        <div class="card rlist"><h2>Runs <span class="muted">(this page session, newest first)</span></h2><div id="runList"></div></div>
+        <div id="runDetail"></div>
+      </div>
     </div>
 
     <div id="tab-policies" class="hidden">
@@ -231,10 +362,10 @@
           Every response carries <code>x-gw-request-id</code>, the key that finds the same call in the trace and in every Log Analytics table.</div>
         <div class="pipe">
           <div class="stage"><span class="sec">Client</span><b>Agent / app</b><code>api-key</code> = which plan pays<br/><code>Authorization: Bearer</code> = who calls</div>
-          <div class="stage gw"><span class="sec">Product · inbound</span><b>Identity</b><code>validate-azure-ad-token</code> (fragment <code>entra-identity</code>): tenant, audience, allowed client apps → <b>401</b><br/>caller → chargeback dimension</div>
-          <div class="stage gw"><span class="sec">Product · inbound</span><b>Plan enforcement</b>model / tool / agent entitlement → downgrade or <b>403</b><br/><code>llm-token-limit</code> TPM + quota → <b>429</b><br/><code>quota-by-key</code> $ budget → <b>403</b></div>
+          <div class="stage gw"><span class="sec">Product · inbound</span><b>Identity</b><code>validate-azure-ad-token</code> (fragment <code>entra-identity</code>): tenant, audience, allowed client apps → <b>401</b><br/>          caller → chargeback record</div>
+                    <div class="stage gw"><span class="sec">Product · inbound</span><b>Plan enforcement</b>model / tool / agent entitlement → downgrade or <b>403</b><br/><code>llm-token-limit</code> TPM + quota → <b>429</b><br/><code>quota-by-key</code> $ budget per subscription and per session → <b>403</b></div>
           <div class="stage gw"><span class="sec">API · inbound + backend</span><b>Routing &amp; resilience</b><code>set-backend-service</code> → priority pool<br/><code>retry</code> on 429 / 5xx → next region<br/>circuit breaker trips a throttled region<br/><code>authentication-managed-identity</code> → Foundry</div>
-          <div class="stage gw"><span class="sec">Outbound</span><b>Metering &amp; logging</b><code>llm-emit-token-metric</code>, <code>emit-metric</code> (cost, caller, backend)<br/>LLM / MCP / gateway logs → Log Analytics<br/><code>x-gw-*</code> response headers</div>
+          <div class="stage gw"><span class="sec">Outbound</span><b>Metering &amp; logging</b><code>llm-emit-token-metric</code>, <code>emit-metric</code> (cost per agent, tier, model)<br/><code>trace</code> chargeback record (user, team, session)<br/>LLM / MCP / gateway logs → Log Analytics<br/><code>x-gw-*</code> response headers</div>
         </div>
         <div class="kv" id="backendsKv" style="grid-template-columns:170px 1fr"></div>
       </div>
@@ -243,13 +374,14 @@
         <table>
           <thead><tr><th>Evidence</th><th>Written by</th><th>What it records</th><th>Find a call by</th><th>Delay</th></tr></thead>
           <tbody>
-            <tr><td><code>x-gw-*</code> response headers</td><td><code>set-header</code> policies</td><td style="white-space:normal">plan, served model, tokens, cost, remaining limits, caller, backend route, blocking policy</td><td>the response</td><td>instant</td></tr>
+            <tr><td><code>x-gw-*</code> response headers</td><td><code>set-header</code> policies</td><td style="white-space:normal">plan, served model, tokens, cost, remaining limits, caller, session, backend route, blocking policy</td><td>the response</td><td>instant</td></tr>
             <tr><td>Request trace</td><td>APIM tracing (debug credential)</td><td style="white-space:normal">every policy executed, in order, with timings, variables, retries and the backend URL of each attempt</td><td><code>apim-trace-id</code></td><td>instant</td></tr>
             <tr><td><code>ApiManagementGatewayLogs</code></td><td>diagnostic setting → Log Analytics</td><td style="white-space:normal">product, subscription, backend, status codes, timings, client IP and the policy that failed (<code>LastErrorSource</code>, <code>LastErrorReason</code>)</td><td><code>CorrelationId</code></td><td>2-5 min</td></tr>
             <tr><td><code>ApiManagementGatewayLlmLog</code></td><td>LLM logging (diagnostic setting)</td><td style="white-space:normal">deployment, model, prompt / completion / total tokens, streaming; optionally the prompt and completion</td><td><code>CorrelationId</code></td><td>2-5 min</td></tr>
             <tr><td><code>ApiManagementGatewayMCPLog</code></td><td>MCP logging (diagnostic setting)</td><td style="white-space:normal">MCP client and server, method, tool name, session, authentication method, errors</td><td><code>CorrelationId</code></td><td>2-5 min</td></tr>
             <tr><td>App Insights <code>requests</code></td><td>API diagnostics → Application Insights</td><td style="white-space:normal">every request with product and subscription name, duration and result code, correlated to the backend dependency</td><td>operation id</td><td>1-3 min</td></tr>
-            <tr><td>App Insights <code>customMetrics</code></td><td><code>emit-metric</code>, <code>llm-emit-token-metric</code></td><td style="white-space:normal">cost, tokens, governance events and backend attempts per agent, tier, model, caller, region</td><td>dimensions (aggregated)</td><td>1-3 min</td></tr>
+            <tr><td>App Insights <code>customMetrics</code></td><td><code>emit-metric</code>, <code>llm-emit-token-metric</code></td><td style="white-space:normal">cost, tokens, governance events and backend attempts per agent, tier, model, surface, region (aggregated; at most 5 custom dimensions per metric)</td><td>dimensions (aggregated)</td><td>1-3 min</td></tr>
+            <tr><td>App Insights <code>traces</code> (<code>AppTraces</code>)</td><td><code>trace</code> policy (fragment <code>chargeback-record</code>)</td><td style="white-space:normal">one chargeback record per billable call: user, team, cost center, session, surface, item, tokens, cost, caller, on-behalf-of path</td><td>session, <code>requestId</code></td><td>1-3 min</td></tr>
           </tbody>
         </table>
       </div>
@@ -266,6 +398,34 @@
         <h2>Deployed policies <span class="muted">(read back from Azure Resource Manager)</span></h2>
         <div class="muted" style="font-size:13px">In the portal: API Management › APIs › <i>API</i> › All operations › Inbound processing › Policy code editor; Products › <i>plan</i> › Policies; APIs › Policy fragments; Backends.</div>
         <div id="deployedPolicies" class="muted" style="margin-top:8px">Loading…</div>
+      </div>
+    </div>
+
+    <div id="tab-chargeback" class="hidden">
+      <div class="card">
+        <h2>Chargeback by team, user and session</h2>
+        <div class="muted" style="font-size:13px">Each demo user has its own <b>subscription key</b> on a plan, so the gateway knows who pays without any extra identity setup.
+          The client sends a <code>x-session-id</code> header (or the gateway falls back to the MCP <code>Mcp-Session-Id</code> or the A2A <code>contextId</code>).
+          The plan meters a <b>$ cap per session</b>, and the <code>chargeback-record</code> policy fragment writes one record per billable call with user, team, cost center, session, surface, item, tokens and cost.
+          When an A2A agent works for a user, its model and tool calls are recorded under the <b>user's</b> session.</div>
+        <div class="flow" style="margin-top:10px"><span class="node">Demo user<br/><span class="muted">subscription key + x-session-id</span></span><span class="arrow">→</span>
+          <span class="node gw">Product policy<br/><span class="muted">session · $ cap per session</span></span><span class="arrow">→</span>
+          <span class="node gw">API policy<br/><span class="muted">prices the call</span></span><span class="arrow">→</span>
+          <span class="node gw">chargeback-record<br/><span class="muted"><code>trace</code> policy</span></span><span class="arrow">→</span>
+          <span class="node">Application Insights<br/><span class="muted">AppTraces · KQL</span></span></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2>Ledger from this browser <span class="muted">(instant, from the <code>x-gw-*</code> response headers)</span></h2>
+        <div class="scroll" id="cbLedger" style="max-height:360px"><div class="muted">No calls yet. Run the <b>Chargeback by user &amp; session</b> scenario or send a request as a demo user.</div></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="row" style="align-items:end">
+          <h2 style="flex:1;margin:0">Chargeback in Azure Monitor <span class="muted">(the gateway's own records)</span></h2>
+          <div style="flex:0 0 160px"><select id="cbWindow"><option value="1h">Last hour</option><option value="1d" selected>Last 24 hours</option><option value="7d">Last 7 days</option></select></div>
+          <div style="flex:0 0 auto"><button class="secondary" id="btnChargeback">Query Log Analytics</button></div>
+        </div>
+        <div class="muted" id="cbStatus" style="margin-top:6px">Live KQL over <code>AppTraces</code> where <code>Properties.record == "chargeback"</code>. Records arrive 1-3 minutes after a call. Click a session to see every call in it.</div>
+        <div id="cbMonitor"></div>
       </div>
     </div>
 
@@ -295,6 +455,7 @@
     </div>
 
     <div id="tab-live">
+      <div class="idlehint">Results show up here. Pick <b>one</b> above: run a guided scenario, <i>or</i> build your own request and press <b>Send</b>.</div>
       <div class="kpis">
         <div class="kpi"><div class="l">Requests</div><div class="v" id="kCalls">0</div></div>
         <div class="kpi ok"><div class="l">Allowed (200)</div><div class="v" id="kOk">0</div></div>
@@ -320,7 +481,7 @@
       <div class="card" style="margin-top:16px">
         <h2>Request log</h2>
         <div class="scroll"><table>
-          <thead><tr><th>Time</th><th>Agent</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Governance</th><th>Tokens</th><th>Cost USD</th><th>Billed to</th><th>Backend</th><th>Latency</th><th>Detail</th><th>Evidence</th></tr></thead>
+          <thead><tr><th>Time</th><th>Agent / user</th><th>Session</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Governance</th><th>Tokens</th><th>Cost USD</th><th>Billed to</th><th>Backend</th><th>Latency</th><th>Detail</th><th>Evidence</th></tr></thead>
           <tbody id="log"></tbody>
         </table></div>
       </div>
@@ -353,6 +514,7 @@
   </section>
 </main>
 <div class="toast" id="toast"></div>
+<div class="preview" id="scPreview" role="tooltip"></div>
 
 <script>
 const PRESETS = {
@@ -364,7 +526,7 @@ const PRESETS = {
 const COLORS = ["#0078d4", "#8764b8", "#00b7c3", "#ca5010", "#e3008c", "#498205", "#4f6bed"];
 const STATUS_COLORS = { "200": "#107c10", "401": "#a4262c", "403": "#d13438", "429": "#f7630c", "other": "#a19f9d" };
 let cfg, selectedAgent, running = false, surface = "model";
-const session = { calls: [], costByAgent: {}, costBySurface: {}, costByAgentSurface: {}, outcomes: {} };
+const session = { calls: [], costByAgent: {}, costBySurface: {}, costByAgentSurface: {}, outcomes: {}, ledger: {} };
 const charts = {};
 const $ = (id) => document.getElementById(id);
 const SURFACES = { model: "AI models", tool: "MCP tools", agent: "A2A agents" };
@@ -385,16 +547,26 @@ async function init() {
   for (const [k, id] of [["workbook", "lnkWorkbook"], ["appInsights", "lnkAppInsights"], ["logAnalytics", "lnkLogs"], ["apim", "lnkApim"]]) {
     if (cfg.links[k]) $(id).href = cfg.links[k]; else $(id).classList.add("hidden");
   }
-  $("agents").innerHTML = cfg.agents.map(a => {
+  const card = (a) => {
     const t = tierOf(a);
+    if (a.kind === "user") return `<div class="agent" data-agent="${a.name}">
+      <div class="name">${a.displayName} <span class="badge ${a.tier}">${a.tier}</span></div>
+      <div class="meta">${escapeHtml(a.team || "-")} · ${escapeHtml(a.costCenter || "-")}<br/>budget <b>$${t.budgetUsd}</b> · <b>$${t.sessionBudgetUsd ?? t.budgetUsd}</b> per session</div></div>`;
     return `<div class="agent" data-agent="${a.name}">
       <div class="name">${a.displayName} <span class="badge ${a.tier}">${a.tier}</span></div>
       <div class="meta">${surfChip("model")} ${t.allowedModels.join(", ")} · disallowed → ${t.onDisallowedModel === "deny" ? "<b>deny</b>" : "downgrade to " + t.fallbackModel}<br/>
       ${surfChip("tool")} ${list(t.allowedTools)}<br/>
       ${surfChip("agent")} ${list(t.allowedAgents)}<br/>
-      ${t.tpm.toLocaleString()} TPM · max output ${t.maxOutputTokens} · budget <b>$${t.budgetUsd}</b> across all surfaces</div></div>`;
-  }).join("");
+      ${t.tpm.toLocaleString()} TPM · max output ${t.maxOutputTokens} · budget <b>$${t.budgetUsd}</b> across all surfaces${a.team ? ` · ${escapeHtml(a.team)} (${escapeHtml(a.costCenter || "-")})` : ""}</div></div>`;
+  };
+  const apps = cfg.agents.filter(a => a.kind !== "user"), people = cfg.agents.filter(a => a.kind === "user");
+  $("agents").innerHTML = `<div class="agrp">Apps &amp; agents</div>` + apps.map(card).join("")
+    + (people.length ? `<div class="agrp">Demo users <span>· one subscription key each, no Entra ID user needed</span></div><div class="users">${people.map(card).join("")}</div>` : "");
   document.querySelectorAll(".agent").forEach(el => el.onclick = () => selectAgent(el.dataset.agent));
+  $("sessionId").value = newSessionId("ui");
+  $("btnNewSession").onclick = () => { $("sessionId").value = newSessionId(selectedAgent?.kind === "user" ? selectedAgent.name.replace(/^user-/, "") : "ui"); toast("New session " + $("sessionId").value); };
+  $("btnChargeback").onclick = () => loadChargeback();
+  $("cbWindow").onchange = () => loadChargeback();
   $("preset").innerHTML = Object.keys(PRESETS).map(p => `<option>${p}</option>`).join("");
   $("preset").onchange = () => $("prompt").value = PRESETS[$("preset").value];
   $("prompt").value = PRESETS[$("preset").value];
@@ -450,6 +622,7 @@ function renderPlans() {
   html += row("Agent tasks per minute", t => (t.allowedAgents || []).length ? t.agentCallsPerMinute : no);
   html += grp("FinOps");
   html += row("$ budget (models + tools + agents)", t => `<b>$${t.budgetUsd}</b> / 30 days`);
+  html += row("$ cap per session", t => `$${t.sessionBudgetUsd ?? t.budgetUsd}`);
   html += "</tbody></table>";
   $("plansMatrix").innerHTML = html;
   $("priceList").innerHTML = `<table><thead><tr><th>Surface</th><th>Resource</th><th>Price</th><th>Metered from</th></tr></thead><tbody>`
@@ -485,8 +658,9 @@ function setOutcomes(c, rows) { // rows: [{Agent, resultCode, Calls}]
   c.update();
 }
 
-// opts.noToken / opts.trace override the "Send Entra ID token" and "Trace policies" toggles (used by the scenarios)
-function authOpts(opts = {}) { return { noToken: opts.noToken ?? !$("useToken").checked, trace: opts.trace ?? $("useTrace").checked }; }
+// opts.noToken / opts.trace / opts.session override the toggles and the session box (used by the scenarios)
+function authOpts(opts = {}) { return { noToken: opts.noToken ?? !$("useToken").checked, trace: opts.trace ?? $("useTrace").checked, session: opts.session ?? $("sessionId").value.trim() }; }
+function newSessionId(prefix = "s") { return `${prefix}-${new Date().toISOString().slice(5, 16).replace(/[-T:]/g, "")}-${Math.random().toString(36).slice(2, 6)}`; }
 async function post(path, body) {
   const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const r = await res.json();
@@ -501,7 +675,7 @@ function send(agentName, model, opts = {}) {
 function callTool(agentName, tool, args, opts = {}) { return post("/api/mcp", { agent: agentName, action: "call", tool, arguments: args ?? TOOL_ARGS[tool] ?? {}, ...authOpts(opts) }); }
 function listTools(agentName, opts = {}) { return post("/api/mcp", { agent: agentName, action: "list", ...authOpts(opts) }); }
 function callAgent(agentName, prompt, opts = {}) { return post("/api/a2a", { agent: agentName, action: "send", prompt: prompt ?? $("agentTask").value, ...authOpts(opts) }); }
-function agentCard(agentName) { return post("/api/a2a", { agent: agentName, action: "card" }); }
+function agentCard(agentName) { return post("/api/a2a", { agent: agentName, action: "card", ...authOpts() }); }
 
 function resourceOf(r) {
   const h = r.headers || {};
@@ -520,24 +694,10 @@ function costParts(r) {
   return parts;
 }
 
-function record(r) {
-  const h = r.headers || {}, cost = r.status === 200 ? Number(h["x-gw-cost-usd"] || 0) : 0;
-  const tokens = r.usage ? (r.usage.total_tokens || 0) : (r.steps || []).reduce((s, x) => s + (x.tokens || 0), 0);
-  r.tokens = tokens;
-  const idx = session.calls.push(r) - 1; session.totalCost = (session.totalCost || 0) + cost; session.tokens = (session.tokens || 0) + tokens;
-  session.costByAgent[r.agent] = (session.costByAgent[r.agent] || 0) + cost;
-  for (const [s, v] of Object.entries(costParts(r))) {
-    session.costBySurface[s] = (session.costBySurface[s] || 0) + v;
-    session.costByAgentSurface[r.agent + "|" + s] = (session.costByAgentSurface[r.agent + "|" + s] || 0) + v;
-  }
-  const key = r.agent + "|" + r.status; session.outcomes[key] = (session.outcomes[key] || 0) + 1;
-
-  const ok = session.calls.filter(c => c.status === 200).length;
-  $("kCalls").textContent = session.calls.length; $("kOk").textContent = ok;
-  $("kBlocked").textContent = session.calls.filter(c => [401, 403, 429].includes(c.status)).length;
-  $("kTokens").textContent = session.tokens.toLocaleString();
-  $("kCost").textContent = fmtUsd(session.totalCost);
-
+const callCost = (r) => r.status === 200 ? Number((r.headers || {})["x-gw-cost-usd"] || 0) : 0;
+// HTML for one call: the detail panel (Last response / Run history) and its request-log row
+function callView(r, idx) {
+  const h = r.headers || {}, cost = callCost(r), tokens = r.tokens;
   const gov = h["x-gw-governance"] && h["x-gw-governance"] !== "none" ? `<span class="gov">${h["x-gw-governance"]}</span>` : "none";
   const billed = h["x-gw-billed-to"] || (r.status === 200 && cost ? r.agent : "-");
   let kv = `<div>Surface</div><div>${surfChip(r.surface)} ${resourceOf(r)}</div><div>Governance</div><div>${gov}</div>`;
@@ -550,6 +710,7 @@ function record(r) {
   kv += `<div>Cost of this call</div><div>${cost ? "<b>" + fmtUsd(cost) + "</b>" : "-"}</div><div>Billed to</div><div>${billed}</div>`;
   if (h["retry-after"]) kv += `<div>Retry-After</div><div>${h["retry-after"]} s</div>`;
   kv += `<div>Caller (Entra ID)</div><div>${h["x-gw-caller"] ? escapeHtml(h["x-gw-caller"]) : r.entraToken === false ? "<i>no token sent</i>" : "-"}</div>`;
+  if (h["x-gw-session"]) kv += `<div>Session</div><div><span class="sess">${escapeHtml(h["x-gw-session"])}</span></div>`;
   if (h["x-gw-blocked-by"]) kv += `<div>Blocked by policy</div><div><span class="src err">${escapeHtml(h["x-gw-blocked-by"])}</span></div>`;
   if (h["x-gw-route"]) kv += `<div>Backend route</div><div>${escapeHtml(h["x-gw-route"])}${h["x-gw-route"].includes(" > ") ? ' <span class="gov">failover</span>' : ""}</div>`;
   kv += `<div>Request id</div><div><code>${escapeHtml(h["x-gw-request-id"] || "-")}</code> <a class="ev" onclick="showEvidence(${idx})">${h["apim-trace-id"] ? "trace + logs" : "logs"} ›</a></div>`;
@@ -559,18 +720,47 @@ function record(r) {
   const stepsHtml = (r.steps || []).length ? `<table class="steps"><thead><tr><th>Agent step (through the gateway)</th><th>Status</th><th>Cost</th><th>Billed to</th></tr></thead><tbody>`
     + r.steps.map(s => `<tr><td>${surfChip(s.type)} ${s.name}</td><td><span class="status ${statusClass(s.status)}">${s.status}</span></td><td>${fmtUsd((s.costMicroUsd || 0) / 1e6)}</td><td>${s.billedTo || "-"}</td></tr>`).join("")
     + `<tr><td>${surfChip("agent")} per-task fee</td><td></td><td>${fmtUsd(h["x-gw-agent-fee-usd"])}</td><td>${billed}</td></tr></tbody></table>` : "";
-  $("last").innerHTML = `<span class="status ${statusClass(r.status)}">${r.status}</span> <b>${r.agent}</b> (${r.tier}) · ${r.latencyMs ?? "-"} ms
+  const last = `<span class="status ${statusClass(r.status)}">${r.status}</span> <b>${r.agent}</b> (${r.tier}) · ${r.latencyMs ?? "-"} ms
     <div class="kv">${kv}</div>${stepsHtml}
     <div class="content">${escapeHtml(body)}</div>`;
 
   const detail = r.status === 200 ? (r.finishReason === "length" ? "truncated (output cap)" : r.surface === "agent" && r.steps ? `${r.steps.length} downstream calls` : "") : (r.error || "");
   const tok = r.surface === "model" ? `${h["x-gw-prompt-tokens"] || "-"} / ${h["x-gw-completion-tokens"] || "-"}` : (tokens ? tokens : "-");
-  $("log").insertAdjacentHTML("afterbegin", `<tr><td>${new Date().toLocaleTimeString()}</td><td>${r.agent}</td><td>${surfChip(r.surface)}</td>
+  const row = `<tr data-idx="${idx}"><td>${new Date(r.at || Date.now()).toLocaleTimeString()}${r.run ? ` <a class="rtag" title="Analyze this run" onclick="openRun(${r.run})">#${r.run}</a>` : ""}</td><td>${r.agent}</td><td><span class="sess">${escapeHtml(h["x-gw-session"] || "-")}</span></td><td>${surfChip(r.surface)}</td>
     <td><span class="status ${statusClass(r.status)}">${r.status}</span></td><td>${resourceOf(r)}</td><td>${gov}</td>
     <td>${tok}</td><td>${cost ? cost.toFixed(6) : "-"}</td><td>${billed}</td>
     <td title="${escapeHtml(h["x-gw-route"] || "")}">${escapeHtml(h["x-gw-backend"] || "-")}${(h["x-gw-route"] || "").includes(" > ") ? " ⤳" : ""}</td>
     <td>${r.latencyMs ?? "-"} ms</td><td title="${escapeHtml(detail)}">${escapeHtml(detail.slice(0, 60))}</td>
-    <td>${h["x-gw-request-id"] ? `<a class="ev" onclick="showEvidence(${idx})">${h["apim-trace-id"] ? "trace + logs" : "logs"}</a>` : "-"}</td></tr>`);
+    <td>${h["x-gw-request-id"] ? `<a class="ev" onclick="showEvidence(${idx})">${h["apim-trace-id"] ? "trace + logs" : "logs"}</a>` : "-"}</td></tr>`;
+  return { last, row };
+}
+
+function record(r) {
+  const h = r.headers || {}, cost = callCost(r); r.at = Date.now(); r.run = curRun?.n;
+  const tokens = r.usage ? (r.usage.total_tokens || 0) : (r.steps || []).reduce((s, x) => s + (x.tokens || 0), 0);
+  r.tokens = tokens;
+  const idx = session.calls.push(r) - 1; if (curRun) { curRun.calls.push(idx); curPart?.calls.push(idx); }
+  session.totalCost = (session.totalCost || 0) + cost; session.tokens = (session.tokens || 0) + tokens;
+  session.costByAgent[r.agent] = (session.costByAgent[r.agent] || 0) + cost;
+  for (const [s, v] of Object.entries(costParts(r))) {
+    session.costBySurface[s] = (session.costBySurface[s] || 0) + v;
+    session.costByAgentSurface[r.agent + "|" + s] = (session.costByAgentSurface[r.agent + "|" + s] || 0) + v;
+  }
+  const key = r.agent + "|" + r.status; session.outcomes[key] = (session.outcomes[key] || 0) + 1;
+  const sid = h["x-gw-session"] || "no-session", lk = r.agent + "|" + sid;
+  const led = session.ledger[lk] ||= { agent: r.agent, session: sid, calls: 0, blocked: 0, cost: 0, model: 0, tool: 0, agentFee: 0, first: Date.now() };
+  led.calls++; if ([401, 403, 429].includes(r.status)) led.blocked++; led.cost += cost;
+  for (const [s, v] of Object.entries(costParts(r))) led[s === "agent" ? "agentFee" : s] += v;
+  renderLedger();
+
+  const ok = session.calls.filter(c => c.status === 200).length;
+  $("kCalls").textContent = session.calls.length; $("sessionArea").classList.remove("idle"); $("kOk").textContent = ok;
+  $("kBlocked").textContent = session.calls.filter(c => [401, 403, 429].includes(c.status)).length;
+  $("kTokens").textContent = session.tokens.toLocaleString();
+  $("kCost").textContent = fmtUsd(session.totalCost);
+
+  const v = callView(r, idx); $("last").innerHTML = v.last; $("log").insertAdjacentHTML("afterbegin", v.row);
+  if (curTab === "runs") renderRuns();
 
   const agents = [...new Set(Object.keys(session.costByAgentSurface).map(k => k.split("|")[0]))];
   charts.costAgent.data.labels = agents;
@@ -592,11 +782,235 @@ function renderBudgets() {
   }).join("") + `<div class="muted">When an agent exhausts its $ budget the gateway answers <b>403</b> until the budget period renews or budgets are reset.</div>`;
 }
 
+function renderLedger() {
+  const rows = Object.values(session.ledger);
+  if (!rows.length) return;
+  const who = (n) => cfg.agents.find(a => a.name === n) || { displayName: n };
+  const sum = (xs, k) => xs.reduce((s, x) => s + x[k], 0), teams = {};
+  for (const l of rows) { const a = who(l.agent); (teams[a.team || "Unassigned"] ||= { cc: new Set(), rows: [] }).rows.push({ ...l, a }); teams[a.team || "Unassigned"].cc.add(a.costCenter || "-"); }
+  const cells = (xs) => `<td>${sum(xs, "calls")}</td><td>${sum(xs, "blocked") || ""}</td><td>${fmtUsd(sum(xs, "model"))}</td><td>${fmtUsd(sum(xs, "tool"))}</td><td>${fmtUsd(sum(xs, "agentFee"))}</td>`;
+  let html = `<table><thead><tr><th>Team › user / app</th><th>Cost center</th><th>Session</th><th>Calls</th><th>Blocked</th><th>AI models</th><th>MCP tools</th><th>A2A fees</th><th>Total USD</th></tr></thead><tbody>`;
+  for (const [team, g] of Object.entries(teams).sort((x, y) => sum(y[1].rows, "cost") - sum(x[1].rows, "cost"))) {
+    html += `<tr class="sub"><td>${escapeHtml(team)}</td><td>${escapeHtml([...g.cc].join(", "))}</td><td>${g.rows.length} session${g.rows.length === 1 ? "" : "s"}</td>${cells(g.rows)}<td>${fmtUsd(sum(g.rows, "cost"))}</td></tr>`;
+    html += g.rows.sort((x, y) => String(x.a.displayName).localeCompare(String(y.a.displayName)) || x.first - y.first).map(l =>
+      `<tr><td style="padding-left:18px">${escapeHtml(l.a.displayName)} <span class="muted">${l.a.kind === "user" ? "user" : "app"}</span></td><td>${escapeHtml(l.a.costCenter || "-")}</td>
+       <td><span class="sess">${escapeHtml(l.session)}</span></td>${cells([l])}<td><b>${fmtUsd(l.cost)}</b></td></tr>`).join("");
+  }
+  $("cbLedger").innerHTML = html + `</tbody></table><div class="muted" style="margin-top:6px">A2A fees are the per-task fee; the models and tools an A2A agent used for the user are included in the AI models and MCP tools columns of the same session.</div>`;
+}
+
+let cbLoaded = false, cbRun = 0;
+const shortTime = (rows) => (Array.isArray(rows) ? rows : []).map(r => Object.fromEntries(Object.entries(r).map(([k, v]) =>
+  [k, /^(Started|LastCall|TimeGenerated)$/.test(k) && v ? new Date(v).toLocaleTimeString() : v])));
+async function loadChargeback(sessionId) {
+  const run = ++cbRun;
+  $("cbStatus").textContent = "Querying Log Analytics…"; $("btnChargeback").disabled = true;
+  try {
+    const d = await (await fetch("/api/chargeback", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ window: $("cbWindow").value, session: sessionId }) })).json();
+    if (d.error) throw new Error(d.error);
+    if (run !== cbRun) return d;
+    const blk = (x, html) => x ? `<div class="evtbl"><h3>${escapeHtml(x.title)} ${portalLink(x.portalLink)}</h3>${html}</div>` : "";
+    $("cbMonitor").innerHTML = blk(d.teams, table(d.teams?.rows))
+      + blk(d.sessions, table(Array.isArray(d.sessions?.rows) ? shortTime(d.sessions.rows) : d.sessions?.rows, r => ` class="click" data-session="${escapeHtml(r.Session)}"`))
+      + blk(d.session, table(Array.isArray(d.session?.rows) ? shortTime(d.session.rows) : d.session?.rows)
+            + `<div class="muted" style="margin-top:6px">CostUSD is what each record adds to the session. BudgetDrawUSD is what the request took from the plan's $ budget: for an A2A task that is the fee plus everything the agent spent, which also appears as separate records.</div>`);
+    document.querySelectorAll("#cbMonitor tr.click").forEach(tr => tr.onclick = () => loadChargeback(tr.dataset.session).then(() => $("cbMonitor").lastElementChild?.scrollIntoView({ behavior: "smooth" })));
+    $("cbStatus").textContent = `Updated ${new Date().toLocaleTimeString()}. Chargeback records reach Log Analytics 1-3 minutes after a call. Click a session to see every call in it.`;
+    return d;
+  } catch (e) { if (run === cbRun) $("cbStatus").textContent = "Failed: " + e.message; return null; }
+  finally { if (run === cbRun) $("btnChargeback").disabled = false; }
+}
+// Polls Log Analytics every 30 s (up to 5 minutes) until every given session has a chargeback record
+async function waitForChargeback(sessions, attempt = 0) {
+  const d = await loadChargeback();
+  const seen = new Set((Array.isArray(d?.sessions?.rows) ? d.sessions.rows : []).map(r => r.Session));
+  const missing = sessions.filter(s => !seen.has(s));
+  if (missing.length && attempt < 10) {
+    $("cbStatus").textContent = `Waiting for ${missing.length} of ${sessions.length} sessions to reach Log Analytics (usually 1-3 minutes) · check ${attempt + 1}/10, next in 30 s…`;
+    setTimeout(() => waitForChargeback(sessions, attempt + 1), 30000);
+  }
+}
+
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function setRunning(on, label = "") {
-  running = on; ["btnSend", "btnBurst", "btnSim", "btnReset", "btnList", "btnCard"].forEach(id => $(id).disabled = on);
+  running = on; ["btnSend", "btnBurst", "btnSim", "btnReset", "btnList", "btnCard", "btnAgain"].forEach(id => $(id).disabled = on);
   document.querySelectorAll(".scenarios button").forEach(b => b.disabled = on);
   $("btnStop").classList.toggle("hidden", !on); $("runStatus").textContent = label;
+  $("launch").classList.toggle("running", on);
+  if (on) { rememberRun(label); collapseLaunch(true); $("sessionArea").classList.remove("idle"); } else endRun();
+  updateLaunch();
+}
+// Launch panel: the user picks ONE mode (guided scenario OR build your own). A run collapses it to a sticky bar so the results get the focus.
+let mode = "guided", lastBtn = null, lastRun = null;
+function setMode(m) {
+  mode = m; hidePreview();
+  document.querySelectorAll(".modes .mode").forEach(b => { const on = b.dataset.mode === m; b.classList.toggle("active", on); b.setAttribute("aria-selected", on); });
+  $("mode-guided").classList.toggle("hidden", m !== "guided"); $("mode-build").classList.toggle("hidden", m !== "build");
+}
+function collapseLaunch(c) {
+  const L = $("launch"); if (L.classList.contains("collapsed") === c) return;
+  L.classList.toggle("collapsed", c); $("lbody").classList.toggle("hidden", c); hidePreview();
+  const top = document.querySelector("main").offsetTop;
+  if (c && scrollY > top) scrollTo({ top });
+  if (!c && L.getBoundingClientRect().top < 0) L.scrollIntoView({ block: "start" });
+  updateLaunch();
+}
+function snapshotRequest(b) {
+  const sim = b.id === "btnSim";
+  const target = sim ? "AI models + MCP tools" : surface === "tool" ? `tool ${$("tool").value}` : surface === "agent" ? "Sourcing Agent (A2A)" : $("model").value;
+  return { id: b.id, action: b.id === "btnBurst" ? `Burst ×${Math.min(20, Math.max(1, Number($("burst").value) || 10))}` : b.textContent.trim(),
+    who: sim ? "Random agents" : selectedAgent?.displayName || "", agent: selectedAgent?.name, surface: sim ? "mixed" : surface, target,
+    model: $("model").value, preset: $("preset").value, prompt: $("prompt").value, maxTokens: $("maxTokens").value, burst: $("burst").value,
+    tool: $("tool").value, toolArgs: $("toolArgs").value, task: $("agentTask").value, sessionId: $("sessionId").value, token: $("useToken").checked, trace: $("useTrace").checked };
+}
+function rememberRun(label) {
+  const b = lastBtn; lastBtn = null;
+  if (!b || !$("lbody").contains(b)) { startRun({ kind: "custom", title: label || "Run", chip: "Custom" }); return; }
+  let run;
+  if (b.closest(".scenarios")) {
+    const si = b.dataset.i != null ? +b.dataset.i : null;
+    run = si != null ? { kind: "scenario", si, title: SCENARIOS[si].title, chip: `Scenario ${si + 1}`, text: `Scenario ${si + 1}: ${SCENARIOS[si].title}` }
+                     : { kind: "demo", title: `Full demo (all ${SCENARIOS.length} scenarios)`, chip: "Full demo", text: "Full demo (all scenarios)" };
+  } else {
+    const req = snapshotRequest(b);
+    run = { kind: "custom", req, title: `${req.who} → ${req.target}`, chip: "Custom", text: `${req.who} → ${req.target} · ${req.action}` };
+  }
+  startRun(run);
+  lastRun = { btn: b, text: run.text, mode: b.closest("#mode-guided") ? "guided" : "build", n: curRun.n };
+}
+function updateLaunch() {
+  const collapsed = $("launch").classList.contains("collapsed");
+  $("btnToggle").textContent = collapsed ? "Change ▾" : "Collapse ▴";
+  $("btnToggle").classList.toggle("hidden", !collapsed && !lastRun);
+  $("btnAgain").classList.toggle("hidden", running || !lastRun);
+  $("lsum").classList.toggle("hidden", !collapsed || !lastRun);
+  if (lastRun) { $("lsum").innerHTML = `<span class="muted">${running ? "Running" : "Last run"} #${lastRun.n}:</span> ${escapeHtml(lastRun.text)}`; $("lsum").title = "Analyze this run: " + lastRun.text; }
+}
+$("lbody").addEventListener("click", e => { const b = e.target.closest("button"); if (b && !b.disabled) lastBtn = b; }, true);
+document.querySelectorAll(".modes .mode").forEach(b => b.onclick = () => { setMode(b.dataset.mode); collapseLaunch(false); });
+$("btnToggle").onclick = () => collapseLaunch(!$("launch").classList.contains("collapsed"));
+$("btnAgain").onclick = () => { if (lastRun) { setMode(lastRun.mode); lastRun.btn.click(); } };
+$("lsum").onclick = () => { if (lastRun) openRun(lastRun.n); };
+
+// Run history: each scenario, full demo or custom request becomes a run whose calls, cost and story can be analyzed later (kept for this page session).
+const runs = []; let curRun = null, curPart = null, stopRequested = false, selRun = null, selCall = null, curTab = "live";
+function startRun(run) {
+  curRun = Object.assign(run, { n: runs.length ? runs[runs.length - 1].n + 1 : 1, started: Date.now(), ended: null, status: "running", calls: [], parts: [] });
+  runs.push(curRun); curPart = null; stopRequested = false; selRun = null; selCall = null; renderRuns();
+}
+function snapPart(p) { if (p) Object.assign(p, { story: $("scStory").innerHTML, steps: $("scSteps").innerHTML, takeaway: $("scTakeaway").innerHTML }); }
+function endRun() {
+  if (!curRun) return;
+  snapPart(curPart);
+  Object.assign(curRun, { ended: Date.now(), status: stopRequested ? "stopped" : "finished" });
+  if (curRun.kind === "custom" && !curRun.calls.length) runs.splice(runs.indexOf(curRun), 1); // e.g. invalid tool JSON: nothing reached the gateway
+  curRun = null; curPart = null; stopRequested = false; renderRuns();
+}
+function openRun(n) { selRun = n; selCall = null; showTab("runs"); $("tab-runs").scrollIntoView({ block: "start" }); scrollBy(0, -80); }
+const fmtDur = (ms) => { const s = Math.round(ms / 1000); return s < 60 ? `${s} s` : `${Math.floor(s / 60)} m ${String(s % 60).padStart(2, "0")} s`; };
+const isBlocked = (r) => [401, 403, 429].includes(r.status);
+function runStats(run) {
+  const st = { calls: 0, ok: 0, blocked: 0, tokens: 0, cost: 0, by: {}, what: {}, sessions: new Set() };
+  for (const i of run.calls) {
+    const r = session.calls[i], h = r.headers || {}, c = callCost(r);
+    st.calls++; if (r.status === 200) st.ok++; if (isBlocked(r)) st.blocked++;
+    st.tokens += r.tokens || 0; st.cost += c; if (h["x-gw-session"]) st.sessions.add(h["x-gw-session"]);
+    const a = st.by[r.agent] ||= { calls: 0, blocked: 0, model: 0, tool: 0, agent: 0, cost: 0 };
+    a.calls++; if (isBlocked(r)) a.blocked++; a.cost += c;
+    for (const [s, v] of Object.entries(costParts(r))) a[s] = (a[s] || 0) + v;
+    const gov = h["x-gw-governance"] && h["x-gw-governance"] !== "none" ? h["x-gw-governance"] : "", by = h["x-gw-blocked-by"] || "";
+    const k = [r.surface, resourceOf(r), r.status, gov, by].join("|");
+    const w = st.what[k] ||= { surface: r.surface, res: resourceOf(r), status: r.status, gov, by, calls: 0, cost: 0 }; w.calls++; w.cost += c;
+  }
+  return st;
+}
+function renderRuns() {
+  $("runCount").textContent = runs.length;
+  if (curTab !== "runs") return;
+  if (!runs.length) {
+    $("runList").innerHTML = `<div class="muted" style="padding:8px">No runs yet.</div>`;
+    $("runDetail").innerHTML = `<div class="card runempty">Every guided scenario, full demo or custom request you send becomes a run here.<br>Pick one at the top, then come back to analyze it: what ran, every call, what it cost and what the gateway decided.</div>`;
+    return;
+  }
+  const stats = new Map(runs.map(r => [r.n, runStats(r)])), maxCost = Math.max(1e-9, ...[...stats.values()].map(s => s.cost));
+  const run = runs.find(r => r.n === selRun) || runs[runs.length - 1];
+  $("runList").innerHTML = runs.slice().reverse().map(r => { const s = stats.get(r.n);
+    return `<button class="ritem${r === run ? " sel" : ""}" data-n="${r.n}"><div class="top"><span class="rtag">#${r.n}</span><span class="kind ${r.kind}">${r.chip}</span><span class="ttl" title="${escapeHtml(r.title)}">${escapeHtml(r.title)}</span></div>
+      <div class="meta">${new Date(r.started).toLocaleTimeString()} · ${s.calls} call${s.calls === 1 ? "" : "s"}${s.blocked ? ` · <b style="color:var(--bad)">${s.blocked} blocked</b>` : ""} · ${fmtUsd(s.cost)}${r.req ? ` · ${escapeHtml(r.req.action)}` : ""}${r.status === "running" ? " · <b>running…</b>" : r.status === "stopped" ? " · stopped" : ""}</div>
+      <div class="cbar" title="Cost relative to the most expensive run"><i style="width:${(100 * s.cost / maxCost).toFixed(1)}%"></i></div></button>`; }).join("");
+  $("runList").querySelectorAll(".ritem").forEach(b => b.onclick = () => { selRun = +b.dataset.n; selCall = null; renderRuns(); });
+  renderRunDetail(run, stats.get(run.n));
+}
+function renderRunDetail(run, s) {
+  const dur = (run.ended || Date.now()) - run.started, yes = (v) => v ? "yes" : "no";
+  let what;
+  if (run.req) {
+    const q = run.req;
+    let kv = `<div>Action</div><div><b>${escapeHtml(q.action)}</b></div>`;
+    if (q.surface === "mixed") kv += `<div>Traffic</div><div>30 short requests from random agents: AI models (≈70%) and MCP tools (≈30%), 2 per second</div>`;
+    else {
+      kv += `<div>Agent / user</div><div>${escapeHtml(q.who)}</div><div>Surface</div><div>${surfChip(q.surface)}</div><div>Target</div><div>${escapeHtml(q.target)}</div>`;
+      if (q.surface === "model") kv += `<div>max_tokens</div><div>${escapeHtml(q.maxTokens)}</div>`;
+      kv += `<div>Session id</div><div><span class="sess">${escapeHtml(q.sessionId)}</span></div><div>Entra ID token</div><div>${yes(q.token)}</div><div>Policy trace</div><div>${yes(q.trace)}</div>`;
+    }
+    const body = q.surface === "model" ? q.prompt : q.surface === "tool" ? (q.id === "btnList" ? "" : q.toolArgs) : q.surface === "agent" ? (q.id === "btnCard" ? "" : q.task) : "";
+    what = `<div class="kv rkv">${kv}</div>${body ? `<div class="content">${escapeHtml(body)}</div>` : ""}`;
+  } else if (!run.parts.length) what = `<div class="muted">No scenario steps were recorded.</div>`;
+  else {
+    const one = run.parts.length === 1;
+    what = run.parts.map(p => { const ps = runStats(p), inner = `<div class="muted" style="font-size:13px">${p.story || ""}</div><ol class="rsteps">${p.steps || ""}</ol><div class="rtake">${p.takeaway || ""}</div>`;
+      return one ? inner : `<details class="rpart"><summary>${p.si + 1}. ${escapeHtml(p.title)} <span class="muted">· ${ps.calls} calls · ${fmtUsd(ps.cost)}${ps.blocked ? ` · ${ps.blocked} blocked` : ""}</span></summary>${inner}</details>`; }).join("");
+  }
+  const agents = Object.entries(s.by).sort((a, b) => b[1].cost - a[1].cost);
+  const byAgent = agents.length ? `<table><thead><tr><th>Agent / user</th><th>Calls</th><th>Blocked</th>${Object.values(SURFACES).map(l => `<th>${l}</th>`).join("")}<th>Total</th></tr></thead><tbody>`
+    + agents.map(([a, v]) => `<tr><td>${escapeHtml(a)}</td><td>${v.calls}</td><td>${v.blocked || "-"}</td>${Object.keys(SURFACES).map(k => `<td>${v[k] ? v[k].toFixed(6) : "-"}</td>`).join("")}<td><b>${v.cost.toFixed(6)}</b></td></tr>`).join("")
+    + `</tbody></table>` : `<div class="muted">No calls in this run.</div>`;
+  const whats = Object.values(s.what).sort((a, b) => b.calls - a.calls);
+  const byWhat = whats.length ? `<table><thead><tr><th>Surface</th><th>Model / tool / agent</th><th>Status</th><th>Governance / blocked by</th><th>Calls</th><th>Cost USD</th></tr></thead><tbody>`
+    + whats.map(w => `<tr><td>${surfChip(w.surface)}</td><td>${w.res}</td><td><span class="status ${statusClass(w.status)}">${w.status}</span></td><td>${w.gov ? `<span class="gov">${escapeHtml(w.gov)}</span> ` : ""}${w.by ? `<span class="src err">${escapeHtml(w.by)}</span>` : w.gov ? "" : "-"}</td><td>${w.calls}</td><td>${w.cost ? w.cost.toFixed(6) : "-"}</td></tr>`).join("")
+    + `</tbody></table>` : "";
+  const idxs = run.calls.slice().reverse(), pick = run.calls.includes(selCall) ? selCall : idxs[0];
+  const rows = idxs.map(i => callView(session.calls[i], i).row.replace("<tr ", `<tr class="click${i === pick ? " sel" : ""}" `)).join("");
+  const busy = running ? " disabled" : "";
+  $("runDetail").innerHTML = `
+    <div class="rhead"><span class="rtag">#${run.n}</span><span class="kind ${run.kind}">${run.chip}</span><h2>${escapeHtml(run.title)}</h2>
+      <span class="muted">${new Date(run.started).toLocaleString()} · ${fmtDur(dur)} · ${run.status === "running" ? "<b>running…</b>" : run.status}</span>
+      ${run.req ? `<button class="secondary" id="rLoad"${busy} title="Put this request back into the builder so you can tweak it">Load into builder</button>` : ""}
+      <button id="rRerun"${busy}>↻ Run again</button></div>
+    <div class="kpis rkpis">
+      <div class="kpi"><div class="l">Requests</div><div class="v">${s.calls}</div></div>
+      <div class="kpi ok"><div class="l">Allowed (200)</div><div class="v">${s.ok}</div></div>
+      <div class="kpi bad"><div class="l">Blocked (401/403/429)</div><div class="v">${s.blocked}</div></div>
+      <div class="kpi"><div class="l">Tokens</div><div class="v">${s.tokens.toLocaleString()}</div></div>
+      <div class="kpi cost"><div class="l">Cost (USD)</div><div class="v">${fmtUsd(s.cost)}</div></div>
+      <div class="kpi"><div class="l">Sessions</div><div class="v">${s.sessions.size}</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h2>${run.req ? "The request you built" : run.kind === "demo" ? `Scenarios run (${run.parts.length})` : "What the scenario did"}</h2>${what}</div>
+      <div class="card"><h2>Cost by agent / user (USD)</h2><div class="scroll">${byAgent}</div>${byWhat ? `<h2 style="margin-top:18px">What the gateway decided</h2><div class="scroll">${byWhat}</div>` : ""}</div>
+    </div>
+    ${idxs.length ? `<div class="card" style="margin-top:16px"><h2>Requests in this run <span class="muted">(click one to inspect it)</span></h2><div class="scroll"><table>
+      <thead><tr><th>Time</th><th>Agent / user</th><th>Session</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Governance</th><th>Tokens</th><th>Cost USD</th><th>Billed to</th><th>Backend</th><th>Latency</th><th>Detail</th><th>Evidence</th></tr></thead>
+      <tbody>${rows}</tbody></table></div></div>
+    <div class="card" style="margin-top:16px"><h2>Selected request</h2>${callView(session.calls[pick], pick).last}</div>` : ""}`;
+  $("runDetail").querySelectorAll("tr.click").forEach(tr => tr.onclick = (e) => { if (e.target.closest("a")) return; selCall = +tr.dataset.idx; selRun = run.n; renderRuns(); });
+  $("rRerun").onclick = () => rerun(run);
+  if (run.req) $("rLoad").onclick = () => { loadRequest(run.req); toast(`Run #${run.n} loaded into the builder.`); };
+}
+function loadRequest(q) {
+  setMode("build"); collapseLaunch(false);
+  if (q.agent) selectAgent(q.agent);
+  if (q.surface !== "mixed") setSurface(q.surface);
+  $("model").value = q.model; $("preset").value = q.preset; $("prompt").value = q.prompt; $("maxTokens").value = q.maxTokens; $("burst").value = q.burst;
+  $("tool").value = q.tool; $("toolArgs").value = q.toolArgs; $("agentTask").value = q.task; $("sessionId").value = q.sessionId;
+  $("useToken").checked = q.token; $("useTrace").checked = q.trace;
+}
+function rerun(run) {
+  if (running) return;
+  if (run.req) { loadRequest(run.req); $(run.req.id).click(); return; }
+  setMode("guided");
+  (run.kind === "demo" ? $("btnAll") : document.querySelector(`.scenarios button[data-i="${run.si}"]`))?.click();
 }
 
 function toolArgs() {
@@ -635,7 +1049,7 @@ $("btnSim").onclick = async () => {
   await Promise.all(inflight);
   setRunning(false, `Simulation finished after ${i} requests.`);
 };
-$("btnStop").onclick = () => { running = false; };
+$("btnStop").onclick = () => { running = false; stopRequested = true; };
 async function resetBudgets() {
   const r = await (await fetch("/api/reset-budgets", { method: "POST" })).json();
   if (r.error) { toast("Reset failed: " + r.error); return false; }
@@ -647,7 +1061,10 @@ $("btnReset").onclick = async () => {
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
 function showTab(tab) {
   document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("active", x.dataset.tab === tab));
-  for (const t of ["live", "plans", "policies", "monitor"]) $("tab-" + t).classList.toggle("hidden", tab !== t);
+  curTab = tab;
+  for (const t of ["live", "runs", "chargeback", "plans", "policies", "monitor"]) $("tab-" + t).classList.toggle("hidden", tab !== t);
+  if (tab === "runs") renderRuns();
+  if (tab === "chargeback" && !cbLoaded) { cbLoaded = true; loadChargeback(); }
   if (tab === "monitor" && !charts._loaded) { charts._loaded = true; refreshMonitor(); }
   if (tab === "policies" && !policiesLoaded) { policiesLoaded = true; loadPolicies(); loadPolicyEvidence(); }
 }
@@ -737,11 +1154,11 @@ async function showEvidence(i, attempt = 0) {
 $("btnRefresh").onclick = refreshMonitor;
 $("timespan").onchange = refreshMonitor;
 
-function table(rows) {
+function table(rows, rowAttr) {
   if (!Array.isArray(rows)) return `<div class="muted">${escapeHtml(rows && rows.error || "no data")}</div>`;
   if (!rows.length) return `<div class="muted">No data yet (telemetry can take a couple of minutes to arrive).</div>`;
   const cols = Object.keys(rows[0]);
-  return `<table><thead><tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${cols.map(c => `<td>${escapeHtml(r[c])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  return `<table><thead><tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr${rowAttr ? rowAttr(r) : ""}>${cols.map(c => `<td>${escapeHtml(r[c])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
 async function refreshMonitor() {
   $("monStatus").textContent = "Querying Application Insights…"; $("btnRefresh").disabled = true;
@@ -770,7 +1187,8 @@ const ASK = "In two sentences, explain why an AI gateway helps control LLM costs
 const LONG = PRESETS["Long generation (expensive)"];
 const hdr = (r, k) => (r.headers || {})[k];
 const usd = (r) => Number(hdr(r, "x-gw-cost-usd") || 0);
-const tierAgent = (tier) => cfg.agents.find(a => a.tier === tier);
+const tierAgent = (tier) => cfg.agents.find(a => a.tier === tier && a.kind !== "user");
+const byName = (name) => cfg.agents.find(a => a.name === name);
 const modelInfo = (name) => cfg.models.find(m => m.name === name) || { inputPrice: 0, outputPrice: 0 };
 
 function step(r, note = "") {
@@ -794,8 +1212,33 @@ function step(r, note = "") {
 const info = (html) => $("scSteps").insertAdjacentHTML("beforeend", `<li class="muted">${html}</li>`);
 const takeaway = (html) => $("scTakeaway").innerHTML = html;
 
+// Scenario previews: building blocks for the small diagram shown when hovering a scenario
+const dg = {
+  node: (label, sub = "", cls = "") => `<div class="dn ${cls}"><b>${label}</b>${sub ? `<span>${sub}</span>` : ""}</div>`,
+  agent: (tier, sub) => { const a = tierAgent(tier); return dg.node(a ? a.displayName : tier, sub ?? `<span class="badge ${tier}">${tier}</span>`); },
+  gw: (sub = "") => dg.node("AI Gateway", sub, "gw"),
+  model: (name, sub = "Foundry") => dg.node(name, sub, "model"),
+  arrow: (label = "", cls = "") => `<div class="da ${cls}"><span>${label || "&nbsp;"}</span><i></i></div>`,
+  row: (...xs) => `<div class="dr">${xs.join("")}</div>`,
+  col: (...xs) => `<div class="dc">${xs.join("")}</div>`,
+  code: (c) => `<span class="status ${statusClass(c)}">${c}</span>`,
+  bar: (label, segs, right = "") => `<div class="db"><span>${label}</span><span class="t">${(Array.isArray(segs[0]) ? segs : [segs]).filter(([pct]) => pct > 0)
+    .map(([pct, color]) => `<span style="width:${Math.max(1.5, Math.min(100, pct))}%;background:${color}"></span>`).join("")}</span><span class="r">${right}</span></div>`,
+  seq: (codes, after = "") => `<div class="dseq">${codes.map(c => `<span class="dq status ${statusClass(c)}">${c}</span>`).join("")}${after}</div>`,
+  chips: (xs) => `<div class="dchips">${xs.map(x => `<span>${x}</span>`).join("<i>›</i>")}</div>`,
+  note: (html) => `<div class="dnote">${html}</div>`,
+  user: (name, sub) => { const a = byName(name); return dg.node(a ? a.displayName : name, sub ?? (a ? `${a.team} · ${a.costCenter}` : "demo user")); },
+};
+const premiumFor = (tier) => cfg.models.find(m => !tierOf(tierAgent(tier)).allowedModels.includes(m.name))?.name || cfg.models[0].name;
+
 const SCENARIOS = [
   { title: "Same question, every model", cost: "4 calls · < $0.002",
+    gist: "One prompt on every Foundry model, to compare what each model costs for the same answer.",
+    policies: ["llm-emit-token-metric", "emit-metric (cost)"],
+    preview: () => { const max = Math.max(...cfg.models.map(m => m.inputPrice + m.outputPrice));
+      return dg.row(dg.agent("gold"), dg.arrow("same prompt"), dg.gw("meters tokens, prices each call"), dg.arrow(`× ${cfg.models.length} models`), dg.model("Every model"))
+        + cfg.models.map((m, i) => dg.bar(m.name, [[100 * (m.inputPrice + m.outputPrice) / max, COLORS[i % COLORS.length]]], `$${m.inputPrice} / $${m.outputPrice} per 1M`)).join("")
+        + dg.note("Bars show list price (input + output per 1M tokens). The takeaway shows the measured cost ratio."); },
     story: () => `The Gold <b>${tierAgent("gold").displayName}</b> asks one question on each Foundry model. The gateway prices every call from the token usage Foundry returns.`,
     async run() {
       const a = tierAgent("gold"), done = [];
@@ -808,6 +1251,11 @@ const SCENARIOS = [
       if (done.length > 1) takeaway(`Same question, <b>${(done.at(-1).cost / done[0].cost).toFixed(0)}× cost difference</b>: ${done.at(-1).model} cost ${fmtUsd(done.at(-1).cost)}, ${done[0].model} cost ${fmtUsd(done[0].cost)}. Model choice is the biggest cost lever, and the gateway records the cost of every call per agent and model.`);
     } },
   { title: "Model governance: downgrade or deny", cost: "2 calls · < $0.001",
+    gist: "Agents ask for a premium model their plan does not include. Silver is downgraded to a cheaper model; Bronze is denied.",
+    policies: ["model entitlement", "downgrade or 403"],
+    preview: () => { const p = premiumFor("silver"), s = tierOf(tierAgent("silver"));
+      return dg.row(dg.agent("silver"), dg.arrow(`asks ${p}`), dg.gw("plan check"), dg.arrow("downgrade", "warn"), dg.model(s.fallbackModel), dg.code(200))
+        + dg.row(dg.agent("bronze"), dg.arrow(`asks ${p}`), dg.gw("plan check"), dg.arrow("deny", "bad"), dg.node("Foundry", "never called · $0", "dim"), dg.code(403)); },
     story: () => `Silver and Bronze agents ask for a premium model their tier does not allow. Silver is downgraded to <b>${tierOf(tierAgent("silver")).fallbackModel}</b>, and Bronze is denied before any tokens are spent.`,
     async run() {
       const s = tierAgent("silver"), b = tierAgent("bronze");
@@ -819,6 +1267,12 @@ const SCENARIOS = [
       takeaway(`Tiers decide which models an agent may use. The downgraded call cost ${fmtUsd(usd(r1))} instead of ${fmtUsd(saved)} on ${premium}, and the Bronze call cost $0.`);
     } },
   { title: "Output cap", cost: "1 call · < $0.0005",
+    gist: "The gateway lowers max_tokens to the plan's output cap, so one runaway request has a bounded worst-case cost.",
+    policies: ["set-body (max_tokens cap)"],
+    preview: () => { const t = tierOf(tierAgent("bronze"));
+      return dg.row(dg.agent("bronze"), dg.arrow("max_tokens 4000"), dg.gw("output cap"), dg.arrow(`max_tokens ${t.maxOutputTokens}`, "warn"), dg.model(t.allowedModels[0]), dg.code(200))
+        + dg.bar("Asked for", [[100, "#c8c6c4"]], "4,000 tokens") + dg.bar("Allowed", [[100 * t.maxOutputTokens / 4000, "#107c10"]], `${t.maxOutputTokens} tokens (cap)`)
+        + dg.note("The answer is truncated at the cap (finish_reason = length). The agent's code does not change."); },
     story: () => `Bronze <b>${tierAgent("bronze").displayName}</b> requests a 1,500-word report with <code>max_tokens: 4000</code>. The gateway rewrites the request to the tier cap of <b>${tierOf(tierAgent("bronze")).maxOutputTokens}</b> output tokens.`,
     async run() {
       const b = tierAgent("bronze"), t = tierOf(b), m = t.allowedModels[0];
@@ -827,6 +1281,12 @@ const SCENARIOS = [
       if (r.status === 200) takeaway(`The agent asked for up to 4,000 output tokens and got ${hdr(r, "x-gw-completion-tokens")}. Worst-case cost per call went from ${fmtUsd(worst)} to ${fmtUsd(usd(r))}, without changing the agent's code.`);
     } },
   { title: "Tokens-per-minute limit", cost: "≤ 10 calls · < $0.002",
+    gist: "Back-to-back long generations exceed the plan's tokens-per-minute limit and get 429 until the window resets.",
+    policies: ["llm-token-limit"],
+    preview: () => { const t = tierOf(tierAgent("bronze"));
+      return dg.row(dg.agent("bronze"), dg.arrow("long prompts, back to back"), dg.gw("llm-token-limit"), dg.arrow("under the limit", "ok"), dg.model(t.allowedModels[0]))
+        + dg.seq([200, 200, 200, 429, 429], `<span style="margin-left:6px">${t.tpm.toLocaleString()} tokens / minute, then 429 + Retry-After</span>`)
+        + dg.note("Throttled calls never reach Foundry and cost $0, so one noisy agent cannot use up shared capacity."); },
     story: () => `Bronze sends long generations back to back. Its tier allows <b>${tierOf(tierAgent("bronze")).tpm.toLocaleString()} tokens per minute</b>. After that, the gateway answers 429 with Retry-After, and the throttled calls never reach Foundry.`,
     async run() {
       const b = tierAgent("bronze"), m = tierOf(b).allowedModels[0];
@@ -840,6 +1300,13 @@ const SCENARIOS = [
                          : `${ok} calls served without hitting the limit. The token window may have just rolled over, so run it again.`);
     } },
   { title: "$ budget exhausted", cost: "≤ 12 calls · ≈ $0.01",
+    gist: "An agent keeps spending until its plan's $ budget is used up, then the gateway answers 403.",
+    policies: ["quota-by-key ($ budget)", "emit-metric (cost)"],
+    preview: () => { const t = tierOf(tierAgent("silver"));
+      return dg.row(dg.agent("silver"), dg.arrow("long reports"), dg.gw("prices each call"), dg.arrow("", "ok"), dg.model(t.allowedModels[0]))
+        + dg.bar("$ budget", [[24, "#107c10"], [24, "#498205"], [26, "#f7630c"], [26, "#d13438"]], `$${t.budgetUsd} used up`)
+        + dg.seq([200, 200, 200, 200, 403], `<span style="margin-left:6px">each call draws down the budget, then 403</span>`)
+        + dg.note("Budgets are reset first. Spend stays blocked until the budget period renews or you reset it."); },
     story: () => `Budgets are reset first. Then the Silver <b>${tierAgent("silver").displayName}</b> runs long reports until its <b>$${tierOf(tierAgent("silver")).budgetUsd}</b> budget is spent. The gateway prices each call and cuts the agent off with 403.`,
     async run() {
       const s = tierAgent("silver"), t = tierOf(s), m = t.allowedModels[0];
@@ -858,6 +1325,13 @@ const SCENARIOS = [
                        : `Spent ${fmtUsd(spent)} so far without exhausting the budget. Run the scenario again to finish it.`);
     } },
   { title: "MCP tools: priced and entitled per plan", cost: "5 calls · < $0.005",
+    gist: "One MCP server for every plan. The gateway checks which tools each plan includes and prices every tools/call.",
+    policies: ["tool entitlement → 403", "tool-pricing", "tool calls / minute"],
+    preview: () => { const tiers = ["gold", "silver", "bronze"].map(n => cfg.tiers.find(t => t.name === n)).filter(Boolean);
+      return dg.row(dg.node("Agents", "Gold · Silver · Bronze"), dg.arrow("tools/call"), dg.gw("in plan? price?"), dg.arrow("allowed", "ok"), dg.node("Commerce Tools", "MCP server → REST API", "tool"))
+        + `<table class="dmx"><thead><tr><th>Tool</th><th>Price / call</th>${tiers.map(t => `<th><span class="badge ${t.name}">${t.displayName}</span></th>`).join("")}</tr></thead><tbody>`
+        + cfg.tools.map(x => `<tr><td>${x.name}</td><td>$${x.priceUsd}</td>${tiers.map(t => `<td>${(t.allowedTools || []).includes(x.name) ? `<span class="yes">✓</span>` : `<span class="deny">403</span>`}</td>`).join("")}</tr>`).join("")
+        + `</tbody></table>`; },
     story: () => `Budgets are reset first. The <b>Commerce Tools</b> REST API is exposed as an <b>MCP server</b> by API Management. Every plan includes a different set of tools at a per-call price. The gateway checks the entitlement and prices each <code>tools/call</code>.`,
     async run() {
       const g = tierAgent("gold"), s = tierAgent("silver"), b = tierAgent("bronze");
@@ -873,6 +1347,13 @@ const SCENARIOS = [
       takeaway(`One MCP server, three plans. Tools are entitled per plan (Silver got <b>${res[1].status}</b> on the premium tool) and each call is priced from the <code>tool-pricing</code> named value: ${fmtUsd(paid)} for these calls, charged to each caller's $ budget. Denied calls never reach the backend API.`);
     } },
   { title: "A2A agent: task cost, end to end", cost: "2 tasks · < $0.01",
+    gist: "Gold delegates a task to an A2A agent. The task fee plus every model and tool call the agent makes are billed back to Gold.",
+    policies: ["agent entitlement → 403", "agent-pricing", "on-behalf-of chargeback"],
+    preview: () => { const g = tierAgent("gold");
+      return dg.row(dg.agent("gold"), dg.arrow("A2A task"), dg.gw("A2A API"), dg.arrow(), dg.node("Sourcing Agent", "Container Apps", "a2a"))
+        + dg.row(dg.node("Sourcing Agent", "own identity", "a2a"), dg.arrow("3 tools + 1 model"), dg.gw("MCP + model APIs"), dg.arrow(), dg.node("Tools + Foundry", "", "tool"))
+        + dg.row(dg.node("Spend", "fee + downstream calls", "dim"), dg.arrow("billed on behalf of", "dash"), dg.agent("gold"))
+        + dg.note(`Fee $${cfg.a2aAgents[0]?.feeUsd ?? "-"} per task + the agent's spend. ${tierAgent("bronze").displayName} gets <span class="status s403">403</span>: A2A agents are not in the Bronze plan.`); },
     story: () => `The Gold agent delegates a sourcing task to the <b>Sourcing Agent</b>, an A2A agent published through API Management. The Sourcing Agent calls MCP tools and a Foundry model through the same gateway. Every downstream call is billed back to the agent that sent the task.`,
     async run() {
       const g = tierAgent("gold"), b = tierAgent("bronze");
@@ -885,6 +1366,13 @@ const SCENARIOS = [
                                 : `The task returned ${r.status}: ${escapeHtml(r.error || "")}`);
     } },
   { title: "One $ budget across models, tools and agents", cost: "≤ 6 calls · ≈ $0.01",
+    gist: "Models, MCP tools and A2A agents all draw from the same plan budget. Once it is spent, every surface is blocked.",
+    policies: ["quota-by-key ($ budget)"],
+    preview: () => { const t = tierOf(tierAgent("silver"));
+      return dg.row(dg.agent("silver"), dg.col(dg.row(dg.arrow(surfChip("agent"))), dg.row(dg.arrow(surfChip("model"))), dg.row(dg.arrow(surfChip("tool")))),
+          dg.gw(`one $${t.budgetUsd} budget`), dg.arrow("spent", "bad"), dg.node("403", "on every surface", "x"))
+        + dg.bar("Silver budget", [[40, SURFACE_COLORS.agent], [45, SURFACE_COLORS.model], [15, SURFACE_COLORS.tool]], `$${t.budgetUsd} shared`)
+        + dg.note("Budgets are reset first. The product owner sets one budget per plan and the gateway enforces it on every surface."); },
     story: () => `Budgets are reset first. The Silver <b>${tierAgent("silver").displayName}</b> has one <b>$${tierOf(tierAgent("silver")).budgetUsd}</b> budget for everything. It delegates an A2A task, then calls a model, then an MCP tool. Whatever surface it uses, it draws from the same budget.`,
     async run() {
       const s = tierAgent("silver"), t = tierOf(s), m = t.allowedModels[0], tool = (t.allowedTools || [])[0] || "search-products";
@@ -900,12 +1388,82 @@ const SCENARIOS = [
                        : `Spent ${fmtUsd(spent)} without exhausting the budget. Run the scenario again to finish it.`);
     } },
   { title: "Chargeback in Azure Monitor", cost: "0 calls · $0", tab: "monitor",
+    gist: "Opens Azure Monitor: cost per agent and tier, split by surface, straight from gateway telemetry. Sends no calls.",
+    policies: ["emit-metric", "llm-emit-token-metric"],
+    preview: () => dg.row(dg.gw("every call"), dg.arrow("emit-metric"), dg.node("Application Insights", "customMetrics", "mon"), dg.arrow("KQL"), dg.node("Chargeback", "per agent · surface · via", "mon"))
+      + ["gold", "silver", "bronze"].map((n, i) => dg.bar(tierAgent(n)?.displayName || n,
+          [[[50, 30, 20][i], SURFACE_COLORS.model], [[25, 15, 0][i], SURFACE_COLORS.tool], [[20, 10, 0][i], SURFACE_COLORS.agent]], `<span class="badge ${n}">${n}</span>`)).join("")
+      + dg.note(`${Object.entries(SURFACES).map(([k, v]) => `<span style="color:${SURFACE_COLORS[k]}">■</span> ${v}`).join(" &nbsp; ")} &nbsp;·&nbsp; illustrative`),
     story: () => `Opens the Application Insights view: cost per agent and tier, split by surface (AI models, MCP tools, A2A agents) and by route (direct, or via the Sourcing Agent).`,
     async run() {
       charts._loaded = true; showTab("monitor"); await refreshMonitor();
       takeaway(`Every number comes from gateway telemetry (emit-metric / llm-emit-token-metric), so you can do showback or chargeback per agent with no app instrumentation. Spend that an A2A agent makes on a caller's behalf shows up under the <b>caller</b>, with <code>Via = sourcing-agent</code>. New calls take 1-3 minutes to show up. The <b>Workbook</b> command opens the same breakdown in the Azure portal.`);
     } },
+  { title: "Chargeback by user & session", cost: "7 calls · < $0.01", tab: "chargeback",
+    gist: "Four demo users, each with their own subscription key, work in named sessions. Every priced call is written as a chargeback record by user, team, cost center and session.",
+    policies: ["session id (x-session-id)", "chargeback-directory", "chargeback-record trace"],
+    preview: () => dg.row(dg.user("user-alice"), dg.arrow("key + x-session-id"), dg.gw("who pays? which session?"), dg.arrow("trace"), dg.node("Log Analytics", "AppTraces", "mon"))
+      + dg.chips(["subscription key → user", "chargeback-directory → team, cost center", "session header → session", "priced call → record"])
+      + ["user-alice", "user-ben", "user-chloe", "user-dev"].map((n, i) => { const a = byName(n);
+          return dg.bar(a ? a.displayName : n, [[[45, 0, 0, 0][i], SURFACE_COLORS.model], [[20, 0, 0, 0][i], SURFACE_COLORS.tool], [[30, 0, 0, 0][i], SURFACE_COLORS.agent],
+            [[0, 20, 10, 60][i], SURFACE_COLORS.model], [[0, 0, 8, 0][i], SURFACE_COLORS.tool]], a ? `${a.team} · ${a.costCenter}` : ""); }).join("")
+      + dg.note("Subscription keys stand in for users so the demo needs no Entra identities. In production, take the user from the token's <code>oid</code> claim instead."),
+    story: () => `Four demo users each have their own APIM subscription key: <b>Alice</b> and <b>Ben</b> in Customer Care (CC-1001), <b>Chloe</b> in Marketing (CC-3003) and <b>Dev</b> in Supply Chain (CC-2002). Every request carries an <code>x-session-id</code>. The gateway looks up the payer's team and cost center in the <code>chargeback-directory</code> named value and writes one <b>chargeback record</b> per priced call to Application Insights.`,
+    async run() {
+      showTab("chargeback");
+      const [alice, ben, chloe, dev] = ["user-alice", "user-ben", "user-chloe", "user-dev"].map(byName);
+      if (!alice || !ben || !chloe || !dev) { info("Demo users are missing from the config. Re-run <code>deploy.py config</code>."); return; }
+      const sA1 = newSessionId("alice"), sA2 = newSessionId("alice"), sB = newSessionId("ben"), sC = newSessionId("chloe"), sD = newSessionId("dev");
+      const plan = [
+        () => send(alice.name, "gpt-4.1-mini", { prompt: ASK, maxTokens: 120, session: sA1 }),
+        () => callTool(alice.name, "get-supplier-quote", undefined, { session: sA1 }),
+        () => callAgent(alice.name, "Source 200 units of SKU-1042 and recommend a supplier.", { session: sA2 }),
+        () => send(ben.name, "gpt-4.1-mini", { prompt: ASK, maxTokens: 120, session: sB }),
+        () => send(chloe.name, "gpt-4.1-nano", { prompt: ASK, maxTokens: 120, session: sC }),
+        () => callTool(chloe.name, "search-products", undefined, { session: sC }),
+        () => send(dev.name, "gpt-4.1", { prompt: ASK, maxTokens: 120, session: sD }),
+      ];
+      for (const call of plan) { if (!running) return; const r = await call(); step(r, `session <code>${escapeHtml(hdr(r, "x-gw-session") || "-")}</code>`); }
+      info("The <b>Session ledger</b> above is built from the gateway's response headers right away. The Azure Monitor table below is built from the gateway's chargeback records; it checks every 30 seconds until all five sessions arrive.");
+      $("cbLedger").scrollIntoView({ behavior: "smooth", block: "start" });
+      takeaway(`The same API, one key per user: the gateway stamps every priced call with the <b>user, team, cost center and session</b>. Alice's A2A task (session 2) includes the agent fee <i>and</i> the model and tool calls the Sourcing Agent made for her, so one session total is the fully loaded cost of that piece of work. Click a session in the Azure Monitor table to see every call in it.`);
+      waitForChargeback([sA1, sA2, sB, sC, sD]);
+    } },
+  { title: "Runaway session: per-session $ cap", cost: "≤ 21 calls · ≈ $0.03",
+    gist: "One user's session loops on an expensive model. The gateway stops that session at its $ cap, while a new session for the same user still works.",
+    policies: ["quota-by-key (session budget)", "quota-by-key ($ budget)"],
+    preview: () => { const t = tierOf(byName("user-alice") || tierAgent("gold"));
+      return dg.row(dg.user("user-alice"), dg.arrow("same session, in a loop"), dg.gw(`$${t.sessionBudgetUsd ?? "-"} per session`), dg.arrow("cap reached", "bad"), dg.node("403", "session-budget", "x"))
+        + dg.seq([200, 200, 200, 200, 200, 200, 200, 200, 403], `<span style="margin-left:6px">then a new session</span>`) + dg.seq([200])
+        + dg.note(`Alice's plan budget ($${t.budgetUsd}) is untouched: only the runaway session is stopped.`); },
+    story: () => { const t = tierOf(byName("user-alice") || tierAgent("gold"));
+      return `An agent loop in <b>Alice</b>'s session keeps asking gpt-4.1 for long reports. Her Gold plan has a <b>$${t.budgetUsd}</b> budget, but every session is also capped at <b>$${t.sessionBudgetUsd ?? "-"}</b> by a second <code>quota-by-key</code> keyed on subscription + session. The runaway session gets 403, and Alice's next session works.`; },
+    async run() {
+      const alice = byName("user-alice");
+      if (!alice) { info("Demo users are missing from the config. Re-run <code>deploy.py config</code>."); return; }
+      const sid = newSessionId("alice-loop"); $("sessionId").value = sid;
+      let spent = 0, blocked = null, n = 0;
+      for (let i = 0; i < 20 && running && !blocked; i++) {
+        const r = await send(alice.name, "gpt-4.1", { prompt: LONG, maxTokens: 300, session: sid }); n++;
+        if (r.status === 200) spent += usd(r);
+        if (r.status === 403) blocked = r;
+        step(r, r.status === 200 ? `session spend ${fmtUsd(spent)}` : `blocked by <code>${escapeHtml(hdr(r, "x-gw-blocked-by") || "?")}</code>`);
+        if (r.status === 429) await sleep(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5));
+      }
+      if (!running) return;
+      const fresh = newSessionId("alice"); $("sessionId").value = fresh;
+      const r2 = await send(alice.name, "gpt-4.1-mini", { prompt: ASK, maxTokens: 80, session: fresh }); step(r2, `new session <code>${escapeHtml(fresh)}</code>`);
+      takeaway(blocked ? `After ${n - 1} calls (${fmtUsd(spent)}) the runaway session hit its cap and got <b>403</b> (<code>${escapeHtml(hdr(blocked, "x-gw-blocked-by") || "")}</code>). A new session for the same user answered <b>${r2.status}</b>: the cap contains one runaway conversation or agent loop without cutting the user off. The cap is a soft limit: quota counters sync asynchronously, so a fast loop can run a few calls past it.`
+                       : `Spent ${fmtUsd(spent)} in the session without reaching the cap. Run the scenario again.`);
+    } },
   { title: "Zero trust: Microsoft Entra ID", cost: "3 calls · < $0.0005",
+    gist: "The subscription key says which plan pays; a Microsoft Entra ID token says who is calling. A key alone is rejected.",
+    policies: ["validate-azure-ad-token", "entra-identity fragment"],
+    preview: () => { const m = tierOf(tierAgent("gold")).allowedModels.find(x => x !== "gpt-4.1-nano") || tierOf(tierAgent("gold")).allowedModels[0];
+      return dg.row(dg.node("Key only", "no token"), dg.arrow(surfChip("model")), dg.gw("Entra ID check"), dg.arrow("rejected", "bad"), dg.node("Foundry", "never called", "dim"), dg.code(401))
+        + dg.row(dg.node("Key only", "no token"), dg.arrow(surfChip("tool")), dg.gw("Entra ID check"), dg.arrow("rejected", "bad"), dg.node("MCP server", "never called", "dim"), dg.code(401))
+        + dg.row(dg.node("Key + token", "Entra ID"), dg.arrow(surfChip("model")), dg.gw("Entra ID check"), dg.arrow("caller attached", "ok"), dg.model(m), dg.code(200))
+        + dg.note("Tenant, audience and an allow-list of client apps are checked before any limit, budget or model is touched."); },
     story: () => `Every plan requires a <b>Microsoft Entra ID</b> token on top of the subscription key: the key says <i>which plan pays</i>, the token says <i>who is calling</i>. The <code>validate-azure-ad-token</code> policy checks the tenant, the audience and an allow-list of client apps before any limit, budget or model is touched.`,
     async run() {
       const g = tierAgent("gold"), m = tierOf(g).allowedModels.find(x => x !== "gpt-4.1-nano") || tierOf(g).allowedModels[0];
@@ -917,9 +1475,16 @@ const SCENARIOS = [
       if (!running) return;
       const r3 = await send(g.name, m, { prompt: ASK, maxTokens: 60, noToken: false });
       step(r3, `valid token · caller <b>${escapeHtml(hdr(r3, "x-gw-caller") || "-")}</b>`);
-      takeaway(`A leaked subscription key is not enough: without a token from an allowed app in this tenant the gateway answers <b>${r1.status}</b> on every surface and nothing is billed. With a token the call goes through and the caller identity (<b>${escapeHtml(hdr(r3, "x-gw-caller") || "-")}</b>) is attached to the metrics and logs. The Sourcing Agent calls with its own managed identity, so its downstream calls show up under that identity.`);
+      takeaway(`A leaked subscription key is not enough: without a token from an allowed app in this tenant the gateway answers <b>${r1.status}</b> on every surface and nothing is billed. With a token the call goes through and the caller identity (<b>${escapeHtml(hdr(r3, "x-gw-caller") || "-")}</b>) is attached to the chargeback records and logs. The Sourcing Agent calls with its own managed identity, so its downstream calls show up under that identity.`);
     } },
   { title: "Load balancing & regional failover", cost: "≤ 8 calls · < $0.002",
+    gist: "The primary region runs out of capacity. The retry policy fails over to the secondary region, so the agent still gets 200.",
+    policies: ["priority backend pool", "retry", "circuit breaker"],
+    preview: () => { const b = cfg.foundryBackends || [], p = b.find(x => x.priority === 1) || {}, s = b.find(x => x.priority !== 1) || {};
+      return dg.row(dg.agent("gold"), dg.arrow("burst"), dg.gw("priority pool"), dg.col(
+          dg.row(dg.arrow("P1", "bad"), dg.node(p.name || "foundry1", `${p.location || "primary"} · 429`, "x")),
+          dg.row(dg.arrow("retry → P2", "ok"), dg.model(s.name || "foundry2", s.location || "secondary"), dg.code(200))))
+        + dg.note("After repeated 429s the circuit breaker takes the primary out of rotation until it recovers. <code>x-gw-route</code> shows every attempt."); },
     story: () => { const b = cfg.foundryBackends || [], p = b.find(x => x.priority === 1) || {}, s = b.find(x => x.priority !== 1) || {};
       return `The models are deployed in two Foundry resources behind one <b>priority backend pool</b>: <b>${p.name || "foundry1"}</b> (${p.location || "primary"}) first, <b>${s.name || "foundry2"}</b> (${s.location || "secondary"}) as spillover. The primary gpt-4.1-nano deployment is deliberately tiny. Gold sends a burst: when the primary answers 429, the <code>retry</code> policy re-sends to the secondary and the <b>circuit breaker</b> takes the primary out of rotation, so the agent keeps getting 200s.`; },
     async run() {
@@ -938,6 +1503,11 @@ const SCENARIOS = [
         : `${ok}/8 calls served by ${split || "-"} without a failover; the primary still had capacity. Run it again to push it over its limit.`);
     } },
   { title: "Policy trace & Azure Monitor evidence", cost: "1 call · < $0.0005", tab: "policies",
+    gist: "One traced call, then the gateway's policy-by-policy trace and the same request in the Log Analytics tables.",
+    policies: ["APIM request tracing", "ApiManagementGatewayLogs", "ApiManagementGatewayLlmLog"],
+    preview: () => dg.row(dg.agent("silver"), dg.arrow("traced call"), dg.gw("debug credential"), dg.arrow(), dg.model(premiumFor("silver"), "downgraded"))
+      + dg.chips(["Entra ID", "model downgrade", "token limit", "$ budget", "backend pool + retry", "cost metric"])
+      + dg.row(dg.node("Policy trace", "instant", "mon"), dg.arrow("same x-gw-request-id"), dg.node("Log Analytics", "2-5 min later", "mon"), dg.arrow("KQL"), dg.node("Azure portal", "same query", "mon")),
     story: () => `Sends one <b>traced</b> call (Silver asks for a premium model) with an APIM debug credential. The <b>Policies &amp; evidence</b> tab shows the gateway's own policy-by-policy trace, then the same request in the Log Analytics tables, found by its <code>x-gw-request-id</code>. Every table links to the same query in the Azure portal.`,
     async run() {
       const s = tierAgent("silver"), premium = cfg.models.find(m => !tierOf(s).allowedModels.includes(m.name))?.name || cfg.models[0].name;
@@ -952,15 +1522,43 @@ const SCENARIOS = [
 async function runScenario(s) {
   $("scenario").classList.remove("hidden"); $("scSteps").innerHTML = "";
   $("scTitle").textContent = s.title; $("scStory").innerHTML = s.story(); $("scTakeaway").innerHTML = "";
-  if (!s.tab) showTab("live");
+  $("sessionId").value = newSessionId("demo"); // every scenario runs in its own session, so per-session caps never carry over
+  if (curRun) { snapPart(curPart); curPart = { si: SCENARIOS.indexOf(s), title: s.title, calls: [] }; curRun.parts.push(curPart); }
+  if (!s.tab && curTab !== "runs") showTab("live");
   try { await s.run(); } catch (e) { info("Scenario failed: " + escapeHtml(e.message)); }
+  snapPart(curPart);
 }
+function showPreview(btn) {
+  const i = Number(btn.dataset.i), s = SCENARIOS[i], p = $("scPreview");
+  if (!s?.preview) return;
+  let body;
+  try { body = s.preview(); } catch (e) { console.warn("scenario preview failed", e); return; }
+  p.innerHTML = `<div class="ph"><span class="n">${i + 1}</span><div><b>${s.title}</b><div class="gist">${s.gist || ""}</div></div></div>
+    <div class="dgm">${body}</div>
+    <div class="pf">${(s.policies || []).map(x => `<code>${x}</code>`).join("")}<span class="sp"></span><span>${s.cost}</span></div>`;
+  const r = btn.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
+  let left = r.right + 12; // right of the button, else left of it, else clamped to the viewport
+  if (left + w > innerWidth - 8) left = r.left - w - 12 >= 8 ? r.left - w - 12 : Math.max(8, innerWidth - w - 8);
+  p.style.left = left + "px";
+  p.style.top = Math.max(8, Math.min(innerHeight - h - 8, r.top + r.height / 2 - h / 2)) + "px";
+  p.classList.add("show");
+}
+function hidePreview() { $("scPreview").classList.remove("show"); }
 function renderScenarios() {
   $("scenarios").innerHTML = SCENARIOS.map((s, i) => `<button data-i="${i}"><span class="n">${i + 1}</span><span><span class="t">${s.title}</span><span class="c">${s.cost}</span></span></button>`).join("")
-    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.length})</span><span class="c">≈ 57 calls · < $0.05 · about 7 minutes</span></span></button>`;
-  document.querySelectorAll(".scenarios button[data-i]").forEach(b => b.onclick = async () => {
-    setRunning(true, "Running scenario…"); await runScenario(SCENARIOS[b.dataset.i]); setRunning(false, "Scenario finished.");
+    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.length})</span><span class="c">≈ 85 calls · < $0.10 · about 9 minutes</span></span></button>`;
+  document.querySelectorAll(".scenarios button[data-i]").forEach(b => {
+    b.onclick = async () => {
+      hidePreview(); setRunning(true, "Running scenario…"); await runScenario(SCENARIOS[b.dataset.i]); setRunning(false, "Scenario finished.");
+    };
+    b.setAttribute("aria-describedby", "scPreview");
+    b.addEventListener("mouseenter", () => showPreview(b));
+    b.addEventListener("focus", () => showPreview(b));
+    b.addEventListener("mouseleave", hidePreview);
+    b.addEventListener("blur", hidePreview);
   });
+  $("scenarios").addEventListener("mouseleave", hidePreview); // disabled buttons may not fire their own mouseleave
+  window.addEventListener("scroll", () => { const b = document.querySelector(".scenarios button[data-i]:hover"); b ? showPreview(b) : hidePreview(); }, true);
   $("btnAll").onclick = async () => {
     setRunning(true);
     for (const [i, s] of SCENARIOS.entries()) {

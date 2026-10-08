@@ -22,6 +22,10 @@
       All surfaces
         - $ budget           - ONE quota-by-key counter per subscription accumulates the cost (micro-USD) of
                                models, tool calls and agent tasks (fee + everything the agent spent downstream).
+        - Session $ cap      - a second quota-by-key counter per subscription + session caps one conversation at
+                               {session-budget-micro-usd} micro-USD (403, x-gw-blocked-by: quota-by-key (session-budget)).
+                               The session comes from x-session-id (or Mcp-Session-Id / the A2A contextId) and is
+                               returned in x-gw-session; the chargeback-record fragment logs it with every billable call.
 
     The {{budget-epoch}} named value is part of every counter key, so changing it resets all budgets and quotas.
 
@@ -34,6 +38,26 @@
         <base />
         <include-fragment fragment-id="entra-identity" />
         <set-variable name="budgetEpoch" value="{{budget-epoch}}" />
+        <!-- Session (FinOps chargeback + per-session $ cap). First valid value wins:
+             1. x-gw-on-behalf-of-session - stamped by the A2A API on tasks it forwards to a platform agent (trusted only
+                from the agent-platform product), so the agent's downstream calls land in the caller's session
+             2. x-session-id               - the app's own conversation / session id
+             3. Mcp-Session-Id             - MCP clients that don't send x-session-id are grouped by their MCP session
+             4. a2aContextId               - the A2A contextId of the message (set by the A2A API policy)
+             Anything else is recorded as "no-session" (no session cap). -->
+        <set-variable name="session" value="@{
+            var candidates = new [] {
+                context.Product?.Id == "agent-platform" ? context.Request.Headers.GetValueOrDefault("x-gw-on-behalf-of-session", "") : "",
+                context.Request.Headers.GetValueOrDefault("x-session-id", ""),
+                context.Request.Headers.GetValueOrDefault("Mcp-Session-Id", ""),
+                context.Variables.GetValueOrDefault<string>("a2aContextId", "")
+            };
+            foreach (var candidate in candidates) {
+                var value = (candidate ?? "").Trim();
+                if (value != "" && value != "no-session" && System.Text.RegularExpressions.Regex.IsMatch(value, "^[A-Za-z0-9._:-]{1,128}$")) { return value; }
+            }
+            return "no-session";
+        }" />
         <set-variable name="governanceActions" value="none" />
         <choose>
             <!-- ============ AI models ============ -->
@@ -205,10 +229,22 @@
         </choose>
         <!-- $ budget per subscription, shared by every surface: each successful call increments the counter by its
              cost in micro-USD (the costMicroUsd variable is calculated later by the API policy) -->
+        <set-variable name="quotaStage" value="subscription-budget" />
         <quota-by-key calls="{budget-micro-usd}" renewal-period="{budget-period-seconds}"
             counter-key="@("budget-" + context.Subscription?.Id + "-" + (string)context.Variables["budgetEpoch"])"
             increment-condition="@(context.Response.StatusCode == 200)"
             increment-count="@(context.Variables.GetValueOrDefault<int>("costMicroUsd", 0))" />
+        <!-- $ cap per session ({session-budget-micro-usd} micro-USD): stops a runaway conversation or agent loop long
+             before it drains the plan budget. A new session starts with a fresh cap. -->
+        <choose>
+            <when condition="@((string)context.Variables["session"] != "no-session")">
+                <set-variable name="quotaStage" value="session-budget" />
+                <quota-by-key calls="{session-budget-micro-usd}" renewal-period="{budget-period-seconds}"
+                    counter-key="@("session-" + context.Subscription?.Id + "-" + (string)context.Variables["session"] + "-" + (string)context.Variables["budgetEpoch"])"
+                    increment-condition="@(context.Response.StatusCode == 200)"
+                    increment-count="@(context.Variables.GetValueOrDefault<int>("costMicroUsd", 0))" />
+            </when>
+        </choose>
     </inbound>
     <backend>
         <base />
@@ -221,6 +257,9 @@
         <set-header name="x-gw-caller" exists-action="override">
             <value>@(context.Variables.GetValueOrDefault<string>("caller", ""))</value>
         </set-header>
+        <set-header name="x-gw-session" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("session", "no-session"))</value>
+        </set-header>
     </outbound>
     <on-error>
         <base />
@@ -230,13 +269,19 @@
             <value>@(context.RequestId.ToString())</value>
         </set-header>
         <set-header name="x-gw-blocked-by" exists-action="override">
-            <value>@(context.LastError?.Source ?? "")</value>
+            <value>@{
+                var source = context.LastError?.Source ?? "";
+                return source == "quota-by-key" ? source + " (" + context.Variables.GetValueOrDefault<string>("quotaStage", "subscription-budget") + ")" : source;
+            }</value>
         </set-header>
         <set-header name="x-gw-block-reason" exists-action="override">
             <value>@(context.LastError?.Reason ?? "")</value>
         </set-header>
         <set-header name="x-gw-caller" exists-action="override">
             <value>@(context.Variables.GetValueOrDefault<string>("caller", ""))</value>
+        </set-header>
+        <set-header name="x-gw-session" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("session", "no-session"))</value>
         </set-header>
     </on-error>
 </policies>

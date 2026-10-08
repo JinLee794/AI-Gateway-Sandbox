@@ -410,19 +410,82 @@
       "customWidth": "50"
     },
     {
+      "type": 1,
+      "name": "chargeback-header",
+      "content": {
+        "json": "## Chargeback by team, user and session\nOne **chargeback record** (an App Insights trace written by the `chargeback-record` policy fragment) per priced call: the payer's **team** and **cost center** come from the `chargeback-directory` named value, the **session** from the `x-session-id` header (or the MCP session / A2A context id). Downstream calls an A2A agent makes for a user carry that user and session, and the A2A record holds only the task fee, so a session total is the fully loaded cost. Custom metrics allow at most 5 dimensions, which is why per-user and per-session data lives in traces."
+      }
+    },
+    {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "customMetrics\n| where name == \"CostMicroUSD\"\n| extend Caller = coalesce(tostring(customDimensions[\"Caller\"]), \"unknown\"), Agent = tostring(customDimensions[\"Agent\"]), Tier = tostring(customDimensions[\"Tier\"])\n| summarize CostUSD = round(sum(valueSum) / 1e6, 6), Calls = sum(valueCount) by Caller, Agent, Tier\n| order by CostUSD desc",
+        "query": "traces\n| where tostring(customDimensions[\"record\"]) == \"chargeback\"\n| extend Team = tostring(customDimensions[\"team\"]), CostCenter = tostring(customDimensions[\"costCenter\"]), User = tostring(customDimensions[\"user\"]), DisplayName = tostring(customDimensions[\"displayName\"]), Kind = tostring(customDimensions[\"kind\"]), Session = tostring(customDimensions[\"session\"]), Surface = tostring(customDimensions[\"surface\"]), Via = tostring(customDimensions[\"via\"]), Cost = tolong(customDimensions[\"costMicroUsd\"]), Tokens = tolong(customDimensions[\"promptTokens\"]) + tolong(customDimensions[\"completionTokens\"])\n| summarize CostUSD = round(sum(Cost) / 1e6, 6), Users = dcount(User), Sessions = dcount(Session), Calls = count() by Team, CostCenter\n| order by CostUSD desc",
         "size": 0,
-        "title": "Cost by caller identity (Entra ID) and plan",
+        "title": "Chargeback by team and cost center (USD)",
         "timeContextFromParameter": "TimeRange",
         "queryType": 0,
         "resourceType": "microsoft.insights/components",
-        "visualization": "table"
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "CostUSD",
+              "formatter": 4,
+              "formatOptions": {
+                "palette": "blue"
+              }
+            }
+          ]
+        }
       },
-      "name": "callers",
+      "name": "chargeback-teams",
       "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "traces\n| where tostring(customDimensions[\"record\"]) == \"chargeback\"\n| extend Team = tostring(customDimensions[\"team\"]), CostCenter = tostring(customDimensions[\"costCenter\"]), User = tostring(customDimensions[\"user\"]), DisplayName = tostring(customDimensions[\"displayName\"]), Kind = tostring(customDimensions[\"kind\"]), Session = tostring(customDimensions[\"session\"]), Surface = tostring(customDimensions[\"surface\"]), Via = tostring(customDimensions[\"via\"]), Cost = tolong(customDimensions[\"costMicroUsd\"]), Tokens = tolong(customDimensions[\"promptTokens\"]) + tolong(customDimensions[\"completionTokens\"])\n| summarize CostUSD = sum(Cost) / 1e6 by Payer = strcat(DisplayName, \" (\", Team, \")\"), Surface\n| order by CostUSD desc",
+        "size": 0,
+        "title": "Cost by user / app and surface (USD)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "barchart",
+        "chartSettings": {
+          "group": "Surface",
+          "createOtherGroup": 0
+        }
+      },
+      "name": "chargeback-users",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "traces\n| where tostring(customDimensions[\"record\"]) == \"chargeback\"\n| extend Team = tostring(customDimensions[\"team\"]), CostCenter = tostring(customDimensions[\"costCenter\"]), User = tostring(customDimensions[\"user\"]), DisplayName = tostring(customDimensions[\"displayName\"]), Kind = tostring(customDimensions[\"kind\"]), Session = tostring(customDimensions[\"session\"]), Surface = tostring(customDimensions[\"surface\"]), Via = tostring(customDimensions[\"via\"]), Cost = tolong(customDimensions[\"costMicroUsd\"]), Tokens = tolong(customDimensions[\"promptTokens\"]) + tolong(customDimensions[\"completionTokens\"])\n| summarize CostUSD = round(sum(Cost) / 1e6, 6), Calls = count(), Models = round(sumif(Cost, Surface == \"model\") / 1e6, 6), Tools = round(sumif(Cost, Surface == \"tool\") / 1e6, 6), Agents = round(sumif(Cost, Surface == \"agent\") / 1e6, 6), ViaAgent = round(sumif(Cost, Via != \"direct\") / 1e6, 6), Tokens = sum(Tokens), Started = min(timestamp), LastCall = max(timestamp) by Team, CostCenter, User = DisplayName, Kind, Session\n| order by LastCall desc",
+        "size": 0,
+        "title": "Sessions: cost per user session (Via = the A2A agent that spent on the user's behalf)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "CostUSD",
+              "formatter": 4,
+              "formatOptions": {
+                "palette": "blue"
+              }
+            }
+          ]
+        }
+      },
+      "name": "chargeback-sessions",
+      "customWidth": "100"
     }
   ],
   "fallbackResourceIds": [],

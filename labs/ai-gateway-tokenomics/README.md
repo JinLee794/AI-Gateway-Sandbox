@@ -9,7 +9,7 @@ services:
   - Microsoft Foundry
   - Azure Monitor
 shortDescription: One APIM product per plan governs, prices and charges back AI models, MCP tools and A2A agents under a single $ budget, with live monitoring and a demo UI.
-detailedDescription: Customer-ready demo of Azure API Management as an AI Gateway for the three AI surfaces, Microsoft Foundry AI models, MCP servers and A2A agents. Gold, Silver and Bronze APIM products are the commercial plans. Each plan sets model allow lists (downgrade or deny), output caps, tokens-per-minute limits and token quotas, MCP tool and A2A agent entitlements and rate limits, and one $ budget that every model token, tool call and agent task draws from. Spend that an A2A agent makes on a caller's behalf is charged back to the caller. Every call also needs a Microsoft Entra ID token (validate-azure-ad-token), model calls are load balanced across two Foundry regions with a circuit breaker and retry, and the demo shows each policy in action through APIM request traces and the gateway, LLM and MCP log tables in Log Analytics. Cost metrics flow to Application Insights with Agent, Tier, Model, Surface, Via and Caller dimensions, an Azure Monitor workbook shows the chargeback and the policy evidence, and a lightweight web UI drives guided scenarios live.
+detailedDescription: Customer-ready demo of Azure API Management as an AI Gateway for the three AI surfaces, Microsoft Foundry AI models, MCP servers and A2A agents. Gold, Silver and Bronze APIM products are the commercial plans. Each plan sets model allow lists (downgrade or deny), output caps, tokens-per-minute limits and token quotas, MCP tool and A2A agent entitlements and rate limits, and one $ budget that every model token, tool call and agent task draws from. Spend that an A2A agent makes on a caller's behalf is charged back to the caller. Every call also needs a Microsoft Entra ID token (validate-azure-ad-token), model calls are load balanced across two Foundry regions with a circuit breaker and retry, and the demo shows each policy in action through APIM request traces and the gateway, LLM and MCP log tables in Log Analytics. Cost metrics flow to Application Insights with Agent, Tier, Model, Surface and Via dimensions. Demo users (one subscription key each) work in sessions: a per-session $ cap stops runaway sessions, and chargeback records by user, team, cost center and session roll up the fully loaded cost of each piece of work. An Azure Monitor workbook shows the chargeback and the policy evidence, and a lightweight web UI drives guided scenarios live.
 tags: [finops, tokenomics, cost, budget, chargeback, mcp, a2a, products, llm-token-limit, quota-by-key, emit-metric, validate-azure-ad-token, entra-id, load-balancing, circuit-breaker, tracing, log-analytics]
 authors:
   - jinle_microsoft
@@ -27,6 +27,7 @@ Customer-ready demo of Azure API Management as **one AI Gateway for the three AI
 - **Every call is priced.** Model calls by tokens, MCP tool calls per call, A2A tasks by a fee plus everything the agent spends downstream.
 - **Spend follows the payer.** When an A2A agent calls models and tools for a caller, the gateway charges that spend back to the caller's budget and records the agent as `Via`.
 - **One chargeback view.** Cost by consumer, plan, surface (model, tool, agent) and resource in Application Insights and an Azure Monitor workbook.
+- **Chargeback by user and session.** Demo users (one subscription key each, no Entra ID accounts needed) work in sessions. A $ cap per session stops a runaway conversation or agent loop, and every priced call is recorded by user, team, cost center and session (see [FinOps chargeback by user and session](#finops-chargeback-by-user-and-session)).
 - **Zero trust and resilience, with evidence.** Every call needs a Microsoft Entra ID token as well as the key. Model calls are load balanced across two Foundry regions with a circuit breaker, and every policy decision can be traced and found in the Azure Monitor logs (see [Policies in action](#policies-in-action-entra-id-load-balancing-and-what-the-logs-track)).
 
 ```mermaid
@@ -35,22 +36,23 @@ flowchart LR
         A1["Customer Support Agent<br/>🥇 Gold"]
         A2["Research Agent<br/>🥈 Silver"]
         A3["Marketing Copilot<br/>🥉 Bronze"]
+        U["Demo users<br/>Alice · Ben · Chloe · Dev<br/>+ x-session-id"]
     end
     subgraph APIM["Azure API Management - AI Gateway"]
         E["Entra ID fragment<br/>validate-azure-ad-token"]
-        P1["Plan policy (APIM product)<br/>model allow list · output cap · TPM · token quota<br/>tool / agent entitlement + rate limit<br/>one $ budget"]
+        P1["Plan policy (APIM product)<br/>model allow list · output cap · TPM · token quota<br/>tool / agent entitlement + rate limit<br/>one $ budget · $ cap per session"]
         M["AI models API<br/>backend pool · retry · price tokens"]
         T["MCP server<br/>commerce tools · price per call"]
         G["A2A agent API<br/>fee + downstream spend"]
     end
-    A1 & A2 & A3 -->|"api-key + Entra ID token"| E --> P1
+    A1 & A2 & A3 & U -->|"api-key + Entra ID token"| E --> P1
     P1 --> M --> F["Microsoft Foundry<br/>Sweden Central (priority 1)<br/>France Central (priority 2)"]
     P1 --> T --> R["Commerce REST API"]
     P1 --> G --> S["Sourcing Agent<br/>(Container Apps)"]
     S -->|"managed identity token<br/>on behalf of caller<br/>(agent-platform plan)"| E
-    M & T & G -.->|"cost + tokens<br/>(Agent, Tier, Model, Surface, Via, Caller)"| AI["Application Insights<br/>+ Tokenomics workbook"]
+    M & T & G -.->|"cost + tokens<br/>(Agent, Tier, Model, Surface, Via)<br/>+ chargeback records (user, team, session)"| AI["Application Insights<br/>+ Tokenomics workbook"]
     APIM -.->|"gateway, LLM and MCP logs"| LA["Log Analytics"]
-    UI["Demo UI"] --> A1 & A2 & A3
+    UI["Demo UI"] --> A1 & A2 & A3 & U
     UI -.->|"KQL + request traces"| AI & LA
 ```
 
@@ -67,12 +69,13 @@ Each **consumer** has its own APIM subscription, which gives it an identity and 
 | 🧰 **Tool entitlement + calls per minute** | MCP | `choose` + [`rate-limit-by-key`](https://learn.microsoft.com/azure/api-management/rate-limit-by-key-policy) | 403 `tool-denied` (JSON-RPC error) / 429 |
 | 🤝 **Agent entitlement + tasks per minute** | A2A | `choose` + [`rate-limit-by-key`](https://learn.microsoft.com/azure/api-management/rate-limit-by-key-policy) | 403 `agent-denied` / 429 |
 | 💵 **One $ budget** for models, tools and agents | all | [`quota-by-key`](https://learn.microsoft.com/azure/api-management/quota-by-key-policy) incremented by each call's cost | 403 |
+| 🧾 **$ cap per session** | all | a second `quota-by-key` keyed on subscription + session | 403 `session-budget` |
 
-| Consumer | Plan | Models | Disallowed models | TPM | Token quota | Max output | MCP tools | A2A agents | $ budget |
-|---|---|---|---|---|---|---|---|---|---|
-| Customer Support Agent | 🥇 Gold | all four | n/a | 20,000 | 1M / month | 2,000 | all three, 60/min | Sourcing Agent, 10/min | $5.00 |
-| Research Agent | 🥈 Silver | gpt-4.1-mini, gpt-4.1-nano, DeepSeek-V3.2 | downgraded to gpt-4.1-mini | 12,000 | 200K / month | 800 | `search-products`, `check-inventory`, 30/min | Sourcing Agent, 3/min | $0.01 |
-| Marketing Copilot | 🥉 Bronze | gpt-4.1-nano | denied (403) | 1,500 | 20K / day | 300 | `search-products`, 10/min | none | $0.02 |
+| Consumer | Plan | Models | Disallowed models | TPM | Token quota | Max output | MCP tools | A2A agents | $ budget | $ per session |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Customer Support Agent | 🥇 Gold | all four | n/a | 20,000 | 1M / month | 2,000 | all three, 60/min | Sourcing Agent, 10/min | $5.00 | $0.02 |
+| Research Agent | 🥈 Silver | gpt-4.1-mini, gpt-4.1-nano, DeepSeek-V3.2 | downgraded to gpt-4.1-mini | 12,000 | 200K / month | 800 | `search-products`, `check-inventory`, 30/min | Sourcing Agent, 3/min | $0.01 | $0.01 |
+| Marketing Copilot | 🥉 Bronze | gpt-4.1-nano | denied (403) | 1,500 | 20K / day | 300 | `search-products`, 10/min | none | $0.02 | $0.01 |
 
 Demo price list (the `model-pricing`, `tool-pricing` and `agent-pricing` named values):
 
@@ -97,13 +100,43 @@ Demo price list (the `model-pricing`, `tool-pricing` and `agent-pricing` named v
 
 In the Azure portal, open the APIM instance to see the gateway's own views of the three surfaces: **APIs → AI models**, **APIs → MCP servers** and **APIs → A2A agents** (preview), and **Products** for the plans.
 
+### FinOps chargeback by user and session
+
+The plans answer *how much can this subscription spend*. FinOps also needs *who* spent it and *on what piece of work*, so it can be charged back to a team and cost center.
+
+| Demo user | Subscription | Plan | Team | Cost center |
+|---|---|---|---|---|
+| Alice Chen | `user-alice` | 🥇 Gold | Customer Care | CC-1001 |
+| Ben Okafor | `user-ben` | 🥈 Silver | Customer Care | CC-1001 |
+| Chloe Martin | `user-chloe` | 🥉 Bronze | Marketing | CC-3003 |
+| Dev Patel | `user-dev` | 🥇 Gold | Supply Chain | CC-2002 |
+
+- **Users are subscription keys.** Each demo user has their own APIM subscription on a plan, so the demo needs no Entra ID accounts. The `chargeback-directory` named value maps every subscription (users and agents) to its display name, team and cost center.
+- **Sessions come from the request.** The [plan policy](product-policy.xml) takes the session from `x-session-id`, then the MCP `Mcp-Session-Id`, then the A2A `contextId`. Values must match `^[A-Za-z0-9._:-]{1,128}$`, otherwise the call counts as `no-session`. The session is returned in `x-gw-session`. When the Sourcing Agent works for a user, it forwards the session (`x-gw-on-behalf-of-session`, trusted only from the `agent-platform` plan), so the agent's model and tool calls land in the **same user and session**.
+- **A $ cap per session.** A second `quota-by-key`, keyed on subscription + session, stops one runaway conversation or agent loop (`403`, `x-gw-blocked-by: quota-by-key (session-budget)`) without touching the user's plan budget. A new session starts fresh. The cap is a soft limit: quota counters are updated asynchronously after each successful call, so a fast loop can run a few calls past it (in testing, $0.024–$0.029 against a $0.02 cap). Use it to contain runaway loops, not as an exact invoice limit.
+- **Chargeback records.** The [`chargeback-record` fragment](chargeback-fragment.xml), included by the models, MCP and A2A policies, writes one `trace` per priced call to Application Insights (`traces`, or `AppTraces` in Log Analytics) with `record = chargeback` and the user, display name, team, cost center, kind (user or agent), session, surface, item, tokens, plan, `via`, Entra ID caller and request id.
+- **No double counting.** Sum `costMicroUsd`. An A2A record carries only the agent fee; the agent's model and tool calls are separate records (`via = sourcing-agent`) for the same user and session. So a session total is the **fully loaded cost** of that piece of work. `chargedMicroUsd` is what the call drew from the budgets (for an A2A task, the fee plus the downstream spend).
+- **Why traces, not metric dimensions?** `emit-metric` allows at most 5 custom dimensions, and user and session are high-cardinality. The cost metrics keep the 5 low-cardinality dimensions (Agent, Tier, Model, Surface, Via); the records carry everything else.
+
+```kusto
+traces
+| where tostring(customDimensions["record"]) == "chargeback"
+| extend Team = tostring(customDimensions["team"]), User = tostring(customDimensions["displayName"]),
+         Session = tostring(customDimensions["session"]), Cost = tolong(customDimensions["costMicroUsd"])
+| summarize CostUSD = round(sum(Cost) / 1e6, 6), Calls = count() by Team, User, Session
+| order by CostUSD desc
+```
+
+> [!TIP]
+> In production, take the user from the Entra ID token (the `oid` or `preferred_username` claim that `validate-azure-ad-token` already validates) and the team and cost center from a directory attribute, instead of one subscription key per user. The session cap, the records and the queries stay the same.
+
 ### Policies in action: Entra ID, load balancing and what the logs track
 
 The plan policies above decide *what a consumer may spend*. These policies decide *who may call* and *how the call is served*:
 
 | Policy | Where | What it does | Evidence |
 |---|---|---|---|
-| 🔐 [`validate-azure-ad-token`](https://learn.microsoft.com/azure/api-management/validate-azure-ad-token-policy) | [entra-identity fragment](entra-identity-fragment.xml), included first by every plan | Every model, MCP and A2A call needs a Microsoft Entra ID token for `https://cognitiveservices.azure.com` from an approved client app (Azure CLI and the Sourcing Agent's managed identity), **on top of** the key. The key says *who pays*, the token says *who calls*. No token returns **401** before any tokens are spent. The token is removed before forwarding. | `x-gw-blocked-by: validate-azure-ad-token`, `x-gw-caller`. `ApiManagementGatewayLogs.LastErrorSource`. `Caller` dimension on the cost metrics. |
+| 🔐 [`validate-azure-ad-token`](https://learn.microsoft.com/azure/api-management/validate-azure-ad-token-policy) | [entra-identity fragment](entra-identity-fragment.xml), included first by every plan | Every model, MCP and A2A call needs a Microsoft Entra ID token for `https://cognitiveservices.azure.com` from an approved client app (Azure CLI and the Sourcing Agent's managed identity), **on top of** the key. The key says *who pays*, the token says *who calls*. No token returns **401** before any tokens are spent. The token is removed before forwarding. | `x-gw-blocked-by: validate-azure-ad-token`, `x-gw-caller`. `ApiManagementGatewayLogs.LastErrorSource`. `caller` field of the chargeback records. |
 | 🪪 Managed identity end to end | Sourcing Agent → gateway → Foundry | The agent calls the gateway with its **user-assigned managed identity** token. The gateway calls Foundry with **its own** managed identity (`authentication-managed-identity`). There are no Foundry keys anywhere. | Trace: `authentication-managed-identity`. Caller `sourcing-agent (managed identity)`. |
 | ⚖️ [Backend pool](https://learn.microsoft.com/azure/api-management/backends#load-balanced-pool) + [circuit breaker](https://learn.microsoft.com/azure/api-management/backends#circuit-breaker) | `inference-backend-pool`: `foundry1` (Sweden Central, priority 1) and `foundry2` (France Central, priority 2) | Priority routing with failover. A 429 from a region trips that backend's breaker for 1 minute (honouring `Retry-After`), so the next calls go straight to the other region. | `x-gw-route` (for example `foundry1 (Sweden Central) 429 > foundry2 (France Central) 200`), `x-gw-backend`. `BackendAttempts` metric. Gateway log `BackendUrl`. |
 | 🔁 [`retry`](https://learn.microsoft.com/azure/api-management/retry-policy) | [models API policy](policy.xml), `<backend>` | Retries a 429/5xx call (up to twice) on the next available pool member, so the caller sees 200 instead of the regional throttle. | Trace: `retry`, `backend-pool` (`backend:foundry1 is inactive`). |
@@ -119,8 +152,8 @@ The plan policies above decide *what a consumer may spend*. These policies decid
 | Log Analytics | `ApiManagementGatewayLogs` | Every request: API, operation, product (plan), subscription, backend URL, status and backend status codes, timings, region, client IP, and **the policy that failed** (`LastErrorSource`, `LastErrorReason`, `LastErrorMessage`) | `CorrelationId` = `x-gw-request-id` |
 | Log Analytics | `ApiManagementGatewayLlmLog` | Every AI model call: deployment, model, prompt/completion/total tokens counted by the gateway, streaming | `CorrelationId` |
 | Log Analytics | `ApiManagementGatewayMCPLog` | Every MCP message: client, server, JSON-RPC method, tool name, session, authentication method and errors | `CorrelationId` |
-| Application Insights | `requests`, `dependencies`, `traces` | Gateway requests and backend calls with end-to-end correlation, plus the `trace` policy records | `operation_Id` |
-| Application Insights | `customMetrics` | `CostMicroUSD`, tokens, `GovernanceEvents` and `BackendAttempts`, with `Agent`, `Tier`, `Model`, `Surface`, `Via`, `Caller` (and `Backend`, `Region`, `Failover`) dimensions | dimensions |
+| Application Insights | `requests`, `dependencies`, `traces` | Gateway requests and backend calls with end-to-end correlation, plus the `trace` policy records and the **chargeback records** (user, team, cost center, session, cost) | `operation_Id`, `requestId` |
+| Application Insights | `customMetrics` | `CostMicroUSD`, tokens, `GovernanceEvents` and `BackendAttempts`, with `Agent`, `Tier`, `Model`, `Surface`, `Via` (and `Backend`, `Region`, `Failover`) dimensions | dimensions |
 | APIM request trace | `listTrace` (debug credentials) | The full policy-by-policy execution of one request: inbound, backend (pool choice, retry) and outbound | `apim-trace-id` |
 
 Every gateway response returns `x-gw-request-id`, so any call in the UI can be looked up in Log Analytics. Diagnostic logs reach Log Analytics **2 to 5 minutes** after the call. To find the same evidence in the Azure portal:
@@ -128,7 +161,7 @@ Every gateway response returns `x-gw-request-id`, so any call in the UI can be l
 - **APIM → APIs → (API) → Test** with **Trace** enabled shows the same policy-by-policy trace.
 - **APIM → Logs** (or the Log Analytics workspace → Logs): run, for example, `ApiManagementGatewayLogs | where CorrelationId == "<x-gw-request-id>"`. Each table and query in the UI has an **Open in Log Analytics** link that opens it in the portal.
 - **APIM → Backends** shows the pool, priorities and circuit breaker rules. **APIM → APIs → (API) → Policies** and **Policy fragments** show the deployed XML.
-- The workbook's **Policies in action** section shows outcomes by policy, Entra ID rejections, backend attempts by region, tokens by deployment, MCP tool calls, failovers and cost by caller.
+- The workbook's **Policies in action** section shows outcomes by policy, Entra ID rejections, backend attempts by region, tokens by deployment, MCP tool calls and failovers.
 
 ### Monitoring
 
@@ -142,9 +175,11 @@ Every gateway response returns `x-gw-request-id`, so any call in the UI can be l
   - budget vs spend
   - gateway outcomes (200/401/403/429) by agent
   - governance actions
-  - **policies in action** (from Log Analytics and App Insights): outcomes by policy, Entra ID rejections, backend attempts by region over time, tokens by deployment, MCP tool calls, failovers, and cost by Entra ID caller
+  - **policies in action** (from Log Analytics and App Insights): outcomes by policy, Entra ID rejections, backend attempts by region over time, tokens by deployment, MCP tool calls and failovers
+  - **chargeback by team, user and session** (from the chargeback records): cost by team and cost center, cost by user or app and surface, and cost per user session
 - All the data lives in **Application Insights** and **Log Analytics**:
   - `customMetrics` for tokens, cost, governance events and backend attempts
+  - `traces` for the chargeback records by user, team, cost center and session
   - `requests` for the gateway outcomes, by subscription (agent) and product (plan)
   - `ApiManagementGatewayLogs`, `ApiManagementGatewayLlmLog` and `ApiManagementGatewayMCPLog` for the per-request policy evidence
 
@@ -158,6 +193,7 @@ Every gateway response returns `x-gw-request-id`, so any call in the UI can be l
 - see what the gateway did for every call, including the agent's downstream steps and who paid for each
 - send calls with or without an **Entra ID token**, and with **policy tracing** on
 - open the **Policies & evidence** tab: the request pipeline, the backend pool, the deployed policy XML read back from Azure, a policy-by-policy trace of any traced call, its rows in the Log Analytics tables, and aggregate evidence queries with links to the portal
+- open the **Chargeback** tab: act as a demo user in a session (or start a new one), see a live session ledger from the response headers, and the Azure Monitor chargeback by team, user and session with a drill-down into every call of a session
 - compare plans in the **Plans & pricing** tab
 - track each consumer's $ budget and its split by surface
 - query the Application Insights chargeback live
@@ -173,7 +209,7 @@ Then open http://localhost:8080. The UI gets the Entra ID tokens it sends, the A
 
 ### Guided scenarios
 
-Click a scenario in the UI, or **Run the full demo** to play them all in order (about 57 calls, under $0.05 at the demo prices, about 7 minutes):
+Click a scenario in the UI, or **Run the full demo** to play them all in order (about 85 calls, under $0.10 at the demo prices, about 9 minutes):
 
 | # | Scenario | What the customer sees | Calls |
 |---|----------|------------------------|-------|
@@ -186,9 +222,11 @@ Click a scenario in the UI, or **Run the full demo** to play them all in order (
 | 7 | A2A agent task cost | Gold sends a task to the Sourcing Agent. The bill is the agent fee plus every model and tool step, all charged to Gold. Bronze gets 403 `agent-denied`. | 2 |
 | 8 | One $ budget across models, tools and agents | Budgets are reset, then Silver mixes a model call, a tool call and an agent task until the shared $0.01 budget returns 403. | ≤ 6 |
 | 9 | Chargeback in Azure Monitor | Opens the App Insights view: cost per consumer, plan, surface and resource, including spend made via the agent. | 0 |
-| 10 | Zero trust: Microsoft Entra ID | A model call and an MCP call with the key but **no token** get 401 from `validate-azure-ad-token`. The same call with a token returns 200, and `x-gw-caller` shows who called. | 3 |
-| 11 | Load balancing & regional failover | Gold bursts `gpt-4.1-nano`. Sweden Central returns 429, the gateway retries in France Central (`x-gw-route`), and the circuit breaker keeps sending calls to France. | 8 |
-| 12 | Policy trace & Azure Monitor evidence | A traced Silver call is downgraded. The UI shows the policy-by-policy trace, then the call's rows in the gateway and LLM log tables, the deployed policy XML and the aggregate evidence, each with a portal link. | 1 |
+| 10 | Chargeback by user & session | Alice, Ben, Chloe and Dev (one subscription key each) work in named sessions: model calls, tool calls and an A2A task. The session ledger fills from the response headers, then the Azure Monitor table shows cost by team, user and session. Alice's A2A session includes the agent fee and the agent's downstream calls. | 7 |
+| 11 | Runaway session: per-session $ cap | Alice loops on `gpt-4.1` in one session until the $0.02 session cap returns 403 `quota-by-key (session-budget)`. A new session for Alice still works. | ≤ 21 |
+| 12 | Zero trust: Microsoft Entra ID | A model call and an MCP call with the key but **no token** get 401 from `validate-azure-ad-token`. The same call with a token returns 200, and `x-gw-caller` shows who called. | 3 |
+| 13 | Load balancing & regional failover | Gold bursts `gpt-4.1-nano`. Sweden Central returns 429, the gateway retries in France Central (`x-gw-route`), and the circuit breaker keeps sending calls to France. | 8 |
+| 14 | Policy trace & Azure Monitor evidence | A traced Silver call is downgraded. The UI shows the policy-by-policy trace, then the call's rows in the gateway and LLM log tables, the deployed policy XML and the aggregate evidence, each with a portal link. | 1 |
 
 ### Suggested demo script (manual)
 
@@ -199,6 +237,7 @@ Click a scenario in the UI, or **Run the full demo** to play them all in order (
 5. Select **Research Agent** (Silver) and send one Sourcing Agent task, then a model call: the shared $0.01 budget is exhausted and the gateway returns 403 on every surface.
 6. Open **Plans & pricing** to show that each plan is one APIM product, then the **Azure Monitor** tab or the **Workbook** to show the chargeback by consumer, plan and surface.
 7. **Policies & evidence**: untick **Send Entra ID token** and send one call to show the 401, then tick it again. Tick **Trace policies**, send a Silver `gpt-4.1` call and click its **Evidence** link to show the trace and, a few minutes later, its Log Analytics rows. Click **Open in Log Analytics** to show the same rows in the Azure portal.
+8. **Chargeback**: pick **Alice Chen**, send a couple of calls in her session, click **New session** and send another. The session ledger splits her spend by session at once; a few minutes later the Azure Monitor table rolls it up by team and cost center. Run **Runaway session** to show the per-session $ cap.
 
 ### Prerequisites
 
