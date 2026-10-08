@@ -1,6 +1,6 @@
 <fragment>
     <!--
-        AI Gateway Tokenomics - "chargeback-record" policy fragment (included in the outbound section of the model,
+        AI Gateway Sandbox - "chargeback-record" policy fragment (included in the outbound section of the model,
         MCP tool and A2A agent APIs).
 
         Writes ONE chargeback record per billable call (200 with a cost) to Application Insights (traces table) with
@@ -18,7 +18,7 @@
         named value ("<subscription>=<display name>|<team>|<cost center>|<kind>;..."). In production, derive the user
         from the Entra ID token (oid claim) and the team / cost center from your HR or CMDB directory.
 
-        Expects: payer, payerTier, via (tokenomics-attribution fragment; falls back to the calling subscription),
+        Expects: payer, payerTier, via (payer-attribution fragment; falls back to the calling subscription),
         session (tier policy), surface, costMicroUsd and optionally chargebackMicroUsd (the A2A API records the agent
         fee only, because the agent's downstream calls write their own records under the same payer and session).
     -->

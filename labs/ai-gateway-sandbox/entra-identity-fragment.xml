@@ -1,6 +1,6 @@
 <fragment>
     <!--
-        AI Gateway Tokenomics - "entra-identity" policy fragment (included first by every tier policy).
+        AI Gateway Sandbox - "entra-identity" policy fragment (included first by every tier policy).
 
         Zero-trust front door for models, MCP tools and A2A agents: every call needs BOTH
           - an APIM subscription key  -> WHICH plan/contract pays (tier, limits, $ budget), and

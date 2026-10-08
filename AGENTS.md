@@ -23,7 +23,7 @@ Contains hands-on experimental labs, each in its own subdirectory. Labs are stru
 - **Monitoring & Logging**: `built-in-logging/`, `token-metrics-emitting/`
 - **Rate Limiting & Caching**: `token-rate-limiting/`, `semantic-caching/`
 - **Specialized Features**: `realtime-audio/`, `image-generation/`, `function-calling/`, `vector-searching/`, `message-storing/`, `session-awareness/`
-- **Operations**: `finops-framework/`, `zero-to-production/`
+- **Operations**: `finops-framework/`, `zero-to-production/`, `ai-gateway-sandbox/`
 
 - **Lab structure pattern:**
 

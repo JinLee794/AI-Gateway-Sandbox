@@ -5,7 +5,7 @@
       "type": 1,
       "name": "header",
       "content": {
-        "json": "# AI Gateway Tokenomics\nCost and consumption of every **agent** (APIM subscription) and **plan** (APIM product) across the three AI Gateway surfaces: **AI models** (Foundry), **MCP tools** and **A2A agents**, as measured by Azure API Management. Spend that an A2A agent makes on a caller's behalf is attributed to the **caller** (`Via` = the agent). Prices come from the `model-pricing`, `tool-pricing` and `agent-pricing` named values."
+        "json": "# AI Gateway Sandbox\nCost and consumption of every **agent** (APIM subscription) and **plan** (APIM product) across the three AI Gateway surfaces: **AI models** (Foundry), **MCP tools** and **A2A agents**, as measured by Azure API Management. Spend that an A2A agent makes on a caller's behalf is attributed to the **caller** (`Via` = the agent). Prices come from the `model-pricing`, `tool-pricing` and `agent-pricing` named values."
       }
     },
     {
@@ -15,7 +15,7 @@
         "version": "KqlParameterItem/1.0",
         "parameters": [
           {
-            "id": "67eded80-519a-5a3e-bdbf-121642e543ee",
+            "id": "2e00b621-72db-5fb3-9875-7932b8d27134",
             "version": "KqlParameterItem/1.0",
             "name": "TimeRange",
             "label": "Time range",

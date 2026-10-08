@@ -1,5 +1,5 @@
 <!--
-    AI Gateway Tokenomics - tier (product) policy template: one commercial contract that covers
+    AI Gateway Sandbox - tier (product) policy template: one commercial contract that covers
     AI models, MCP tools and A2A agents. main.bicep renders one copy per tier by replacing the
     {placeholders} with the tier configuration.
 
@@ -74,7 +74,7 @@
                         var model = (string)context.Variables["requestedModel"];
                         return model != "" && !(",{allowed-models},").Contains("," + model + ",");
                     }">
-                        <emit-metric name="GovernanceEvents" value="1" namespace="ai-gateway-tokenomics">
+                        <emit-metric name="GovernanceEvents" value="1" namespace="ai-gateway-sandbox">
                             <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
                             <dimension name="Tier" value="{tier}" />
                             <dimension name="Event" value="@("{on-disallowed-model}" == "deny" ? "model-denied" : "model-downgraded")" />
@@ -134,7 +134,7 @@
                                     var current = (string)context.Variables["governanceActions"];
                                     return current == "none" ? "output-capped" : current + ",output-capped";
                                 }" />
-                                <emit-metric name="GovernanceEvents" value="1" namespace="ai-gateway-tokenomics">
+                                <emit-metric name="GovernanceEvents" value="1" namespace="ai-gateway-sandbox">
                                     <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
                                     <dimension name="Tier" value="{tier}" />
                                     <dimension name="Event" value="output-capped" />
@@ -156,7 +156,7 @@
             <when condition="@(context.Variables.GetValueOrDefault<string>("surface", "") == "tool" && context.Variables.GetValueOrDefault<string>("toolName", "") != "")">
                 <choose>
                     <when condition="@(!(",{allowed-tools},").Contains("," + (string)context.Variables["toolName"] + ","))">
-                        <emit-metric name="GovernanceEvents" value="1" namespace="ai-gateway-tokenomics">
+                        <emit-metric name="GovernanceEvents" value="1" namespace="ai-gateway-sandbox">
                             <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
                             <dimension name="Tier" value="{tier}" />
                             <dimension name="Event" value="tool-denied" />
@@ -193,7 +193,7 @@
             <when condition="@(context.Variables.GetValueOrDefault<string>("surface", "") == "agent" && context.Request.Method == "POST")">
                 <choose>
                     <when condition="@(!(",{allowed-agents},").Contains("," + (string)context.Variables["agentId"] + ","))">
-                        <emit-metric name="GovernanceEvents" value="1" namespace="ai-gateway-tokenomics">
+                        <emit-metric name="GovernanceEvents" value="1" namespace="ai-gateway-sandbox">
                             <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
                             <dimension name="Tier" value="{tier}" />
                             <dimension name="Event" value="agent-denied" />

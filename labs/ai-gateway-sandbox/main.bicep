@@ -152,7 +152,7 @@ resource agentBackendSecretNamedValue 'Microsoft.ApiManagement/service/namedValu
 // FinOps chargeback logic shared by the model and MCP tool APIs (who pays for a call)
 resource attributionFragment 'Microsoft.ApiManagement/service/policyFragments@2024-06-01-preview' = {
   parent: apim
-  name: 'tokenomics-attribution'
+  name: 'payer-attribution'
   properties: {
     description: 'Attributes model and tool spend to the paying subscription, including calls made by platform agents on behalf of a caller'
     format: 'rawxml'
@@ -203,7 +203,7 @@ resource entraIdentityFragment 'Microsoft.ApiManagement/service/policyFragments@
   }
 }
 
-// 6. AI model API (OpenAI v1 compatible) with the API-level tokenomics policy. With more than one Foundry resource the
+// 6. AI model API (OpenAI v1 compatible) with the API-level pricing policy. With more than one Foundry resource the
 //    module creates a backend per resource (with a circuit breaker that trips on 429) and a priority backend pool.
 module inferenceAPIModule '../../modules/apim/v3/inference-api.bicep' = {
   name: 'inferenceAPIModule'
@@ -562,15 +562,15 @@ resource agentSubscription 'Microsoft.ApiManagement/service/subscriptions@2024-0
   ]
 }]
 
-// 11. Tokenomics workbook on top of Application Insights
+// 11. Sandbox workbook on top of Application Insights
 var budgetRows = join(map(agentsConfig, agent => '\'${agent.name}\', \'${agent.displayName}\', \'${agent.tier}\', ${filter(tiersConfig, tier => tier.name == agent.tier)[0].budgetMicroUsd}'), ', ')
 
-resource tokenomicsWorkbook 'Microsoft.Insights/workbooks@2022-04-01' = {
-  name: guid(resourceGroup().id, resourceSuffix, 'tokenomicsWorkbook')
+resource sandboxWorkbook 'Microsoft.Insights/workbooks@2022-04-01' = {
+  name: guid(resourceGroup().id, resourceSuffix, 'sandboxWorkbook')
   location: resourceGroup().location
   kind: 'shared'
   properties: {
-    displayName: 'AI Gateway Tokenomics'
+    displayName: 'AI Gateway Sandbox'
     serializedData: replace(replace(loadTextContent('workbook.json'), '{budget-rows}', budgetRows), '{law-id}', lawModule.outputs.id)
     sourceId: appInsightsModule.outputs.id
     category: 'workbook'
@@ -594,7 +594,7 @@ output foundryBackends array = [for (config, i) in aiServicesConfig: {
 output appInsightsId string = appInsightsModule.outputs.id
 output appInsightsAppId string = appInsightsModule.outputs.appId
 output appInsightsName string = appInsightsModule.outputs.name
-output workbookId string = tokenomicsWorkbook.id
+output workbookId string = sandboxWorkbook.id
 output apimServiceId string = apimModule.outputs.id
 output apimServiceName string = apimModule.outputs.name
 output apimResourceGatewayURL string = apimModule.outputs.gatewayUrl

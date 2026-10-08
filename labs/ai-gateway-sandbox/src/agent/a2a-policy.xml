@@ -1,5 +1,5 @@
 <!--
-    AI Gateway Tokenomics - A2A agent API policy (sourcing-agent, applies to every tier).
+    AI Gateway Sandbox - A2A agent API policy (sourcing-agent, applies to every tier).
 
     - Tags the call as the "agent" surface (before <base />, so the tier policy can enforce agent entitlements).
     - Stamps x-gw-on-behalf-of* headers on the task forwarded to the agent. The agent propagates them to the
@@ -70,14 +70,14 @@
                 }" />
                 <!-- fully-loaded cost charged to the caller's $ budget (quota-by-key in the tier policy) -->
                 <set-variable name="costMicroUsd" value="@((int)context.Variables["agentFeeMicroUsd"] + (int)context.Variables["downstreamMicroUsd"])" />
-                <emit-metric name="AgentTasks" value="1" namespace="ai-gateway-tokenomics">
+                <emit-metric name="AgentTasks" value="1" namespace="ai-gateway-sandbox">
                     <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
                     <dimension name="Tier" value="@(context.Product?.Id ?? "none")" />
                     <dimension name="Model" value="@((string)context.Variables["agentId"])" />
                     <dimension name="Surface" value="agent" />
                     <dimension name="Via" value="direct" />
                 </emit-metric>
-                <emit-metric name="CostMicroUSD" value="@((double)(int)context.Variables["agentFeeMicroUsd"])" namespace="ai-gateway-tokenomics">
+                <emit-metric name="CostMicroUSD" value="@((double)(int)context.Variables["agentFeeMicroUsd"])" namespace="ai-gateway-sandbox">
                     <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
                     <dimension name="Tier" value="@(context.Product?.Id ?? "none")" />
                     <dimension name="Model" value="@((string)context.Variables["agentId"])" />

@@ -1,5 +1,5 @@
 """
-Sourcing Agent - a minimal A2A (Agent2Agent, JSON-RPC) agent used by the AI Gateway Tokenomics lab.
+Sourcing Agent - a minimal A2A (Agent2Agent, JSON-RPC) agent used by the AI Gateway Sandbox lab.
 
 Standard library only, so it runs on a plain Python base image without building a container.
 

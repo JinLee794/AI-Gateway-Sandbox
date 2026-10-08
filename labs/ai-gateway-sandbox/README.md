@@ -1,6 +1,6 @@
 ---
-name: AI Gateway Tokenomics
-architectureDiagram: images/finops-framework.gif
+name: AI Gateway Sandbox
+architectureDiagram: images/ai-gateway.gif
 categories:
   - Governance & Responsible AI
   - Platform Capabilities
@@ -8,20 +8,20 @@ services:
   - Azure OpenAI
   - Microsoft Foundry
   - Azure Monitor
-shortDescription: One APIM product per plan governs, prices and charges back AI models, MCP tools and A2A agents under a single $ budget, with live monitoring and a demo UI.
-detailedDescription: Customer-ready demo of Azure API Management as an AI Gateway for the three AI surfaces, Microsoft Foundry AI models, MCP servers and A2A agents. Gold, Silver and Bronze APIM products are the commercial plans. Each plan sets model allow lists (downgrade or deny), output caps, tokens-per-minute limits and token quotas, MCP tool and A2A agent entitlements and rate limits, and one $ budget that every model token, tool call and agent task draws from. Spend that an A2A agent makes on a caller's behalf is charged back to the caller. Every call also needs a Microsoft Entra ID token (validate-azure-ad-token), model calls are load balanced across two Foundry regions with a circuit breaker and retry, and the demo shows each policy in action through APIM request traces and the gateway, LLM and MCP log tables in Log Analytics. Cost metrics flow to Application Insights with Agent, Tier, Model, Surface and Via dimensions. Demo users (one subscription key each) work in sessions: a per-session $ cap stops runaway sessions, and chargeback records by user, team, cost center and session roll up the fully loaded cost of each piece of work. An Azure Monitor workbook shows the chargeback and the policy evidence, and a lightweight web UI drives guided scenarios live.
-tags: [finops, tokenomics, cost, budget, chargeback, mcp, a2a, products, llm-token-limit, quota-by-key, emit-metric, validate-azure-ad-token, entra-id, load-balancing, circuit-breaker, tracing, log-analytics]
+shortDescription: "A hands-on sandbox for Azure API Management governing Microsoft Foundry models, MCP servers and A2A agents, covering identity, plans, routing, metering and evidence, with live monitoring and a demo UI."
+detailedDescription: "A hands-on, customer-ready sandbox for Azure API Management as an AI Gateway for the three AI surfaces, Microsoft Foundry AI models, MCP servers and A2A agents. Gold, Silver and Bronze APIM products are the commercial plans. Each plan sets model allow lists (downgrade or deny), output caps, tokens-per-minute limits and token quotas, MCP tool and A2A agent entitlements and rate limits, and one $ budget that every model token, tool call and agent task draws from. Spend that an A2A agent makes on a caller's behalf is charged back to the caller. Every call also needs a Microsoft Entra ID token (validate-azure-ad-token), model calls are load balanced across two Foundry regions with a circuit breaker and retry, and the demo shows each policy in action through APIM request traces and the gateway, LLM and MCP log tables in Log Analytics. Cost metrics flow to Application Insights with Agent, Tier, Model, Surface and Via dimensions. Demo users (one subscription key each) work in sessions: a per-session $ cap stops runaway sessions, and chargeback records by user, team, cost center and session roll up the fully loaded cost of each piece of work. An Azure Monitor workbook shows the chargeback and the policy evidence, and a lightweight web UI drives guided scenarios live."
+tags: [sandbox, finops, cost, budget, chargeback, mcp, a2a, products, llm-token-limit, quota-by-key, emit-metric, validate-azure-ad-token, entra-id, load-balancing, circuit-breaker, tracing, log-analytics]
 authors:
   - jinle_microsoft
 ---
 
 # APIM ❤️ Microsoft Foundry
 
-## [AI Gateway Tokenomics lab](ai-gateway-tokenomics.ipynb)
+## [AI Gateway Sandbox lab](ai-gateway-sandbox.ipynb)
 
-[![flow](../../images/finops-framework.gif)](ai-gateway-tokenomics.ipynb)
+[![flow](../../images/ai-gateway.gif)](ai-gateway-sandbox.ipynb)
 
-Customer-ready demo of Azure API Management as **one AI Gateway for the three AI surfaces**: **AI models** (Microsoft Foundry `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano` and `DeepSeek-V3.2`), **MCP servers** (a REST API exposed as MCP tools) and **A2A agents** (a Sourcing Agent on Azure Container Apps). It shows the FinOps and product-management value of governing all three in one place:
+A hands-on sandbox for Azure API Management as **one AI Gateway for the three AI surfaces**: **AI models** (Microsoft Foundry `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano` and `DeepSeek-V3.2`), **MCP servers** (a REST API exposed as MCP tools) and **A2A agents** (a Sourcing Agent on Azure Container Apps). It covers **identity, plans, routing, metering and evidence** for all three in one place, with cost and tokens as one theme among them:
 
 - **One plan, one contract.** Each APIM **product** (Gold, Silver, Bronze) is a commercial plan. It bundles which models, MCP tools and A2A agents a consumer may use, their limits, and **one $ budget**.
 - **Every call is priced.** Model calls by tokens, MCP tool calls per call, A2A tasks by a fee plus everything the agent spends downstream.
@@ -50,7 +50,7 @@ flowchart LR
     P1 --> T --> R["Commerce REST API"]
     P1 --> G --> S["Sourcing Agent<br/>(Container Apps)"]
     S -->|"managed identity token<br/>on behalf of caller<br/>(agent-platform plan)"| E
-    M & T & G -.->|"cost + tokens<br/>(Agent, Tier, Model, Surface, Via)<br/>+ chargeback records (user, team, session)"| AI["Application Insights<br/>+ Tokenomics workbook"]
+    M & T & G -.->|"cost + tokens<br/>(Agent, Tier, Model, Surface, Via)<br/>+ chargeback records (user, team, session)"| AI["Application Insights<br/>+ Sandbox workbook"]
     APIM -.->|"gateway, LLM and MCP logs"| LA["Log Analytics"]
     UI["Demo UI"] --> A1 & A2 & A3 & U
     UI -.->|"KQL + request traces"| AI & LA
@@ -165,7 +165,7 @@ Every gateway response returns `x-gw-request-id`, so any call in the UI can be l
 
 ### Monitoring
 
-- The **AI Gateway Tokenomics** Azure Monitor workbook, deployed with the lab, shows:
+- The **AI Gateway Sandbox** Azure Monitor workbook, deployed with the lab, shows:
   - KPIs
   - cost by agent and surface, and cost by surface
   - the chargeback table: who pays for what, and via which agent
@@ -249,7 +249,10 @@ Click a scenario in the UI, or **Run the full demo** to play them all in order (
 
 ### 🚀 Get started
 
-Proceed by opening the [Jupyter notebook](ai-gateway-tokenomics.ipynb), and follow the steps provided.
+Proceed by opening the [Jupyter notebook](ai-gateway-sandbox.ipynb), and follow the steps provided.
+
+> [!NOTE]
+> This lab was previously named *AI Gateway Tokenomics* (`labs/ai-gateway-tokenomics`). The notebook derives the resource group from the folder name, so new deployments go to `lab-ai-gateway-sandbox`. If you deployed the lab under its old name and want to keep using that deployment, set `deployment_name = "ai-gateway-tokenomics"` in the first cell (and in the clean-up notebook). A redeploy over an old deployment renames the attribution policy fragment to `payer-attribution`, the custom metric namespace to `ai-gateway-sandbox` and replaces the workbook; delete the old `tokenomics-attribution` fragment and *AI Gateway Tokenomics* workbook afterwards.
 
 ### 🗑️ Clean up resources
 

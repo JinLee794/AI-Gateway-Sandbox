@@ -73,6 +73,7 @@ Build and control agentic applications with orchestration frameworks.
 | [**OpenAI Agents SDK**](labs/openai-agents/openai-agents.ipynb) | Use OpenAI Agents with Azure OpenAI and APIM-managed tools |
 | [**Gemini MCP Agents**](labs/gemini-mcp-agents/gemini-mcp-agents.ipynb) | Integrate Google Gemini models with MCP tools |
 | [**A2A Enabled Agents**](labs/mcp-a2a-agents/mcp-agent-as-a2a-server.ipynb) | A2A-enabled Agents with models and MCP plug & play tools |
+| [**AI Gateway Sandbox**](labs/ai-gateway-sandbox/ai-gateway-sandbox.ipynb) | Govern Foundry models, MCP servers and A2A agents end to end: identity, plans, routing, metering and evidence, with a demo UI |
 
 ## 🚀 Quick Start
 

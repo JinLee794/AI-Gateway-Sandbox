@@ -1,9 +1,9 @@
 <!--
-    AI Gateway Tokenomics - AI model API policy (inference-api, applies to every tier).
+    AI Gateway Sandbox - AI model API policy (inference-api, applies to every tier).
 
     - Tags the call as the "model" surface (before <base />, so the tier policy knows what is consumed).
     - Routes the request to the Microsoft Foundry backend.
-    - Attributes the spend (tokenomics-attribution fragment): direct caller, or the subscription an agent works for.
+    - Attributes the spend (payer-attribution fragment): direct caller, or the subscription an agent works for.
     - Emits token metrics to Application Insights, split by Agent (payer), Tier, Model, Surface and Via.
     - Prices every call with the {{model-pricing}} named value (USD per 1M tokens), emits the cost as a custom
       metric and returns it to the caller in the x-gw-* response headers.
@@ -19,9 +19,9 @@
     <inbound>
         <set-variable name="surface" value="model" />
         <base />
-        <include-fragment fragment-id="tokenomics-attribution" />
+        <include-fragment fragment-id="payer-attribution" />
         <set-backend-service backend-id="{backend-id}" />
-        <llm-emit-token-metric namespace="ai-gateway-tokenomics">
+        <llm-emit-token-metric namespace="ai-gateway-sandbox">
             <dimension name="Agent" value="@((string)context.Variables["payer"])" />
             <dimension name="Tier" value="@((string)context.Variables["payerTier"])" />
             <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("servedModel", "unknown"))" />
@@ -45,7 +45,7 @@
     <outbound>
         <base />
         <!-- emit-metric is not allowed in <backend>, so the routing outcome is emitted once per request here -->
-        <emit-metric name="BackendAttempts" value="@((double)context.Variables.GetValueOrDefault<int>("attempts", 1))" namespace="ai-gateway-tokenomics">
+        <emit-metric name="BackendAttempts" value="@((double)context.Variables.GetValueOrDefault<int>("attempts", 1))" namespace="ai-gateway-sandbox">
             <dimension name="Backend" value="@(context.Variables.GetValueOrDefault<string>("attemptBackend", "unknown"))" />
             <dimension name="Region" value="@(context.Variables.GetValueOrDefault<string>("attemptRegion", "unknown"))" />
             <dimension name="Failover" value="@(context.Variables.GetValueOrDefault<int>("attempts", 1) > 1 ? "yes" : "no")" />
@@ -82,7 +82,7 @@
                     }
                     return (int)Math.Ceiling((int)context.Variables["promptTokens"] * inputPrice + (int)context.Variables["completionTokens"] * outputPrice);
                 }" />
-                <emit-metric name="CostMicroUSD" value="@((double)(int)context.Variables["costMicroUsd"])" namespace="ai-gateway-tokenomics">
+                <emit-metric name="CostMicroUSD" value="@((double)(int)context.Variables["costMicroUsd"])" namespace="ai-gateway-sandbox">
                     <dimension name="Agent" value="@((string)context.Variables["payer"])" />
                     <dimension name="Tier" value="@((string)context.Variables["payerTier"])" />
                     <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("servedModel", "unknown"))" />

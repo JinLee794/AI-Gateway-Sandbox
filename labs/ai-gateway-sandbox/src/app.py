@@ -1,5 +1,5 @@
 """
-AI Gateway Tokenomics - lightweight demo UI.
+AI Gateway Sandbox - lightweight demo UI.
 
 Standard library only (no extra packages). Azure tokens are obtained from the Azure CLI (`az login` is a
 prerequisite of the lab): a Microsoft Entra ID token for the gateway (validated by validate-azure-ad-token),
@@ -248,7 +248,7 @@ def mcp(payload):
     trace_header = auth.pop("Apim-Debug-Authorization", None)  # trace only the tools/list or tools/call request
     headers = {**auth, "Accept": "application/json, text/event-stream"}
     status, init_headers, text, _ = http("POST", url, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
-        "protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "tokenomics-demo-ui", "version": "1.0"}}}, headers, timeout=60)
+        "protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "sandbox-demo-ui", "version": "1.0"}}}, headers, timeout=60)
     if status != 200:
         data = parse_rpc(text)
         return 200, {"surface": "tool", "status": status, "agent": agent["name"], "tier": agent["tier"], "tool": payload.get("tool"),
@@ -433,7 +433,7 @@ def policies(_payload):
              ("API", "MCP server (commerce-mcp)", f"{apim}/apis/commerce-mcp/policies/policy"),
              ("API", "A2A agent (sourcing-agent)", f"{apim}/apis/sourcing-agent/policies/policy"),
              ("Fragment", "entra-identity", f"{apim}/policyFragments/entra-identity"),
-             ("Fragment", "tokenomics-attribution", f"{apim}/policyFragments/tokenomics-attribution"),
+             ("Fragment", "payer-attribution", f"{apim}/policyFragments/payer-attribution"),
              ("Fragment", "chargeback-record", f"{apim}/policyFragments/chargeback-record")]
     items += [("Product", f"{t['displayName']} ({t['name']})", f"{apim}/products/{t['name']}/policies/policy") for t in CONFIG.get("tiers", [])]
     result = []
@@ -516,7 +516,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AI Gateway Tokenomics demo UI")
+    parser = argparse.ArgumentParser(description="AI Gateway Sandbox demo UI")
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8080)))
     parser.add_argument("--config", default=os.path.join(HERE, "demo-config.private.config"))
     args = parser.parse_args()
@@ -525,7 +525,7 @@ def main():
     with open(args.config, encoding="utf-8") as f:
         CONFIG.update(json.load(f))
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    print(f"AI Gateway Tokenomics demo UI running on http://localhost:{args.port}  (Ctrl+C to stop)")
+    print(f"AI Gateway Sandbox demo UI running on http://localhost:{args.port}  (Ctrl+C to stop)")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

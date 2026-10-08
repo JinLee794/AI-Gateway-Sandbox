@@ -202,6 +202,46 @@
     "lastCommitDate": "2026-07-24T10:50:22.024Z"
   },
   {
+    "id": "ai-gateway-sandbox",
+    "name": "AI Gateway Sandbox",
+    "architectureDiagram": "images/ai-gateway.gif",
+    "categories": [
+      "Governance & Responsible AI",
+      "Platform Capabilities"
+    ],
+    "services": [
+      "Azure OpenAI",
+      "Microsoft Foundry",
+      "Azure Monitor"
+    ],
+    "shortDescription": "A hands-on sandbox for Azure API Management governing Microsoft Foundry models, MCP servers and A2A agents, covering identity, plans, routing, metering and evidence, with live monitoring and a demo UI.",
+    "detailedDescription": "A hands-on, customer-ready sandbox for Azure API Management as an AI Gateway for the three AI surfaces, Microsoft Foundry AI models, MCP servers and A2A agents. Gold, Silver and Bronze APIM products are the commercial plans. Each plan sets model allow lists (downgrade or deny), output caps, tokens-per-minute limits and token quotas, MCP tool and A2A agent entitlements and rate limits, and one $ budget that every model token, tool call and agent task draws from. Spend that an A2A agent makes on a caller's behalf is charged back to the caller. Every call also needs a Microsoft Entra ID token (validate-azure-ad-token), model calls are load balanced across two Foundry regions with a circuit breaker and retry, and the demo shows each policy in action through APIM request traces and the gateway, LLM and MCP log tables in Log Analytics. Cost metrics flow to Application Insights with Agent, Tier, Model, Surface and Via dimensions. Demo users (one subscription key each) work in sessions: a per-session $ cap stops runaway sessions, and chargeback records by user, team, cost center and session roll up the fully loaded cost of each piece of work. An Azure Monitor workbook shows the chargeback and the policy evidence, and a lightweight web UI drives guided scenarios live.",
+    "authors": [
+      "jinle_microsoft"
+    ],
+    "tags": [
+      "sandbox",
+      "finops",
+      "cost",
+      "budget",
+      "chargeback",
+      "mcp",
+      "a2a",
+      "products",
+      "llm-token-limit",
+      "quota-by-key",
+      "emit-metric",
+      "validate-azure-ad-token",
+      "entra-id",
+      "load-balancing",
+      "circuit-breaker",
+      "tracing",
+      "log-analytics"
+    ],
+    "githubPath": "https://github.com/Azure-Samples/AI-Gateway/tree/main/labs/ai-gateway-sandbox",
+    "lastCommitDate": "2026-10-08T18:04:56.416Z"
+  },
+  {
     "id": "aigw-foundry-models",
     "name": "AI Gateway Foundry Models",
     "architectureDiagram": "images/aigw-foundry-models.gif",
