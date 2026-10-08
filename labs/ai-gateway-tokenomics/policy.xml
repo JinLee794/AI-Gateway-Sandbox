@@ -1,23 +1,26 @@
 <!--
-    AI Gateway Tokenomics - API-level policy (applies to every agent / tier).
+    AI Gateway Tokenomics - AI model API policy (inference-api, applies to every tier).
 
+    - Tags the call as the "model" surface (before <base />, so the tier policy knows what is consumed).
     - Routes the request to the Microsoft Foundry backend.
-    - Emits token metrics to Application Insights, split by Agent, Tier and Model.
-    - Prices every call with the {{model-pricing}} named value (USD per 1M tokens), emits the
-      cost as a custom metric and returns it to the caller in the x-gw-* response headers.
-    - The calculated cost (micro-USD) feeds the per-agent $ budget enforced in product-policy.xml.
-
-    Tier-specific governance (allowed models, output caps, TPM, token quota and $ budget)
-    lives in the product policies (product-policy.xml).
+    - Attributes the spend (tokenomics-attribution fragment): direct caller, or the subscription an agent works for.
+    - Emits token metrics to Application Insights, split by Agent (payer), Tier, Model, Surface and Via.
+    - Prices every call with the {{model-pricing}} named value (USD per 1M tokens), emits the cost as a custom
+      metric and returns it to the caller in the x-gw-* response headers.
+    - The calculated cost (micro-USD) feeds the per-subscription $ budget enforced in product-policy.xml.
 -->
 <policies>
     <inbound>
+        <set-variable name="surface" value="model" />
         <base />
+        <include-fragment fragment-id="tokenomics-attribution" />
         <set-backend-service backend-id="{backend-id}" />
         <llm-emit-token-metric namespace="ai-gateway-tokenomics">
-            <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
-            <dimension name="Tier" value="@(context.Product?.Id ?? "none")" />
+            <dimension name="Agent" value="@((string)context.Variables["payer"])" />
+            <dimension name="Tier" value="@((string)context.Variables["payerTier"])" />
             <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("servedModel", "unknown"))" />
+            <dimension name="Surface" value="model" />
+            <dimension name="Via" value="@((string)context.Variables["via"])" />
         </llm-emit-token-metric>
     </inbound>
     <backend>
@@ -55,9 +58,11 @@
                     return (int)Math.Ceiling((int)context.Variables["promptTokens"] * inputPrice + (int)context.Variables["completionTokens"] * outputPrice);
                 }" />
                 <emit-metric name="CostMicroUSD" value="@((double)(int)context.Variables["costMicroUsd"])" namespace="ai-gateway-tokenomics">
-                    <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
-                    <dimension name="Tier" value="@(context.Product?.Id ?? "none")" />
+                    <dimension name="Agent" value="@((string)context.Variables["payer"])" />
+                    <dimension name="Tier" value="@((string)context.Variables["payerTier"])" />
                     <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("servedModel", "unknown"))" />
+                    <dimension name="Surface" value="model" />
+                    <dimension name="Via" value="@((string)context.Variables["via"])" />
                 </emit-metric>
                 <set-header name="x-gw-prompt-tokens" exists-action="override">
                     <value>@(((int)context.Variables["promptTokens"]).ToString())</value>
@@ -75,6 +80,9 @@
         </set-header>
         <set-header name="x-gw-tier" exists-action="override">
             <value>@(context.Product?.Id ?? "none")</value>
+        </set-header>
+        <set-header name="x-gw-billed-to" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("payer", ""))</value>
         </set-header>
         <set-header name="x-gw-model-requested" exists-action="override">
             <value>@(context.Variables.GetValueOrDefault<string>("requestedModel", ""))</value>

@@ -12,11 +12,30 @@ param foundryProjectName string = 'default'
 @description('Model price list used by the gateway to price every call. Format: "<deployment>=<input USD per 1M tokens>/<output USD per 1M tokens>;..."')
 param modelPricing string
 
-@description('Tiers (APIM products) with their governance settings: name, displayName, description, allowedModels, fallbackModel, onDisallowedModel (downgrade|deny), maxOutputTokens, tpm, tokenQuota, tokenQuotaPeriod, budgetMicroUsd, budgetPeriodSeconds')
+@description('MCP tool price list (micro-USD per tools/call). Format: "<tool>=<micro-USD>;..."')
+param toolPricing string
+
+@description('A2A agent fee list (micro-USD per task, on top of the downstream model and tool spend). Format: "<agent>=<micro-USD>;..."')
+param agentPricing string
+
+@description('Tiers (APIM products) with their governance settings: name, displayName, description, allowedModels, fallbackModel, onDisallowedModel (downgrade|deny), maxOutputTokens, tpm, tokenQuota, tokenQuotaPeriod, allowedTools, toolCallsPerMinute, allowedAgents, agentCallsPerMinute, budgetMicroUsd, budgetPeriodSeconds, internal (optional). The tier named "agent-platform" is the internal product used by platform agents.')
 param tiersConfig array = []
 
 @description('Agents (APIM subscriptions): name, displayName, tier')
 param agentsConfig array = []
+
+@description('Model used by the Sourcing Agent (must be allowed in the agent-platform tier)')
+param sourcingAgentModel string = 'gpt-4.1-mini'
+
+@description('Region of the Container Apps environment that hosts the Sourcing Agent')
+param agentLocation string = resourceGroup().location
+
+@description('Value of the budget-epoch named value. Every $ budget and token quota counter key includes it, so a new value starts fresh budgets.')
+param budgetEpoch string = utcNow('yyyyMMddHHmmss')
+
+@description('Shared secret the gateway sends to the Sourcing Agent backend, so the agent only accepts tasks routed (and billed) through the gateway')
+@secure()
+param agentBackendSecret string = newGuid()
 
 // ------------------
 //    VARIABLES
@@ -87,12 +106,54 @@ resource budgetEpochNamedValue 'Microsoft.ApiManagement/service/namedValues@2024
   name: 'budget-epoch'
   properties: {
     displayName: 'budget-epoch'
-    value: '1'
+    // A new value on every deployment, so a redeploy never revives budgets and quotas exhausted earlier
+    value: budgetEpoch
     secret: false
   }
 }
 
-// 6. Inference API (OpenAI v1 compatible) with the API-level tokenomics policy
+resource toolPricingNamedValue 'Microsoft.ApiManagement/service/namedValues@2024-06-01-preview' = {
+  parent: apim
+  name: 'tool-pricing'
+  properties: {
+    displayName: 'tool-pricing'
+    value: toolPricing
+    secret: false
+  }
+}
+
+resource agentPricingNamedValue 'Microsoft.ApiManagement/service/namedValues@2024-06-01-preview' = {
+  parent: apim
+  name: 'agent-pricing'
+  properties: {
+    displayName: 'agent-pricing'
+    value: agentPricing
+    secret: false
+  }
+}
+
+resource agentBackendSecretNamedValue 'Microsoft.ApiManagement/service/namedValues@2024-06-01-preview' = {
+  parent: apim
+  name: 'agent-backend-secret'
+  properties: {
+    displayName: 'agent-backend-secret'
+    value: agentBackendSecret
+    secret: true
+  }
+}
+
+// FinOps chargeback logic shared by the model and MCP tool APIs (who pays for a call)
+resource attributionFragment 'Microsoft.ApiManagement/service/policyFragments@2024-06-01-preview' = {
+  parent: apim
+  name: 'tokenomics-attribution'
+  properties: {
+    description: 'Attributes model and tool spend to the paying subscription, including calls made by platform agents on behalf of a caller'
+    format: 'rawxml'
+    value: loadTextContent('attribution-fragment.xml')
+  }
+}
+
+// 6. AI model API (OpenAI v1 compatible) with the API-level tokenomics policy
 module inferenceAPIModule '../../modules/apim/v3/inference-api.bicep' = {
   name: 'inferenceAPIModule'
   params: {
@@ -107,10 +168,240 @@ module inferenceAPIModule '../../modules/apim/v3/inference-api.bicep' = {
   dependsOn: [
     modelPricingNamedValue
     budgetEpochNamedValue
+    attributionFragment
   ]
 }
 
-// 7. Tiers (products) with the governance policy
+// 7. Commerce tools: a REST API (mock backend implemented in the gateway) exposed as an MCP server
+resource commerceApi 'Microsoft.ApiManagement/service/apis@2024-06-01-preview' = {
+  parent: apim
+  name: 'commerce-api'
+  properties: {
+    apiType: 'http'
+    type: 'http'
+    displayName: 'Commerce Tools API'
+    description: 'Retail commerce tools (catalog, inventory, supplier quotes) - source of the commerce MCP server'
+    subscriptionRequired: false
+    path: 'commerce'
+    protocols: [
+      'https'
+    ]
+    format: 'openapi+json'
+    value: loadTextContent('src/tools/openapi.json')
+  }
+}
+
+resource commerceApiPolicy 'Microsoft.ApiManagement/service/apis/policies@2024-06-01-preview' = {
+  parent: commerceApi
+  name: 'policy'
+  properties: {
+    format: 'rawxml'
+    value: loadTextContent('src/tools/api-policy.xml')
+  }
+}
+
+var commerceTools = [
+  { name: 'search-products', description: 'Search the product catalog by category and return matching products with SKU and list price.' }
+  { name: 'check-inventory', description: 'Return the on-hand stock for a SKU in every warehouse.' }
+  { name: 'get-supplier-quote', description: 'Premium data tool: request real-time quotes from the partner supplier network for a SKU and quantity.' }
+]
+
+resource commerceMcp 'Microsoft.ApiManagement/service/apis@2024-06-01-preview' = {
+  parent: apim
+  name: 'commerce-mcp'
+  properties: {
+    type: 'mcp'
+    displayName: 'Commerce Tools MCP'
+    description: 'MCP server with retail commerce tools. Each tool call is priced, entitled per plan and charged to the caller budget.'
+    subscriptionRequired: true
+    subscriptionKeyParameterNames: {
+      header: 'api-key'
+      query: 'subscription-key'
+    }
+    path: 'commerce-mcp'
+    protocols: [
+      'https'
+    ]
+    mcpTools: [for tool in commerceTools: {
+      name: tool.name
+      operationId: '${commerceApi.id}/operations/${tool.name}'
+      description: tool.description
+    }]
+  }
+}
+
+resource commerceMcpPolicy 'Microsoft.ApiManagement/service/apis/policies@2024-06-01-preview' = {
+  parent: commerceMcp
+  name: 'policy'
+  properties: {
+    format: 'rawxml'
+    value: loadTextContent('src/tools/mcp-policy.xml')
+  }
+  dependsOn: [
+    toolPricingNamedValue
+    attributionFragment
+  ]
+}
+
+resource commerceMcpDiagnostics 'Microsoft.ApiManagement/service/apis/diagnostics@2022-08-01' = {
+  parent: commerceMcp
+  name: 'applicationinsights'
+  properties: {
+    alwaysLog: 'allErrors'
+    httpCorrelationProtocol: 'W3C'
+    logClientIp: true
+    loggerId: resourceId('Microsoft.ApiManagement/service/loggers', apim.name, 'appinsights-logger')
+    metrics: true
+    verbosity: 'information'
+    sampling: {
+      samplingType: 'fixed'
+      percentage: 100
+    }
+  }
+}
+
+// 8. Sourcing Agent: a minimal A2A agent on Azure Container Apps, published through the gateway as an A2A agent API
+resource agentEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' = {
+  name: 'aca-env-${resourceSuffix}'
+  location: agentLocation
+  properties: {
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: lawModule.outputs.customerId
+        sharedKey: lawModule.outputs.primarySharedKey
+      }
+    }
+  }
+}
+
+// The agent calls models and tools through the gateway with this platform identity (internal agent-platform product)
+resource agentPlatformSubscription 'Microsoft.ApiManagement/service/subscriptions@2024-06-01-preview' = {
+  parent: apim
+  name: 'sourcing-agent-identity'
+  properties: {
+    displayName: 'Sourcing Agent (platform identity)'
+    scope: '/products/agent-platform'
+    state: 'active'
+    allowTracing: true
+  }
+  dependsOn: [
+    tierProduct
+  ]
+}
+
+// The agent code is passed in an environment variable and runs on a stock Python image, so the lab needs no
+// container registry or image build. For production, build an image and push it to Azure Container Registry.
+resource sourcingAgentApp 'Microsoft.App/containerApps@2024-03-01' = {
+  name: 'sourcing-agent-${resourceSuffix}'
+  location: agentLocation
+  properties: {
+    managedEnvironmentId: agentEnvironment.id
+    configuration: {
+      ingress: {
+        external: true
+        targetPort: 8080
+        transport: 'auto'
+        allowInsecure: false
+      }
+      secrets: [
+        { name: 'gateway-key', value: agentPlatformSubscription.listSecrets().primaryKey }
+        { name: 'backend-secret', value: agentBackendSecret }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'sourcing-agent'
+          image: 'mcr.microsoft.com/azurelinux/base/python:3.12'
+          command: [ 'python3', '-c', 'import os;exec(os.environ["APP_CODE"])' ]
+          resources: {
+            cpu: json('0.25')
+            memory: '0.5Gi'
+          }
+          env: [
+            { name: 'APP_CODE', value: loadTextContent('src/agent/agent.py') }
+            { name: 'PORT', value: '8080' }
+            { name: 'GATEWAY_KEY', secretRef: 'gateway-key' }
+            { name: 'AGENT_BACKEND_SECRET', secretRef: 'backend-secret' }
+            // Secret changes alone don't create a revision; this forces one per deployment so the agent picks up the new secret
+            { name: 'DEPLOYMENT_ID', value: budgetEpoch }
+            { name: 'MCP_URL', value: '${apimModule.outputs.gatewayUrl}/${commerceMcp.properties.path}/mcp' }
+            { name: 'INFERENCE_URL', value: '${apimModule.outputs.gatewayUrl}/${inferenceAPIPath}/openai/v1' }
+            { name: 'MODEL', value: sourcingAgentModel }
+          ]
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 1
+      }
+    }
+  }
+}
+
+resource sourcingAgentApi 'Microsoft.ApiManagement/service/apis@2024-10-01-preview' = {
+  parent: apim
+  name: 'sourcing-agent'
+  properties: {
+    type: 'a2a'
+    displayName: 'Sourcing Agent'
+    description: 'A2A procurement agent. Each task is charged a fee plus the model and tool spend the agent incurs on the caller behalf.'
+    agent: {
+      id: 'sourcing-agent'
+    }
+    isAgent: true
+    a2aProperties: {
+      agentCardPath: '/.well-known/agent-card.json'
+      agentCardBackendUrl: 'https://${sourcingAgentApp.properties.configuration.ingress.fqdn}/.well-known/agent-card.json'
+    }
+    jsonRpcProperties: {
+      backendUrl: 'https://${sourcingAgentApp.properties.configuration.ingress.fqdn}'
+      path: '/'
+    }
+    subscriptionRequired: true
+    subscriptionKeyParameterNames: {
+      header: 'api-key'
+      query: 'subscription-key'
+    }
+    path: 'sourcing-agent'
+    protocols: [
+      'https'
+    ]
+  }
+}
+
+resource sourcingAgentApiPolicy 'Microsoft.ApiManagement/service/apis/policies@2024-06-01-preview' = {
+  parent: sourcingAgentApi
+  name: 'policy'
+  properties: {
+    format: 'rawxml'
+    value: loadTextContent('src/agent/a2a-policy.xml')
+  }
+  dependsOn: [
+    agentPricingNamedValue
+    agentBackendSecretNamedValue
+  ]
+}
+
+resource sourcingAgentApiDiagnostics 'Microsoft.ApiManagement/service/apis/diagnostics@2022-08-01' = {
+  parent: sourcingAgentApi
+  name: 'applicationinsights'
+  properties: {
+    alwaysLog: 'allErrors'
+    httpCorrelationProtocol: 'W3C'
+    logClientIp: true
+    loggerId: resourceId('Microsoft.ApiManagement/service/loggers', apim.name, 'appinsights-logger')
+    metrics: true
+    verbosity: 'information'
+    sampling: {
+      samplingType: 'fixed'
+      percentage: 100
+    }
+  }
+}
+
+// 9. Tiers (products): ONE plan per tier that bundles AI models, MCP tools and A2A agents under one contract
 @batchSize(1)
 resource tierProduct 'Microsoft.ApiManagement/service/products@2024-06-01-preview' = [for tier in tiersConfig: {
   name: tier.name
@@ -133,6 +424,30 @@ resource tierProductApiLink 'Microsoft.ApiManagement/service/products/apiLinks@2
   }
 }]
 
+@batchSize(1)
+resource tierProductMcpLink 'Microsoft.ApiManagement/service/products/apiLinks@2024-06-01-preview' = [for (tier, i) in tiersConfig: {
+  parent: tierProduct[i]
+  name: 'commerce-mcp-${tier.name}'
+  properties: {
+    apiId: commerceMcp.id
+  }
+  dependsOn: [
+    tierProductApiLink
+  ]
+}]
+
+@batchSize(1)
+resource tierProductAgentLink 'Microsoft.ApiManagement/service/products/apiLinks@2024-06-01-preview' = [for (tier, i) in tiersConfig: if (!(tier.?internal ?? false)) {
+  parent: tierProduct[i]
+  name: 'sourcing-agent-${tier.name}'
+  properties: {
+    apiId: sourcingAgentApi.id
+  }
+  dependsOn: [
+    tierProductMcpLink
+  ]
+}]
+
 var productPolicyTemplate = loadTextContent('product-policy.xml')
 
 @batchSize(1)
@@ -141,25 +456,32 @@ resource tierProductPolicy 'Microsoft.ApiManagement/service/products/policies@20
   name: 'policy'
   properties: {
     format: 'rawxml'
-    value: replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(productPolicyTemplate,
-      '{tier}', tier.name),
-      '{allowed-models}', join(tier.allowedModels, ',')),
-      '{fallback-model}', tier.fallbackModel),
-      '{on-disallowed-model}', tier.onDisallowedModel),
-      '{max-output-tokens}', string(tier.maxOutputTokens)),
-      '{budget-micro-usd}', string(tier.budgetMicroUsd)),
-      '{budget-period-seconds}', string(tier.budgetPeriodSeconds)),
-      '{tpm}', string(tier.tpm)),
-      '{token-quota}', string(tier.tokenQuota)),
-      '{token-quota-period}', tier.tokenQuotaPeriod)
+    value: reduce(items({
+      '{tier}': tier.name
+      '{allowed-models}': join(tier.allowedModels, ',')
+      '{fallback-model}': tier.fallbackModel
+      '{on-disallowed-model}': tier.onDisallowedModel
+      '{max-output-tokens}': string(tier.maxOutputTokens)
+      '{budget-micro-usd}': string(tier.budgetMicroUsd)
+      '{budget-period-seconds}': string(tier.budgetPeriodSeconds)
+      '{tpm}': string(tier.tpm)
+      '{token-quota}': string(tier.tokenQuota)
+      '{token-quota-period}': tier.tokenQuotaPeriod
+      '{allowed-tools}': join(tier.allowedTools, ',')
+      '{tool-calls-per-minute}': string(tier.toolCallsPerMinute)
+      '{allowed-agents}': join(tier.allowedAgents, ',')
+      '{agent-calls-per-minute}': string(tier.agentCallsPerMinute)
+    }), productPolicyTemplate, (xml, placeholder) => replace(xml, placeholder.key, placeholder.value))
   }
   dependsOn: [
     budgetEpochNamedValue
     tierProductApiLink
+    tierProductMcpLink
+    tierProductAgentLink
   ]
 }]
 
-// 8. Agents (subscriptions), each one scoped to its tier
+// 10. Agents (subscriptions), each one scoped to its tier
 @batchSize(1)
 resource agentSubscription 'Microsoft.ApiManagement/service/subscriptions@2024-06-01-preview' = [for agent in agentsConfig: {
   parent: apim
@@ -176,7 +498,7 @@ resource agentSubscription 'Microsoft.ApiManagement/service/subscriptions@2024-0
   ]
 }]
 
-// 9. Tokenomics workbook on top of Application Insights
+// 11. Tokenomics workbook on top of Application Insights
 var budgetRows = join(map(agentsConfig, agent => '\'${agent.name}\', \'${agent.displayName}\', \'${agent.tier}\', ${filter(tiersConfig, tier => tier.name == agent.tier)[0].budgetMicroUsd}'), ', ')
 
 resource tokenomicsWorkbook 'Microsoft.Insights/workbooks@2022-04-01' = {
@@ -204,6 +526,12 @@ output apimServiceId string = apimModule.outputs.id
 output apimServiceName string = apimModule.outputs.name
 output apimResourceGatewayURL string = apimModule.outputs.gatewayUrl
 output inferenceBaseUrl string = '${apimModule.outputs.gatewayUrl}/${inferenceAPIPath}/openai/v1'
+output mcpUrl string = '${apimModule.outputs.gatewayUrl}/${commerceMcp.properties.path}/mcp'
+output a2aUrl string = '${apimModule.outputs.gatewayUrl}/${sourcingAgentApi.properties.path}'
+output agentCardUrl string = '${apimModule.outputs.gatewayUrl}/${sourcingAgentApi.properties.path}/.well-known/agent-card.json'
+output agentAppUrl string = 'https://${sourcingAgentApp.properties.configuration.ingress.fqdn}'
+output toolPricing string = toolPricing
+output agentPricing string = agentPricing
 
 #disable-next-line outputs-should-not-contain-secrets
 output agentKeys array = [for (agent, i) in agentsConfig: {

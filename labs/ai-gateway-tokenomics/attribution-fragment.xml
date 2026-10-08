@@ -1,0 +1,10 @@
+<fragment>
+    <!--         AI Gateway Tokenomics - "tokenomics-attribution" policy fragment (shared by the model and MCP tool APIs).              Decides WHO PAYS for a call (FinOps chargeback):           - Direct calls are billed to the calling subscription and its tier (product).           - Calls made by a platform agent (subscriptions of the internal "agent-platform" product) on behalf of             another subscription are billed to that subscription. The A2A API stamps the x-gw-on-behalf-of*             headers on the task it forwards to the agent, and the agent propagates them to its model and tool calls.             The headers are only trusted from the agent-platform product, so a regular caller can't redirect its spend.              Sets the variables: payer, payerTier, via (direct | <agent id>)     -->
+    <set-variable name="onBehalfOf" value="@(context.Product?.Id == "agent-platform" ? context.Request.Headers.GetValueOrDefault("x-gw-on-behalf-of", "") : "")" />
+    <set-variable name="payer" value="@{
+        var onBehalfOf = (string)context.Variables["onBehalfOf"];
+        return onBehalfOf != "" ? onBehalfOf : (context.Subscription?.Id ?? "anonymous");
+    }" />
+    <set-variable name="payerTier" value="@((string)context.Variables["onBehalfOf"] != "" ? context.Request.Headers.GetValueOrDefault("x-gw-on-behalf-of-tier", "unknown") : (context.Product?.Id ?? "none"))" />
+    <set-variable name="via" value="@((string)context.Variables["onBehalfOf"] != "" ? context.Request.Headers.GetValueOrDefault("x-gw-via-agent", "agent") : "direct")" />
+</fragment>

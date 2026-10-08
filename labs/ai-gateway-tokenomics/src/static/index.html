@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>AI Gateway Tokenomics</title>
+<link rel="icon" href="data:,">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root { --bg:#f3f2f1; --panel:#ffffff; --panel2:#faf9f8; --border:#e1dfdd; --divider:#edebe9; --text:#323130; --muted:#605e5c;
@@ -97,6 +98,22 @@
   #scTakeaway:empty { display:none; }
   .toast { position:fixed; bottom:20px; right:20px; background:#fff; border-left:4px solid var(--accent); box-shadow:0 6.4px 14.4px rgba(0,0,0,.13),0 1.2px 3.6px rgba(0,0,0,.11);
            padding:12px 16px; border-radius:4px; display:none; max-width:420px; }
+  .pivot { display:flex; border:1px solid #8a8886; border-radius:4px; overflow:hidden; margin-bottom:4px; }
+  .pivot button { flex:1; background:#fff; color:var(--text); border:0; border-radius:0; font-weight:400; height:32px; padding:0 8px; font-size:13px; }
+  .pivot button + button { border-left:1px solid #8a8886; }
+  .pivot button:hover:not(:disabled) { background:#f3f2f1; border-color:#8a8886; color:var(--text); }
+  .pivot button.active, .pivot button.active:hover:not(:disabled) { background:var(--accent); color:#fff; font-weight:600; }
+  .surf { font-size:11px; padding:1px 8px; border-radius:10px; font-weight:600; display:inline-block; white-space:nowrap; }
+  .surf.model { background:#eff6fc; color:#005a9e; } .surf.tool { background:#e8f5f6; color:#00666d; } .surf.agent { background:#f4effa; color:#5c2e91; }
+  .matrix th, .matrix td { text-align:center; white-space:normal; } .matrix th:first-child, .matrix td:first-child { text-align:left; }
+  .matrix td.grp { background:var(--panel2); font-weight:600; text-align:left; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.4px; }
+  .yes { color:var(--ok); font-weight:600; } .no { color:#a19f9d; } .dg { color:var(--warn); font-weight:600; } .deny { color:var(--bad); font-weight:600; }
+  .flow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; margin-top:8px; }
+  .flow .node { border:1px solid var(--border); border-radius:6px; padding:8px 12px; background:#fff; }
+  .flow .node.gw { border-color:var(--accent); background:var(--accent-light); font-weight:600; }
+  .flow .arrow { color:var(--muted); }
+  .steps { margin-top:10px; } .steps td, .steps th { padding:4px 8px; }
+  code { background:var(--panel2); border:1px solid var(--divider); border-radius:3px; padding:0 4px; font-size:12px; }
 </style>
 </head>
 <body>
@@ -105,7 +122,7 @@
   <div class="crumbs">Home<span>›</span>API Management<span>›</span>AI Gateway Tokenomics</div>
   <div class="titlerow">
     <div class="icon"><svg viewBox="0 0 16 16" width="20" height="20" fill="#0078d4"><path d="M8 1 2 3.5V8c0 3.3 2.6 6.2 6 7 3.4-.8 6-3.7 6-7V3.5L8 1zm.5 10.9V12h-1v-.1c-1-.2-1.8-.8-2-1.8l1-.3c.1.6.7 1 1.5 1s1.4-.4 1.4-1c0-.5-.4-.8-1.4-1l-.6-.2C6.4 8.4 5.6 7.9 5.6 6.9c0-.9.8-1.6 1.9-1.8V5h1v.1c.9.2 1.6.8 1.8 1.6l-1 .3c-.1-.5-.6-.9-1.3-.9-.8 0-1.3.4-1.3.9 0 .4.3.7 1.2.9l.6.2c1.3.3 2 .9 2 1.9 0 1-.8 1.7-2 1.9z"/></svg></div>
-    <div><h1>AI Gateway Tokenomics</h1><div class="sub">Azure API Management governing cost and tokens for Microsoft Foundry models and agents</div></div>
+    <div><h1>AI Gateway Tokenomics</h1><div class="sub">Azure API Management governing cost and usage of Microsoft Foundry AI models, MCP servers and A2A agents</div></div>
   </div>
   <div class="cmdbar">
     <a class="cmd" id="lnkWorkbook" target="_blank"><svg viewBox="0 0 16 16"><path d="M2 13h12v1H2zM3 8h2v4H3zm4-3h2v7H7zm4-3h2v10h-2z"/></svg>Workbook</a>
@@ -128,6 +145,12 @@
     </div>
     <div class="card" style="margin-top:16px">
       <h2><span class="step">2</span>Send requests through the gateway</h2>
+      <div class="pivot" id="surfacePivot">
+        <button class="active" data-surface="model">AI model</button>
+        <button data-surface="tool">MCP tool</button>
+        <button data-surface="agent">A2A agent</button>
+      </div>
+      <div id="pane-model">
       <label>Model requested</label>
       <select id="model"></select>
       <label>Prompt</label>
@@ -137,10 +160,25 @@
         <div><label>max_tokens</label><input id="maxTokens" type="number" value="200" min="1" /></div>
         <div><label>Burst size (max 20)</label><input id="burst" type="number" value="10" min="1" max="20" /></div>
       </div>
+      </div>
+      <div id="pane-tool" class="hidden">
+        <label>Tool on the <i>Commerce Tools</i> MCP server</label>
+        <select id="tool"></select>
+        <label>Arguments (JSON)</label>
+        <textarea id="toolArgs" style="min-height:54px;font-family:Consolas,monospace;font-size:12px"></textarea>
+        <div class="muted" style="margin-top:6px">The UI acts as an MCP client: <code>initialize</code> then <code>tools/call</code> on <span id="mcpUrl"></span></div>
+      </div>
+      <div id="pane-agent" class="hidden">
+        <label>Task for the <i>Sourcing Agent</i> (A2A)</label>
+        <textarea id="agentTask">Source 500 units of SKU-1042 for the Q3 electronics promotion. Recommend a supplier.</textarea>
+        <div class="muted" style="margin-top:6px">The agent calls 3 MCP tools and 1 model through the gateway. Its spend plus a per-task fee is charged to the calling agent.</div>
+      </div>
       <div class="actions">
         <button id="btnSend">Send</button>
         <button class="secondary" id="btnBurst">Burst ×N</button>
-        <button class="secondary" id="btnSim" title="30 short requests from random agents and models, 2 per second">Simulate mixed traffic (30)</button>
+        <button class="secondary hidden" id="btnList">List tools</button>
+        <button class="secondary hidden" id="btnCard">Get agent card</button>
+        <button class="secondary" id="btnSim" title="30 short requests from random agents: AI models and MCP tools, 2 per second">Simulate mixed traffic (30)</button>
         <button class="secondary hidden" id="btnStop">Stop</button>
       </div>
       <div class="muted" style="margin-top:10px" id="runStatus"></div>
@@ -156,7 +194,33 @@
     </div>
     <div class="tabs">
       <button class="active" data-tab="live">Live session</button>
+      <button data-tab="plans">Products &amp; plans</button>
       <button data-tab="monitor">Azure Monitor (App Insights)</button>
+    </div>
+
+    <div id="tab-plans" class="hidden">
+      <div class="card">
+        <h2>One product per plan: AI models, MCP tools and A2A agents under one contract</h2>
+        <div class="muted" style="font-size:13px">Each plan is an API Management <b>product</b> that bundles the AI model API, the MCP server and the A2A agent API.
+          A single product policy enforces the plan: which models, tools and agents a subscriber may use, rate and token limits, and one <b>$ budget</b> shared across all three.
+          Agents subscribe to a plan, and the gateway prices every call from the price list below.</div>
+        <div class="scroll" style="max-height:none;margin-top:12px" id="plansMatrix"></div>
+      </div>
+      <div class="grid2" style="margin-top:16px">
+        <div class="card"><h2>Price list (set in the gateway)</h2><div id="priceList"></div></div>
+        <div class="card">
+          <h2>Agent-to-agent chargeback</h2>
+          <div class="muted" style="font-size:13px">When an agent calls the Sourcing Agent, the agent's own model and tool calls go back through the gateway with its platform identity.
+            The gateway tags them <i>on behalf of</i> the caller, so the caller pays the per-task fee <b>plus</b> everything the agent consumed.</div>
+          <div class="flow"><span class="node">Calling agent<br/><span class="muted">e.g. Gold plan</span></span><span class="arrow">→</span>
+            <span class="node gw">AI Gateway<br/><span class="muted">A2A API</span></span><span class="arrow">→</span>
+            <span class="node">Sourcing Agent<br/><span class="muted">Container Apps</span></span><span class="arrow">→</span>
+            <span class="node gw">AI Gateway<br/><span class="muted">MCP + model APIs</span></span><span class="arrow">→</span>
+            <span class="node">Foundry + tools</span></div>
+          <h2 style="margin-top:16px">Gateway endpoints</h2>
+          <div class="kv" id="endpoints"></div>
+        </div>
+      </div>
     </div>
 
     <div id="tab-live">
@@ -178,14 +242,14 @@
         </div>
       </div>
       <div class="grid3" style="margin-top:16px">
-        <div class="card"><h2>Cost by agent (USD)</h2><canvas id="cCostAgent"></canvas></div>
-        <div class="card"><h2>Tokens by served model</h2><canvas id="cTokensModel"></canvas></div>
+        <div class="card"><h2>Cost by agent and surface (USD)</h2><canvas id="cCostAgent"></canvas></div>
+        <div class="card"><h2>Cost by surface</h2><canvas id="cTokensModel"></canvas></div>
         <div class="card"><h2>Gateway outcomes by agent</h2><canvas id="cOutcomes"></canvas></div>
       </div>
       <div class="card" style="margin-top:16px">
         <h2>Request log</h2>
         <div class="scroll"><table>
-          <thead><tr><th>Time</th><th>Agent</th><th>Status</th><th>Requested → served</th><th>Governance</th><th>Prompt/compl. tokens</th><th>Cost USD</th><th>Remaining TPM</th><th>Latency</th><th>Detail</th></tr></thead>
+          <thead><tr><th>Time</th><th>Agent</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Governance</th><th>Tokens</th><th>Cost USD</th><th>Billed to</th><th>Latency</th><th>Detail</th></tr></thead>
           <tbody id="log"></tbody>
         </table></div>
       </div>
@@ -202,10 +266,14 @@
       </div>
       <div class="grid3" style="margin-top:16px">
         <div class="card"><h2>Cost by agent (USD)</h2><canvas id="mCostAgent"></canvas></div>
-        <div class="card"><h2>Cost by model (USD)</h2><canvas id="mCostModel"></canvas></div>
+        <div class="card"><h2>Cost by surface (USD)</h2><canvas id="mCostModel"></canvas></div>
         <div class="card"><h2>Gateway outcomes by agent</h2><canvas id="mOutcomes"></canvas></div>
       </div>
       <div class="card" style="margin-top:16px"><h2>Cost over time by agent (USD / minute)</h2><canvas id="mCostTime"></canvas></div>
+      <div class="grid2" style="margin-top:16px">
+        <div class="card"><h2>Chargeback: who pays, for what, via which path</h2><div class="scroll" id="mChargeback"></div></div>
+        <div class="card"><h2>Cost by model, tool and agent</h2><div class="scroll" id="mResources"></div></div>
+      </div>
       <div class="grid2" style="margin-top:16px">
         <div class="card"><h2>Tokens by agent and model</h2><div class="scroll" id="mTokens"></div></div>
         <div class="card"><h2>Governance actions</h2><div class="scroll" id="mGov"></div></div>
@@ -224,18 +292,25 @@ const PRESETS = {
 };
 const COLORS = ["#0078d4", "#8764b8", "#00b7c3", "#ca5010", "#e3008c", "#498205", "#4f6bed"];
 const STATUS_COLORS = { "200": "#107c10", "403": "#d13438", "429": "#f7630c", "other": "#a19f9d" };
-let cfg, selectedAgent, running = false;
-const session = { calls: [], costByAgent: {}, tokensByModel: {}, outcomes: {} };
+let cfg, selectedAgent, running = false, surface = "model";
+const session = { calls: [], costByAgent: {}, costBySurface: {}, costByAgentSurface: {}, outcomes: {} };
 const charts = {};
 const $ = (id) => document.getElementById(id);
+const SURFACES = { model: "AI models", tool: "MCP tools", agent: "A2A agents" };
+const SURFACE_COLORS = { model: "#0078d4", tool: "#00b7c3", agent: "#8764b8" };
+const TOOL_ARGS = { "search-products": { category: "electronics" }, "check-inventory": { sku: "SKU-1042" }, "get-supplier-quote": { sku: "SKU-1042", quantity: 500 } };
 
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 5000); }
 function tierOf(agent) { return cfg.tiers.find(t => t.name === agent.tier) || {}; }
 function fmtUsd(v) { return "$" + Number(v || 0).toFixed(6); }
 function statusClass(s) { return ["200", "403", "429"].includes(String(s)) ? "s" + s : "sother"; }
+const surfChip = (s) => `<span class="surf ${s}">${{ model: "AI model", tool: "MCP tool", agent: "A2A agent" }[s] || s}</span>`;
+const toolPrice = (name) => (cfg.tools.find(t => t.name === name) || {}).priceUsd || 0;
+const list = (xs) => (xs && xs.length ? xs.join(", ") : "<i>none</i>");
 
 async function init() {
   cfg = await (await fetch("/api/config")).json();
+  cfg.tools = cfg.tools || []; cfg.a2aAgents = cfg.a2aAgents || [];
   for (const [k, id] of [["workbook", "lnkWorkbook"], ["appInsights", "lnkAppInsights"], ["apim", "lnkApim"]]) {
     if (cfg.links[k]) $(id).href = cfg.links[k]; else $(id).classList.add("hidden");
   }
@@ -243,29 +318,79 @@ async function init() {
     const t = tierOf(a);
     return `<div class="agent" data-agent="${a.name}">
       <div class="name">${a.displayName} <span class="badge ${a.tier}">${a.tier}</span></div>
-      <div class="meta">Models: ${t.allowedModels.join(", ")} · disallowed → ${t.onDisallowedModel === "deny" ? "<b>deny</b>" : "downgrade to " + t.fallbackModel}<br/>
-      ${t.tpm.toLocaleString()} TPM · ${t.tokenQuota.toLocaleString()} tokens/${t.tokenQuotaPeriod.toLowerCase()} · max output ${t.maxOutputTokens} · budget <b>$${t.budgetUsd}</b></div></div>`;
+      <div class="meta">${surfChip("model")} ${t.allowedModels.join(", ")} · disallowed → ${t.onDisallowedModel === "deny" ? "<b>deny</b>" : "downgrade to " + t.fallbackModel}<br/>
+      ${surfChip("tool")} ${list(t.allowedTools)}<br/>
+      ${surfChip("agent")} ${list(t.allowedAgents)}<br/>
+      ${t.tpm.toLocaleString()} TPM · max output ${t.maxOutputTokens} · budget <b>$${t.budgetUsd}</b> across all surfaces</div></div>`;
   }).join("");
   document.querySelectorAll(".agent").forEach(el => el.onclick = () => selectAgent(el.dataset.agent));
   $("preset").innerHTML = Object.keys(PRESETS).map(p => `<option>${p}</option>`).join("");
   $("preset").onchange = () => $("prompt").value = PRESETS[$("preset").value];
   $("prompt").value = PRESETS[$("preset").value];
+  $("tool").onchange = () => $("toolArgs").value = JSON.stringify(TOOL_ARGS[$("tool").value] || {});
+  $("mcpUrl").textContent = cfg.endpoints?.mcpUrl || "the MCP endpoint";
+  document.querySelectorAll("#surfacePivot button").forEach(b => b.onclick = () => setSurface(b.dataset.surface));
   selectAgent(cfg.agents[0].name);
+  $("toolArgs").value = JSON.stringify(TOOL_ARGS[$("tool").value] || {});
   initCharts();
   renderBudgets();
+  renderPlans();
   renderScenarios();
+}
+
+function setSurface(s) {
+  surface = s;
+  document.querySelectorAll("#surfacePivot button").forEach(b => b.classList.toggle("active", b.dataset.surface === s));
+  for (const k of ["model", "tool", "agent"]) $("pane-" + k).classList.toggle("hidden", k !== s);
+  $("btnList").classList.toggle("hidden", s !== "tool"); $("btnCard").classList.toggle("hidden", s !== "agent");
+  $("btnBurst").classList.toggle("hidden", s === "agent");
 }
 
 function selectAgent(name) {
   selectedAgent = cfg.agents.find(a => a.name === name);
   document.querySelectorAll(".agent").forEach(el => el.classList.toggle("selected", el.dataset.agent === name));
-  const t = tierOf(selectedAgent), current = $("model").value;
+  const t = tierOf(selectedAgent), current = $("model").value, currentTool = $("tool").value;
   $("model").innerHTML = cfg.models.map(m => {
     const ok = t.allowedModels.includes(m.name);
     const mark = ok ? "· allowed" : (t.onDisallowedModel === "deny" ? "· denied" : "· downgraded to " + t.fallbackModel);
     return `<option value="${m.name}">${m.name}  ($${m.inputPrice}/$${m.outputPrice} per 1M)  ${mark}</option>`;
   }).join("");
   if (current) $("model").value = current;
+  $("tool").innerHTML = cfg.tools.map(x => `<option value="${x.name}">${x.name}  ($${x.priceUsd} per call)  ${(t.allowedTools || []).includes(x.name) ? "· in plan" : "· not in plan"}</option>`).join("");
+  if (currentTool) $("tool").value = currentTool;
+}
+
+function renderPlans() {
+  const tiers = cfg.tiers, cell = (html) => `<td>${html}</td>`;
+  const row = (label, f) => `<tr><td>${label}</td>${tiers.map(t => cell(f(t))).join("")}</tr>`;
+  const grp = (label) => `<tr><td class="grp" colspan="${tiers.length + 1}">${label}</td></tr>`;
+  const yes = `<span class="yes">✓</span>`, no = `<span class="no">—</span>`;
+  let html = `<table class="matrix"><thead><tr><th>Capability</th>${tiers.map(t => `<th><span class="badge ${t.name}">${t.displayName}</span></th>`).join("")}</tr></thead><tbody>`;
+  html += grp(`${surfChip("model")} AI models (Foundry)`);
+  for (const m of cfg.models) html += row(`${m.name} <span class="muted">$${m.inputPrice}/$${m.outputPrice} per 1M</span>`, t => t.allowedModels.includes(m.name) ? yes
+    : t.onDisallowedModel === "deny" ? `<span class="deny">denied</span>` : `<span class="dg">→ ${t.fallbackModel}</span>`);
+  html += row("Tokens per minute", t => t.tpm.toLocaleString()) + row("Token quota", t => `${t.tokenQuota.toLocaleString()} / ${t.tokenQuotaPeriod.toLowerCase()}`)
+        + row("Max output tokens per call", t => t.maxOutputTokens.toLocaleString());
+  html += grp(`${surfChip("tool")} MCP server: Commerce Tools`);
+  for (const x of cfg.tools) html += row(`${x.name} <span class="muted">$${x.priceUsd} per call</span>`, t => (t.allowedTools || []).includes(x.name) ? yes : no);
+  html += row("Tool calls per minute", t => t.toolCallsPerMinute ?? "-");
+  html += grp(`${surfChip("agent")} A2A agents`);
+  for (const a of cfg.a2aAgents) html += row(`${a.name} <span class="muted">$${a.feeUsd} per task + its spend</span>`, t => (t.allowedAgents || []).includes(a.name) ? yes : no);
+  html += row("Agent tasks per minute", t => (t.allowedAgents || []).length ? t.agentCallsPerMinute : no);
+  html += grp("FinOps");
+  html += row("$ budget (models + tools + agents)", t => `<b>$${t.budgetUsd}</b> / 30 days`);
+  html += "</tbody></table>";
+  $("plansMatrix").innerHTML = html;
+  $("priceList").innerHTML = `<table><thead><tr><th>Surface</th><th>Resource</th><th>Price</th><th>Metered from</th></tr></thead><tbody>`
+    + cfg.models.map(m => `<tr><td>${surfChip("model")}</td><td>${m.name}</td><td>$${m.inputPrice} in / $${m.outputPrice} out per 1M tokens</td><td>token usage returned by Foundry</td></tr>`).join("")
+    + cfg.tools.map(x => `<tr><td>${surfChip("tool")}</td><td>${x.name}</td><td>$${x.priceUsd} per call</td><td>MCP <code>tools/call</code></td></tr>`).join("")
+    + cfg.a2aAgents.map(a => `<tr><td>${surfChip("agent")}</td><td>${a.name}</td><td>$${a.feeUsd} per task + downstream spend</td><td>A2A <code>message/send</code></td></tr>`).join("")
+    + `</tbody></table><div class="muted" style="margin-top:8px">Prices live in API Management named values (<code>model-pricing</code>, <code>tool-pricing</code>, <code>agent-pricing</code>), so FinOps can change them without redeploying any app.</div>`;
+  const ep = cfg.endpoints || {};
+  $("endpoints").innerHTML = `<div>${surfChip("model")} OpenAI v1</div><div><code>${ep.inferenceBaseUrl || "-"}</code></div>
+    <div>${surfChip("tool")} MCP server</div><div><code>${ep.mcpUrl || "-"}</code></div>
+    <div>${surfChip("agent")} A2A agent</div><div><code>${ep.a2aUrl || "-"}</code></div>
+    <div>Agent card</div><div><code>${ep.agentCardUrl || "-"}</code></div>`;
 }
 
 function chart(id, type, opts = {}) {
@@ -275,12 +400,12 @@ function chart(id, type, opts = {}) {
                                          y: { stacked: !!opts.stacked, ticks: { color: "#605e5c" }, grid: { color: "#edebe9" }, beginAtZero: true } } } });
 }
 function initCharts() {
-  charts.costAgent = chart("cCostAgent", "bar"); charts.tokensModel = chart("cTokensModel", "doughnut");
+  charts.costAgent = chart("cCostAgent", "bar", { stacked: true }); charts.tokensModel = chart("cTokensModel", "doughnut");
   charts.outcomes = chart("cOutcomes", "bar", { stacked: true });
   charts.mCostAgent = chart("mCostAgent", "bar"); charts.mCostModel = chart("mCostModel", "doughnut");
   charts.mOutcomes = chart("mOutcomes", "bar", { stacked: true }); charts.mCostTime = chart("mCostTime", "line");
 }
-function setSimple(c, labels, values) { c.data.labels = labels; c.data.datasets = [{ data: values, backgroundColor: labels.map((_, i) => COLORS[i % COLORS.length]) }]; c.update(); }
+function setSimple(c, labels, values, colors) { c.data.labels = labels; c.data.datasets = [{ data: values, backgroundColor: colors || labels.map((_, i) => COLORS[i % COLORS.length]) }]; c.update(); }
 function setOutcomes(c, rows) { // rows: [{Agent, resultCode, Calls}]
   const agents = [...new Set(rows.map(r => r.Agent))], codes = [...new Set(rows.map(r => String(r.resultCode)))].sort();
   c.data.labels = agents;
@@ -289,51 +414,91 @@ function setOutcomes(c, rows) { // rows: [{Agent, resultCode, Calls}]
   c.update();
 }
 
-async function send(agentName, model, opts = {}) {
-  const body = { agent: agentName, model, prompt: opts.prompt ?? $("prompt").value,
-                 maxTokens: opts.maxTokens ?? (Number($("maxTokens").value) || undefined) };
-  const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+async function post(path, body) {
+  const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const r = await res.json();
-  if (r.status === undefined) { toast(r.error || "request failed"); return { status: 0, agent: agentName, requestedModel: model, error: r.error }; }
+  if (r.status === undefined) { toast(r.error || "request failed"); return { status: 0, agent: body.agent, surface: "model", error: r.error }; }
   record(r);
   return r;
 }
+function send(agentName, model, opts = {}) {
+  return post("/api/chat", { agent: agentName, model, prompt: opts.prompt ?? $("prompt").value,
+                             maxTokens: opts.maxTokens ?? (Number($("maxTokens").value) || undefined) });
+}
+function callTool(agentName, tool, args) { return post("/api/mcp", { agent: agentName, action: "call", tool, arguments: args ?? TOOL_ARGS[tool] ?? {} }); }
+function listTools(agentName) { return post("/api/mcp", { agent: agentName, action: "list" }); }
+function callAgent(agentName, prompt) { return post("/api/a2a", { agent: agentName, action: "send", prompt: prompt ?? $("agentTask").value }); }
+function agentCard(agentName) { return post("/api/a2a", { agent: agentName, action: "card" }); }
+
+function resourceOf(r) {
+  const h = r.headers || {};
+  if (r.surface === "tool") return r.action === "list" ? "tools/list" : (r.tool || h["x-gw-tool"] || "-");
+  if (r.surface === "agent") return r.action === "card" ? "agent card" : "sourcing-agent";
+  const served = h["x-gw-model-served"];
+  return `${r.requestedModel} → ${served || "-"}`;
+}
+// Splits what a call cost into the surfaces that consumed it (an agent task = fee + the models and tools it used)
+function costParts(r) {
+  const h = r.headers || {}, total = Number(h["x-gw-cost-usd"] || 0);
+  if (r.status !== 200 || !total) return {};
+  if (r.surface !== "agent") return { [r.surface]: total };
+  const parts = { agent: Number(h["x-gw-agent-fee-usd"] || 0) };
+  for (const s of r.steps || []) parts[s.type] = (parts[s.type] || 0) + (s.costMicroUsd || 0) / 1e6;
+  return parts;
+}
 
 function record(r) {
-  const h = r.headers || {}, cost = Number(h["x-gw-cost-usd"] || 0);
-  const tokens = r.usage ? (r.usage.total_tokens || 0) : 0, served = h["x-gw-model-served"] || r.requestedModel;
-  session.calls.push(r); session.totalCost = (session.totalCost || 0) + cost;
+  const h = r.headers || {}, cost = r.status === 200 ? Number(h["x-gw-cost-usd"] || 0) : 0;
+  const tokens = r.usage ? (r.usage.total_tokens || 0) : (r.steps || []).reduce((s, x) => s + (x.tokens || 0), 0);
+  r.tokens = tokens;
+  session.calls.push(r); session.totalCost = (session.totalCost || 0) + cost; session.tokens = (session.tokens || 0) + tokens;
   session.costByAgent[r.agent] = (session.costByAgent[r.agent] || 0) + cost;
-  if (tokens) session.tokensByModel[served] = (session.tokensByModel[served] || 0) + tokens;
+  for (const [s, v] of Object.entries(costParts(r))) {
+    session.costBySurface[s] = (session.costBySurface[s] || 0) + v;
+    session.costByAgentSurface[r.agent + "|" + s] = (session.costByAgentSurface[r.agent + "|" + s] || 0) + v;
+  }
   const key = r.agent + "|" + r.status; session.outcomes[key] = (session.outcomes[key] || 0) + 1;
 
   const ok = session.calls.filter(c => c.status === 200).length;
   $("kCalls").textContent = session.calls.length; $("kOk").textContent = ok;
   $("kBlocked").textContent = session.calls.filter(c => c.status === 403 || c.status === 429).length;
-  $("kTokens").textContent = Object.values(session.tokensByModel).reduce((a, b) => a + b, 0).toLocaleString();
+  $("kTokens").textContent = session.tokens.toLocaleString();
   $("kCost").textContent = fmtUsd(session.totalCost);
 
   const gov = h["x-gw-governance"] && h["x-gw-governance"] !== "none" ? `<span class="gov">${h["x-gw-governance"]}</span>` : "none";
-  $("last").innerHTML = `<span class="status ${statusClass(r.status)}">${r.status}</span> <b>${r.agent}</b> (${r.tier}) · ${r.latencyMs} ms
-    <div class="kv">
-      <div>Model requested → served</div><div>${r.requestedModel} → <b>${served || "-"}</b></div>
-      <div>Governance</div><div>${gov}</div>
-      <div>Tokens (prompt / completion)</div><div>${h["x-gw-prompt-tokens"] || "-"} / ${h["x-gw-completion-tokens"] || "-"}</div>
-      <div>Cost of this call</div><div>${h["x-gw-cost-usd"] ? fmtUsd(cost) : "-"}</div>
-      <div>Remaining TPM</div><div>${h["x-gw-remaining-tpm"] ?? "-"}</div>
-      <div>Remaining token quota</div><div>${h["x-gw-remaining-quota-tokens"] ?? "-"}</div>
-      ${h["retry-after"] ? `<div>Retry-After</div><div>${h["retry-after"]} s</div>` : ""}
-    </div>
-    <div class="content">${escapeHtml(r.status === 200 ? (r.content || "") : (r.error || ""))}</div>`;
+  const billed = h["x-gw-billed-to"] || (r.status === 200 && cost ? r.agent : "-");
+  let kv = `<div>Surface</div><div>${surfChip(r.surface)} ${resourceOf(r)}</div><div>Governance</div><div>${gov}</div>`;
+  if (r.surface === "model") kv += `<div>Tokens (prompt / completion)</div><div>${h["x-gw-prompt-tokens"] || "-"} / ${h["x-gw-completion-tokens"] || "-"}</div>
+      <div>Remaining TPM</div><div>${h["x-gw-remaining-tpm"] ?? "-"}</div><div>Remaining token quota</div><div>${h["x-gw-remaining-quota-tokens"] ?? "-"}</div>`;
+  if (r.surface === "tool" && r.action !== "list") kv += `<div>Tool price</div><div>$${toolPrice(r.tool)} per call</div><div>Remaining tool calls (minute)</div><div>${h["x-gw-remaining-tool-calls"] ?? "-"}</div>`;
+  if (r.surface === "agent" && r.action === "send") kv += `<div>Agent fee</div><div>${h["x-gw-agent-fee-usd"] ? fmtUsd(h["x-gw-agent-fee-usd"]) : "-"}</div>
+      <div>Agent's model + tool spend</div><div>${h["x-gw-downstream-cost-usd"] ? fmtUsd(h["x-gw-downstream-cost-usd"]) : "-"}</div>
+      <div>Remaining agent tasks (minute)</div><div>${h["x-gw-remaining-agent-calls"] ?? "-"}</div>`;
+  kv += `<div>Cost of this call</div><div>${cost ? "<b>" + fmtUsd(cost) + "</b>" : "-"}</div><div>Billed to</div><div>${billed}</div>`;
+  if (h["retry-after"]) kv += `<div>Retry-After</div><div>${h["retry-after"]} s</div>`;
+  let body = r.status === 200 ? (r.content || "") : (r.error || "");
+  if (r.tools) body = r.tools.map(t => `${t.name}: ${t.description}`).join("\n");
+  if (r.card) body = JSON.stringify({ name: r.card.name, url: r.card.url, preferredTransport: r.card.preferredTransport, skills: (r.card.skills || []).map(s => s.name), securitySchemes: r.card.securitySchemes }, null, 2);
+  const stepsHtml = (r.steps || []).length ? `<table class="steps"><thead><tr><th>Agent step (through the gateway)</th><th>Status</th><th>Cost</th><th>Billed to</th></tr></thead><tbody>`
+    + r.steps.map(s => `<tr><td>${surfChip(s.type)} ${s.name}</td><td><span class="status ${statusClass(s.status)}">${s.status}</span></td><td>${fmtUsd((s.costMicroUsd || 0) / 1e6)}</td><td>${s.billedTo || "-"}</td></tr>`).join("")
+    + `<tr><td>${surfChip("agent")} per-task fee</td><td></td><td>${fmtUsd(h["x-gw-agent-fee-usd"])}</td><td>${billed}</td></tr></tbody></table>` : "";
+  $("last").innerHTML = `<span class="status ${statusClass(r.status)}">${r.status}</span> <b>${r.agent}</b> (${r.tier}) · ${r.latencyMs ?? "-"} ms
+    <div class="kv">${kv}</div>${stepsHtml}
+    <div class="content">${escapeHtml(body)}</div>`;
 
-  const detail = r.status === 200 ? (r.finishReason === "length" ? "truncated (output cap)" : "") : (r.error || "");
-  $("log").insertAdjacentHTML("afterbegin", `<tr><td>${new Date().toLocaleTimeString()}</td><td>${r.agent}</td>
-    <td><span class="status ${statusClass(r.status)}">${r.status}</span></td><td>${r.requestedModel} → ${served || "-"}</td><td>${gov}</td>
-    <td>${h["x-gw-prompt-tokens"] || "-"} / ${h["x-gw-completion-tokens"] || "-"}</td><td>${h["x-gw-cost-usd"] || "-"}</td>
-    <td>${h["x-gw-remaining-tpm"] ?? "-"}</td><td>${r.latencyMs} ms</td><td title="${escapeHtml(detail)}">${escapeHtml(detail.slice(0, 60))}</td></tr>`);
+  const detail = r.status === 200 ? (r.finishReason === "length" ? "truncated (output cap)" : r.surface === "agent" && r.steps ? `${r.steps.length} downstream calls` : "") : (r.error || "");
+  const tok = r.surface === "model" ? `${h["x-gw-prompt-tokens"] || "-"} / ${h["x-gw-completion-tokens"] || "-"}` : (tokens ? tokens : "-");
+  $("log").insertAdjacentHTML("afterbegin", `<tr><td>${new Date().toLocaleTimeString()}</td><td>${r.agent}</td><td>${surfChip(r.surface)}</td>
+    <td><span class="status ${statusClass(r.status)}">${r.status}</span></td><td>${resourceOf(r)}</td><td>${gov}</td>
+    <td>${tok}</td><td>${cost ? cost.toFixed(6) : "-"}</td><td>${billed}</td><td>${r.latencyMs ?? "-"} ms</td><td title="${escapeHtml(detail)}">${escapeHtml(detail.slice(0, 60))}</td></tr>`);
 
-  setSimple(charts.costAgent, Object.keys(session.costByAgent), Object.values(session.costByAgent));
-  setSimple(charts.tokensModel, Object.keys(session.tokensByModel), Object.values(session.tokensByModel));
+  const agents = [...new Set(Object.keys(session.costByAgentSurface).map(k => k.split("|")[0]))];
+  charts.costAgent.data.labels = agents;
+  charts.costAgent.data.datasets = Object.keys(SURFACES).map(s => ({ label: SURFACES[s], backgroundColor: SURFACE_COLORS[s],
+    data: agents.map(a => session.costByAgentSurface[a + "|" + s] || 0) }));
+  charts.costAgent.update();
+  const surfs = Object.keys(SURFACES).filter(s => session.costBySurface[s]);
+  setSimple(charts.tokensModel, surfs.map(s => SURFACES[s]), surfs.map(s => session.costBySurface[s]), surfs.map(s => SURFACE_COLORS[s]));
   setOutcomes(charts.outcomes, Object.entries(session.outcomes).map(([k, v]) => ({ Agent: k.split("|")[0], resultCode: k.split("|")[1], Calls: v })));
   renderBudgets();
 }
@@ -349,24 +514,43 @@ function renderBudgets() {
 
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function setRunning(on, label = "") {
-  running = on; ["btnSend", "btnBurst", "btnSim", "btnReset"].forEach(id => $(id).disabled = on);
+  running = on; ["btnSend", "btnBurst", "btnSim", "btnReset", "btnList", "btnCard"].forEach(id => $(id).disabled = on);
   document.querySelectorAll(".scenarios button").forEach(b => b.disabled = on);
   $("btnStop").classList.toggle("hidden", !on); $("runStatus").textContent = label;
 }
 
-$("btnSend").onclick = async () => { setRunning(true, "Sending…"); await send(selectedAgent.name, $("model").value); setRunning(false); };
+function toolArgs() {
+  try { return JSON.parse($("toolArgs").value || "{}"); } catch { toast("Tool arguments must be valid JSON"); return null; }
+}
+function sendCurrent() {
+  if (surface === "tool") { const args = toolArgs(); return args ? callTool(selectedAgent.name, $("tool").value, args) : Promise.resolve(null); }
+  if (surface === "agent") return callAgent(selectedAgent.name);
+  return send(selectedAgent.name, $("model").value);
+}
+$("btnSend").onclick = async () => { setRunning(true, surface === "agent" ? "Agent is working (it calls tools and a model through the gateway)…" : "Sending…"); await sendCurrent(); setRunning(false); };
+$("btnList").onclick = async () => { setRunning(true, "Listing tools…"); await listTools(selectedAgent.name); setRunning(false); };
+$("btnCard").onclick = async () => { setRunning(true, "Fetching agent card…"); await agentCard(selectedAgent.name); setRunning(false); };
 $("btnBurst").onclick = async () => {
   const n = Math.min(20, Math.max(1, Number($("burst").value) || 10)); $("burst").value = n; setRunning(true);
-  for (let i = 1; i <= n && running; i++) { $("runStatus").textContent = `Burst ${i}/${n}…`; await send(selectedAgent.name, $("model").value); }
+  for (let i = 1; i <= n && running; i++) { $("runStatus").textContent = `Burst ${i}/${n}…`; if (!await sendCurrent()) break; }
   setRunning(false, `Burst finished.`);
 };
 const SIM_REQUESTS = 30;
 $("btnSim").onclick = async () => {
   setRunning(true); let i = 0; const inflight = [];
+  const pick = (xs) => xs[Math.floor(Math.random() * xs.length)];
   while (running && i < SIM_REQUESTS) {
-    const a = cfg.agents[Math.floor(Math.random() * cfg.agents.length)], m = cfg.models[Math.floor(Math.random() * cfg.models.length)];
-    $("runStatus").textContent = `Simulating… request ${++i}/${SIM_REQUESTS}: ${a.name} → ${m.name}`;
-    inflight.push(send(a.name, m.name, { prompt: PRESETS["Short FAQ answer"], maxTokens: 100 })); await sleep(500);
+    const a = pick(cfg.agents);
+    if (cfg.tools.length && Math.random() < 0.3) {
+      const t = pick(cfg.tools).name;
+      $("runStatus").textContent = `Simulating… request ${++i}/${SIM_REQUESTS}: ${a.name} → tool ${t}`;
+      inflight.push(callTool(a.name, t));
+    } else {
+      const m = pick(cfg.models);
+      $("runStatus").textContent = `Simulating… request ${++i}/${SIM_REQUESTS}: ${a.name} → ${m.name}`;
+      inflight.push(send(a.name, m.name, { prompt: PRESETS["Short FAQ answer"], maxTokens: 100 }));
+    }
+    await sleep(500);
   }
   await Promise.all(inflight);
   setRunning(false, `Simulation finished after ${i} requests.`);
@@ -383,7 +567,7 @@ $("btnReset").onclick = async () => {
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
 function showTab(tab) {
   document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("active", x.dataset.tab === tab));
-  $("tab-live").classList.toggle("hidden", tab !== "live"); $("tab-monitor").classList.toggle("hidden", tab !== "monitor");
+  for (const t of ["live", "plans", "monitor"]) $("tab-" + t).classList.toggle("hidden", tab !== t);
   if (tab === "monitor" && !charts._loaded) { charts._loaded = true; refreshMonitor(); }
 }
 $("btnRefresh").onclick = refreshMonitor;
@@ -402,7 +586,9 @@ async function refreshMonitor() {
     if (d.error) throw new Error(d.error);
     const arr = (x) => Array.isArray(x) ? x : [];
     setSimple(charts.mCostAgent, arr(d.costByAgent).map(r => r.Agent), arr(d.costByAgent).map(r => r.CostUSD));
-    setSimple(charts.mCostModel, arr(d.costByModel).map(r => r.Model), arr(d.costByModel).map(r => r.CostUSD));
+    const bySurface = arr(d.costBySurface);
+    setSimple(charts.mCostModel, bySurface.map(r => SURFACES[r.Surface] || r.Surface), bySurface.map(r => r.CostUSD), bySurface.map(r => SURFACE_COLORS[r.Surface] || "#8a8886"));
+    $("mChargeback").innerHTML = table(d.chargeback); $("mResources").innerHTML = table(d.costByResource);
     setOutcomes(charts.mOutcomes, arr(d.outcomesByAgent));
     const times = [...new Set(arr(d.costOverTime).map(r => r.timestamp))].sort(), agents = [...new Set(arr(d.costOverTime).map(r => r.Agent))];
     charts.mCostTime.data.labels = times.map(t => new Date(t).toLocaleTimeString());
@@ -424,12 +610,22 @@ const tierAgent = (tier) => cfg.agents.find(a => a.tier === tier);
 const modelInfo = (name) => cfg.models.find(m => m.name === name) || { inputPrice: 0, outputPrice: 0 };
 
 function step(r, note = "") {
-  const served = hdr(r, "x-gw-model-served") || "-", g = hdr(r, "x-gw-governance");
-  const gov = g && g !== "none" ? ` · <span class="gov">${g}</span>` : "";
-  const detail = r.status === 200 ? ` · ${hdr(r, "x-gw-prompt-tokens")}+${hdr(r, "x-gw-completion-tokens")} tokens · ${fmtUsd(usd(r))}`
-                                  : ` · ${escapeHtml((r.error || "").slice(0, 100))}`;
-  $("scSteps").insertAdjacentHTML("beforeend", `<li><span class="status ${statusClass(r.status)}">${r.status}</span>
-    ${r.agent} asked <b>${r.requestedModel}</b> → served <b>${served}</b>${gov}${detail}${note ? ` <span class="muted">· ${note}</span>` : ""}</li>`);
+  if (!r) return;
+  const g = hdr(r, "x-gw-governance"), gov = g && g !== "none" ? ` · <span class="gov">${g}</span>` : "";
+  const err = ` · ${escapeHtml((r.error || "").slice(0, 100))}`;
+  let what, detail;
+  if (r.surface === "tool") {
+    what = `called tool <b>${r.tool || "tools/list"}</b>`;
+    detail = r.status === 200 ? ` · ${fmtUsd(usd(r))}` : err;
+  } else if (r.surface === "agent") {
+    what = `sent a task to <b>sourcing-agent</b>`;
+    detail = r.status === 200 ? ` · ${(r.steps || []).length} downstream calls · fee ${fmtUsd(hdr(r, "x-gw-agent-fee-usd"))} + agent spend ${fmtUsd(hdr(r, "x-gw-downstream-cost-usd"))} = <b>${fmtUsd(usd(r))}</b>` : err;
+  } else {
+    what = `asked <b>${r.requestedModel}</b> → served <b>${hdr(r, "x-gw-model-served") || "-"}</b>`;
+    detail = r.status === 200 ? ` · ${hdr(r, "x-gw-prompt-tokens")}+${hdr(r, "x-gw-completion-tokens")} tokens · ${fmtUsd(usd(r))}` : err;
+  }
+  $("scSteps").insertAdjacentHTML("beforeend", `<li><span class="status ${statusClass(r.status)}">${r.status}</span> ${surfChip(r.surface || "model")}
+    ${r.agent} ${what}${gov}${detail}${note ? ` <span class="muted">· ${note}</span>` : ""}</li>`);
 }
 const info = (html) => $("scSteps").insertAdjacentHTML("beforeend", `<li class="muted">${html}</li>`);
 const takeaway = (html) => $("scTakeaway").innerHTML = html;
@@ -497,11 +693,53 @@ const SCENARIOS = [
       takeaway(blocked ? `The agent spent ${fmtUsd(spent)} against its $${t.budgetUsd} budget and the gateway now answers <b>403</b>. Spend stops at the gateway until the budget period renews (or you reset it). The budget is checked before each call, so the last call can go slightly over.`
                        : `Spent ${fmtUsd(spent)} so far without exhausting the budget. Run the scenario again to finish it.`);
     } },
+  { title: "MCP tools: priced and entitled per plan", cost: "5 calls · < $0.005",
+    story: () => `Budgets are reset first. The <b>Commerce Tools</b> REST API is exposed as an <b>MCP server</b> by API Management. Every plan includes a different set of tools at a per-call price. The gateway checks the entitlement and prices each <code>tools/call</code>.`,
+    async run() {
+      const g = tierAgent("gold"), s = tierAgent("silver"), b = tierAgent("bronze");
+      info("Resetting budgets (budget-epoch named value)…");
+      if (!await resetBudgets()) return;
+      await sleep(8000);
+      const r0 = await listTools(s.name); step(r0, `the MCP server advertises ${(r0.tools || []).length} tools`);
+      const calls = [[g, "get-supplier-quote", "premium tool, included in Gold"], [s, "get-supplier-quote", "not in the Silver plan"],
+                     [s, "check-inventory", "included in Silver"], [b, "search-products", "the only tool in Bronze"]];
+      const res = [];
+      for (const [a, tool, note] of calls) { if (!running) return; const r = await callTool(a.name, tool); step(r, note); res.push(r); }
+      const paid = res.filter(r => r.status === 200).reduce((x, r) => x + usd(r), 0);
+      takeaway(`One MCP server, three plans. Tools are entitled per plan (Silver got <b>${res[1].status}</b> on the premium tool) and each call is priced from the <code>tool-pricing</code> named value: ${fmtUsd(paid)} for these calls, charged to each caller's $ budget. Denied calls never reach the backend API.`);
+    } },
+  { title: "A2A agent: task cost, end to end", cost: "2 tasks · < $0.01",
+    story: () => `The Gold agent delegates a sourcing task to the <b>Sourcing Agent</b>, an A2A agent published through API Management. The Sourcing Agent calls MCP tools and a Foundry model through the same gateway. Every downstream call is billed back to the agent that sent the task.`,
+    async run() {
+      const g = tierAgent("gold"), b = tierAgent("bronze");
+      const r = await callAgent(g.name, "Source 500 units of SKU-1042 for the Q3 launch and recommend a supplier.");
+      step(r, "fee + every downstream call billed to the caller");
+      for (const x of r.steps || []) info(`↳ ${surfChip(x.type)} ${x.name} · <span class="status ${statusClass(x.status)}">${x.status}</span> · ${fmtUsd((x.costMicroUsd || 0) / 1e6)} · billed to <b>${x.billedTo || "-"}</b>`);
+      if (!running) return;
+      const r2 = await callAgent(b.name, "Source 100 units of SKU-1001."); step(r2, "the Bronze plan does not include A2A agents");
+      takeaway(r.status === 200 ? `One A2A task cost <b>${fmtUsd(usd(r))}</b>: a ${fmtUsd(hdr(r, "x-gw-agent-fee-usd"))} agent fee plus ${fmtUsd(hdr(r, "x-gw-downstream-cost-usd"))} of tools and model tokens the agent used. All of it is charged to <b>${g.displayName}</b>, not to the Sourcing Agent's platform identity. Bronze got <b>${r2.status}</b> because its plan does not include the agent.`
+                                : `The task returned ${r.status}: ${escapeHtml(r.error || "")}`);
+    } },
+  { title: "One $ budget across models, tools and agents", cost: "≤ 6 calls · ≈ $0.01",
+    story: () => `Budgets are reset first. The Silver <b>${tierAgent("silver").displayName}</b> has one <b>$${tierOf(tierAgent("silver")).budgetUsd}</b> budget for everything. It delegates an A2A task, then calls a model, then an MCP tool. Whatever surface it uses, it draws from the same budget.`,
+    async run() {
+      const s = tierAgent("silver"), t = tierOf(s), m = t.allowedModels[0], tool = (t.allowedTools || [])[0] || "search-products";
+      info("Resetting budgets (budget-epoch named value)…");
+      if (!await resetBudgets()) return;
+      await sleep(8000);
+      let spent = 0, blocked = null;
+      const track = (r, note) => { if (r.status === 200) spent += usd(r); if (r.status === 403 && !blocked) blocked = r; step(r, r.status === 200 ? `spent ${fmtUsd(spent)} of $${t.budgetUsd}` : note); };
+      track(await callAgent(s.name, "Source 200 units of SKU-1042 and recommend a supplier."), "");
+      for (let i = 0; i < 3 && running && !blocked; i++) track(await send(s.name, m, { prompt: LONG, maxTokens: t.maxOutputTokens }), "budget exhausted");
+      if (running) track(await callTool(s.name, tool), "same budget, different surface");
+      takeaway(blocked ? `Silver spent ${fmtUsd(spent)} of its $${t.budgetUsd} budget across an A2A task, model calls and tool calls, and is now blocked with <b>403</b> on <i>every</i> surface. One plan, one contract, one budget. The product owner sets it once and the gateway enforces it everywhere.`
+                       : `Spent ${fmtUsd(spent)} without exhausting the budget. Run the scenario again to finish it.`);
+    } },
   { title: "Chargeback in Azure Monitor", cost: "0 calls · $0",
-    story: () => `Opens the Application Insights view: cost and tokens per agent, tier and model, plus every governance action, all recorded by the gateway.`,
+    story: () => `Opens the Application Insights view: cost per agent and tier, split by surface (AI models, MCP tools, A2A agents) and by route (direct, or via the Sourcing Agent).`,
     async run() {
       charts._loaded = true; showTab("monitor"); await refreshMonitor();
-      takeaway(`Every number comes from gateway telemetry (emit-metric / llm-emit-token-metric), so you can do showback or chargeback per agent with no app instrumentation. New calls take 1-3 minutes to show up. The <b>Workbook</b> command opens the same breakdown in the Azure portal.`);
+      takeaway(`Every number comes from gateway telemetry (emit-metric / llm-emit-token-metric), so you can do showback or chargeback per agent with no app instrumentation. Spend that an A2A agent makes on a caller's behalf shows up under the <b>caller</b>, with <code>Via = sourcing-agent</code>. New calls take 1-3 minutes to show up. The <b>Workbook</b> command opens the same breakdown in the Azure portal.`);
     } },
 ];
 
@@ -513,7 +751,7 @@ async function runScenario(s) {
 }
 function renderScenarios() {
   $("scenarios").innerHTML = SCENARIOS.map((s, i) => `<button data-i="${i}"><span class="n">${i + 1}</span><span><span class="t">${s.title}</span><span class="c">${s.cost}</span></span></button>`).join("")
-    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all 6)</span><span class="c">≈ 30 calls · < $0.02 · about 3 minutes</span></span></button>`;
+    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.length})</span><span class="c">≈ 45 calls · < $0.05 · about 5 minutes</span></span></button>`;
   document.querySelectorAll(".scenarios button[data-i]").forEach(b => b.onclick = async () => {
     setRunning(true, "Running scenario…"); await runScenario(SCENARIOS[b.dataset.i]); setRunning(false, "Scenario finished.");
   });

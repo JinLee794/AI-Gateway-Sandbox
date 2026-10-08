@@ -1,0 +1,87 @@
+<!--
+    AI Gateway Tokenomics - MCP server policy (commerce-mcp, applies to every tier).
+
+    - Tags the call as the "tool" surface and reads the JSON-RPC method / tool name from the REQUEST
+      (before <base />, so the tier policy can enforce tool entitlements and tool rate limits).
+    - Prices every tools/call with the {{tool-pricing}} named value (micro-USD per call). The cost feeds the
+      same per-subscription $ budget as the AI models (quota-by-key in the tier policy).
+    - Attributes the spend (tokenomics-attribution fragment) and emits ToolCalls / CostMicroUSD metrics.
+    - Never touches context.Response.Body: MCP responses are streamed, so the cost is returned in headers only.
+-->
+<policies>
+    <inbound>
+        <set-variable name="surface" value="tool" />
+        <set-variable name="rpcRequest" value="@{
+            if (context.Request.Method != "POST") { return ""; }
+            try {
+                var body = context.Request.Body?.As<JObject>(preserveContent: true);
+                if (body == null) { return ""; }
+                var method = body["method"]?.ToString() ?? "";
+                var tool = method == "tools/call" ? (body["params"]?["name"]?.ToString() ?? "") : "";
+                return method + "|" + tool + "|" + (body["id"]?.ToString() ?? "");
+            } catch { return ""; }
+        }" />
+        <set-variable name="mcpMethod" value="@(((string)context.Variables["rpcRequest"] + "||").Split('|')[0])" />
+        <set-variable name="toolName" value="@(((string)context.Variables["rpcRequest"] + "||").Split('|')[1])" />
+        <set-variable name="rpcId" value="@(((string)context.Variables["rpcRequest"] + "||").Split('|')[2])" />
+        <base />
+        <include-fragment fragment-id="tokenomics-attribution" />
+        <choose>
+            <when condition="@((string)context.Variables["toolName"] != "")">
+                <set-variable name="toolPricing" value="{{tool-pricing}}" />
+                <set-variable name="costMicroUsd" value="@{
+                    var tool = (string)context.Variables["toolName"];
+                    foreach (var entry in ((string)context.Variables["toolPricing"]).Split(';')) {
+                        var parts = entry.Split('=');
+                        if (parts.Length == 2 && parts[0].Trim().Equals(tool, StringComparison.OrdinalIgnoreCase)) {
+                            return int.Parse(parts[1].Trim());
+                        }
+                    }
+                    return 0;
+                }" />
+            </when>
+        </choose>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+        <choose>
+            <when condition="@((string)context.Variables["toolName"] != "" && context.Response.StatusCode == 200)">
+                <emit-metric name="ToolCalls" value="1" namespace="ai-gateway-tokenomics">
+                    <dimension name="Agent" value="@((string)context.Variables["payer"])" />
+                    <dimension name="Tier" value="@((string)context.Variables["payerTier"])" />
+                    <dimension name="Model" value="@((string)context.Variables["toolName"])" />
+                    <dimension name="Surface" value="tool" />
+                    <dimension name="Via" value="@((string)context.Variables["via"])" />
+                </emit-metric>
+                <emit-metric name="CostMicroUSD" value="@((double)context.Variables.GetValueOrDefault<int>("costMicroUsd", 0))" namespace="ai-gateway-tokenomics">
+                    <dimension name="Agent" value="@((string)context.Variables["payer"])" />
+                    <dimension name="Tier" value="@((string)context.Variables["payerTier"])" />
+                    <dimension name="Model" value="@((string)context.Variables["toolName"])" />
+                    <dimension name="Surface" value="tool" />
+                    <dimension name="Via" value="@((string)context.Variables["via"])" />
+                </emit-metric>
+                <set-header name="x-gw-tool" exists-action="override">
+                    <value>@((string)context.Variables["toolName"])</value>
+                </set-header>
+                <set-header name="x-gw-cost-usd" exists-action="override">
+                    <value>@((context.Variables.GetValueOrDefault<int>("costMicroUsd", 0) / 1000000.0).ToString("0.000000"))</value>
+                </set-header>
+            </when>
+        </choose>
+        <set-header name="x-gw-agent" exists-action="override">
+            <value>@(context.Subscription?.Id ?? "anonymous")</value>
+        </set-header>
+        <set-header name="x-gw-tier" exists-action="override">
+            <value>@(context.Product?.Id ?? "none")</value>
+        </set-header>
+        <set-header name="x-gw-billed-to" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("payer", ""))</value>
+        </set-header>
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

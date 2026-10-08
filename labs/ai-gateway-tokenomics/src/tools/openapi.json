@@ -1,0 +1,68 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Commerce Tools API",
+    "description": "Retail commerce tools (catalog, inventory, supplier quotes) exposed to agents as an MCP server by Azure API Management.",
+    "version": "1.0"
+  },
+  "paths": {
+    "/products": {
+      "get": {
+        "summary": "Search the product catalog",
+        "description": "Search the product catalog by category and return matching products with SKU and list price.",
+        "operationId": "search-products",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Product category, for example electronics, appliances or clothing",
+            "required": true,
+            "schema": { "type": "string", "example": "electronics" }
+          }
+        ],
+        "responses": { "200": { "description": "Matching products" } }
+      }
+    },
+    "/inventory": {
+      "get": {
+        "summary": "Check inventory for a SKU",
+        "description": "Return the on-hand stock for a SKU in every warehouse.",
+        "operationId": "check-inventory",
+        "parameters": [
+          {
+            "name": "sku",
+            "in": "query",
+            "description": "Product SKU, for example SKU-1001",
+            "required": true,
+            "schema": { "type": "string", "example": "SKU-1001" }
+          }
+        ],
+        "responses": { "200": { "description": "Inventory per warehouse" } }
+      }
+    },
+    "/supplier-quote": {
+      "get": {
+        "summary": "Get a live supplier quote (premium)",
+        "description": "Premium data tool: request real-time quotes from the partner supplier network for a SKU and quantity.",
+        "operationId": "get-supplier-quote",
+        "parameters": [
+          {
+            "name": "sku",
+            "in": "query",
+            "description": "Product SKU, for example SKU-1001",
+            "required": true,
+            "schema": { "type": "string", "example": "SKU-1001" }
+          },
+          {
+            "name": "quantity",
+            "in": "query",
+            "description": "Number of units to source",
+            "required": true,
+            "schema": { "type": "integer", "example": 200 }
+          }
+        ],
+        "responses": { "200": { "description": "Supplier quotes" } }
+      }
+    }
+  }
+}

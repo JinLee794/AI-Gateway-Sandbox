@@ -1,0 +1,100 @@
+<!--
+    AI Gateway Tokenomics - A2A agent API policy (sourcing-agent, applies to every tier).
+
+    - Tags the call as the "agent" surface (before <base />, so the tier policy can enforce agent entitlements).
+    - Stamps x-gw-on-behalf-of* headers on the task forwarded to the agent. The agent propagates them to the
+      models and MCP tools it calls through the gateway with its own platform identity, so all its downstream
+      spend is attributed (chargeback) to the caller.
+    - Charges the caller's $ budget the FULLY-LOADED cost of the task: the agent fee from {{agent-pricing}}
+      plus the downstream model + tool spend reported by the agent in the x-agent-downstream-cost-micro-usd
+      header (headers only - A2A response bodies are not deserialized by the gateway).
+    - Emits AgentTasks / CostMicroUSD metrics. The cost metric carries the fee only; downstream calls already
+      emitted their own cost under the same payer, so App Insights totals are not double counted.
+-->
+<policies>
+    <inbound>
+        <set-variable name="surface" value="agent" />
+        <set-variable name="agentId" value="@(context.Api.Id)" />
+        <set-variable name="rpcId" value="@{
+            if (context.Request.Method != "POST") { return ""; }
+            try { return context.Request.Body?.As<JObject>(preserveContent: true)?["id"]?.ToString() ?? ""; } catch { return ""; }
+        }" />
+        <base />
+        <set-header name="x-gw-on-behalf-of" exists-action="override">
+            <value>@(context.Subscription?.Id ?? "anonymous")</value>
+        </set-header>
+        <set-header name="x-gw-on-behalf-of-tier" exists-action="override">
+            <value>@(context.Product?.Id ?? "none")</value>
+        </set-header>
+        <set-header name="x-gw-via-agent" exists-action="override">
+            <value>@((string)context.Variables["agentId"])</value>
+        </set-header>
+        <!-- shared secret so the agent only accepts tasks that went through the gateway (and its billing) -->
+        <set-header name="x-agent-backend-secret" exists-action="override">
+            <value>{{agent-backend-secret}}</value>
+        </set-header>
+        <set-variable name="agentPricing" value="{{agent-pricing}}" />
+        <set-variable name="agentFeeMicroUsd" value="@{
+            var agent = (string)context.Variables["agentId"];
+            foreach (var entry in ((string)context.Variables["agentPricing"]).Split(';')) {
+                var parts = entry.Split('=');
+                if (parts.Length == 2 && parts[0].Trim().Equals(agent, StringComparison.OrdinalIgnoreCase)) {
+                    return int.Parse(parts[1].Trim());
+                }
+            }
+            return 0;
+        }" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+        <choose>
+            <when condition="@(context.Request.Method == "POST" && context.Response.StatusCode == 200)">
+                <set-variable name="downstreamMicroUsd" value="@{
+                    int value = 0;
+                    int.TryParse(context.Response.Headers.GetValueOrDefault("x-agent-downstream-cost-micro-usd", "0"), out value);
+                    return value;
+                }" />
+                <!-- fully-loaded cost charged to the caller's $ budget (quota-by-key in the tier policy) -->
+                <set-variable name="costMicroUsd" value="@((int)context.Variables["agentFeeMicroUsd"] + (int)context.Variables["downstreamMicroUsd"])" />
+                <emit-metric name="AgentTasks" value="1" namespace="ai-gateway-tokenomics">
+                    <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
+                    <dimension name="Tier" value="@(context.Product?.Id ?? "none")" />
+                    <dimension name="Model" value="@((string)context.Variables["agentId"])" />
+                    <dimension name="Surface" value="agent" />
+                    <dimension name="Via" value="direct" />
+                </emit-metric>
+                <emit-metric name="CostMicroUSD" value="@((double)(int)context.Variables["agentFeeMicroUsd"])" namespace="ai-gateway-tokenomics">
+                    <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
+                    <dimension name="Tier" value="@(context.Product?.Id ?? "none")" />
+                    <dimension name="Model" value="@((string)context.Variables["agentId"])" />
+                    <dimension name="Surface" value="agent" />
+                    <dimension name="Via" value="direct" />
+                </emit-metric>
+                <set-header name="x-gw-agent-fee-usd" exists-action="override">
+                    <value>@(((int)context.Variables["agentFeeMicroUsd"] / 1000000.0).ToString("0.000000"))</value>
+                </set-header>
+                <set-header name="x-gw-downstream-cost-usd" exists-action="override">
+                    <value>@(((int)context.Variables["downstreamMicroUsd"] / 1000000.0).ToString("0.000000"))</value>
+                </set-header>
+                <set-header name="x-gw-cost-usd" exists-action="override">
+                    <value>@(((int)context.Variables["costMicroUsd"] / 1000000.0).ToString("0.000000"))</value>
+                </set-header>
+            </when>
+        </choose>
+        <set-header name="x-gw-agent" exists-action="override">
+            <value>@(context.Subscription?.Id ?? "anonymous")</value>
+        </set-header>
+        <set-header name="x-gw-tier" exists-action="override">
+            <value>@(context.Product?.Id ?? "none")</value>
+        </set-header>
+        <set-header name="x-gw-billed-to" exists-action="override">
+            <value>@(context.Subscription?.Id ?? "anonymous")</value>
+        </set-header>
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

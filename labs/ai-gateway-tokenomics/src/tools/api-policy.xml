@@ -1,0 +1,66 @@
+<!--
+    Commerce Tools API - mock backend implemented in the gateway (no extra infrastructure needed).
+    Every operation is exposed as an MCP tool by the commerce-mcp server; tool pricing and tier
+    entitlements are enforced on the MCP server and in the tier (product) policies, not here.
+-->
+<policies>
+    <inbound>
+        <base />
+        <return-response>
+            <set-status code="200" />
+            <set-header name="Content-Type" exists-action="override">
+                <value>application/json</value>
+            </set-header>
+            <set-body>@{
+                var op = context.Operation?.Id ?? "";
+                var path = context.Request.Url.Path ?? "";
+                var sku = context.Request.Url.Query.GetValueOrDefault("sku", "SKU-1001");
+                int seed = 0;
+                foreach (var ch in sku) { seed = (seed * 31 + ch) % 100000; }
+                var random = new Random(seed);
+                if (op == "check-inventory" || path.EndsWith("/inventory")) {
+                    var warehouses = new JArray();
+                    foreach (var site in new [] { "Seattle", "Dallas", "Amsterdam" }) {
+                        warehouses.Add(new JObject(new JProperty("warehouse", site), new JProperty("onHand", random.Next(0, 120))));
+                    }
+                    return new JObject(new JProperty("sku", sku), new JProperty("warehouses", warehouses)).ToString();
+                }
+                if (op == "get-supplier-quote" || path.EndsWith("/supplier-quote")) {
+                    int quantity = 1;
+                    int.TryParse(context.Request.Url.Query.GetValueOrDefault("quantity", "1"), out quantity);
+                    var quotes = new JArray();
+                    foreach (var supplier in new [] { "Contoso Supply", "Fabrikam Wholesale", "Northwind Traders" }) {
+                        var unit = Math.Round(40 + random.NextDouble() * 25, 2);
+                        quotes.Add(new JObject(
+                            new JProperty("supplier", supplier),
+                            new JProperty("unitPriceUsd", unit),
+                            new JProperty("totalUsd", Math.Round(unit * quantity, 2)),
+                            new JProperty("leadTimeDays", random.Next(2, 15))));
+                    }
+                    return new JObject(new JProperty("sku", sku), new JProperty("quantity", quantity), new JProperty("quotes", quotes)).ToString();
+                }
+                var category = context.Request.Url.Query.GetValueOrDefault("category", "electronics").ToLower();
+                var names = category == "appliances" ? new [] { "Refrigerator", "Microwave", "Dishwasher" }
+                    : category == "clothing" ? new [] { "Rain Jacket", "Jeans", "Sneakers" }
+                    : new [] { "Laptop", "Tablet", "Smartwatch" };
+                var products = new JArray();
+                for (int i = 0; i < names.Length; i++) {
+                    products.Add(new JObject(
+                        new JProperty("sku", "SKU-" + (1001 + i)),
+                        new JProperty("name", names[i]),
+                        new JProperty("listPriceUsd", Math.Round(80 + random.NextDouble() * 900, 2))));
+                }
+                return new JObject(new JProperty("category", category), new JProperty("products", products)).ToString();
+            }</set-body>
+        </return-response>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
