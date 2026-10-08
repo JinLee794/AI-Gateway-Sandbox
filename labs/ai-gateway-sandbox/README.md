@@ -193,6 +193,8 @@ Every gateway response returns `x-gw-request-id`, so any call in the UI can be l
 - see what the gateway did for every call, including the agent's downstream steps and who paid for each
 - send calls with or without an **Entra ID token**, and with **policy tracing** on
 - open the **Policies & evidence** tab: the request pipeline, the backend pool, the deployed policy XML read back from Azure, a policy-by-policy trace of any traced call, its rows in the Log Analytics tables, and aggregate evidence queries with links to the portal
+- watch **How a call flows through the gateway**: an animated diagram of the client, the product (plan) and API policy scopes, the backend pool, managed identity, Foundry regions, the MCP server, the A2A agent, and the Log Analytics and Application Insights sinks. Opening the **evidence** of any call replays that call from its `x-gw-*` response headers: a 401, 403 or 429 stops at the policy that rejected it, a downgrade swaps the model, a retry jumps to the next region, and the response leaves log and metric drops in Azure Monitor. If the call was traced, the APIM trace is summarised next to it. With no call selected, play the canned examples (happy path, downgrade, 429, 403 budget, regional failover, MCP tool call, A2A task, 401). The animation honours *reduce motion*
+- click **See the pattern** on a pipeline stage, or any component in the diagram, to open the matching AI Gateway lab animation from [images](../../images) (identity, token limits, FinOps, load balancing, circuit breaking, token metrics and logging)
 - open the **Chargeback** tab: act as a demo user in a session (or start a new one), see a live session ledger from the response headers, and the Azure Monitor chargeback by team, user and session with a drill-down into every call of a session
 - compare plans in the **Plans & pricing** tab
 - track each consumer's $ budget and its split by surface
@@ -209,7 +211,7 @@ Then open http://localhost:8080. The UI gets the Entra ID tokens it sends, the A
 
 ### Guided scenarios
 
-Click a scenario in the UI, or **Run the full demo** to play them all in order (about 85 calls, under $0.10 at the demo prices, about 9 minutes):
+Click a scenario in the UI, or **Run the full demo** to play them all in order (about 85 calls, under $0.10 at the demo prices, about 9 minutes). Each scenario card draws its path (consumer → gateway → model, tool or agent) as it starts:
 
 | # | Scenario | What the customer sees | Calls |
 |---|----------|------------------------|-------|
@@ -236,7 +238,7 @@ Click a scenario in the UI, or **Run the full demo** to play them all in order (
 4. **A2A agents**: select Gold, read the agent card, then send a sourcing task. Walk through the steps table: every model and tool call the agent made is billed to Gold, with the agent fee on top. Switch to Bronze: 403 `agent-denied`.
 5. Select **Research Agent** (Silver) and send one Sourcing Agent task, then a model call: the shared $0.01 budget is exhausted and the gateway returns 403 on every surface.
 6. Open **Plans & pricing** to show that each plan is one APIM product, then the **Azure Monitor** tab or the **Workbook** to show the chargeback by consumer, plan and surface.
-7. **Policies & evidence**: untick **Send Entra ID token** and send one call to show the 401, then tick it again. Tick **Trace policies**, send a Silver `gpt-4.1` call and click its **Evidence** link to show the trace and, a few minutes later, its Log Analytics rows. Click **Open in Log Analytics** to show the same rows in the Azure portal.
+7. **Policies & evidence**: untick **Send Entra ID token** and send one call to show the 401, then tick it again. Tick **Trace policies**, send a Silver `gpt-4.1` call and click its **Evidence** link to replay it in the flow diagram and show the trace and, a few minutes later, its Log Analytics rows. Click **Open in Log Analytics** to show the same rows in the Azure portal.
 8. **Chargeback**: pick **Alice Chen**, send a couple of calls in her session, click **New session** and send another. The session ledger splits her spend by session at once; a few minutes later the Azure Monitor table rolls it up by team and cost center. Run **Runaway session** to show the per-session $ cap.
 
 ### Prerequisites

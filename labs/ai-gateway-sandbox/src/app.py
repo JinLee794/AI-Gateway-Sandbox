@@ -15,6 +15,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(HERE, "static")
+IMAGES = os.path.normpath(os.path.join(HERE, "..", "..", "..", "images"))
 CONFIG = {}
 _token_cache, _token_lock = {}, threading.Lock()
 # Demo safety net: cap the gateway calls the UI can send, independent of the gateway's own tier limits
@@ -498,6 +499,20 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/api/config":
             return self.send_json(200, public_config())
+        match = re.fullmatch(r"/images/([a-z0-9-]+\.gif)", self.path)
+        if match:  # the repo's lab diagrams (used by the "See the pattern" lightbox), served from <repo>/images
+            path = os.path.join(IMAGES, match.group(1))
+            if not os.path.isfile(path):
+                return self.send_json(404, {"error": "not found"})
+            with open(path, "rb") as f:
+                body = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", "image/gif")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "max-age=86400")
+            self.end_headers()
+            self.wfile.write(body)
+            return None
         return super().do_GET()
 
     def do_POST(self):

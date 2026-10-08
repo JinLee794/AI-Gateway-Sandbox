@@ -171,6 +171,12 @@
   .dmx th { position:static; background:transparent; }
   .dchips { display:flex; flex-wrap:wrap; gap:4px; align-items:center; font-size:10.5px; }
   .dchips span { background:#fff; border:1px solid #c7e0f4; border-radius:10px; padding:1px 8px; color:#005a9e; } .dchips i { color:var(--muted); font-style:normal; }
+  /* Scenario mini-flow: the scenario's path, revealed hop by hop when it starts */
+  #scFlow:empty { display:none; }
+  #scFlow .dgm { max-width:760px; }
+  #scFlow .dr > * { opacity:0; animation:scHop .35s ease-out forwards; animation-delay:calc(var(--i, 0) * 140ms); }
+  @keyframes scHop { from { opacity:0; transform:translateX(-6px); } to { opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce) { #scFlow .dr > * { animation:none; opacity:1; } }
   /* Launch panel: choose ONE way to drive the gateway (guided scenario OR your own request); it collapses to a sticky bar while results are in focus */
   .card h2.lh, .lbody h2 { font-size:15px; margin:0 0 10px; font-weight:600; display:flex; align-items:center; gap:8px; }
   .lbody h2 .step { width:22px; height:22px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; display:inline-grid; place-items:center; }
@@ -329,6 +335,7 @@
     <div class="card hidden" id="scenario">
       <h2 id="scTitle"></h2>
       <div id="scStory" class="muted" style="font-size:13px"></div>
+      <div id="scFlow" aria-label="Scenario path"></div>
       <ol id="scSteps"></ol>
       <div id="scTakeaway"></div>
     </div>
@@ -349,6 +356,539 @@
     </div>
 
     <div id="tab-policies" class="hidden">
+      <!-- ================= Gateway flow animation + "See the pattern" lightbox (self-contained: style, markup, script) =================
+           window.gwFlow.fromCall(r, i)        replays one recorded call from its x-gw-* response headers (called by showEvidence)
+           window.gwFlow.trace(traceId, rows)   adds the APIM request trace summary for that call (called by loadTrace)
+           window.gwFlow.pattern(key, start)    opens the GIF lightbox; any element with data-pat="key[:index]" opens it too -->
+      <div id="gwFlowSection">
+      <style>
+        #gwFlow { margin-top:0; scroll-margin-top:84px; }
+        .gwf-bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:8px 0 10px; }
+        .gwf-bar .sp { flex:1; }
+        .gwf-bar button { height:28px; padding:0 12px; font-size:12px; }
+        .gwf-chips { display:flex; flex-wrap:wrap; gap:6px; }
+        .gwf-chips button { background:#fff; color:var(--text); border:1px solid var(--border); border-radius:14px; font-weight:400; }
+        .gwf-chips button:hover:not(:disabled) { background:var(--accent-light); color:var(--text); border-color:var(--accent); }
+        .gwf-chips button.on, .gwf-chips button.on:hover:not(:disabled) { background:var(--accent-light); border-color:var(--accent); color:#005a9e; font-weight:600; }
+        .gwf-chips button .c { display:inline-block; font-size:10px; font-weight:600; padding:0 5px; border-radius:8px; margin-left:4px; }
+        .gwf-src { font-size:12px; color:var(--muted); font-weight:400; }
+        .gwf-src b { color:var(--text); }
+        #gwfSvg { width:100%; height:auto; display:block; background:var(--panel2); border:1px solid var(--divider); border-radius:6px; }
+        #gwfSvg text { font-family:"Segoe UI","Segoe UI Web (West European)",-apple-system,BlinkMacSystemFont,Roboto,sans-serif; }
+        #gwfSvg .apim { fill:#fff; stroke:#c7e0f4; stroke-width:1.5; }
+        #gwfSvg .scope { fill:none; stroke:#9fc5ea; stroke-dasharray:5 4; }
+        #gwfSvg .lbl { font-size:10px; font-weight:600; fill:#605e5c; letter-spacing:.6px; }
+        #gwfSvg .lbl.apiml { fill:#005a9e; font-size:11px; }
+        #gwfSvg .edge { stroke:#c8c6c4; stroke-width:1.5; fill:none; transition:stroke .25s, stroke-width .25s; }
+        #gwfSvg .edge.on { stroke:#0078d4; stroke-width:2.5; } #gwfSvg .edge.ok { stroke:#107c10; stroke-width:2.5; } #gwfSvg .edge.bad { stroke:#d13438; stroke-width:2.5; }
+        #gwfSvg .fn { cursor:pointer; outline:none; }
+        #gwfSvg .fn rect { fill:#fff; stroke:#c8c6c4; stroke-width:1.2; transition:fill .25s, stroke .25s, stroke-width .25s; }
+        #gwfSvg .fn .t { font-size:12px; font-weight:600; fill:#323130; } #gwfSvg .fn .s { font-size:10.5px; fill:#605e5c; }
+        #gwfSvg .fn.gw rect { fill:#f3f9fd; stroke:#9fc5ea; } #gwfSvg .fn.gw .t { fill:#005a9e; }
+        #gwfSvg .fn.model rect { fill:#eff6fc; stroke:#9fc5ea; } #gwfSvg .fn.model .t { fill:#005a9e; }
+        #gwfSvg .fn.tool rect { fill:#e8f5f6; stroke:#7fc8cd; } #gwfSvg .fn.tool .t { fill:#00666d; }
+        #gwfSvg .fn.agent rect { fill:#f4effa; stroke:#b9a4d8; } #gwfSvg .fn.agent .t { fill:#5c2e91; }
+        #gwfSvg .fn.sink rect { fill:#fff; stroke:#c3b3e0; } #gwfSvg .fn.sink .t { fill:#5c2e91; }
+        #gwfSvg .fn:hover rect, #gwfSvg .fn:focus-visible rect { stroke:#0078d4; stroke-dasharray:4 2; }
+        #gwfSvg .fn.on rect { stroke:#0078d4; stroke-width:2.5; stroke-dasharray:none; filter:drop-shadow(0 0 5px rgba(0,120,212,.45)); }
+        #gwfSvg .fn.ok rect { stroke:#107c10; stroke-width:2.2; stroke-dasharray:none; }
+        #gwfSvg .fn.warn rect { stroke:#ca5010; stroke-width:2.5; fill:#fff4ce; stroke-dasharray:none; }
+        #gwfSvg .fn.bad rect { stroke:#d13438; stroke-width:2.5; fill:#fde7e9; stroke-dasharray:none; filter:drop-shadow(0 0 5px rgba(209,52,56,.45)); }
+        #gwfSvg .fn.dim rect { fill:#faf9f8; stroke:#e1dfdd; stroke-dasharray:3 3; } #gwfSvg .fn.dim text { opacity:.45; }
+        #gwfSvg .tok text, #gwfSvg .call text { font-size:11px; font-weight:600; text-anchor:middle; paint-order:stroke; stroke:#fff; stroke-width:3px; stroke-linejoin:round; }
+        #gwfSvg .tok circle, #gwfSvg .drop { stroke:#fff; stroke-width:2; }
+        #gwfSvg .call rect { stroke-width:1; } #gwfSvg .call text { stroke:none; font-size:10.5px; }
+        .gwf-now { min-height:22px; font-size:13px; margin-top:10px; }
+        .gwf-grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:16px; margin-top:4px; }
+        .gwf-steps { font-size:12.5px; line-height:1.55; margin:0; padding-left:20px; max-height:210px; overflow:auto; }
+        .gwf-steps li.ok::marker { color:var(--ok); } .gwf-steps li.bad { color:var(--bad); } .gwf-steps li.warn { color:var(--warn); }
+        .gwf-steps code, .gwf-now code { font-size:11px; }
+        .gwf-hdrs { display:flex; flex-wrap:wrap; gap:4px; align-content:flex-start; }
+        .gwf-hdrs > span { font:11px Consolas,monospace; background:#fff; border:1px solid var(--divider); border-left:3px solid var(--accent); border-radius:3px; padding:1px 6px; animation:gwfIn .3s both; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .gwf-hdrs > span.bad { border-left-color:#d13438; } .gwf-hdrs > span.warn { border-left-color:#ca5010; }
+        .gwf-hdrs h3, .gwf-trace h3 { font-size:12px; margin:0 0 4px; width:100%; color:var(--muted); font-weight:600; }
+        .gwf-trace { margin-top:10px; font-size:12px; }
+        .gwf-trace .cat { display:inline-flex; gap:4px; align-items:center; margin:0 10px 4px 0; }
+        .gwf-trace .cat b { font-weight:600; }
+        @keyframes gwfIn { from { opacity:0; transform:translateY(4px); } }
+        .pipe .stage .pat { margin-top:6px; }
+        a.pat, .pipe .stage .pat a { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; cursor:pointer; }
+        a.pat::before, .pipe .stage .pat a::before { content:""; width:0; height:0; border:4px solid transparent; border-left:6px solid currentColor; border-right:0; }
+        .gwlb { position:fixed; inset:0; z-index:100; background:rgba(0,0,0,.45); display:grid; place-items:center; padding:24px; }
+        .gwlb[hidden] { display:none; }
+        .gwlb-box { background:#fff; border-radius:8px; box-shadow:0 25.6px 57.6px rgba(0,0,0,.22),0 4.8px 14.4px rgba(0,0,0,.18); width:min(980px, 100%); max-height:100%; display:flex; flex-direction:column; overflow:hidden; }
+        .gwlb-head { display:flex; align-items:center; gap:8px; padding:12px 16px; border-bottom:1px solid var(--divider); }
+        .gwlb-head b { font-size:15px; } .gwlb-head .sp { flex:1; }
+        .gwlb-head button { height:28px; min-width:28px; padding:0 8px; }
+        .gwlb-img { background:#fff; display:grid; place-items:center; padding:12px; min-height:200px; overflow:auto; }
+        .gwlb-img img { max-width:100%; max-height:calc(100vh - 230px); display:block; }
+        .gwlb-cap { padding:10px 16px 14px; font-size:13px; border-top:1px solid var(--divider); display:flex; gap:12px; align-items:baseline; }
+        .gwlb-cap span { flex:1; }
+        .gwlb-tabs { display:flex; gap:6px; flex-wrap:wrap; padding:8px 16px 0; }
+        .gwlb-tabs button { height:24px; padding:0 10px; font-size:12px; background:#fff; color:var(--text); border:1px solid var(--border); border-radius:12px; font-weight:400; }
+        .gwlb-tabs button.on { border-color:var(--accent); background:var(--accent-light); color:#005a9e; font-weight:600; }
+        @media (max-width:1100px) { .gwf-grid { grid-template-columns:1fr; } }
+        @media (prefers-reduced-motion: reduce) { #gwfSvg *, .gwf-hdrs > span { transition:none !important; animation:none !important; } }
+      </style>
+      <div class="card" id="gwFlow">
+        <h2>How a call flows through the gateway <span class="gwf-src" id="gwfSrc"></span></h2>
+        <div class="muted" style="font-size:13px">Follow one request through API Management: the components it touches, the policy that stops it, the region that serves it, and the evidence it leaves behind.
+          Open the <b>evidence</b> of any call (request log or Run history) to replay that exact call from its <code>x-gw-*</code> response headers and APIM trace, or play an example below. Click a component to see its AI Gateway lab pattern.</div>
+        <div class="gwf-bar">
+          <div class="gwf-chips" id="gwfDemos" role="group" aria-label="Example flows"></div>
+          <span class="sp"></span>
+          <button class="secondary" id="gwfPlayAll" title="Cycle through every example">▶ Play all</button>
+          <button class="secondary" id="gwfReplay" title="Play the current flow again">↻ Replay</button>
+          <button class="secondary" id="gwfStop" disabled>■ Stop</button>
+        </div>
+        <svg id="gwfSvg" viewBox="0 0 1100 384" role="img" aria-label="Request flow through Azure API Management"></svg>
+        <div class="gwf-now" id="gwfNow" aria-live="polite"></div>
+        <div class="gwf-grid">
+          <ol class="gwf-steps" id="gwfSteps"></ol>
+          <div><div class="gwf-hdrs" id="gwfHdrs"></div><div class="gwf-trace" id="gwfTrace"></div></div>
+        </div>
+      </div>
+      <div class="gwlb" id="gwLb" hidden role="dialog" aria-modal="true" aria-labelledby="gwLbTitle">
+        <div class="gwlb-box">
+          <div class="gwlb-head"><b id="gwLbTitle"></b><span class="muted" id="gwLbPos"></span><span class="sp"></span>
+            <button class="secondary" id="gwLbPrev" aria-label="Previous pattern">‹</button><button class="secondary" id="gwLbNext" aria-label="Next pattern">›</button>
+            <button class="secondary" id="gwLbClose" aria-label="Close">✕</button></div>
+          <div class="gwlb-tabs" id="gwLbTabs"></div>
+          <div class="gwlb-img"><img id="gwLbImg" alt="" /></div>
+          <div class="gwlb-cap"><span id="gwLbCap"></span><a id="gwLbLab" target="_blank" rel="noopener">Open the lab ↗</a></div>
+        </div>
+      </div>
+      <script>
+      window.gwFlow = (() => {
+        const el = (id) => document.getElementById(id), NS = "http://www.w3.org/2000/svg";
+        const RM = window.matchMedia("(prefers-reduced-motion: reduce)");
+        const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+        const C = () => (typeof cfg !== "undefined" && cfg) || {};
+        const REPO = "https://github.com/Azure-Samples/AI-Gateway/tree/main";
+
+        // ---- AI Gateway lab patterns (GIFs from the repo images/ folder, served by app.py at /images/<name>.gif)
+        const PATTERNS = {
+          overview: { title: "Surfaces", items: [
+            ["ai-gateway", "The AI Gateway pattern", "API Management in front of AI models, tools and agents: one place for identity, plans, routing, metering and logs.", REPO],
+            ["model-context-protocol", "MCP servers through API Management", "MCP tool servers exposed and governed by the gateway, so tool calls get the same keys, limits and logs as model calls.", REPO + "/labs/model-context-protocol"],
+            ["a2a-agent-2-agent", "A2A agents through API Management", "Agent-to-agent calls go through the gateway, so every hop is authenticated, metered and billed.", REPO + "/labs/mcp-a2a-agents"]] },
+          identity: { title: "Identity", items: [
+            ["access-controlling", "Access control with Microsoft Entra ID", "validate-azure-ad-token checks the caller's token (tenant, audience, client app); the gateway then calls Foundry with its own managed identity, so no keys leave the gateway.", REPO + "/labs/access-controlling"],
+            ["mcp-client-authorization", "MCP client authorization", "OAuth for MCP clients, enforced by the gateway before any tool runs.", REPO + "/labs/mcp-client-authorization"]] },
+          plan: { title: "Plan enforcement", items: [
+            ["token-rate-limiting", "Token rate limiting", "llm-token-limit caps tokens per minute (and a token quota) per subscription, answering 429 before the model is called.", REPO + "/labs/token-rate-limiting"],
+            ["finops-framework", "FinOps: plans, quotas and budgets", "Products (plans) with token quotas and $ budgets per subscription, backed by cost data in Azure Monitor.", REPO + "/labs/finops-framework"],
+            ["model-routing", "Model routing", "Policy decides which model deployment serves a request: here, the plan downgrades a model it does not include.", REPO + "/labs/model-routing"]] },
+          routing: { title: "Routing & resilience", items: [
+            ["backend-pool-load-balancing", "Backend pool load balancing", "set-backend-service targets a pool of Foundry regions; the gateway spreads and fails over calls.", REPO + "/labs/backend-pool-load-balancing"],
+            ["advanced-load-balancing", "Priority-based load balancing", "The priority-1 region serves first; lower priorities take over when it is throttled or failing.", REPO + "/labs/backend-pool-load-balancing"],
+            ["backend-circuit-breaking", "Backend circuit breaker", "A region that keeps returning 429 / 5xx is taken out of the pool for the trip duration (honouring Retry-After).", REPO + "/labs/backend-pool-load-balancing"]] },
+          metering: { title: "Metering & logging", items: [
+            ["token-metrics-emitting", "Token metrics", "llm-emit-token-metric and emit-metric send tokens and cost per agent, plan and model to Application Insights.", REPO + "/labs/token-metrics-emitting"],
+            ["built-in-logging", "Built-in logging", "The APIM logger and diagnostic settings send gateway, LLM and MCP logs to Log Analytics.", REPO + "/labs/built-in-logging"]] },
+        };
+        const PAT_KEYS = Object.keys(PATTERNS);
+        let lb = { key: "overview", i: 0, opener: null };
+        function lbShow() {
+          const p = PATTERNS[lb.key], [name, title, cap, lab] = p.items[lb.i], img = el("gwLbImg");
+          el("gwLbTitle").textContent = title; el("gwLbPos").textContent = `· ${p.title} ${lb.i + 1}/${p.items.length}`;
+          el("gwLbCap").textContent = cap; el("gwLbLab").href = lab;
+          el("gwLbTabs").innerHTML = PAT_KEYS.map(k => `<button data-k="${k}" class="${k === lb.key ? "on" : ""}">${PATTERNS[k].title}</button>`).join("");
+          img.alt = title + " (animated diagram)"; img.src = `/images/${name}.gif`;
+        }
+        function pattern(key, start = 0) {
+          if (!PATTERNS[key]) key = "overview";
+          lb = { key, i: Math.max(0, Math.min(PATTERNS[key].items.length - 1, Number(start) || 0)), opener: document.activeElement };
+          el("gwLb").hidden = false; lbShow(); el("gwLbClose").focus();
+        }
+        function lbStep(d) {
+          const n = PATTERNS[lb.key].items.length;
+          if (lb.i + d >= 0 && lb.i + d < n) lb.i += d;
+          else { const k = (PAT_KEYS.indexOf(lb.key) + d + PAT_KEYS.length) % PAT_KEYS.length; lb.key = PAT_KEYS[k]; lb.i = d > 0 ? 0 : PATTERNS[lb.key].items.length - 1; }
+          lbShow();
+        }
+        function lbClose() { el("gwLb").hidden = true; el("gwLbImg").removeAttribute("src"); lb.opener?.focus?.(); }
+        el("gwLbClose").onclick = lbClose; el("gwLbPrev").onclick = () => lbStep(-1); el("gwLbNext").onclick = () => lbStep(1);
+        el("gwLb").addEventListener("click", (e) => { if (e.target.id === "gwLb") lbClose(); const k = e.target.closest?.("[data-k]")?.dataset.k; if (k) { lb.key = k; lb.i = 0; lbShow(); } });
+        document.addEventListener("keydown", (e) => {
+          if (el("gwLb").hidden) return;
+          if (e.key === "Escape") lbClose(); else if (e.key === "ArrowRight") lbStep(1); else if (e.key === "ArrowLeft") lbStep(-1);
+        });
+        document.addEventListener("click", (e) => {
+          const a = e.target.closest?.("[data-pat]");
+          if (!a || a.closest("#gwLb")) return;
+          e.preventDefault(); const [k, i] = a.dataset.pat.split(":"); pattern(k, i);
+        });
+
+        // ---- the diagram
+        const svg = el("gwfSvg");
+        const NODES = {
+          client: { x: 16, y: 120, w: 128, h: 64, t: "Client", s: "agent / app", pat: "overview" },
+          entra: { x: 194, y: 120, w: 126, h: 64, t: "entra-identity", s: "fragment · Entra ID", cls: "gw", pat: "identity" },
+          plan: { x: 336, y: 120, w: 128, h: 64, t: "Product policy", s: "entitlement · limits · $", cls: "gw", pat: "plan" },
+          api: { x: 496, y: 120, w: 110, h: 64, t: "API policy", s: "route · meter", cls: "gw", pat: "routing" },
+          pool: { x: 622, y: 120, w: 116, h: 64, t: "Backend pool", s: "circuit breaker", cls: "gw", pat: "routing:2" },
+          mi: { x: 752, y: 30, w: 112, h: 52, t: "Managed identity", s: "token for Foundry", cls: "gw", pat: "identity" },
+          log: { x: 496, y: 232, w: 242, h: 52, t: "Logger · diagnostic settings", s: "emit-metric · trace · LLM / MCP logs", cls: "gw", pat: "metering:1" },
+          r0: { x: 890, y: 16, w: 194, h: 52, t: "Foundry · region 1", s: "priority 1", cls: "model", pat: "routing:1" },
+          r1: { x: 890, y: 78, w: 194, h: 52, t: "Foundry · region 2", s: "priority 2", cls: "model", pat: "routing:1" },
+          mcp: { x: 890, y: 150, w: 194, h: 52, t: "MCP server", s: "product tools", cls: "tool", pat: "overview:1" },
+          a2a: { x: 890, y: 214, w: 194, h: 52, t: "A2A agent", s: "sourcing-agent", cls: "agent", pat: "overview:2" },
+          la: { x: 418, y: 322, w: 184, h: 50, t: "Log Analytics", s: "gateway · LLM · MCP logs", cls: "sink", pat: "metering:1" },
+          ai: { x: 632, y: 322, w: 184, h: 50, t: "Application Insights", s: "metrics · chargeback traces", cls: "sink", pat: "metering" },
+        };
+        const P = (k) => ({ x: NODES[k].x + NODES[k].w / 2, y: NODES[k].y + NODES[k].h / 2 });
+        const EDGES = [["client", "entra"], ["entra", "plan"], ["plan", "api"], ["api", "pool"], ["pool", "mi"], ["mi", "r0"], ["mi", "r1"], ["pool", "mcp"], ["pool", "a2a"], ["api", "log"], ["log", "la"], ["log", "ai"]];
+        const mk = (tag, attrs = {}, parent = svg) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); parent.appendChild(n); return n; };
+        const nodeEl = {}, edgeEl = {}, layer = {};
+        function draw() {
+          svg.innerHTML = "";
+          mk("rect", { x: 172, y: 6, width: 702, height: 300, rx: 10, class: "apim" });
+          mk("text", { x: 186, y: 26, class: "lbl apiml" }).textContent = "AZURE API MANAGEMENT · AI GATEWAY";
+          mk("rect", { x: 184, y: 92, width: 290, height: 114, rx: 8, class: "scope" });
+          layer.scope = mk("text", { x: 194, y: 108, class: "lbl" }); layer.scope.textContent = "PRODUCT (PLAN) SCOPE";
+          mk("rect", { x: 488, y: 92, width: 260, height: 114, rx: 8, class: "scope" });
+          mk("text", { x: 498, y: 108, class: "lbl" }).textContent = "API SCOPE";
+          mk("text", { x: 892, y: 300, class: "lbl" }).textContent = "BACKENDS";
+          mk("text", { x: 420, y: 316, class: "lbl" }).textContent = "AZURE MONITOR";
+          for (const [a, b] of EDGES) { const p = P(a), q = P(b); edgeEl[a + "-" + b] = mk("line", { x1: p.x, y1: p.y, x2: q.x, y2: q.y, class: "edge" }); }
+          for (const [k, n] of Object.entries(NODES)) {
+            const g = mk("g", { class: `fn ${n.cls || ""}`, tabindex: 0, role: "button", "data-node": k, "aria-label": `${n.t}: see the pattern` });
+            mk("rect", { x: n.x, y: n.y, width: n.w, height: n.h, rx: 6 }, g);
+            const t = mk("text", { x: n.x + n.w / 2, y: n.y + n.h / 2 - 3, "text-anchor": "middle", class: "t" }, g); t.textContent = n.t;
+            const s = mk("text", { x: n.x + n.w / 2, y: n.y + n.h / 2 + 13, "text-anchor": "middle", class: "s" }, g); s.textContent = n.s;
+            g.addEventListener("click", () => { const [pk, pi] = n.pat.split(":"); pattern(pk, pi); });
+            g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); g.dispatchEvent(new Event("click")); } });
+            nodeEl[k] = { g, t, s };
+          }
+          layer.badges = mk("g", {}); layer.fx = mk("g", {});
+        }
+        function setText(k, t, s) { if (t != null) nodeEl[k].t.textContent = t; if (s != null) nodeEl[k].s.textContent = s; }
+        function mark(k, state) { const g = nodeEl[k]?.g; if (!g) return; g.classList.remove("on", "ok", "warn", "bad", "dim"); if (state) g.classList.add(state); }
+        function edge(a, b, state) { const e = edgeEl[a + "-" + b] || edgeEl[b + "-" + a]; if (!e) return; e.classList.remove("on", "ok", "bad"); if (state) e.classList.add(state); }
+        // a pill straddling the node's top border (default) or just below the node
+        function badge(k, text, color, below = false) {
+          const n = NODES[k], w = Math.min(260, 12 + text.length * 6.3), x = Math.min(1094 - w, Math.max(6, n.x + n.w / 2 - w / 2)), y = below ? n.y + n.h + 4 : n.y - 10;
+          const g = mk("g", { class: "call" }, layer.badges);
+          mk("rect", { x, y, width: w, height: 18, rx: 9, fill: color, stroke: "#fff" }, g);
+          const t = mk("text", { x: x + w / 2, y: y + 13, fill: "#fff" }, g); t.textContent = text;
+          return g;
+        }
+        function resetDiagram() {
+          gen++; layer.badges.innerHTML = ""; layer.fx.innerHTML = "";
+          for (const k of Object.keys(NODES)) mark(k, null);
+          for (const k of Object.keys(edgeEl)) edgeEl[k].classList.remove("on", "ok", "bad");
+          const b = backends();
+          setText("r0", `Foundry · ${b[0]?.location || "region 1"}`, `${b[0]?.name || "foundry1"} · priority ${b[0]?.priority ?? 1}`);
+          setText("r1", `Foundry · ${b[1]?.location || "region 2"}`, `${b[1]?.name || "foundry2"} · priority ${b[1]?.priority ?? 2}`);
+          setText("client", "Client", "agent / app"); setText("plan", null, "entitlement · limits · $"); setText("pool", null, "circuit breaker");
+          layer.scope.textContent = "PRODUCT (PLAN) SCOPE";
+          el("gwfSteps").innerHTML = ""; el("gwfHdrs").innerHTML = ""; el("gwfTrace").innerHTML = ""; el("gwfNow").innerHTML = "";
+        }
+        const backends = () => (C().foundryBackends || []).slice().sort((a, b) => (a.priority ?? 1) - (b.priority ?? 1));
+
+        // ---- motion: every await checks the generation so Stop / a new replay cancels the running one
+        let gen = 0;
+        const CANCEL = { cancelled: true };
+        const instant = () => RM.matches;
+        function wait(ms, g, always = false) {
+          return new Promise((res, rej) => { if (g !== gen) return rej(CANCEL); if (instant() && !always) return res(); setTimeout(() => g === gen ? res() : rej(CANCEL), ms); });
+        }
+        function place(node, p) { node.setAttribute("transform", `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`); node._p = p; }
+        function tween(node, to, g, speed = 1) {
+          const from = node._p;
+          return new Promise((res, rej) => {
+            if (g !== gen) return rej(CANCEL);
+            const ms = Math.max(160, Math.min(700, Math.hypot(to.x - from.x, to.y - from.y) * 2.4)) / speed;
+            if (instant()) { place(node, to); return res(); }
+            const t0 = performance.now();
+            const f = (now) => {
+              if (g !== gen) return rej(CANCEL);
+              const k = Math.min(1, (now - t0) / ms), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+              place(node, { x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e });
+              k < 1 ? requestAnimationFrame(f) : res();
+            };
+            requestAnimationFrame(f);
+          });
+        }
+        function token(color, label, at, r = 9) {
+          const g = mk("g", { class: "tok" }, layer.fx);
+          g._c = mk("circle", { r, fill: color }, g);
+          g._t = mk("text", { y: -r - 6, fill: color }, g); g._t.textContent = label;
+          place(g, at); return g;
+        }
+        function recolor(tok, color, label) { tok._c.setAttribute("fill", color); tok._t.setAttribute("fill", color); if (label != null) tok._t.textContent = label; }
+        // moves the token through a list of nodes (or {x,y} points), lighting nodes and edges as it goes
+        async function go(tok, keys, g, opt = {}) {
+          for (let i = 1; i < keys.length; i++) {
+            const a = keys[i - 1], b = keys[i];
+            if (typeof a === "string" && typeof b === "string") edge(a, b, opt.edge || "on");
+            await tween(tok, typeof b === "string" ? P(b) : b, g, opt.speed);
+            if (typeof b === "string" && !opt.quiet) mark(b, opt.mark || "on");
+          }
+        }
+        async function drops(from, g, color = "#8764b8") {
+          const run = async (to) => {
+            const d = mk("circle", { r: 5, fill: color, class: "drop" }, layer.fx); place(d, P(from));
+            edge(from, to, "on"); await tween(d, P(to), g, 1.4); mark(to, "ok"); d.remove();
+          };
+          await Promise.all([run("la"), run("ai")]);
+        }
+        const SURF = { model: "#0078d4", tool: "#00b7c3", agent: "#8764b8" };
+        function say(html, cls = "") { el("gwfNow").innerHTML = html; el("gwfSteps").insertAdjacentHTML("beforeend", `<li class="${cls}">${html}</li>`); el("gwfSteps").scrollTop = 1e6; }
+
+        // ---- reading a call: everything below comes from the response (x-gw-* headers, status) or the agent's step list
+        function parseRoute(route) {
+          return String(route || "").split(" > ").map(s => s.trim()).filter(Boolean).map(s => {
+            const m = s.match(/^(\S+)(?:\s+\(([^)]+)\))?\s+(\d{3}|-)?$/) || [];
+            return { name: m[1] || s, region: m[2] || "", code: Number(m[3]) || 0 };
+          });
+        }
+        function regionNode(name) { const i = backends().findIndex(b => b.name === name); return i === 1 ? "r1" : "r0"; }
+        function blockerOf(r) {
+          const h = r.headers || {}, by = String(h["x-gw-blocked-by"] || "").toLowerCase(), st = Number(r.status);
+          if (st === 200 || !st) return null;
+          if (st === 401 || /validate|entra|jwt/.test(by)) return "entra";
+          if (/entitlement|token-limit|rate-limit|quota/.test(by)) return "plan";
+          if (by || parseRoute(h["x-gw-route"]).length) return "target";
+          return [403, 429].includes(st) ? "plan" : "target";
+        }
+        function blockText(r) {
+          const h = r.headers || {}, by = h["x-gw-blocked-by"] || "", tier = h["x-gw-tier"] || r.tier || "this";
+          if (/model-entitlement/.test(by)) return `<b>${esc(r.requestedModel || "this model")}</b> is not in the <b>${esc(tier)}</b> plan`;
+          if (/tool-entitlement/.test(by)) return `tool <b>${esc(r.tool || h["x-gw-tool"] || "")}</b> is not in the <b>${esc(tier)}</b> plan`;
+          if (/agent-entitlement/.test(by)) return `the <b>${esc(tier)}</b> plan does not include A2A agents`;
+          if (/llm-token-limit/.test(by)) return Number(r.status) === 429 ? `<code>llm-token-limit</code>: the plan's tokens per minute are used up${h["retry-after"] ? `, retry after ${esc(h["retry-after"])} s` : ""}` : `<code>llm-token-limit</code>: the plan's token quota is used up`;
+          if (/session-budget/.test(by)) return `<code>quota-by-key</code>: this session's $ budget is spent`;
+          if (/quota-by-key/.test(by)) return `<code>quota-by-key</code>: the subscription's $ budget is spent`;
+          if (/rate-limit/.test(by)) return `<code>rate-limit-by-key</code>: calls per minute for this plan are used up`;
+          if (Number(r.status) === 401) return `<code>validate-azure-ad-token</code>: no valid Microsoft Entra ID token`;
+          return by ? `<code>${esc(by)}</code>` : `HTTP ${esc(r.status)}`;
+        }
+        const label = (r) => r.surface === "tool" ? (r.tool || (r.action === "list" ? "tools/list" : "tool")) : r.surface === "agent" ? (r.action === "card" ? "agent card" : "task") : (r.requestedModel || "model");
+        const HDR_ORDER = ["x-gw-tier", "x-gw-caller", "x-gw-billed-to", "x-gw-session", "x-gw-model-requested", "x-gw-model-served", "x-gw-governance", "x-gw-tool", "x-gw-prompt-tokens", "x-gw-completion-tokens",
+          "x-gw-cost-usd", "x-gw-agent-fee-usd", "x-gw-downstream-cost-usd", "x-gw-remaining-tpm", "x-gw-remaining-quota-tokens", "x-gw-remaining-tool-calls", "x-gw-remaining-agent-calls",
+          "x-gw-route", "x-gw-blocked-by", "x-gw-block-reason", "retry-after", "x-gw-request-id", "apim-trace-id"];
+        async function showHeaders(r, g) {
+          const h = r.headers || {}, keys = HDR_ORDER.filter(k => h[k] !== undefined && h[k] !== "" && h[k] !== null);
+          el("gwfHdrs").innerHTML = `<h3>Response headers the client receives (HTTP ${esc(r.status)})</h3>`;
+          for (const k of keys) {
+            const cls = /blocked|block-reason|retry-after/.test(k) ? "bad" : k === "x-gw-governance" && h[k] !== "none" ? "warn" : "";
+            el("gwfHdrs").insertAdjacentHTML("beforeend", `<span class="${cls}" title="${esc(k)}: ${esc(h[k])}">${esc(k)}: ${esc(String(h[k]).slice(0, 60))}</span>`);
+            await wait(70, g);
+          }
+        }
+
+        async function play(r, g) {
+          const h = r.headers || {}, surf = r.surface || "model", st = Number(r.status) || 0, color = SURF[surf] || SURF.model;
+          const tier = h["x-gw-tier"] || r.tier || "", blocker = blockerOf(r);
+          setText("client", r.agent || "Client", tier ? `plan: ${tier}` : "agent / app");
+          if (tier) { layer.scope.textContent = `PRODUCT (PLAN) SCOPE · ${tier.toUpperCase()}`; setText("plan", `${tier[0].toUpperCase()}${tier.slice(1)} plan policy`); }
+          for (const k of ["mi", "r0", "r1", "mcp", "a2a"]) mark(k, "dim");
+          if (surf === "model") { mark("mi", null); mark("r0", null); mark("r1", null); } else mark(surf === "tool" ? "mcp" : "a2a", null);
+          const tok = token(color, label(r), P("client"));
+          mark("client", "on");
+          const what = surf === "tool" ? `an MCP <code>tools/call</code> for <b>${esc(label(r))}</b>` : surf === "agent" ? `an A2A task to <b>sourcing-agent</b>` : `a chat completion for <b>${esc(label(r))}</b>`;
+          say(`<b>${esc(r.agent || "The client")}</b> sends ${what} with an <code>api-key</code> (which plan pays) and an Entra ID token (who calls).`);
+          await wait(500, g);
+
+          await go(tok, ["client", "entra"], g);
+          if (blocker === "entra") return blocked(r, tok, "entra", g);
+          mark("entra", "ok"); say(`<code>entra-identity</code> fragment: <code>validate-azure-ad-token</code> accepts the token${h["x-gw-caller"] ? ` → caller <b>${esc(h["x-gw-caller"])}</b>` : ""}.`, "ok");
+          await wait(350, g);
+
+          await go(tok, ["entra", "plan"], g);
+          if (blocker === "plan") return blocked(r, tok, "plan", g);
+          const gov = String(h["x-gw-governance"] || ""), served = h["x-gw-model-served"], asked = h["x-gw-model-requested"] || r.requestedModel;
+          if (surf === "model" && served && asked && served !== asked) {
+            mark("plan", "warn"); recolor(tok, "#ca5010", served); badge("plan", `${asked} → ${served}`, "#ca5010");
+            say(`Plan policy: <b>${esc(asked)}</b> is not in the <b>${esc(tier)}</b> plan, so the gateway <b>downgrades</b> it to <b>${esc(served)}</b> (<code>${esc(gov || "model-downgraded")}</code>).`, "warn");
+            await wait(700, g); recolor(tok, color);
+          } else {
+            mark("plan", "ok");
+            const left = h["x-gw-remaining-tpm"] ? ` · ${esc(h["x-gw-remaining-tpm"])} tokens/min left` : h["x-gw-remaining-tool-calls"] ? ` · ${esc(h["x-gw-remaining-tool-calls"])} tool calls/min left` : h["x-gw-remaining-agent-calls"] ? ` · ${esc(h["x-gw-remaining-agent-calls"])} agent calls/min left` : "";
+            say(`Plan policy${tier ? ` (<b>${esc(tier)}</b>)` : ""}: entitlement ✓ · ${surf === "model" ? "<code>llm-token-limit</code>" : "<code>rate-limit-by-key</code>"} ✓ · <code>quota-by-key</code> $ budget ✓${left}.`, "ok");
+          }
+          await wait(300, g);
+
+          await go(tok, ["plan", "api"], g); mark("api", "ok");
+          await go(tok, ["api", "pool"], g);
+          let target, last = "pool";
+          if (surf === "model") {
+            const hops = parseRoute(h["x-gw-route"]);
+            if (!hops.length) hops.push({ name: h["x-gw-backend"] || backends()[0]?.name || "foundry1", code: st });
+            say(`API policy: <code>set-backend-service</code> → priority pool, <code>authentication-managed-identity</code> gets a token for Foundry (the caller's token is never forwarded).`);
+            for (let i = 0; i < hops.length; i++) {
+              const hop = hops[i], rk = regionNode(hop.name), finalHop = i === hops.length - 1;
+              await go(tok, ["pool", "mi", rk], g); mark("mi", "ok");
+              const code = hop.code || (finalHop ? st : 0);
+              if (code && code !== 200) {
+                mark(rk, "bad"); badge(rk, `${code}${code === 429 ? " throttled" : ""}`, "#d13438");
+                say(`<b>${esc(hop.name)}</b>${hop.region ? ` (${esc(hop.region)})` : ""} answers <b>${code}</b>${finalHop ? "." : ": the <code>retry</code> policy sends the same request to the next backend, and the circuit breaker counts the failure against that region."}`, "bad");
+                await wait(650, g);
+                if (!finalHop) { recolor(tok, "#d13438"); await go(tok, [rk, "mi", "pool"], g, { edge: "bad", quiet: true }); recolor(tok, color); badge("pool", "retry → next region", "#ca5010", true); mark("pool", "warn"); continue; }
+              } else {
+                mark(rk, "ok"); badge(rk, `${code || 200} ${served || ""}`.trim(), "#107c10");
+                say(`<b>${esc(hop.name)}</b>${hop.region ? ` (${esc(hop.region)})` : ""} serves <b>${esc(served || label(r))}</b>${h["x-gw-prompt-tokens"] ? `: ${esc(h["x-gw-prompt-tokens"])} prompt + ${esc(h["x-gw-completion-tokens"])} completion tokens` : ""}.`, "ok");
+              }
+              target = rk;
+            }
+            last = "mi";
+          } else {
+            target = surf === "tool" ? "mcp" : "a2a";
+            say(`API policy: <code>set-backend-service</code> → the ${surf === "tool" ? "MCP server" : "A2A agent"} backend.`);
+            await go(tok, ["pool", target], g);
+            mark(target, st === 200 ? "ok" : "bad");
+            if (surf === "agent" && st === 200 && (r.steps || []).length) await agentSteps(r, g);
+          }
+          await wait(300, g);
+
+          // response path: outbound metering on the way back, evidence into Azure Monitor
+          const okResp = st === 200;
+          recolor(tok, okResp ? "#107c10" : "#d13438", okResp ? (h["x-gw-cost-usd"] ? `$${Number(h["x-gw-cost-usd"]).toFixed(6)}` : "200") : String(st));
+          await go(tok, surf === "model" ? [target, last, "pool", "api"] : [target, "pool", "api"], g, { edge: okResp ? "ok" : "bad", mark: okResp ? "ok" : "bad", quiet: true });
+          mark("api", "ok");
+          const costTxt = h["x-gw-cost-usd"] ? ` · cost <b>$${esc(h["x-gw-cost-usd"])}</b>` : "";
+          say(`Outbound: ${surf === "model" ? "<code>llm-emit-token-metric</code> + " : ""}<code>emit-metric</code> meter the call${costTxt}${h["x-gw-billed-to"] ? ` billed to <b>${esc(h["x-gw-billed-to"])}</b>` : ""}; a chargeback <code>trace</code> record and the gateway logs flow to Azure Monitor.`, "ok");
+          mark("log", "on"); edge("api", "log", "on");
+          await drops("log", g); mark("log", "ok");
+          await go(tok, ["api", "plan", "entra", "client"], g, { edge: okResp ? "ok" : "bad", quiet: true });
+          mark("client", okResp ? "ok" : "bad"); badge("client", `HTTP ${st}`, okResp ? "#107c10" : "#d13438", true);
+          say(`The client receives <b>HTTP ${st}</b> with the <code>x-gw-*</code> headers below; <code>x-gw-request-id</code> finds the same call in the trace and in every Log Analytics table.`, okResp ? "ok" : "bad");
+          await showHeaders(r, g);
+        }
+        async function agentSteps(r, g) {
+          say(`The agent works on the task, calling models and tools <b>through the same gateway</b> with its managed identity; each call is billed to the original caller (<code>on-behalf-of</code>).`);
+          for (const s of (r.steps || []).slice(0, 4)) {
+            const c = SURF[s.type] || SURF.model, dot = token(c, s.name || s.type, P("a2a"), 6), dest = s.type === "tool" ? ["pool", "mcp"] : ["pool", "mi", "r0"];
+            await go(dot, ["a2a", { x: 880, y: 296 }, { x: 200, y: 296 }, "entra", "plan", "api", ...dest], g, { speed: 2.2, mark: "on" });
+            const ok = Number(s.status) === 200; mark(dest[dest.length - 1], ok ? "ok" : "bad");
+            say(`↳ ${s.type === "tool" ? "tool" : "model"} <b>${esc(s.name || "")}</b> → <b>${esc(s.status)}</b>${s.costMicroUsd ? ` · $${(s.costMicroUsd / 1e6).toFixed(6)}` : ""}${s.billedTo ? ` · billed to <b>${esc(s.billedTo)}</b>` : ""}`, ok ? "ok" : "bad");
+            await go(dot, [dest[dest.length - 1], "a2a"], g, { speed: 2.2, quiet: true, edge: ok ? "ok" : "bad" }); dot.remove();
+          }
+          for (const k of Object.keys(NODES)) if (nodeEl[k].g.classList.contains("on")) mark(k, "ok");
+          mark("a2a", "ok");
+        }
+        async function blocked(r, tok, at, g) {
+          const h = r.headers || {}, st = Number(r.status);
+          mark(at, "bad"); recolor(tok, "#d13438", String(st)); badge(at, `${st} · ${h["x-gw-blocked-by"] || (at === "entra" ? "validate-azure-ad-token" : "blocked")}`, "#d13438");
+          say(`<b>Blocked with ${st}</b>: ${blockText(r)}. The request never reaches a backend, so it costs nothing.`, "bad");
+          if (h["x-gw-block-reason"]) say(`<code>on-error</code> returns <code>x-gw-blocked-by</code> and <code>x-gw-block-reason</code>: ${esc(String(h["x-gw-block-reason"]).slice(0, 160))}`, "bad");
+          await wait(900, g);
+          mark("log", "on"); edge(at, "log", "on"); const p = P(at), q = P("log");
+          const d = mk("circle", { r: 5, fill: "#d13438", class: "drop" }, layer.fx); place(d, p); await tween(d, q, g, 1.4); d.remove();
+          say(`The blocked call is still logged: <code>ApiManagementGatewayLogs</code> records the status and the policy that failed (<code>LastErrorSource</code>), and the governance event goes to App Insights.`);
+          await drops("log", g, "#d13438"); mark("log", "ok");
+          const back = at === "entra" ? ["entra", "client"] : ["plan", "entra", "client"];
+          await go(tok, back, g, { edge: "bad", quiet: true });
+          mark("client", "bad"); badge("client", `HTTP ${st}`, "#d13438", true);
+          await showHeaders(r, g);
+        }
+
+        // ---- examples: illustrative values built from this deployment's plans, models and regions (not real calls)
+        function demos() {
+          const c = C(), b = backends(), tiers = c.tiers || [], agents = c.agents || [];
+          const r0 = b[0] ? `${b[0].name} (${b[0].location})` : "foundry1 (swedencentral)", r1 = b[1] ? `${b[1].name} (${b[1].location})` : "foundry2 (francecentral)";
+          const ag = (tier) => agents.find(a => a.tier === tier && a.kind !== "user")?.name || `${tier}-agent`;
+          const tierObj = (n) => tiers.find(t => t.name === n) || {};
+          const models = (c.models || []).map(m => m.name), small = models.find(m => /mini/.test(m)) || "gpt-4.1-mini", nano = models.find(m => /nano/.test(m)) || "gpt-4.1-nano";
+          const dTier = tiers.find(t => t.onDisallowedModel === "downgrade" && models.some(m => !(t.allowedModels || []).includes(m))) || { name: "silver", fallbackModel: small, allowedModels: [] };
+          const premium = models.find(m => !(dTier.allowedModels || []).includes(m)) || "gpt-4.1";
+          const tool = (c.tools || [])[1] || { name: "check-inventory", priceUsd: 0.0002 };
+          const H = (o) => ({ "x-gw-request-id": "example", ...o });
+          const ok = (tier, model, extra = {}) => ({ "x-gw-tier": tier, "x-gw-caller": "you@contoso.com", "x-gw-session": "demo-session", "x-gw-model-requested": model, "x-gw-model-served": model, "x-gw-governance": "none",
+            "x-gw-prompt-tokens": "24", "x-gw-completion-tokens": "96", "x-gw-cost-usd": "0.000163", "x-gw-remaining-tpm": String((tierObj(tier).tpm || 10000) - 120), "x-gw-route": `${r0} 200`, ...extra });
+          return [
+            { id: "happy", label: "Happy path", code: 200, r: { status: 200, surface: "model", agent: ag("gold"), tier: "gold", requestedModel: small, headers: H(ok("gold", small)) } },
+            { id: "downgrade", label: "Model downgrade", code: 200, r: { status: 200, surface: "model", agent: ag(dTier.name), tier: dTier.name, requestedModel: premium,
+                headers: H(ok(dTier.name, premium, { "x-gw-model-served": dTier.fallbackModel || small, "x-gw-governance": "model-downgraded" })) } },
+            { id: "tpm", label: "429 tokens/min", code: 429, r: { status: 429, surface: "model", agent: ag("bronze"), tier: "bronze", requestedModel: nano,
+                headers: H({ "x-gw-tier": "bronze", "x-gw-caller": "you@contoso.com", "x-gw-blocked-by": "llm-token-limit", "x-gw-block-reason": "Token limit is exceeded.", "retry-after": "38", "x-gw-remaining-tpm": "0" }) } },
+            { id: "budget", label: "403 session budget", code: 403, r: { status: 403, surface: "model", agent: ag("gold"), tier: "gold", requestedModel: small,
+                headers: H({ "x-gw-tier": "gold", "x-gw-caller": "you@contoso.com", "x-gw-session": "demo-session", "x-gw-blocked-by": "quota-by-key (session-budget)", "x-gw-block-reason": "Quota exceeded." }) } },
+            { id: "failover", label: "Regional failover", code: 200, r: { status: 200, surface: "model", agent: ag("gold"), tier: "gold", requestedModel: small,
+                headers: H(ok("gold", small, { "x-gw-route": `${r0} 429 > ${r1} 200`, "x-gw-backend": b[1]?.name || "foundry2" })) } },
+            { id: "mcp", label: "MCP tool call", code: 200, r: { status: 200, surface: "tool", agent: ag("gold"), tier: "gold", tool: tool.name,
+                headers: H({ "x-gw-tier": "gold", "x-gw-caller": "you@contoso.com", "x-gw-tool": tool.name, "x-gw-cost-usd": Number(tool.priceUsd || 0).toFixed(6), "x-gw-remaining-tool-calls": "29", "x-gw-billed-to": ag("gold") }) } },
+            { id: "a2a", label: "A2A agent task", code: 200, r: { status: 200, surface: "agent", agent: ag("gold"), tier: "gold",
+                steps: [{ type: "model", name: small, status: 200, costMicroUsd: 210, billedTo: ag("gold") }, { type: "tool", name: "check-inventory", status: 200, costMicroUsd: 200, billedTo: ag("gold") },
+                        { type: "tool", name: "get-supplier-quote", status: 200, costMicroUsd: 2000, billedTo: ag("gold") }],
+                headers: H({ "x-gw-tier": "gold", "x-gw-caller": "you@contoso.com", "x-gw-agent-fee-usd": "0.005000", "x-gw-downstream-cost-usd": "0.002410", "x-gw-cost-usd": "0.007410", "x-gw-remaining-agent-calls": "9", "x-gw-billed-to": ag("gold") }) } },
+            { id: "noauth", label: "401 no token", code: 401, r: { status: 401, surface: "model", agent: ag("gold"), tier: "gold", requestedModel: small,
+                headers: H({ "x-gw-blocked-by": "validate-azure-ad-token", "x-gw-block-reason": "Microsoft Entra ID token missing or invalid." }) } },
+          ];
+        }
+        const CODE_BG = { 200: "#dff6dd;color:#107c10", 401: "#fde7e9;color:#a4262c", 403: "#fde7e9;color:#a4262c", 429: "#fff4ce;color:#8a3707" };
+        function renderDemos(active) {
+          el("gwfDemos").innerHTML = demos().map(d => `<button data-d="${d.id}" class="${d.id === active ? "on" : ""}">${d.label}<span class="c" style="background:${CODE_BG[d.code]}">${d.code}</span></button>`).join("");
+        }
+
+        // ---- controls
+        let current = null, looping = false, played = false;
+        function setBusy(on) { el("gwfStop").disabled = !on; }
+        async function run(item) {
+          resetDiagram(); const g = gen; current = item; played = true; setBusy(true);
+          renderDemos(item.demo || null);
+          el("gwfSrc").innerHTML = item.demo ? `· example: <b>${esc(item.title)}</b> (illustrative values)` : `· replaying <b>${esc(item.title)}</b> from its <code>x-gw-*</code> response headers`;
+          item.done = false;
+          try { await play(item.r, g); item.done = true; layer.fx.querySelectorAll(".tok").forEach(t => t.remove()); if (item.trace) renderTrace(item.trace.rows); }
+          catch (e) { if (e !== CANCEL) { console.error(e); el("gwfNow").textContent = "Animation failed: " + e.message; } return false; }
+          finally { if (g === gen && !looping) setBusy(false); }
+          return true;
+        }
+        function runDemo(id) { const d = demos().find(x => x.id === id); if (d) return run({ demo: d.id, title: d.label, r: d.r }); }
+        async function playAll() {
+          looping = true; setBusy(true); const list = demos();
+          let i = Math.max(0, list.findIndex(d => d.id === current?.demo));
+          while (looping) {
+            const ok = await runDemo(list[i % list.length].id); if (!ok || !looping) break;
+            try { await wait(2200, gen, true); } catch { break; }
+            i++;
+          }
+        }
+        function stop() { looping = false; gen++; setBusy(false); layer.fx.querySelectorAll(".tok, .drop").forEach(t => t.remove()); el("gwfNow").innerHTML += ` <span class="muted">(stopped)</span>`; }
+        el("gwfDemos").addEventListener("click", (e) => { const id = e.target.closest("[data-d]")?.dataset.d; if (id) { looping = false; runDemo(id); } });
+        el("gwfPlayAll").onclick = () => { if (!looping) playAll(); };
+        el("gwfStop").onclick = stop;
+        el("gwfReplay").onclick = () => { looping = false; current ? run(current) : runDemo("happy"); };
+
+        // ---- APIM trace summary: which policies actually ran for this request (from /api/trace)
+        const CATS = [["Identity", /validate-azure-ad-token|validate-jwt|entra-identity/i], ["Plan", /llm-token-limit|quota-by-key|rate-limit|entitlement|return-response/i],
+          ["Routing", /set-backend-service|forward-request|retry|backend|load-balancer|authentication-managed-identity/i], ["Metering", /emit-metric|llm-emit-token-metric|chargeback|payer|^trace$/i]];
+        // called when the trace arrives; if the replay is still running, run() renders it when the animation ends
+        function trace(traceId, rows) {
+          if (!current || !traceId || current.traceId !== traceId || !Array.isArray(rows)) return;
+          current.trace = { id: traceId, rows };
+          if (current.done) renderTrace(rows);
+        }
+        function renderTrace(rows) {
+          const errRows = rows.filter(x => /on-error/i.test(x.section || "")), attempts = rows.filter(x => /^forward-request$/i.test(x.source || "") && /backend/i.test(x.section || "")).length;
+          const cats = CATS.map(([name, re]) => {
+            const hit = [...new Set(rows.filter(x => re.test(x.source || "") && !/on-error/i.test(x.section || "")).map(x => x.source))];
+            return hit.length ? `<span class="cat"><b>${name}</b> ${hit.slice(0, 4).map(s => `<code>${esc(s)}</code>`).join(" ")}</span>` : "";
+          }).join("");
+          const elapsed = rows.map(x => x.elapsed).filter(Boolean).pop();
+          el("gwfTrace").innerHTML = `<h3>APIM request trace confirms (${rows.length} records${elapsed ? ", " + esc(String(elapsed).replace(/^00:00:/, "")) : ""})</h3>${cats}`
+            + (attempts ? `<div>Backend attempts in the trace: <b>${attempts}</b></div>` : "")
+            + (errRows.length ? `<div style="color:var(--bad)">on-error ran after <code>${esc(errRows[0].source || "")}</code></div>` : "");
+          el("gwfSrc").innerHTML = el("gwfSrc").innerHTML.replace("response headers", "response headers + APIM trace");
+        }
+        function fromCall(r, i) {
+          if (!r || !r.status) return;
+          const h = r.headers || {};
+          const tid = h["apim-trace-id"] || null;
+          run({ title: `call #${i + 1} · ${r.agent} · ${r.surface || "model"} · HTTP ${r.status}`, r, traceId: tid, trace: tid && current?.traceId === tid ? current.trace : null });
+        }
+        // deferred so a fromCall() made in the same tick (opening evidence) wins over the intro example
+        function shown() { setTimeout(() => { if (!played) runDemo("happy"); }, 0); }
+
+        draw(); resetDiagram(); renderDemos(null);
+        el("gwfSrc").innerHTML = "· pick an example, or open the evidence of a call";
+        return { fromCall, trace, pattern, shown, play: runDemo };
+      })();
+      </script>
+      </div>
+      <!-- ================= end of gateway flow section ================= -->
       <div class="card hidden" id="evPanel">
         <h2>Evidence for one request <span class="muted" id="evTitle"></span></h2>
         <div class="grid2">
@@ -361,11 +901,11 @@
         <div class="muted" style="font-size:13px">Policies run in scopes: <b>product</b> (the plan) wraps the <b>API</b> policy. A call is rejected by the first policy that fails, before it costs anything.
           Every response carries <code>x-gw-request-id</code>, the key that finds the same call in the trace and in every Log Analytics table.</div>
         <div class="pipe">
-          <div class="stage"><span class="sec">Client</span><b>Agent / app</b><code>api-key</code> = which plan pays<br/><code>Authorization: Bearer</code> = who calls</div>
-          <div class="stage gw"><span class="sec">Product · inbound</span><b>Identity</b><code>validate-azure-ad-token</code> (fragment <code>entra-identity</code>): tenant, audience, allowed client apps → <b>401</b><br/>          caller → chargeback record</div>
-                    <div class="stage gw"><span class="sec">Product · inbound</span><b>Plan enforcement</b>model / tool / agent entitlement → downgrade or <b>403</b><br/><code>llm-token-limit</code> TPM + quota → <b>429</b><br/><code>quota-by-key</code> $ budget per subscription and per session → <b>403</b></div>
-          <div class="stage gw"><span class="sec">API · inbound + backend</span><b>Routing &amp; resilience</b><code>set-backend-service</code> → priority pool<br/><code>retry</code> on 429 / 5xx → next region<br/>circuit breaker trips a throttled region<br/><code>authentication-managed-identity</code> → Foundry</div>
-          <div class="stage gw"><span class="sec">Outbound</span><b>Metering &amp; logging</b><code>llm-emit-token-metric</code>, <code>emit-metric</code> (cost per agent, tier, model)<br/><code>trace</code> chargeback record (user, team, session)<br/>LLM / MCP / gateway logs → Log Analytics<br/><code>x-gw-*</code> response headers</div>
+          <div class="stage"><span class="sec">Client</span><b>Agent / app</b><code>api-key</code> = which plan pays<br/><code>Authorization: Bearer</code> = who calls<div class="pat"><a href="#" data-pat="overview">See the pattern</a></div></div>
+          <div class="stage gw"><span class="sec">Product · inbound</span><b>Identity</b><code>validate-azure-ad-token</code> (fragment <code>entra-identity</code>): tenant, audience, allowed client apps → <b>401</b><br/>          caller → chargeback record<div class="pat"><a href="#" data-pat="identity">See the pattern</a></div></div>
+                    <div class="stage gw"><span class="sec">Product · inbound</span><b>Plan enforcement</b>model / tool / agent entitlement → downgrade or <b>403</b><br/><code>llm-token-limit</code> TPM + quota → <b>429</b><br/><code>quota-by-key</code> $ budget per subscription and per session → <b>403</b><div class="pat"><a href="#" data-pat="plan">See the pattern</a></div></div>
+          <div class="stage gw"><span class="sec">API · inbound + backend</span><b>Routing &amp; resilience</b><code>set-backend-service</code> → priority pool<br/><code>retry</code> on 429 / 5xx → next region<br/>circuit breaker trips a throttled region<br/><code>authentication-managed-identity</code> → Foundry<div class="pat"><a href="#" data-pat="routing">See the pattern</a></div></div>
+          <div class="stage gw"><span class="sec">Outbound</span><b>Metering &amp; logging</b><code>llm-emit-token-metric</code>, <code>emit-metric</code> (cost per agent, tier, model)<br/><code>trace</code> chargeback record (user, team, session)<br/>LLM / MCP / gateway logs → Log Analytics<br/><code>x-gw-*</code> response headers<div class="pat"><a href="#" data-pat="metering">See the pattern</a></div></div>
         </div>
         <div class="kv" id="backendsKv" style="grid-template-columns:170px 1fr"></div>
       </div>
@@ -1067,6 +1607,7 @@ function showTab(tab) {
   if (tab === "chargeback" && !cbLoaded) { cbLoaded = true; loadChargeback(); }
   if (tab === "monitor" && !charts._loaded) { charts._loaded = true; refreshMonitor(); }
   if (tab === "policies" && !policiesLoaded) { policiesLoaded = true; loadPolicies(); loadPolicyEvidence(); }
+  if (tab === "policies") window.gwFlow?.shown();
 }
 
 // ---------- Policies & evidence: deployed policies (ARM), request traces (APIM tracing) and Log Analytics evidence ----------
@@ -1111,6 +1652,7 @@ async function loadTrace(traceId) {
   const d = await (await fetch("/api/trace", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ traceId }) })).json();
   if (d.error) return `<div class="muted">${escapeHtml(d.error)}</div>`;
   const all = d.timeline || [];
+  window.gwFlow?.trace(traceId, all);
   if (!all.length) return `<div class="muted">The trace is empty.</div>`;
   const rows = all.filter(x => !/^\{"message": "Expression was successfully evaluated/.test(x.data) && !/^(api-inspector|graphql-configuration-setup|request-payload-handler|response-payload-handler)$/.test(x.source || ""));
   return `<div class="muted" style="font-size:12px">${rows.length} policy records shown (${all.length - rows.length} expression evaluations and payload reads hidden) · trace id <code>${escapeHtml(traceId)}</code></div><table class="steps"><thead><tr><th>Section</th><th>Policy / source</th><th>Elapsed</th><th>Detail</th></tr></thead><tbody>`
@@ -1139,7 +1681,7 @@ async function showEvidence(i, attempt = 0) {
     $("evTrace").innerHTML = h["apim-trace-id"] ? `<div class="muted">Fetching the trace…</div>`
       : `<div class="muted">This call was not traced. Tick <b>Trace policies</b> before sending to record a policy-by-policy trace.</div>`;
     $("evLogs").innerHTML = `<div class="muted">Querying Log Analytics for request <code>${escapeHtml(h["x-gw-request-id"] || "-")}</code>…</div>`;
-    $("evPanel").scrollIntoView({ behavior: "smooth" });
+    window.gwFlow?.fromCall(r, i); $("gwFlow").scrollIntoView({ behavior: "smooth" });
     if (h["apim-trace-id"]) loadTrace(h["apim-trace-id"]).then(html => { if (run === evRun) $("evTrace").innerHTML = html; });
   }
   if (!h["x-gw-request-id"]) { $("evLogs").innerHTML = `<div class="muted">The response has no x-gw-request-id header.</div>`; return; }
@@ -1522,6 +2064,13 @@ const SCENARIOS = [
 async function runScenario(s) {
   $("scenario").classList.remove("hidden"); $("scSteps").innerHTML = "";
   $("scTitle").textContent = s.title; $("scStory").innerHTML = s.story(); $("scTakeaway").innerHTML = "";
+  $("scFlow").innerHTML = "";
+  try {
+    if (s.preview) {
+      $("scFlow").innerHTML = `<div class="dgm">${s.preview()}</div>`;
+      $("scFlow").querySelectorAll(".dr").forEach(row => [...row.children].forEach((c, k) => c.style.setProperty("--i", k)));
+    }
+  } catch (e) { console.warn("scenario mini-flow failed", e); }
   $("sessionId").value = newSessionId("demo"); // every scenario runs in its own session, so per-session caps never carry over
   if (curRun) { snapPart(curPart); curPart = { si: SCENARIOS.indexOf(s), title: s.title, calls: [] }; curRun.parts.push(curPart); }
   if (!s.tab && curTab !== "runs") showTab("live");
