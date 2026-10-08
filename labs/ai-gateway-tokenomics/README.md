@@ -128,21 +128,18 @@ Every gateway response returns `x-gw-request-id`, so any call in the UI can be l
 - **APIM → APIs → (API) → Test** with **Trace** enabled shows the same policy-by-policy trace.
 - **APIM → Logs** (or the Log Analytics workspace → Logs): run, for example, `ApiManagementGatewayLogs | where CorrelationId == "<x-gw-request-id>"`. Each table and query in the UI has an **Open in Log Analytics** link that opens it in the portal.
 - **APIM → Backends** shows the pool, priorities and circuit breaker rules. **APIM → APIs → (API) → Policies** and **Policy fragments** show the deployed XML.
-- The workbook's **Policies in action** section shows outcomes by policy, Entra ID rejections, backend attempts by region, tokens by deployment, MCP tool calls, failovers and cost by caller.
+- The workbook's **Gateway evidence** tab shows outcomes by policy (including Entra ID rejections), backend attempts by region, tokens by deployment, MCP tool calls and failovers. Select a policy to list the calls it stopped.
 
 ### Monitoring
 
-- The **AI Gateway Tokenomics** Azure Monitor workbook, deployed with the lab, shows:
-  - KPIs
-  - cost by agent and surface, and cost by surface
-  - the chargeback table: who pays for what, and via which agent
-  - cost by model, tool and agent
-  - cost over time
-  - tokens by agent and model
-  - budget vs spend
-  - gateway outcomes (200/401/403/429) by agent
-  - governance actions
-  - **policies in action** (from Log Analytics and App Insights): outcomes by policy, Entra ID rejections, backend attempts by region over time, tokens by deployment, MCP tool calls, failovers, and cost by Entra ID caller
+- The **AI Gateway Tokenomics** Azure Monitor workbook, deployed with the lab, has:
+  - **filters** for time range, plan, consumer and surface (AI models, MCP tools, A2A agents), which apply to every tab
+  - a **KPI strip**: spend, average cost per call, tokens, gateway calls, blocked %, plan enforcements and regional failovers
+  - four tabs, each with a drill-down:
+    - **Overview**: spend over time and by surface, top consumers and top resources. Select a consumer to see its resources, direct vs via-agent spend, line items with the Entra ID caller, and its plan enforcement events.
+    - **Chargeback**: cost by team and cost center and by user or app, plus a Team › User › Session tree. Select a session to see its cumulative spend and a call-by-call ledger.
+    - **Budgets & governance**: budget burn per consumer, enforcement events and gateway outcomes by plan, blocked calls over time, and who hit which limit
+    - **Gateway evidence**: outcomes by policy (select one to list the calls it stopped), latency by API, backend calls by region, failovers, tokens by deployment and MCP tool calls
 - All the data lives in **Application Insights** and **Log Analytics**:
   - `customMetrics` for tokens, cost, governance events and backend attempts
   - `requests` for the gateway outcomes, by subscription (agent) and product (plan)
