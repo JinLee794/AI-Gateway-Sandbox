@@ -14,14 +14,16 @@ if not role_id:
     print("No custom budget-suspend role to delete.")
     sys.exit(0)
 
-parts = role_id.split("/")  # /subscriptions/<id>/providers/Microsoft.Authorization/roleDefinitions/<guid>
-command = ["az", "role", "definition", "delete", "--name", parts[-1], "--scope", f"/subscriptions/{parts[2]}", "--custom-role-only", "true"]
+# DELETE the role definition by its full id. 'az role definition delete --name <guid>' looks the role up first and can
+# exit 0 without deleting anything when the lookup returns nothing.
+url = f"https://management.azure.com{role_id}?api-version=2022-04-01"
+command = ["az", "rest", "--method", "delete", "--url", url]
 az = shutil.which("az")
 if not az:
     print(f"Azure CLI not found. Delete the custom role manually: {' '.join(command)}")
     sys.exit(0)
 result = subprocess.run([az, *command[1:]], capture_output=True, text=True)
 if result.returncode == 0:
-    print(f"Deleted the custom role definition {parts[-1]}.")
+    print(f"Deleted the custom role definition {role_id.split('/')[-1]}.")
 else:
     print(f"Could not delete the custom role definition ({result.stderr.strip()[:300]}). Delete it manually: {' '.join(command)}")

@@ -2660,7 +2660,7 @@ const SCENARIOS = [
         takeaway(`The gateway blocked ${b.displayName} in real time, but the subscription is still <b>${escapeHtml(sub?.state || "unknown")}</b> after 12 minutes. Check the alert rule and the Logic App run history${st.links?.logicApp ? ` (<a href="${st.links.logicApp}" target="_blank">Logic App ↗</a>)` : ""}; the Azure Monitor workbook's Governance tab shows the same data.`);
         return;
       }
-      info(`Subscription <b>${escapeHtml(b.name)}</b> is <b>suspended</b>: ${escapeHtml(sub.stateComment || "")}`);
+      info(`Subscription <b>${escapeHtml(b.name)}</b> is <b>suspended</b>${sub.stateComment ? `: ${escapeHtml(sub.stateComment)}` : " by the Logic App"}.`);
       const r1 = await send(b.name, m, { prompt: ASK, maxTokens: 60, session: newSessionId("ben") });
       step(r1, "the key is switched off: rejected before any plan policy runs");
       if (!running) return;
