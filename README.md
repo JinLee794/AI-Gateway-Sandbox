@@ -153,7 +153,7 @@ The upstream labs already show each of these patterns on their own. The Sandbox 
 | 💡 | Is the cheaper model good enough? | Cost compared with quality, using stored prompts and Foundry evaluations. | [message-storing](labs/message-storing/), [foundry-models-evals](labs/foundry-models-evals/) |
 | 💡 | GitHub Copilot chargeback | Copilot BYOK traffic goes through the gateway and is billed per developer. | [ghcp-byok-foundry](labs/ghcp-byok-foundry/) |
 | 💡 | Foundry agents and Toolbox | Agents hosted in Foundry and Foundry Toolbox tools are billed back to the team that calls them. | [ai-foundry-model-gateway](labs/ai-foundry-model-gateway/), [ai-foundry-toolbox](labs/ai-foundry-toolbox/) |
-| 🚧 | Over budget, switched off | An Azure Monitor alert and a Logic App suspend a subscription that goes over its budget. | [finops-framework](labs/finops-framework/) |
+| ✅ | Over budget, switched off | An Azure Monitor alert and a Logic App suspend a subscription that goes over its budget. | [finops-framework](labs/finops-framework/) |
 | 🚧 | Real users, not keys | Chargeback by Entra ID user, instead of one subscription key per user. | [access-controlling](labs/access-controlling/), [mcp-client-authorization](labs/mcp-client-authorization/) |
 | 💡 | One budget across clouds | Amazon Bedrock and Google Gemini models share the same plans and price list. | [aws-bedrock](labs/aws-bedrock/), [google-gemini-api](labs/google-gemini-api/) |
 | 💡 | Self-hosted showback | Self-hosted models are priced per GPU-second instead of per token. | [serverless-gpu](labs/serverless-gpu/), [self-hosted-ollama](labs/self-hosted-ollama/) |
