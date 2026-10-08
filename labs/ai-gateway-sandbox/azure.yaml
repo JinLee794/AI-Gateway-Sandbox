@@ -16,6 +16,15 @@ hooks:
       shell: sh
       run: python3 ./infra/scripts/build_config.py
       continueOnError: false
+  postdown:
+    windows:
+      shell: pwsh
+      run: python ./infra/scripts/delete_budget_role.py
+      continueOnError: true
+    posix:
+      shell: sh
+      run: python3 ./infra/scripts/delete_budget_role.py
+      continueOnError: true
 services:
   ui:
     project: ./src

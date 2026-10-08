@@ -57,6 +57,7 @@ module sandbox '../main.bicep' = {
     inferenceAPIType: lab.inferenceAPIType
     foundryProjectName: lab.foundryProjectName
     uiClientId: uiIdentity.outputs.clientId
+    budgetSuspend: lab.?budgetSuspend ?? { enabled: false }
   }
 }
 
@@ -76,6 +77,7 @@ var demoConfig = union(config.uiConfig, {
   logAnalyticsResourceId: sandbox.outputs.logAnalyticsResourceId
   agentIdentityClientId: sandbox.outputs.agentIdentityClientId
   foundryBackends: sandbox.outputs.foundryBackends
+  budgetSuspend: sandbox.outputs.budgetSuspend
 })
 
 module ui 'ui.bicep' = {
@@ -121,3 +123,5 @@ output INFERENCE_BASE_URL string = sandbox.outputs.inferenceBaseUrl
 output MCP_URL string = sandbox.outputs.mcpUrl
 output A2A_URL string = sandbox.outputs.a2aUrl
 output WORKBOOK_ID string = sandbox.outputs.workbookId
+// Custom role of the "over budget, switched off" Logic App: it outlives 'azd down', so the postdown hook deletes it
+output BUDGET_SUSPEND_CUSTOM_ROLE_ID string = (sandbox.outputs.budgetSuspend.?customRole ?? false) ? sandbox.outputs.budgetSuspend.roleDefinitionId : ''

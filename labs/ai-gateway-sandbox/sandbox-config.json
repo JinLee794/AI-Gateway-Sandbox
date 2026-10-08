@@ -41,6 +41,10 @@
     }
   ],
   "budgetPeriodSeconds": 2592000,
+  "budgetSuspend": {
+    "$comment": "Over budget, switched off: an Azure Monitor alert on the chargeback records triggers a Logic App that suspends the watched subscriptions when their spend reaches suspendAtPercent of the plan budget. useCustomRole=false falls back to the built-in API Management Service Contributor role (no Owner / User Access Administrator needed).",
+    "enabled": true, "subscriptions": ["user-ben"], "suspendAtPercent": 100, "useCustomRole": true, "notifyEmails": []
+  },
   "tools": [
     { "name": "search-products", "priceUsd": 0.0005, "description": "Search the product catalog" },
     { "name": "check-inventory", "priceUsd": 0.0002, "description": "Stock level of a SKU per warehouse" },

@@ -8,7 +8,8 @@
 
           record=chargeback, user (the paying subscription), displayName, team, costCenter, kind (user | agent),
           session, surface (model | tool | agent), item (model / tool / agent id), costMicroUsd, promptTokens,
-          completionTokens, tier, via (direct | agent id), caller (Entra ID identity), requestId
+          completionTokens, tier, via (direct | agent id), caller (Entra ID identity), requestId, budgetEpoch
+          (the budget-epoch the call was charged in: the budget-breach alert sums spend per subscription and epoch)
 
         Why a trace record and not a metric dimension: emit-metric accepts at most 5 custom dimensions per policy
         and 100 unique values per dimension, and values over the limits are silently dropped. Sessions are
@@ -60,6 +61,7 @@
                 <metadata name="via" value="@(context.Variables.GetValueOrDefault<string>("via", "direct"))" />
                 <metadata name="caller" value="@(context.Variables.GetValueOrDefault<string>("caller", "unknown"))" />
                 <metadata name="requestId" value="@(context.RequestId.ToString())" />
+                <metadata name="budgetEpoch" value="{{budget-epoch}}" />
             </trace>
         </when>
     </choose>

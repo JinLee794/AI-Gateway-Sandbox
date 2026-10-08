@@ -31,6 +31,7 @@ lab_parameters = {
     "inferenceAPIPath": config["inferenceAPIPath"],
     "inferenceAPIType": config["inferenceAPIType"],
     "foundryProjectName": config["foundryProjectName"],
+    "budgetSuspend": {k: v for k, v in config.get("budgetSuspend", {"enabled": False}).items() if not k.startswith("$")},
 }
 
 # Static part of the demo UI configuration (the endpoints and subscription keys are added by Bicep)
