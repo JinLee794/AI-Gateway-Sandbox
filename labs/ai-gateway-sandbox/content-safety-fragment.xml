@@ -1,0 +1,85 @@
+<fragment>
+    <!--
+        AI Gateway Sandbox - "blocked-before-spend" policy fragment (included at the END of the tier policy inbound,
+        after the free checks: Entra ID, entitlements, rate / token limits and the $ budget).
+
+        Screens the text a caller sends BEFORE it reaches a model, an MCP tool or an A2A agent:
+          - llm-content-safety (Azure AI Content Safety, managed identity via the {cs-backend-id} backend):
+              harm categories (Hate / Sexual / SelfHarm / Violence at severity >= threshold), Prompt Shields
+              (jailbreak / user prompt attacks, shield-prompt="{cs-shield-prompt}") and a custom blocklist of
+              sensitive-data patterns (SSNs, card numbers). A hit returns 403 through on-error with
+              LastError.Source = "llm-content-safety", so the tier policy sets x-gw-blocked-by: llm-content-safety.
+          - Optional Purview DLP (purview-dlp fragment, only when purviewDlp.enabled in sandbox-config.json).
+
+        A blocked call never reaches Foundry, the MCP server or the agent: 0 model tokens, $0 model cost.
+
+        The check itself is not free. Azure AI Content Safety bills per text record (up to 1,000 characters); Prompt
+        Shields is a second analysis of the same text. The fragment estimates the records and stores the price in
+        safetyMicroUsd ({cs-micro-usd-per-record} micro-USD per record). The tier policy adds it to the $ budget
+        (quota-by-key) and the safety-ledger fragment writes it as a chargeback line item (surface = safety).
+
+        Applies when the tier policy sets contentSafetyPlan = "on" (per-plan "contentSafety" in sandbox-config.json)
+        and the surface is in {cs-surfaces}:
+          model - POST with a model (chat completions / responses)
+          tool  - MCP tools/call only (initialize, tools/list and notifications are not screened or charged)
+          agent - A2A task (POST); the agent card (GET) is not screened
+    -->
+    <choose>
+        <when condition="@{
+            if (context.Variables.GetValueOrDefault<string>("contentSafetyPlan", "off") != "on") { return false; }
+            var surface = context.Variables.GetValueOrDefault<string>("surface", "model");
+            if (!(",{cs-surfaces},").Contains("," + surface + ",")) { return false; }
+            if (surface == "tool") { return context.Variables.GetValueOrDefault<string>("toolName", "") != ""; }
+            if (surface == "agent") { return context.Request.Method == "POST"; }
+            return context.Variables.GetValueOrDefault<string>("requestedModel", "") != "";
+        }">
+            <!-- Text the service analyzes: prompt text (model), tool arguments (tool) or message text (agent) -->
+            <set-variable name="safetyText" value="@{
+                var surface = context.Variables.GetValueOrDefault<string>("surface", "model");
+                var text = new System.Text.StringBuilder();
+                JObject body = null;
+                try { body = context.Request.Body?.As<JObject>(preserveContent: true); } catch { body = null; }
+                if (body != null) {
+                    if (surface == "tool") {
+                        var args = body["params"]?["arguments"];
+                        if (args != null) { text.Append(args.ToString(Newtonsoft.Json.Formatting.None)); }
+                    } else if (surface == "agent") {
+                        var parts = body["params"]?["message"]?["parts"] as JArray;
+                        if (parts != null) { foreach (var part in parts) { text.Append(part["text"]?.ToString() ?? ""); } }
+                    } else {
+                        foreach (var key in new [] { "messages", "input" }) {
+                            var node = body[key];
+                            if (node is JArray items) {
+                                foreach (var item in items) {
+                                    var content = item is JObject ? item["content"] : item;
+                                    if (content is JArray contentParts) {
+                                        foreach (var part in contentParts) { text.Append(part["text"]?.ToString() ?? ""); }
+                                    } else if (content != null) { text.Append(content.ToString()); }
+                                }
+                            } else if (node != null) { text.Append(node.ToString()); }
+                        }
+                    }
+                }
+                if (text.Length == 0) { return context.Request.Body?.As<string>(preserveContent: true) ?? ""; }
+                return text.ToString();
+            }" />
+            <set-variable name="safetyChars" value="@(((string)context.Variables["safetyText"]).Length)" />
+            <set-variable name="safetyRecords" value="@{
+                var records = (Math.Max(1, (int)context.Variables["safetyChars"]) + 999) / 1000;
+                return "{cs-shield-prompt}" == "true" ? records * 2 : records;
+            }" />
+            <set-variable name="safetyMicroUsd" value="@((int)context.Variables["safetyRecords"] * {cs-micro-usd-per-record})" />
+            <set-variable name="safetyCheckedSurface" value="@(context.Variables.GetValueOrDefault<string>("surface", "model"))" />
+            <llm-content-safety backend-id="{cs-backend-id}" shield-prompt="{cs-shield-prompt}">
+                <categories output-type="EightSeverityLevels">
+                    <category name="Hate" threshold="{cs-threshold-hate}" />
+                    <category name="Sexual" threshold="{cs-threshold-sexual}" />
+                    <category name="SelfHarm" threshold="{cs-threshold-selfharm}" />
+                    <category name="Violence" threshold="{cs-threshold-violence}" />
+                </categories>
+                {cs-blocklists}
+            </llm-content-safety>
+            {purview-include}
+        </when>
+    </choose>
+</fragment>

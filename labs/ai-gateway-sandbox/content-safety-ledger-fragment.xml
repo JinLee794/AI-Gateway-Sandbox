@@ -1,0 +1,96 @@
+<fragment>
+    <!--
+        AI Gateway Sandbox - "safety-ledger" policy fragment (included in the tier policy outbound AND on-error).
+
+        Makes the tokenomics of "Blocked before spend" visible for every call the blocked-before-spend fragment
+        screened (safetyMicroUsd > 0):
+
+          - x-gw-safety-cost-usd    - what the Content Safety check cost (charged to the plan $ budget)
+          - chargeback record       - same schema as chargeback-record, with surface = safety and
+                                      item = content-safety, plus blocked (true | false) and checkedSurface
+                                      (model | tool | agent), so FinOps sees the guardrail as its own line item
+          - CostMicroUSD metric     - Surface = safety
+          - when Content Safety blocked the call (LastError.Source = llm-content-safety):
+              GovernanceEvents metric (Event = content-blocked) and x-gw-governance: content-blocked.
+              The tier policy on-error sets x-gw-blocked-by: llm-content-safety. Model tokens and model cost: 0.
+
+        Runs once per request (safetyLedgered), even if an outbound error also triggers on-error.
+    -->
+    <choose>
+        <when condition="@(context.Variables.GetValueOrDefault<int>("safetyMicroUsd", 0) > 0 && !context.Variables.ContainsKey("safetyLedgered"))">
+            <set-variable name="safetyLedgered" value="@(true)" />
+            <set-variable name="safetyBlocked" value="@((context.LastError?.Source ?? "") == "llm-content-safety")" />
+            <set-variable name="safetyPayer" value="@(context.Variables.GetValueOrDefault<string>("payer", context.Subscription?.Id ?? "anonymous"))" />
+            <set-variable name="safetyTier" value="@(context.Variables.GetValueOrDefault<string>("payerTier", context.Product?.Id ?? "none"))" />
+            <set-variable name="safetyItem" value="@{
+                var surface = context.Variables.GetValueOrDefault<string>("safetyCheckedSurface", "");
+                return surface == "tool" ? context.Variables.GetValueOrDefault<string>("toolName", "")
+                    : surface == "agent" ? context.Variables.GetValueOrDefault<string>("agentId", "")
+                    : context.Variables.GetValueOrDefault<string>("requestedModel", "");
+            }" />
+            <set-variable name="chargebackDirectory" value="{{chargeback-directory}}" />
+            <set-variable name="safetyOwner" value="@{
+                var payer = (string)context.Variables["safetyPayer"];
+                foreach (var entry in ((string)context.Variables["chargebackDirectory"]).Split(';')) {
+                    var parts = entry.Split('=');
+                    if (parts.Length == 2 && parts[0].Trim() == payer) { return parts[1] + "|||"; }
+                }
+                return payer + "|Unassigned|n/a|unknown|||";
+            }" />
+            <trace source="chargeback" severity="information">
+                <message>@("Chargeback: " + (string)context.Variables["safetyPayer"] + " session " + context.Variables.GetValueOrDefault<string>("session", "no-session") + " safety content-safety (" + (string)context.Variables["safetyCheckedSurface"] + " " + (string)context.Variables["safetyItem"] + (((bool)context.Variables["safetyBlocked"]) ? ", blocked" : "") + ") " + (int)context.Variables["safetyMicroUsd"] + " micro-USD")</message>
+                <metadata name="record" value="chargeback" />
+                <metadata name="user" value="@((string)context.Variables["safetyPayer"])" />
+                <metadata name="displayName" value="@(((string)context.Variables["safetyOwner"]).Split('|')[0])" />
+                <metadata name="team" value="@(((string)context.Variables["safetyOwner"]).Split('|')[1])" />
+                <metadata name="costCenter" value="@(((string)context.Variables["safetyOwner"]).Split('|')[2])" />
+                <metadata name="kind" value="@(((string)context.Variables["safetyOwner"]).Split('|')[3])" />
+                <metadata name="session" value="@(context.Variables.GetValueOrDefault<string>("session", "no-session"))" />
+                <metadata name="surface" value="safety" />
+                <metadata name="item" value="content-safety" />
+                <metadata name="costMicroUsd" value="@(((int)context.Variables["safetyMicroUsd"]).ToString())" />
+                <metadata name="chargedMicroUsd" value="@(((int)context.Variables["safetyMicroUsd"]).ToString())" />
+                <metadata name="promptTokens" value="0" />
+                <metadata name="completionTokens" value="0" />
+                <metadata name="tier" value="@((string)context.Variables["safetyTier"])" />
+                <metadata name="via" value="@(context.Variables.GetValueOrDefault<string>("via", "direct"))" />
+                <metadata name="caller" value="@(context.Variables.GetValueOrDefault<string>("caller", "unknown"))" />
+                <metadata name="requestId" value="@(context.RequestId.ToString())" />
+                <metadata name="blocked" value="@(((bool)context.Variables["safetyBlocked"]) ? "true" : "false")" />
+                <metadata name="blockedBy" value="@(((bool)context.Variables["safetyBlocked"]) ? "llm-content-safety" : "")" />
+                <metadata name="checkedSurface" value="@((string)context.Variables["safetyCheckedSurface"])" />
+                <metadata name="checkedItem" value="@((string)context.Variables["safetyItem"])" />
+                <metadata name="safetyRecords" value="@(context.Variables.GetValueOrDefault<int>("safetyRecords", 0).ToString())" />
+            </trace>
+            <emit-metric name="CostMicroUSD" value="@((double)(int)context.Variables["safetyMicroUsd"])" namespace="ai-gateway-sandbox">
+                <dimension name="Agent" value="@((string)context.Variables["safetyPayer"])" />
+                <dimension name="Tier" value="@((string)context.Variables["safetyTier"])" />
+                <dimension name="Model" value="content-safety" />
+                <dimension name="Surface" value="safety" />
+                <dimension name="Via" value="@(context.Variables.GetValueOrDefault<string>("via", "direct"))" />
+            </emit-metric>
+            <set-header name="x-gw-safety-cost-usd" exists-action="override">
+                <value>@(((int)context.Variables["safetyMicroUsd"] / 1000000.0).ToString("0.######", System.Globalization.CultureInfo.InvariantCulture))</value>
+            </set-header>
+            <choose>
+                <when condition="@((bool)context.Variables["safetyBlocked"])">
+                    <emit-metric name="GovernanceEvents" value="1" namespace="ai-gateway-sandbox">
+                        <dimension name="Agent" value="@((string)context.Variables["safetyPayer"])" />
+                        <dimension name="Tier" value="@((string)context.Variables["safetyTier"])" />
+                        <dimension name="Event" value="content-blocked" />
+                        <dimension name="Model" value="@((string)context.Variables["safetyItem"])" />
+                    </emit-metric>
+                    <set-header name="x-gw-governance" exists-action="override">
+                        <value>content-blocked</value>
+                    </set-header>
+                    <set-header name="x-gw-prompt-tokens" exists-action="override">
+                        <value>0</value>
+                    </set-header>
+                    <set-header name="x-gw-cost-usd" exists-action="override">
+                        <value>0</value>
+                    </set-header>
+                </when>
+            </choose>
+        </when>
+    </choose>
+</fragment>

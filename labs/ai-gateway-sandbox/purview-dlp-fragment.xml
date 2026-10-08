@@ -1,0 +1,186 @@
+<fragment>
+    <!--
+        AI Gateway Sandbox - "purview-dlp" policy fragment (OPTIONAL, deployed only when purviewDlp.enabled is true in
+        sandbox-config.json). Included by the blocked-before-spend fragment right after llm-content-safety, so it only
+        runs for text Content Safety already let through (safetyText).
+
+        Microsoft Purview Data Loss Prevention for AI apps (Graph processContent), adapted from labs/apim-purview-dlp:
+          1. On-Behalf-Of exchange of the USER's Entra ID token (x-user-assertion header, audience = the gateway app)
+             for a Graph token with Content.Process.User, ProtectionScopes.Compute.User and ContentActivity.Write
+             (cached 55 minutes per token hash).
+          2. POST /beta/me/dataSecurityAndGovernance/processContent (activity uploadText) with the text.
+          3. A Block / restrictAccess action (or an unreadable verdict: fail closed) returns 403 with
+             x-gw-blocked-by: purview-dlp. The call never reaches the model, tool or agent.
+
+        Purview evaluates a USER, not an API key: calls without x-user-assertion are not evaluated and get
+        x-gw-purview: skipped-no-user (or 403 when {purview-require-user} is true).
+
+        Why it is off by default: it needs real Entra users (the sandbox callers are subscription keys and managed
+        identities), Graph delegated permissions with admin consent, a client secret, a Purview DLP policy for
+        custom AI apps created by a Compliance Administrator, Purview pay-as-you-go billing and auditing, and up to
+        an hour of policy propagation. See the lab README ("Purview DLP (optional)").
+
+        Named values (created by purview-dlp.bicep): purview-tenant-id, purview-client-id, purview-client-secret
+        (secret), purview-graph-host.
+    -->
+    <set-variable name="pvUserToken" value="@{
+        var assertion = context.Request.Headers.GetValueOrDefault("x-user-assertion", "");
+        return assertion.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? assertion.Substring(7).Trim() : assertion.Trim();
+    }" />
+    <choose>
+        <when condition="@((string)context.Variables["pvUserToken"] == "")">
+            <choose>
+                <when condition="@("{purview-require-user}" == "true")">
+                    <return-response>
+                        <set-status code="403" reason="Purview DLP Requires A User" />
+                        <set-header name="Content-Type" exists-action="override">
+                            <value>application/json</value>
+                        </set-header>
+                        <set-header name="x-gw-blocked-by" exists-action="override">
+                            <value>purview-dlp</value>
+                        </set-header>
+                        <set-header name="x-gw-block-reason" exists-action="override">
+                            <value>no-user-assertion</value>
+                        </set-header>
+                        <set-header name="x-gw-request-id" exists-action="override">
+                            <value>@(context.RequestId.ToString())</value>
+                        </set-header>
+                        <set-body>@(new JObject(new JProperty("error", new JObject(
+                            new JProperty("code", "PurviewUserRequired"),
+                            new JProperty("message", "Purview DLP evaluates a signed-in user. Send the user's Entra ID token in x-user-assertion.")))).ToString())</set-body>
+                    </return-response>
+                </when>
+                <otherwise>
+                    <set-variable name="pvStatus" value="skipped-no-user" />
+                </otherwise>
+            </choose>
+        </when>
+        <otherwise>
+            <!-- 1. OBO: user token -> Graph token (SHA-256 cache key: stable across gateway nodes, no collisions) -->
+            <set-variable name="pvCacheKey" value="@{
+                using (var sha = System.Security.Cryptography.SHA256.Create()) {
+                    var hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes((string)context.Variables["pvUserToken"]));
+                    return "purview-obo-" + BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+                }
+            }" />
+            <cache-lookup-value key="@((string)context.Variables["pvCacheKey"])" variable-name="pvGraphToken" />
+            <choose>
+                <when condition="@(!context.Variables.ContainsKey("pvGraphToken"))">
+                    <send-request mode="new" response-variable-name="pvOboResponse" timeout="20" ignore-error="true">
+                        <set-url>https://login.microsoftonline.com/{{purview-tenant-id}}/oauth2/v2.0/token</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override">
+                            <value>application/x-www-form-urlencoded</value>
+                        </set-header>
+                        <set-body>@{
+                            var form = new System.Collections.Generic.Dictionary<string, string> {
+                                { "grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer" },
+                                { "client_id", "{{purview-client-id}}" },
+                                { "client_secret", "{{purview-client-secret}}" },
+                                { "assertion", (string)context.Variables["pvUserToken"] },
+                                { "scope", "https://{{purview-graph-host}}/Content.Process.User https://{{purview-graph-host}}/ProtectionScopes.Compute.User https://{{purview-graph-host}}/ContentActivity.Write" },
+                                { "requested_token_use", "on_behalf_of" }
+                            };
+                            return string.Join("&", form.Select(kv => System.Uri.EscapeDataString(kv.Key) + "=" + System.Uri.EscapeDataString(kv.Value)));
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="pvGraphToken" value="@{
+                        try { return ((IResponse)context.Variables["pvOboResponse"]).Body.As<JObject>()["access_token"]?.ToString() ?? ""; }
+                        catch { return ""; }
+                    }" />
+                    <choose>
+                        <when condition="@((string)context.Variables["pvGraphToken"] != "")">
+                            <cache-store-value key="@((string)context.Variables["pvCacheKey"])" value="@((string)context.Variables["pvGraphToken"])" duration="3300" />
+                        </when>
+                    </choose>
+                </when>
+            </choose>
+            <!-- 2. processContent -->
+            <choose>
+                <when condition="@((string)context.Variables["pvGraphToken"] != "")">
+                    <send-request mode="new" response-variable-name="pvResponse" timeout="20" ignore-error="true">
+                        <set-url>https://{{purview-graph-host}}/beta/me/dataSecurityAndGovernance/processContent</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Authorization" exists-action="override">
+                            <value>@("Bearer " + (string)context.Variables["pvGraphToken"])</value>
+                        </set-header>
+                        <set-header name="Content-Type" exists-action="override">
+                            <value>application/json</value>
+                        </set-header>
+                        <set-body>@{
+                            var id = context.RequestId.ToString();
+                            var now = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
+                            return new JObject(new JProperty("contentToProcess", new JObject(
+                                new JProperty("contentEntries", new JArray(new JObject(
+                                    new JProperty("@odata.type", "#microsoft.graph.processConversationMetadata"),
+                                    new JProperty("identifier", id),
+                                    new JProperty("content", new JObject(
+                                        new JProperty("@odata.type", "#microsoft.graph.textContent"),
+                                        new JProperty("data", context.Variables.GetValueOrDefault<string>("safetyText", "")))),
+                                    new JProperty("name", "AI Gateway Sandbox " + context.Variables.GetValueOrDefault<string>("surface", "model") + " request"),
+                                    new JProperty("correlationId", id),
+                                    new JProperty("sequenceNumber", 0),
+                                    new JProperty("isTruncated", false),
+                                    new JProperty("createdDateTime", now),
+                                    new JProperty("modifiedDateTime", now)))),
+                                new JProperty("activityMetadata", new JObject(new JProperty("activity", "uploadText"))),
+                                new JProperty("protectedAppMetadata", new JObject(
+                                    new JProperty("name", "AI Gateway Sandbox"),
+                                    new JProperty("version", "1.0"),
+                                    new JProperty("applicationLocation", new JObject(
+                                        new JProperty("@odata.type", "#microsoft.graph.policyLocationApplication"),
+                                        new JProperty("value", "{{purview-client-id}}"))))),
+                                new JProperty("integratedAppMetadata", new JObject(
+                                    new JProperty("name", "AI Gateway Sandbox"),
+                                    new JProperty("version", "1.0")))))).ToString();
+                        }</set-body>
+                    </send-request>
+                </when>
+            </choose>
+            <!-- 3. Verdict: fail closed (no Graph token, a Graph error or an unreadable response blocks the call) -->
+            <set-variable name="pvStatus" value="@{
+                try {
+                    var response = context.Variables.GetValueOrDefault<IResponse>("pvResponse");
+                    if (response == null || response.StatusCode >= 300) { return "unknown"; }
+                    var verdict = response.Body.As<JObject>(preserveContent: true);
+                    var actions = verdict.SelectTokens("$.policyActions[*].action").Select(t => t.ToString()).ToList();
+                    return actions.Any(a => a.Equals("block", StringComparison.OrdinalIgnoreCase) || a.Equals("restrictAccess", StringComparison.OrdinalIgnoreCase) || a.Equals("blockAccess", StringComparison.OrdinalIgnoreCase)) ? "blocked" : "allowed";
+                } catch { return "unknown"; }
+            }" />
+            <choose>
+                <when condition="@((string)context.Variables["pvStatus"] != "allowed")">
+                    <emit-metric name="GovernanceEvents" value="1" namespace="ai-gateway-sandbox">
+                        <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
+                        <dimension name="Tier" value="@(context.Product?.Id ?? "none")" />
+                        <dimension name="Event" value="dlp-blocked" />
+                        <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("surface", "model"))" />
+                    </emit-metric>
+                    <return-response>
+                        <set-status code="403" reason="Blocked By Purview DLP" />
+                        <set-header name="Content-Type" exists-action="override">
+                            <value>application/json</value>
+                        </set-header>
+                        <set-header name="x-gw-governance" exists-action="override">
+                            <value>dlp-blocked</value>
+                        </set-header>
+                        <set-header name="x-gw-blocked-by" exists-action="override">
+                            <value>purview-dlp</value>
+                        </set-header>
+                        <set-header name="x-gw-block-reason" exists-action="override">
+                            <value>@((string)context.Variables["pvStatus"] == "blocked" ? "purview-dlp-policy" : "purview-verdict-unknown (fail closed)")</value>
+                        </set-header>
+                        <set-header name="x-gw-safety-cost-usd" exists-action="override">
+                            <value>@((context.Variables.GetValueOrDefault<int>("safetyMicroUsd", 0) / 1000000.0).ToString("0.######", System.Globalization.CultureInfo.InvariantCulture))</value>
+                        </set-header>
+                        <set-header name="x-gw-request-id" exists-action="override">
+                            <value>@(context.RequestId.ToString())</value>
+                        </set-header>
+                        <set-body>@(new JObject(new JProperty("error", new JObject(
+                            new JProperty("code", "BlockedByDataLossPrevention"),
+                            new JProperty("message", "Microsoft Purview DLP blocked this request before it reached a model, tool or agent.")))).ToString())</set-body>
+                    </return-response>
+                </when>
+            </choose>
+        </otherwise>
+    </choose>
+</fragment>
