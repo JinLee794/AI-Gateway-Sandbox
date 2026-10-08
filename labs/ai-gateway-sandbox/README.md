@@ -210,6 +210,18 @@ python src/app.py --port 8080
 
 Then open http://localhost:8080. The UI gets the Entra ID tokens it sends, the Azure Monitor and Log Analytics queries, the request traces, the policy read-back and the **Reset budgets** button from your Azure CLI login. As a safety net, the UI server refuses more than 60 gateway calls per minute (set `DEMO_MAX_CALLS_PER_MINUTE` to change it).
 
+#### Hosted demo UI behind Easy Auth (optional)
+
+To have the demo always available to your team, set `host_demo_ui = True` in the first notebook cell before you deploy, then run the **Deploy the app to the hosted demo UI** cell in step 1️⃣4️⃣. [demo-ui.bicep](demo-ui.bicep) adds:
+
+- **App Service** (Linux, B1 by default via `demoUiSku`, billed per hour while the plan exists) that runs the same `src/app.py`, with no build step and no dependencies.
+- **App Service authentication (Easy Auth)** on a new **single-tenant app registration**: every page and API needs a sign-in to your Microsoft Entra tenant. Only `/healthz` (which returns `{"ok": true}`) is open, as a readiness probe.
+- A **secretless sign-in**. The app registration trusts the app's **user-assigned managed identity** through a federated identity credential (`OVERRIDE_USE_MI_FIC_ASSERTION_CLIENTID`), so there is no client secret to store or rotate.
+- **Managed identity instead of your CLI login**. The hosted app calls the gateway (the identity is added to the `entra-identity` fragment's allowed client apps), the management API (traces, policy read-back, budget reset), Log Analytics and Application Insights with the managed identity. It gets *API Management Service Contributor*, *Log Analytics Reader* and *Monitoring Reader*.
+- **Presenter attribution**. For calls from the hosted UI, the fragment records the signed-in user as the caller: `x-gw-caller: you@contoso.com (via demo UI)`. The presenter header is trusted only on tokens issued to the UI's managed identity.
+
+The deployment cell zips `app.py`, `static/` and the generated configuration. The configuration contains the subscription keys, but the app only serves `static/`, so the keys never reach the browser. The **See the pattern** GIFs load from GitHub. Run that cell again after every redeployment so the hosted app picks up the new keys. The request inspector buffer (`/api/invocations`) is shared by everyone signed in to the hosted app. Creating the app registration needs permission to register applications in the tenant. The clean-up notebook deletes the app registration as well.
+
 ### Guided scenarios
 
 Click a scenario in the UI, or **Run the full demo** to play them all in order (about 85 calls, under $0.10 at the demo prices, about 9 minutes). Each scenario card draws its path (consumer → gateway → model, tool or agent) as it starts:

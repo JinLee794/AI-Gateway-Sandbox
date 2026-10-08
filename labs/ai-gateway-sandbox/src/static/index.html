@@ -277,7 +277,7 @@
   .insp-drawer .pbody { overflow:auto; padding:16px; } .insp-drawer .insp { margin-top:0; }</style>
 </head>
 <body>
-<div class="topbar"><span class="brand">Microsoft Azure</span><span class="sep"></span><span>AI Gateway</span><span class="spacer"></span><span class="env">Live demo · Azure API Management + Microsoft Foundry</span></div>
+<div class="topbar"><span class="brand">Microsoft Azure</span><span class="sep"></span><span>AI Gateway</span><span class="spacer"></span><span class="env" id="envLabel">Live demo · Azure API Management + Microsoft Foundry</span></div>
 <div class="pagehead">
   <div class="crumbs">Home<span>›</span>API Management<span>›</span>AI Gateway Sandbox</div>
   <div class="titlerow">
@@ -1126,6 +1126,10 @@ const list = (xs) => (xs && xs.length ? xs.join(", ") : "<i>none</i>");
 async function init() {
   cfg = await (await fetch("/api/config")).json();
   cfg.tools = cfg.tools || []; cfg.a2aAgents = cfg.a2aAgents || [];
+  if (cfg.hosted) {  // App Service + Easy Auth: gateway tokens come from the app's managed identity, on behalf of the signed-in user
+    $("envLabel").innerHTML = `Hosted demo · signed in as <b>${escapeHtml(cfg.user || "unknown")}</b> · <a href="/.auth/logout" style="color:inherit">Sign out</a>`;
+    $("useToken").parentElement.title = "Microsoft Entra ID token of the demo UI's managed identity (on behalf of the signed-in user), validated by validate-azure-ad-token";
+  }
   for (const [k, id] of [["workbook", "lnkWorkbook"], ["appInsights", "lnkAppInsights"], ["logAnalytics", "lnkLogs"], ["apim", "lnkApim"]]) {
     if (cfg.links[k]) $(id).href = cfg.links[k]; else $(id).classList.add("hidden");
   }

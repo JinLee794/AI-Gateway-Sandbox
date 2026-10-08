@@ -4,8 +4,10 @@ AI Gateway Sandbox - lightweight demo UI.
 Standard library only (no extra packages). Azure tokens are obtained from the Azure CLI (`az login` is a
 prerequisite of the lab): a Microsoft Entra ID token for the gateway (validated by validate-azure-ad-token),
 and tokens for the telemetry, Log Analytics evidence, request tracing, policy viewer and budget-reset features.
+When hosted on Azure App Service (hostDemoUi), the same tokens come from the app's user-assigned managed identity,
+and App Service authentication (Easy Auth) signs users in; the signed-in user is forwarded to the gateway as the presenter.
 
-    python app.py [--port 8080] [--config demo-config.private.config]
+    python app.py [--host 127.0.0.1] [--port 8080] [--config demo-config.private.config]
 
 The config file is written by the lab notebook (step 3) and contains the APIM subscription keys,
 so it is git-ignored (*.private.config).
@@ -16,6 +18,9 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(HERE, "static")
 IMAGES = os.path.normpath(os.path.join(HERE, "..", "..", "..", "images"))
+IMAGES_FALLBACK = "https://raw.githubusercontent.com/Azure-Samples/AI-Gateway/main/images"
+# Hosted on App Service with a managed identity (IDENTITY_ENDPOINT / IDENTITY_HEADER are set by the platform)
+HOSTED = bool(os.environ.get("IDENTITY_ENDPOINT") and os.environ.get("IDENTITY_HEADER"))
 CONFIG = {}
 _token_cache, _token_lock = {}, threading.Lock()
 # Demo safety net: cap the gateway calls the UI can send, independent of the gateway's own tier limits
@@ -108,11 +113,25 @@ QUERIES = {
 }
 
 
+def managed_identity_token(resource):
+    query = {"resource": resource, "api-version": "2019-08-01"}
+    if os.environ.get("AZURE_CLIENT_ID"):
+        query["client_id"] = os.environ["AZURE_CLIENT_ID"]
+    request = urllib.request.Request(f"{os.environ['IDENTITY_ENDPOINT']}?{urllib.parse.urlencode(query)}",
+                                     headers={"X-IDENTITY-HEADER": os.environ["IDENTITY_HEADER"]})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        data = json.load(response)
+    return data["access_token"], float(data.get("expires_on") or time.time() + 1800)
+
+
 def az_token(resource):
     with _token_lock:
         cached = _token_cache.get(resource)
         if cached and cached[1] - 300 > time.time():
             return cached[0]
+        if HOSTED:
+            _token_cache[resource] = managed_identity_token(resource)
+            return _token_cache[resource][0]
         az = shutil.which("az") or shutil.which("az.cmd")
         if not az:
             raise RuntimeError("Azure CLI not found - install it and run 'az login'")
@@ -302,7 +321,20 @@ def gateway_auth(agent, payload, surface):
         headers["Authorization"] = f"Bearer {az_token(GATEWAY_AUDIENCE)}"
     if payload.get("trace"):
         headers["Apim-Debug-Authorization"] = debug_token(surface)
+    presenter = getattr(_capture, "presenter", None)
+    if HOSTED and presenter and "Authorization" in headers:
+        # trusted by the entra-identity fragment only on a token of the UI's own managed identity
+        headers["x-demo-presenter"] = presenter
     return headers
+
+
+def signed_in_user(headers):
+    """The Easy Auth user (App Service strips client-supplied X-MS-CLIENT-PRINCIPAL-* headers). Hosted mode only."""
+    if not HOSTED:
+        return None
+    name = headers.get("X-MS-CLIENT-PRINCIPAL-NAME") or ""
+    name = re.sub(r"[^\w.@+-]", "", name)[:128]
+    return name or None
 
 
 def parse_rpc(text):
@@ -579,9 +611,11 @@ def reset_budgets(_payload):
     return 200, {"epoch": epoch, "message": "Budgets and token quotas reset (named value budget-epoch updated). It can take a few seconds to apply."}
 
 
-def public_config():
+def public_config(user=None):
     portal = "https://portal.azure.com/#@/resource"
     return {
+        "hosted": HOSTED,
+        "user": user,
         "agents": [{k: v for k, v in a.items() if k != "key"} for a in CONFIG.get("agents", [])],
         "tiers": [t for t in CONFIG.get("tiers", []) if not t.get("internal")],
         "models": CONFIG.get("models", []),
@@ -614,16 +648,22 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        if self.path == "/healthz":  # readiness probe; the only path Easy Auth lets through without sign-in, so it returns nothing else
+            return self.send_json(200, {"ok": True})
         if self.path == "/api/config":
-            return self.send_json(200, public_config())
+            return self.send_json(200, public_config(signed_in_user(self.headers)))
         if self.path == "/api/invocations":  # the last 50 inspected requests, newest first (already redacted)
             with _recent_lock:
                 return self.send_json(200, {"requests": list(reversed(_recent))})
         match = re.fullmatch(r"/images/([a-z0-9-]+\.gif)", self.path)
         if match:  # the repo's lab diagrams (used by the "See the pattern" lightbox), served from <repo>/images
             path = os.path.join(IMAGES, match.group(1))
-            if not os.path.isfile(path):
-                return self.send_json(404, {"error": "not found"})
+            if not os.path.isfile(path):  # hosted without the repo: use the published copy of the diagram
+                self.send_response(302)
+                self.send_header("Location", f"{IMAGES_FALLBACK}/{match.group(1)}")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return None
             with open(path, "rb") as f:
                 body = f.read()
             self.send_response(200)
@@ -644,6 +684,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json(404, {"error": "not found"})
         inspect = handler in (chat, mcp, a2a)
         _capture.calls = [] if inspect else None
+        _capture.presenter = signed_in_user(self.headers)
         try:
             length = int(self.headers.get("Content-Length") or 0)
             payload = json.loads(self.rfile.read(length) or b"{}")
@@ -661,6 +702,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 def main():
     parser = argparse.ArgumentParser(description="AI Gateway Sandbox demo UI")
+    parser.add_argument("--host", default="127.0.0.1", help="interface to bind (App Service uses 0.0.0.0)")
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8080)))
     parser.add_argument("--config", default=os.path.join(HERE, "demo-config.private.config"))
     args = parser.parse_args()
@@ -668,8 +710,9 @@ def main():
         sys.exit(f"Config file not found: {args.config}. Run step 3 of the lab notebook first.")
     with open(args.config, encoding="utf-8") as f:
         CONFIG.update(json.load(f))
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    print(f"AI Gateway Sandbox demo UI running on http://localhost:{args.port}  (Ctrl+C to stop)")
+    server = ThreadingHTTPServer((args.host, args.port), Handler)
+    print(f"AI Gateway Sandbox demo UI running on http://{'localhost' if args.host == '127.0.0.1' else args.host}:{args.port}"
+          f"{'  (hosted: managed identity)' if HOSTED else '  (Ctrl+C to stop)'}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

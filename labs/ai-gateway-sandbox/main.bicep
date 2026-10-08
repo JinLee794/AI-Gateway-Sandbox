@@ -37,6 +37,15 @@ param budgetEpoch string = utcNow('yyyyMMddHHmmss')
 @secure()
 param agentBackendSecret string = newGuid()
 
+@description('Host the demo UI on Azure App Service behind App Service authentication (Easy Auth), so only users of this tenant can open it. Needs permission to create an app registration.')
+param hostDemoUi bool = false
+
+@description('Region of the App Service that hosts the demo UI')
+param demoUiLocation string = resourceGroup().location
+
+@description('App Service plan SKU of the hosted demo UI')
+param demoUiSku string = 'B1'
+
 // ------------------
 //    VARIABLES
 // ------------------
@@ -192,6 +201,13 @@ resource agentIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01
   location: agentLocation
 }
 
+// Identity of the hosted demo UI: Easy Auth sign-in credential and the gateway caller (on behalf of the signed-in presenter)
+resource uiIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = if (hostDemoUi) {
+  name: 'id-sandbox-ui-${resourceSuffix}'
+  location: demoUiLocation
+}
+var uiClientId = hostDemoUi ? uiIdentity!.properties.clientId : 'not-hosted'
+
 // Zero-trust: Entra ID token validation, included first by every tier policy (models, MCP tools and A2A agents)
 resource entraIdentityFragment 'Microsoft.ApiManagement/service/policyFragments@2024-06-01-preview' = {
   parent: apim
@@ -199,7 +215,8 @@ resource entraIdentityFragment 'Microsoft.ApiManagement/service/policyFragments@
   properties: {
     description: 'Validates the caller Microsoft Entra ID token (validate-azure-ad-token) and identifies the caller for chargeback'
     format: 'rawxml'
-    value: replace(replace(loadTextContent('entra-identity-fragment.xml'), '{tenant-id}', tenant().tenantId), '{agent-client-id}', agentIdentity.properties.clientId)
+    value: replace(replace(replace(replace(loadTextContent('entra-identity-fragment.xml'), '{tenant-id}', tenant().tenantId), '{agent-client-id}', agentIdentity.properties.clientId),
+      '<!-- {ui-application-id} -->', hostDemoUi ? '<application-id>${uiClientId}</application-id>' : '<!-- (demo UI not hosted) -->'), '{ui-client-id}', uiClientId)
   }
 }
 
@@ -577,6 +594,22 @@ resource sandboxWorkbook 'Microsoft.Insights/workbooks@2022-04-01' = {
   }
 }
 
+// 12. Optional: the demo UI hosted on App Service behind Easy Auth (only users of this tenant can sign in)
+module demoUi 'demo-ui.bicep' = if (hostDemoUi) {
+  name: 'demoUiModule'
+  params: {
+    location: demoUiLocation
+    resourceSuffix: resourceSuffix
+    sku: demoUiSku
+    identityId: uiIdentity!.id
+    identityClientId: uiIdentity!.properties.clientId
+    identityPrincipalId: uiIdentity!.properties.principalId
+    apimName: apimModule.outputs.name
+    logAnalyticsName: lawModule.outputs.name
+    appInsightsName: appInsightsModule.outputs.name
+  }
+}
+
 // ------------------
 //    OUTPUTS
 // ------------------
@@ -605,6 +638,9 @@ output agentCardUrl string = '${apimModule.outputs.gatewayUrl}/${sourcingAgentAp
 output agentAppUrl string = 'https://${sourcingAgentApp.properties.configuration.ingress.fqdn}'
 output toolPricing string = toolPricing
 output agentPricing string = agentPricing
+output demoUiUrl string = hostDemoUi ? demoUi!.outputs.url : ''
+output demoUiName string = hostDemoUi ? demoUi!.outputs.name : ''
+output demoUiAppId string = hostDemoUi ? demoUi!.outputs.appId : ''
 
 #disable-next-line outputs-should-not-contain-secrets
 output agentKeys array = [for (agent, i) in agentsConfig: {
