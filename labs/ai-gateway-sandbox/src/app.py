@@ -34,10 +34,12 @@ GW_HEADERS = ["x-gw-agent", "x-gw-tier", "x-gw-model-requested", "x-gw-model-ser
               "x-gw-remaining-quota-tokens", "x-gw-tokens-consumed", "x-gw-block-reason", "retry-after",
               "x-gw-billed-to", "x-gw-tool", "x-gw-remaining-tool-calls", "x-gw-remaining-agent-calls",
               "x-gw-agent-fee-usd", "x-gw-downstream-cost-usd", "mcp-session-id", "x-gw-request-id", "x-gw-caller",
-              "x-gw-route", "x-gw-backend", "x-gw-blocked-by", "x-ms-region", "apim-trace-id", "x-gw-session"]
+              "x-gw-route", "x-gw-backend", "x-gw-blocked-by", "x-ms-region", "apim-trace-id", "x-gw-session",
+              "x-gw-cached-tokens", "x-gw-cached-savings-usd", "x-gw-pricing-rule", "x-gw-affinity",
+              "x-gw-image-count", "x-gw-image-unit-usd", "x-gw-image-spec", "x-gw-remaining-images"]
 GATEWAY_AUDIENCE = "https://cognitiveservices.azure.com"
 ARM = "https://management.azure.com"
-TRACE_APIS = {"model": "inference-api", "tool": "commerce-mcp", "agent": "sourcing-agent"}
+TRACE_APIS = {"model": "inference-api", "tool": "commerce-mcp", "agent": "sourcing-agent", "image": "image-api"}
 
 # Azure Monitor evidence: the resource-specific Log Analytics tables written by the gateway (diagnostic settings)
 EVIDENCE_QUERIES = {
@@ -54,7 +56,7 @@ EVIDENCE_QUERIES = {
             '| project TimeGenerated, Method, ToolName, ServerName, ClientName, ClientVersion, AuthenticationMethod, SessionId, Error'),
 }
 POLICY_EVIDENCE_QUERIES = {
-    "outcomes": ("Gateway outcomes by policy", 'ApiManagementGatewayLogs | where TimeGenerated > ago({window}) and ApiId in ("inference-api", "commerce-mcp", "sourcing-agent") '
+    "outcomes": ("Gateway outcomes by policy", 'ApiManagementGatewayLogs | where TimeGenerated > ago({window}) and ApiId in ("inference-api", "commerce-mcp", "sourcing-agent", "image-api") '
                  '| extend Policy = iff(isempty(LastErrorSource), "(passed)", LastErrorSource) '
                  '| summarize Requests = count() by Policy, ResponseCode, ProductId | order by Requests desc'),
     "backends": ("Load balancing: AI model calls served by each region", 'ApiManagementGatewayLogs | where TimeGenerated > ago({window}) and ApiId == "inference-api" and isnotempty(BackendUrl) '
@@ -79,6 +81,7 @@ CHARGEBACK_BASE = ('AppTraces | where TimeGenerated > ago({window}) and tostring
                    'Surface = tostring(Properties.surface), Item = tostring(Properties.item), Via = tostring(Properties.via), '
                    'CostMicroUsd = tolong(Properties.costMicroUsd), ChargedMicroUsd = tolong(Properties.chargedMicroUsd), '
                    'PromptTokens = tolong(Properties.promptTokens), CompletionTokens = tolong(Properties.completionTokens), '
+                   'CachedTokens = tolong(Properties.cachedTokens), ImageCount = tolong(Properties.imageCount), '
                    'Caller = tostring(Properties.caller), RequestId = tostring(Properties.requestId) ')
 CHARGEBACK_QUERIES = {
     "teams": ("Chargeback by team and cost center",
@@ -87,6 +90,7 @@ CHARGEBACK_QUERIES = {
     "sessions": ("Chargeback by user and session",
                  '| summarize CostUSD = round(sum(CostMicroUsd) / 1e6, 6), Calls = count(), Models = round(sumif(CostMicroUsd, Surface == "model") / 1e6, 6), '
                  'Tools = round(sumif(CostMicroUsd, Surface == "tool") / 1e6, 6), Agents = round(sumif(CostMicroUsd, Surface == "agent") / 1e6, 6), '
+                 'Images = round(sumif(CostMicroUsd, Surface == "image") / 1e6, 6), '
                  'ViaAgent = round(sumif(CostMicroUsd, Via != "direct") / 1e6, 6), PromptTokens = sum(PromptTokens), CompletionTokens = sum(CompletionTokens), '
                  'Started = min(TimeGenerated), LastCall = max(TimeGenerated) by Team, CostCenter, User, DisplayName, Kind, Session '
                  '| order by Team asc, DisplayName asc, Started asc'),
@@ -96,12 +100,18 @@ CHARGEBACK_QUERIES = {
 DIMS = ('| extend Agent = tostring(customDimensions["Agent"]), Tier = tostring(customDimensions["Tier"]), '
         'Model = tostring(customDimensions["Model"]), Surface = coalesce(tostring(customDimensions["Surface"]), "model"), '
         'Via = coalesce(tostring(customDimensions["Via"]), "direct")')
-REQUESTS = ('requests | where url has "/openai/" or url has "/commerce-mcp/" or url has "/sourcing-agent" '
+REQUESTS = ('requests | where url has "/openai/" or url has "/commerce-mcp/" or url has "/sourcing-agent" or url has "/images/" '
             '| extend Agent = tostring(customDimensions["Subscription Name"]), Tier = tostring(customDimensions["Product Name"])')
 QUERIES = {
     "costByAgent": f'customMetrics | where name == "CostMicroUSD" {DIMS} | summarize CostUSD = round(sum(valueSum) / 1e6, 6) by Agent | order by CostUSD desc',
     "costByModel": f'customMetrics | where name == "CostMicroUSD" {DIMS} | where Surface == "model" | summarize CostUSD = round(sum(valueSum) / 1e6, 6) by Model | order by CostUSD desc',
     "costBySurface": f'customMetrics | where name == "CostMicroUSD" {DIMS} | summarize CostUSD = round(sum(valueSum) / 1e6, 6) by Surface | order by CostUSD desc',
+    "cachedSavings": 'traces | where tostring(customDimensions["record"]) == "chargeback" and tolong(customDimensions["cachedTokens"]) > 0 '
+                     '| summarize CachedTokens = sum(tolong(customDimensions["cachedTokens"])), PromptTokens = sum(tolong(customDimensions["promptTokens"])), '
+                     'CostUSD = round(sum(tolong(customDimensions["costMicroUsd"])) / 1e6, 6) by Model = tostring(customDimensions["item"])',
+    "images": 'traces | where tostring(customDimensions["record"]) == "chargeback" and tostring(customDimensions["surface"]) == "image" '
+              '| summarize Images = sum(tolong(customDimensions["imageCount"])), CostUSD = round(sum(tolong(customDimensions["costMicroUsd"])) / 1e6, 6) '
+              'by User = tostring(customDimensions["user"]), Model = tostring(customDimensions["item"])',
     "costByResource": f'customMetrics | where name == "CostMicroUSD" {DIMS} | summarize CostUSD = round(sum(valueSum) / 1e6, 6), Calls = sum(valueCount) by Surface, Resource = Model | order by CostUSD desc',
     "chargeback": f'customMetrics | where name == "CostMicroUSD" {DIMS} | summarize CostUSD = round(sum(valueSum) / 1e6, 6) by Agent, Tier, Surface, Via | order by Agent asc, CostUSD desc',
     "tokensByAgentModel": f'customMetrics | where name in ("Prompt Tokens", "Completion Tokens") {DIMS} '
@@ -388,6 +398,81 @@ def chat(payload):
     return 200, result
 
 
+def responses(payload):
+    """Responses API through the gateway: create (optionally chained with previous_response_id) or read a stored response."""
+    agent = agent_by_name(payload.get("agent", ""))
+    if not agent:
+        return 400, {"error": f"Unknown agent '{payload.get('agent')}'"}
+    if limited := demo_limit():
+        return 429, {"error": limited}
+    response_id = payload.get("responseId")
+    previous = payload.get("previousResponseId")
+    for value in (response_id, previous):
+        if value is not None and not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", str(value)):
+            return 400, {"error": "response ids may only contain letters, digits, '_' and '-'"}
+    base = f"{CONFIG['inferenceBaseUrl']}/responses"
+    if response_id:
+        status, headers, text, elapsed = http("GET", f"{base}/{response_id}", None, gateway_auth(agent, payload, "model"))
+    else:
+        body = {"model": payload.get("model"), "input": payload.get("prompt") or "Hello"}
+        if previous:
+            body["previous_response_id"] = previous
+        if payload.get("maxTokens"):
+            body["max_output_tokens"] = max(16, int(payload["maxTokens"]))
+        status, headers, text, elapsed = http("POST", base, body, gateway_auth(agent, payload, "model"))
+    result = {"surface": "model", "api": "responses", "status": status, "latencyMs": round(elapsed * 1000), "agent": agent["name"],
+              "tier": agent["tier"], "requestedModel": payload.get("model"), "headers": gw_headers(headers), "entraToken": not payload.get("noToken")}
+    try:
+        data = json.loads(text)
+    except ValueError:
+        data = {"raw": text[:500]}
+    if status == 200 and isinstance(data, dict):
+        result["responseId"] = data.get("id")
+        result["usage"] = data.get("usage", {})
+        parts = [c.get("text", "") for item in data.get("output") or [] if isinstance(item, dict)
+                 for c in item.get("content") or [] if isinstance(c, dict)]
+        result["content"] = data.get("output_text") or "".join(parts)
+    else:
+        result["error"] = error_message(status, data, text)
+    return 200, result
+
+
+def image(payload):
+    """Image generation through the gateway's image API, priced per image by model, quality and size."""
+    agent = agent_by_name(payload.get("agent", ""))
+    if not agent:
+        return 400, {"error": f"Unknown agent '{payload.get('agent')}'"}
+    if not CONFIG.get("imagesBaseUrl"):
+        return 400, {"error": "Image generation is not deployed (set images.enabled to true in sandbox-config.json and redeploy)"}
+    if limited := demo_limit():
+        return 429, {"error": limited}
+    images = CONFIG.get("images") or {}
+    body = {"model": payload.get("model") or (images.get("model") or {}).get("name"), "prompt": payload.get("prompt") or "A small red cube",
+            "n": int(payload.get("n") or 1)}
+    for key in ("size", "quality"):
+        if payload.get(key):
+            body[key] = payload[key]
+    status, headers, text, elapsed = http("POST", f"{CONFIG['imagesBaseUrl']}/images/generations", body,
+                                          gateway_auth(agent, payload, "image"), timeout=240)
+    result = {"surface": "image", "status": status, "latencyMs": round(elapsed * 1000), "agent": agent["name"], "tier": agent["tier"],
+              "requestedModel": body["model"], "headers": gw_headers(headers), "entraToken": not payload.get("noToken")}
+    try:
+        data = json.loads(text)
+    except ValueError:
+        data = {"raw": text[:500]}
+    if status == 200 and isinstance(data, dict):
+        items = data.get("data") or []
+        result["usage"] = data.get("usage", {})
+        result["imageCount"] = len(items)
+        # only the first image goes back to the browser, and only when it is small enough to preview
+        first = items[0].get("b64_json") if items and isinstance(items[0], dict) else None
+        if first and len(first) <= 2_000_000:
+            result["preview"] = first
+    else:
+        result["error"] = error_message(status, data, text)
+    return 200, result
+
+
 def mcp(payload):
     """MCP client: initialize a session on the gateway's MCP server, then tools/list or tools/call with the agent's key."""
     agent = agent_by_name(payload.get("agent", ""))
@@ -586,7 +671,10 @@ def policies(_payload):
              ("API", "A2A agent (sourcing-agent)", f"{apim}/apis/sourcing-agent/policies/policy"),
              ("Fragment", "entra-identity", f"{apim}/policyFragments/entra-identity"),
              ("Fragment", "payer-attribution", f"{apim}/policyFragments/payer-attribution"),
-             ("Fragment", "chargeback-record", f"{apim}/policyFragments/chargeback-record")]
+             ("Fragment", "chargeback-record", f"{apim}/policyFragments/chargeback-record"),
+             ("Fragment", "responses-pricing", f"{apim}/policyFragments/responses-pricing")]
+    if CONFIG.get("imagesBaseUrl"):
+        items.append(("API", "Image generation (image-api)", f"{apim}/apis/image-api/policies/policy"))
     items += [("Product", f"{t['displayName']} ({t['name']})", f"{apim}/products/{t['name']}/policies/policy") for t in CONFIG.get("tiers", [])]
     result = []
     for scope, name, url in items:
@@ -709,7 +797,9 @@ def public_config(user=None):
         "tools": CONFIG.get("tools", []),
         "a2aAgents": CONFIG.get("a2aAgents", []),
         "foundryBackends": CONFIG.get("foundryBackends", []),
-        "endpoints": {k: CONFIG.get(k) for k in ("inferenceBaseUrl", "mcpUrl", "a2aUrl", "agentCardUrl")},
+        "endpoints": {k: CONFIG.get(k) for k in ("inferenceBaseUrl", "mcpUrl", "a2aUrl", "agentCardUrl", "imagesBaseUrl")},
+        "cachedInputPrices": CONFIG.get("cachedInputPrices", {}),
+        "images": {**(CONFIG.get("images") or {}), "enabled": bool(CONFIG.get("imagesBaseUrl"))},
         "links": {
             "workbook": f"{portal}{CONFIG['workbookId']}/workbook" if CONFIG.get("workbookId") else None,
             "appInsights": f"{portal}{CONFIG['appInsightsId']}/overview" if CONFIG.get("appInsightsId") else None,
@@ -778,11 +868,11 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json(500, {"error": scrub(str(error))})
         routes = {"/api/chat": chat, "/api/mcp": mcp, "/api/a2a": a2a, "/api/telemetry": telemetry, "/api/reset-budgets": reset_budgets,
                   "/api/trace": trace, "/api/evidence": evidence, "/api/policy-evidence": policy_evidence, "/api/policies": policies,
-                  "/api/chargeback": chargeback}
+                  "/api/chargeback": chargeback, "/api/responses": responses, "/api/image": image}
         handler = routes.get(self.path)
         if not handler:
             return self.send_json(404, {"error": "not found"})
-        inspect = handler in (chat, mcp, a2a)
+        inspect = handler in (chat, mcp, a2a, responses, image)
         _capture.calls = [] if inspect else None
         _capture.presenter = signed_in_user(self.headers)
         try:
