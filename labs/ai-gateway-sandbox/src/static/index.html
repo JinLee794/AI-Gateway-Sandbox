@@ -236,7 +236,45 @@
   .runempty { padding:40px; text-align:center; color:var(--muted); }
   @media (max-width:1180px) { .runs { grid-template-columns:1fr; } .rlist { position:static; max-height:320px; } .rkpis { grid-template-columns:repeat(3,1fr); } }
   @media (max-width:1180px) { .build { grid-template-columns:1fr; } .build .form { border-left:0; padding-left:0; } .build .agents, .build .users { grid-template-columns:1fr 1fr; } }
-  @media (max-width:760px) { .modes { flex-wrap:wrap; } .build .agents, .build .users { grid-template-columns:1fr; } }</style>
+  @media (max-width:760px) { .modes { flex-wrap:wrap; } .build .agents, .build .users { grid-template-columns:1fr; } }
+  /* Request inspector: the redacted HTTP calls app.py made through APIM for one result */
+  .insp { margin-top:12px; border:1px solid var(--border); border-radius:4px; background:var(--panel); }
+  .insp > summary { cursor:pointer; padding:8px 12px; font-weight:600; font-size:13px; display:flex; align-items:center; gap:8px; list-style:none; }
+  .insp > summary::-webkit-details-marker { display:none; }
+  .insp > summary::before, .inv > summary::before { content:""; border:4px solid transparent; border-left:6px solid var(--muted); border-right:0; transition:transform .15s; flex:0 0 auto; }
+  .insp[open] > summary::before, .inv[open] > summary::before { transform:rotate(90deg); }
+  .insp > summary .muted { font-weight:400; } .insp-body { padding:0 12px 12px; display:flex; flex-direction:column; gap:8px; }
+  .insp-note { font-size:12px; color:var(--muted); background:var(--panel2); border:1px solid var(--divider); border-radius:4px; padding:6px 10px; }
+  .inv { border:1px solid var(--divider); border-radius:4px; background:#fff; }
+  .inv > summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; padding:6px 10px; font-size:12px; flex-wrap:wrap; }
+  .inv > summary::-webkit-details-marker { display:none; } .inv[open] > summary { border-bottom:1px solid var(--divider); background:var(--panel2); }
+  .inv .meth { font:600 11px Consolas,monospace; padding:1px 6px; border-radius:3px; background:#deecf9; color:#004578; }
+  .inv .meth.GET { background:#dff6dd; color:#0b5a0b; } .inv .lbl { font-weight:600; } .inv .host { color:var(--muted); font:11px Consolas,monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:420px; }
+  .inv .lat { font-size:11px; padding:1px 6px; border-radius:10px; background:#f3f2f1; color:var(--text); } .inv .lat.slow { background:var(--warn-bg); color:var(--warn); }
+  .inv .knd { font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:#5c2e91; background:#f3eefa; border-radius:10px; padding:1px 6px; }
+  .inv .sp { flex:1; } .inv .tools { display:flex; gap:6px; }
+  .inv .tools button { height:24px; padding:0 8px; font-size:12px; background:#fff; color:var(--accent); border:1px solid var(--border); }
+  .inv .tools button:hover:not(:disabled) { background:var(--accent-light); color:var(--accent); border-color:var(--accent); }
+  .inv-url { font:12px Consolas,monospace; padding:8px 10px 0; word-break:break-all; } .inv-url b { color:#004578; margin-right:6px; }
+  .inv-tabs { display:flex; gap:16px; padding:4px 10px 0; border-bottom:1px solid var(--divider); }
+  .inv-tabs button { background:transparent; border:0; color:var(--text); height:30px; padding:0 2px; font-size:13px; position:relative; border-radius:0; }
+  .inv-tabs button:hover:not(:disabled) { background:transparent; color:var(--accent); border:0; }
+  .inv-tabs button.on { font-weight:600; } .inv-tabs button.on::after { content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--accent); border-radius:2px; }
+  .inv-pane { padding:8px 10px 10px; } .inv-pane[hidden] { display:none; }
+  .inv-pane h4 { margin:8px 0 4px; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; } .inv-pane h4:first-child { margin-top:0; }
+  .hdrs { display:grid; grid-template-columns:minmax(140px,max-content) 1fr; gap:2px 12px; font:12px Consolas,monospace; }
+  .hdrs .n { color:var(--muted); } .hdrs .v { word-break:break-all; } .hdrs .v.red { color:var(--bad); } .hdrs .n.key { color:#004578; font-weight:600; }
+  .jt { font:12px/1.55 Consolas,monospace; background:var(--panel2); border:1px solid var(--divider); border-radius:4px; padding:6px 8px; max-height:360px; overflow:auto; }
+  .jt details { margin-left:14px; } .jt > details { margin-left:0; } .jt summary { cursor:pointer; color:var(--muted); }
+  .jt summary:hover { color:var(--accent); } .jt .jr { margin-left:14px; white-space:pre-wrap; word-break:break-word; }
+  .jt .jk { color:#8e1b6a; } .jt .js { color:#0b5a0b; } .jt .jn { color:#004e8c; } .jt .jb { color:#8a3707; } .jt .jx { color:var(--bad); font-weight:600; }
+  .jt pre { margin:0; white-space:pre-wrap; word-break:break-word; font:inherit; }
+  .insp-drawer { position:fixed; inset:0; z-index:110; background:rgba(0,0,0,.35); display:flex; justify-content:flex-end; }
+  .insp-drawer[hidden] { display:none; }
+  .insp-drawer .pane { width:min(860px, 100%); height:100%; background:var(--bg); box-shadow:-8px 0 24px rgba(0,0,0,.18); display:flex; flex-direction:column; }
+  .insp-drawer .phead { display:flex; align-items:center; gap:8px; padding:12px 16px; background:#fff; border-bottom:1px solid var(--divider); }
+  .insp-drawer .phead b { font-size:15px; } .insp-drawer .phead .sp { flex:1; } .insp-drawer .phead button { height:28px; padding:0 10px; }
+  .insp-drawer .pbody { overflow:auto; padding:16px; } .insp-drawer .insp { margin-top:0; }</style>
 </head>
 <body>
 <div class="topbar"><span class="brand">Microsoft Azure</span><span class="sep"></span><span>AI Gateway</span><span class="spacer"></span><span class="env">Live demo · Azure API Management + Microsoft Foundry</span></div>
@@ -1055,6 +1093,10 @@
 </main>
 <div class="toast" id="toast"></div>
 <div class="preview" id="scPreview" role="tooltip"></div>
+<div class="insp-drawer" id="inspDrawer" hidden role="dialog" aria-modal="true" aria-labelledby="inspTitle" onclick="if (event.target === this) closeInspector()">
+  <div class="pane"><div class="phead"><b id="inspTitle">Request inspector</b><span class="sp"></span><button onclick="closeInspector()" aria-label="Close">Close</button></div>
+    <div class="pbody" id="inspBody"></div></div>
+</div>
 
 <script>
 const PRESETS = {
@@ -1234,6 +1276,101 @@ function costParts(r) {
   return parts;
 }
 
+// ---- Request inspector: the HTTP calls app.py made for a result. Secrets were already masked server-side (app.py), never here.
+const KEY_HDR = /^(x-gw-|x-ms-region|x-ms-request-id|x-request-id|x-ratelimit|ratelimit|retry-after|apim-|mcp-session-id|content-type$|www-authenticate)/i;
+const isMasked = (v) => typeof v === "string" && v.includes("***");
+function jsonTree(v, depth = 0, key) {
+  const k = key !== undefined ? `<span class="jk">${escapeHtml(JSON.stringify(String(key)))}</span>: ` : "";
+  if (v === null || typeof v !== "object") {
+    const cls = typeof v === "string" ? (isMasked(v) ? "jx" : "js") : typeof v === "number" ? "jn" : "jb";
+    return `<div class="jr">${k}<span class="${cls}">${escapeHtml(JSON.stringify(v))}</span></div>`;
+  }
+  const arr = Array.isArray(v), entries = arr ? v.map((x, i) => [i, x]) : Object.entries(v);
+  if (!entries.length) return `<div class="jr">${k}${arr ? "[]" : "{}"}</div>`;
+  const n = entries.length, sum = arr ? `[ <i>${n} item${n === 1 ? "" : "s"}</i> ]` : `{ <i>${n} key${n === 1 ? "" : "s"}</i> }`;
+  return `<details${depth < 3 ? " open" : ""}><summary>${k}${sum}</summary>${entries.map(([ek, ev]) => jsonTree(ev, depth + 1, arr ? undefined : ek)).join("")}</details>`;
+}
+function bodyView(b, truncated) {
+  if (b === null || b === undefined || b === "") return `<div class="muted">(no body)</div>`;
+  const inner = typeof b === "string" ? `<pre>${escapeHtml(b)}</pre>` : jsonTree(b);
+  return `<div class="jt">${inner}</div>${truncated ? `<div class="muted">Truncated to 8 KB by the demo backend.</div>` : ""}`;
+}
+function hdrView(h, highlight = true) {
+  const e = Object.entries(h || {});
+  if (!e.length) return `<div class="muted">(none)</div>`;
+  return `<div class="hdrs">${e.map(([n, v]) => `<div class="n${highlight && KEY_HDR.test(n) ? " key" : ""}">${escapeHtml(n)}</div><div class="v${isMasked(v) ? " red" : ""}">${escapeHtml(v)}</div>`).join("")}</div>`;
+}
+function invView(inv, ci, j, open) {
+  let host = inv.url; try { const u = new URL(inv.url); host = u.host + u.pathname; } catch {}
+  const st = inv.status ?? "ERR", rh = inv.responseHeaders || {}, key = Object.fromEntries(Object.entries(rh).filter(([n]) => KEY_HDR.test(n)));
+  return `<details class="inv"${open ? " open" : ""}><summary><span class="status ${statusClass(st)}">${st}</span><span class="meth ${escapeHtml(inv.method)}">${escapeHtml(inv.method)}</span>
+      <span class="lbl">${escapeHtml(inv.label || "")}</span><span class="host" title="${escapeHtml(inv.url)}">${escapeHtml(host)}</span>${inv.kind === "management" ? `<span class="knd" title="Azure Resource Manager call (not through the gateway)">ARM</span>` : ""}
+      <span class="sp"></span><span class="lat${inv.latencyMs > 3000 ? " slow" : ""}">${inv.latencyMs ?? "-"} ms</span>
+      <span class="tools"><button type="button" onclick="event.preventDefault();event.stopPropagation();copyCurl(${ci},${j})" title="Copy as curl; secrets become $APIM_SUBSCRIPTION_KEY / $ENTRA_TOKEN / $APIM_DEBUG_TOKEN">Copy as curl</button></span></summary>
+    <div class="inv-url"><b>${escapeHtml(inv.method)}</b>${escapeHtml(inv.url)}</div>
+    <div class="inv-tabs" role="tablist"><button type="button" class="on" role="tab" onclick="invTab(this,0)">Request</button><button type="button" role="tab" onclick="invTab(this,1)">Response · ${st}</button></div>
+    <div class="inv-pane"><h4>Headers</h4>${hdrView(inv.requestHeaders, false)}<h4>Body</h4>${bodyView(inv.requestBody)}</div>
+    <div class="inv-pane" hidden><h4>Status</h4><div><span class="status ${statusClass(st)}">${st}</span> <span class="muted">in ${inv.latencyMs ?? "-"} ms</span></div>
+      <h4>Key headers <span style="text-transform:none;letter-spacing:0;font-weight:400">(gateway attribution, limits, region, trace)</span></h4>${hdrView(key)}
+      <details style="margin-top:6px"><summary class="muted" style="cursor:pointer">All response headers (${Object.keys(rh).length})</summary>${hdrView(rh)}</details>
+      <h4>Body</h4>${bodyView(inv.responseBody, inv.responseTruncated)}</div></details>`;
+}
+function invTab(btn, n) {
+  const inv = btn.closest(".inv");
+  inv.querySelectorAll(":scope > .inv-tabs button").forEach((b, i) => b.classList.toggle("on", i === n));
+  inv.querySelectorAll(":scope > .inv-pane").forEach((p, i) => p.hidden = i !== n);
+}
+function inspectorHtml(r, ci, open = false) {
+  const list = r.invocations || [];
+  if (!list.length) return "";
+  const gw = list.filter(i => i.kind !== "management").length, ms = list.reduce((s, i) => s + (i.latencyMs || 0), 0);
+  return `<details class="insp"${open ? " open" : ""}><summary>Inspect requests <span class="muted">· ${gw} call${gw === 1 ? "" : "s"} to the APIM gateway${list.length > gw ? ` + ${list.length - gw} ARM` : ""} · ${ms} ms</span></summary>
+    <div class="insp-body"><div class="insp-note">Exactly what the demo backend sent and received. Keys, tokens, cookies and signatures were masked by <code>app.py</code> before leaving the server. <b>Copy as curl</b> swaps them for <code>$APIM_SUBSCRIPTION_KEY</code>, <code>$ENTRA_TOKEN</code> and <code>$APIM_DEBUG_TOKEN</code>.</div>
+    ${list.map((inv, j) => invView(inv, ci, j, j === list.length - 1)).join("")}</div></details>`;
+}
+function curlFor(inv) {
+  const ph = { "api-key": "$APIM_SUBSCRIPTION_KEY", "ocp-apim-subscription-key": "$APIM_SUBSCRIPTION_KEY", "authorization": "Bearer $ENTRA_TOKEN", "apim-debug-authorization": "$APIM_DEBUG_TOKEN" };
+  const q = (s) => "'" + String(s).replace(/'/g, "'\\''") + "'", used = new Set();
+  let url = inv.url;
+  if (/[?&]subscription-key=/i.test(url)) { url = url.replace(/([?&]subscription-key=)[^&]*/i, "$1$APIM_SUBSCRIPTION_KEY"); used.add("$APIM_SUBSCRIPTION_KEY"); }
+  const lines = [`curl -sS -X ${inv.method} ${url.includes("$") ? `"${url}"` : q(url)}`];
+  for (const [n, v] of Object.entries(inv.requestHeaders || {})) {
+    const p = ph[n.toLowerCase()];
+    if (p) { used.add(p.replace("Bearer ", "")); lines.push(`-H "${n}: ${p}"`); } else lines.push(`-H ${q(`${n}: ${v}`)}`);
+  }
+  if (inv.requestBody !== null && inv.requestBody !== undefined) lines.push(`--data-raw ${q(JSON.stringify(inv.requestBody))}`);
+  const setup = { "$APIM_SUBSCRIPTION_KEY": "# export APIM_SUBSCRIPTION_KEY=<the agent's APIM subscription key>",
+                  "$ENTRA_TOKEN": "# export ENTRA_TOKEN=$(az account get-access-token --resource https://cognitiveservices.azure.com --query accessToken -o tsv)",
+                  "$APIM_DEBUG_TOKEN": "# export APIM_DEBUG_TOKEN=<from POST .../gateways/managed/listDebugCredentials>" };
+  return [...used].map(u => setup[u]).filter(Boolean).concat(lines.join(" \\\n  ")).join("\n");
+}
+async function copyCurl(ci, j) {
+  const inv = session.calls[ci]?.invocations?.[j];
+  if (!inv) return;
+  const text = curlFor(inv);
+  try { await navigator.clipboard.writeText(text); }
+  catch { const t = document.createElement("textarea"); t.value = text; document.body.append(t); t.select(); document.execCommand("copy"); t.remove(); }
+  toast("Copied as curl. Secrets are placeholders: set $APIM_SUBSCRIPTION_KEY / $ENTRA_TOKEN before running it.");
+}
+function openInspector(ci) {
+  const r = session.calls[ci];
+  if (!r) return;
+  $("inspTitle").textContent = `Request inspector · ${r.agent} · ${resourceOf(r)}`;
+  $("inspBody").innerHTML = inspectorHtml(r, ci, true) || `<div class="muted">No invocations were captured for this call.</div>`;
+  $("inspDrawer").hidden = false; $("inspDrawer").querySelector(".phead button").focus();
+}
+function openRunInspector(n) {
+  const run = runs.find(x => x.n === n);
+  if (!run) return;
+  $("inspTitle").textContent = `Request inspector · run #${run.n} · ${run.title}`;
+  $("inspBody").innerHTML = run.calls.map(i => { const r = session.calls[i];
+    return `<div style="margin-bottom:12px"><div style="font-weight:600;font-size:13px;margin-bottom:4px"><span class="status ${statusClass(r.status)}">${r.status}</span> ${escapeHtml(r.agent)} · ${resourceOf(r)} <span class="muted">${new Date(r.at).toLocaleTimeString()}</span></div>${inspectorHtml(r, i, false)}</div>`; }).join("")
+    || `<div class="muted">No requests in this run.</div>`;
+  $("inspDrawer").hidden = false; $("inspDrawer").querySelector(".phead button").focus();
+}
+function closeInspector() { $("inspDrawer").hidden = true; }
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("inspDrawer").hidden) closeInspector(); });
+
 const callCost = (r) => r.status === 200 ? Number((r.headers || {})["x-gw-cost-usd"] || 0) : 0;
 // HTML for one call: the detail panel (Last response / Run history) and its request-log row
 function callView(r, idx) {
@@ -1262,7 +1399,7 @@ function callView(r, idx) {
     + `<tr><td>${surfChip("agent")} per-task fee</td><td></td><td>${fmtUsd(h["x-gw-agent-fee-usd"])}</td><td>${billed}</td></tr></tbody></table>` : "";
   const last = `<span class="status ${statusClass(r.status)}">${r.status}</span> <b>${r.agent}</b> (${r.tier}) · ${r.latencyMs ?? "-"} ms
     <div class="kv">${kv}</div>${stepsHtml}
-    <div class="content">${escapeHtml(body)}</div>`;
+    <div class="content">${escapeHtml(body)}</div>${inspectorHtml(r, idx)}`;
 
   const detail = r.status === 200 ? (r.finishReason === "length" ? "truncated (output cap)" : r.surface === "agent" && r.steps ? `${r.steps.length} downstream calls` : "") : (r.error || "");
   const tok = r.surface === "model" ? `${h["x-gw-prompt-tokens"] || "-"} / ${h["x-gw-completion-tokens"] || "-"}` : (tokens ? tokens : "-");
@@ -1271,7 +1408,7 @@ function callView(r, idx) {
     <td>${tok}</td><td>${cost ? cost.toFixed(6) : "-"}</td><td>${billed}</td>
     <td title="${escapeHtml(h["x-gw-route"] || "")}">${escapeHtml(h["x-gw-backend"] || "-")}${(h["x-gw-route"] || "").includes(" > ") ? " ⤳" : ""}</td>
     <td>${r.latencyMs ?? "-"} ms</td><td title="${escapeHtml(detail)}">${escapeHtml(detail.slice(0, 60))}</td>
-    <td>${h["x-gw-request-id"] ? `<a class="ev" onclick="showEvidence(${idx})">${h["apim-trace-id"] ? "trace + logs" : "logs"}</a>` : "-"}</td></tr>`;
+    <td>${h["x-gw-request-id"] ? `<a class="ev" onclick="showEvidence(${idx})">${h["apim-trace-id"] ? "trace + logs" : "logs"}</a>` : "-"}${(r.invocations || []).length ? ` · <a class="ev" title="The HTTP calls app.py made for this result (secrets masked)" onclick="openInspector(${idx})">inspect</a>` : ""}</td></tr>`;
   return { last, row };
 }
 
@@ -1517,6 +1654,7 @@ function renderRunDetail(run, s) {
     <div class="rhead"><span class="rtag">#${run.n}</span><span class="kind ${run.kind}">${run.chip}</span><h2>${escapeHtml(run.title)}</h2>
       <span class="muted">${new Date(run.started).toLocaleString()} · ${fmtDur(dur)} · ${run.status === "running" ? "<b>running…</b>" : run.status}</span>
       ${run.req ? `<button class="secondary" id="rLoad"${busy} title="Put this request back into the builder so you can tweak it">Load into builder</button>` : ""}
+      ${run.calls.length ? `<button class="secondary" onclick="openRunInspector(${run.n})" title="Every HTTP call app.py made through APIM in this run (secrets masked)">Inspect requests (${run.calls.length})</button>` : ""}
       <button id="rRerun"${busy}>↻ Run again</button></div>
     <div class="kpis rkpis">
       <div class="kpi"><div class="l">Requests</div><div class="v">${s.calls}</div></div>

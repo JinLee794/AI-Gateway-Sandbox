@@ -10,7 +10,7 @@ and tokens for the telemetry, Log Analytics evidence, request tracing, policy vi
 The config file is written by the lab notebook (step 3) and contains the APIM subscription keys,
 so it is git-ignored (*.private.config).
 """
-import argparse, base64, gzip, json, os, re, shutil, subprocess, sys, threading, time, urllib.error, urllib.parse, urllib.request
+import argparse, base64, collections, gzip, json, os, re, shutil, subprocess, sys, threading, time, urllib.error, urllib.parse, urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -128,13 +128,130 @@ def az_token(resource):
 
 def http(method, url, body=None, headers=None, timeout=120):
     data = json.dumps(body).encode() if body is not None else None
-    request = urllib.request.Request(url, data=data, method=method, headers={"Content-Type": "application/json", **(headers or {})})
+    all_headers = {"Content-Type": "application/json", **(headers or {})}
+    request = urllib.request.Request(url, data=data, method=method, headers=all_headers)
     started = time.perf_counter()
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            return response.status, dict(response.headers), response.read().decode("utf-8", "replace"), time.perf_counter() - started
+            result = response.status, dict(response.headers), response.read().decode("utf-8", "replace"), time.perf_counter() - started
     except urllib.error.HTTPError as error:
-        return error.code, dict(error.headers), error.read().decode("utf-8", "replace"), time.perf_counter() - started
+        result = error.code, dict(error.headers), error.read().decode("utf-8", "replace"), time.perf_counter() - started
+    except Exception as error:
+        capture_invocation(method, url, all_headers, body, None, {}, f"{type(error).__name__}: {error}", time.perf_counter() - started)
+        raise
+    capture_invocation(method, url, all_headers, body, *result)
+    return result
+
+
+# ---- Request inspector: every outbound call made while serving /api/chat, /api/mcp or /api/a2a is recorded (redacted here,
+#      server-side, before anything reaches the browser) and returned with the result as "invocations".
+_capture = threading.local()
+_recent, _recent_lock = collections.deque(maxlen=50), threading.Lock()
+SENSITIVE_NAME = re.compile(r"secret|passw|token|credential|authorization|cookie|apikey|signature|key$|^(sig|se|sv|sas|skoid|sktid)$", re.I)
+MAX_BODY_CHARS = 8000
+
+
+def _mask(value, keep_scheme=False):
+    value = str(value)
+    scheme = ""
+    if keep_scheme and " " in value:
+        scheme, value = value.split(" ", 1)
+        scheme += " "
+    return f"{scheme}***{value[-4:]}" if len(value) >= 16 else f"{scheme}***"
+
+
+def _sensitive_value(value):
+    # numeric values under a "token"-like name are counters (max_tokens, x-gw-prompt-tokens), not secrets
+    return not (isinstance(value, (int, float, bool)) or value is None or re.fullmatch(r"[\d.,\s-]*", str(value)))
+
+
+def _known_secrets():
+    values = {a.get("key") for a in CONFIG.get("agents", [])} | {v[0] for v in _token_cache.values() if isinstance(v, tuple)}
+    return sorted((v for v in values if isinstance(v, str) and len(v) >= 16), key=len, reverse=True)
+
+
+def scrub(text):
+    """Defense in depth: masks any known key or token wherever it appears (URLs, bodies, echoed headers)."""
+    for secret in _known_secrets():
+        if secret in text:
+            text = text.replace(secret, _mask(secret))
+    return text
+
+
+def redact_headers(headers):
+    out = {}
+    for name, value in (headers or {}).items():
+        lower = name.lower()
+        if lower in ("authorization", "proxy-authorization", "apim-debug-authorization"):
+            out[name] = _mask(value, keep_scheme=lower != "apim-debug-authorization")
+        elif SENSITIVE_NAME.search(lower) and _sensitive_value(value):
+            out[name] = _mask(value)
+        else:
+            out[name] = scrub(str(value))
+    return out
+
+
+def redact_json(value):
+    if isinstance(value, dict):
+        return {k: (_mask(v) if SENSITIVE_NAME.search(str(k)) and _sensitive_value(v) and not isinstance(v, (dict, list)) else redact_json(v))
+                for k, v in value.items()}
+    if isinstance(value, list):
+        return [redact_json(v) for v in value]
+    return scrub(value) if isinstance(value, str) else value
+
+
+def redact_url(url):
+    parts = urllib.parse.urlsplit(url)
+    query = [(k, _mask(v) if (SENSITIVE_NAME.search(k) or k.lower() == "subscription-key") and v else v)
+             for k, v in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)]
+    return scrub(urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(query, safe="/:*"))))
+
+
+def redact_body(text):
+    """JSON (or an SSE stream of JSON events) is parsed and redacted key by key; anything else is scrubbed as text."""
+    if text is None or text == "":
+        return None, False
+    try:
+        return redact_json(json.loads(text)), False
+    except ValueError:
+        pass
+    events = [line[5:].strip() for line in text.splitlines() if line.startswith("data:")]
+    if events:
+        try:
+            parsed = [redact_json(json.loads(e)) for e in events]
+            return (parsed[0] if len(parsed) == 1 else parsed), False
+        except ValueError:
+            pass
+    return scrub(text[:MAX_BODY_CHARS]), len(text) > MAX_BODY_CHARS
+
+
+def _label(method, url, body):
+    path = urllib.parse.urlsplit(url).path
+    if "management.azure.com" in url:
+        return "ARM " + path.rsplit("/", 1)[-1].split("?")[0]
+    if isinstance(body, dict) and body.get("method"):
+        return body["method"] + (f" {body['params'].get('name')}" if body["method"] == "tools/call" and isinstance(body.get("params"), dict) else "")
+    if path.endswith("/chat/completions"):
+        return "chat.completions" + (f" {body.get('model')}" if isinstance(body, dict) and body.get("model") else "")
+    return f"{method} {path.rsplit('/', 1)[-1] or path}"
+
+
+def capture_invocation(method, url, headers, body, status, response_headers, text, elapsed):
+    calls = getattr(_capture, "calls", None)
+    if calls is None:
+        return
+    response_body, truncated = redact_body(text)
+    if isinstance(response_body, (dict, list)):
+        serialized = json.dumps(response_body, ensure_ascii=False)
+        if len(serialized) > MAX_BODY_CHARS:
+            response_body, truncated = serialized[:MAX_BODY_CHARS], True
+    calls.append({
+        "seq": len(calls) + 1, "label": _label(method, url, body), "method": method, "url": redact_url(url),
+        "kind": "management" if "management.azure.com" in url else "gateway",
+        "requestHeaders": redact_headers(headers), "requestBody": redact_json(body) if body is not None else None,
+        "status": status, "responseHeaders": redact_headers(response_headers), "responseBody": response_body,
+        "responseTruncated": truncated, "latencyMs": round(elapsed * 1000),
+    })
 
 
 def agent_by_name(name):
@@ -499,6 +616,9 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/api/config":
             return self.send_json(200, public_config())
+        if self.path == "/api/invocations":  # the last 50 inspected requests, newest first (already redacted)
+            with _recent_lock:
+                return self.send_json(200, {"requests": list(reversed(_recent))})
         match = re.fullmatch(r"/images/([a-z0-9-]+\.gif)", self.path)
         if match:  # the repo's lab diagrams (used by the "See the pattern" lightbox), served from <repo>/images
             path = os.path.join(IMAGES, match.group(1))
@@ -522,12 +642,21 @@ class Handler(SimpleHTTPRequestHandler):
         handler = routes.get(self.path)
         if not handler:
             return self.send_json(404, {"error": "not found"})
+        inspect = handler in (chat, mcp, a2a)
+        _capture.calls = [] if inspect else None
         try:
             length = int(self.headers.get("Content-Length") or 0)
             payload = json.loads(self.rfile.read(length) or b"{}")
-            self.send_json(*handler(payload))
+            status, result = handler(payload)
         except Exception as error:  # surface errors to the UI instead of dropping the connection
-            self.send_json(500, {"error": str(error)})
+            status, result = 500, {"error": scrub(str(error))}
+        finally:
+            calls, _capture.calls = _capture.calls, None
+        if inspect and isinstance(result, dict):
+            result["invocations"] = calls
+            with _recent_lock:
+                _recent.append({"at": time.time(), "path": self.path, "agent": result.get("agent"), "status": result.get("status", status), "invocations": calls})
+        self.send_json(status, result)
 
 
 def main():
