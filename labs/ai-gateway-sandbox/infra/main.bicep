@@ -20,6 +20,10 @@ param uiImageName string = ''
 @description('Service tree ID for the Entra ID app registration, required by some tenants (leave empty otherwise)')
 param serviceManagementReference string = ''
 
+@description('Client secret of the OPTIONAL Purview DLP app registration (azd env set PURVIEW_CLIENT_SECRET ...). Only used when purviewDlp.enabled is true in sandbox-config.json.')
+@secure()
+param purviewClientSecret string = ''
+
 // Written by the preprovision hook (infra/scripts/build_config.py) from ../sandbox-config.json
 var config = loadJsonContent('sandbox.generated.json')
 var lab = config.labParameters
@@ -57,6 +61,9 @@ module sandbox '../main.bicep' = {
     inferenceAPIType: lab.inferenceAPIType
     foundryProjectName: lab.foundryProjectName
     uiClientId: uiIdentity.outputs.clientId
+    contentSafetyConfig: lab.?contentSafetyConfig ?? {}
+    purviewDlpConfig: lab.?purviewDlpConfig ?? {}
+    purviewClientSecret: purviewClientSecret
   }
 }
 

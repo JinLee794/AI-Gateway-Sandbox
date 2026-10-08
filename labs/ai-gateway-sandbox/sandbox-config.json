@@ -16,21 +16,21 @@
       "allowedModels": ["gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "DeepSeek-V3.2"], "fallbackModel": "gpt-4.1-mini", "onDisallowedModel": "downgrade",
       "maxOutputTokens": 2000, "tpm": 20000, "tokenQuota": 1000000, "tokenQuotaPeriod": "Monthly", "budgetUsd": 5.00, "sessionBudgetUsd": 0.02,
       "allowedTools": ["search-products", "check-inventory", "get-supplier-quote"], "toolCallsPerMinute": 60,
-      "allowedAgents": ["sourcing-agent"], "agentCallsPerMinute": 10
+      "allowedAgents": ["sourcing-agent"], "agentCallsPerMinute": 10, "contentSafety": true
     },
     {
       "name": "silver", "displayName": "Silver", "description": "Standard plan: cost-efficient models, standard MCP tools, the Sourcing Agent; premium requests are downgraded",
       "allowedModels": ["gpt-4.1-mini", "gpt-4.1-nano", "DeepSeek-V3.2"], "fallbackModel": "gpt-4.1-mini", "onDisallowedModel": "downgrade",
       "maxOutputTokens": 800, "tpm": 12000, "tokenQuota": 200000, "tokenQuotaPeriod": "Monthly", "budgetUsd": 0.01, "sessionBudgetUsd": 0.01,
       "allowedTools": ["search-products", "check-inventory"], "toolCallsPerMinute": 30,
-      "allowedAgents": ["sourcing-agent"], "agentCallsPerMinute": 3
+      "allowedAgents": ["sourcing-agent"], "agentCallsPerMinute": 3, "contentSafety": true
     },
     {
       "name": "bronze", "displayName": "Bronze", "description": "Low-cost plan: nano model only, catalog search tool only, no agents, tight token limits",
       "allowedModels": ["gpt-4.1-nano"], "fallbackModel": "gpt-4.1-nano", "onDisallowedModel": "deny",
       "maxOutputTokens": 300, "tpm": 1500, "tokenQuota": 20000, "tokenQuotaPeriod": "Daily", "budgetUsd": 0.02, "sessionBudgetUsd": 0.01,
       "allowedTools": ["search-products"], "toolCallsPerMinute": 10,
-      "allowedAgents": [], "agentCallsPerMinute": 1
+      "allowedAgents": [], "agentCallsPerMinute": 1, "contentSafety": true
     },
     {
       "name": "agent-platform", "displayName": "Agent Platform (internal)", "description": "Internal plan for platform agents: their model and tool calls are charged back to the calling subscription",
@@ -41,6 +41,25 @@
     }
   ],
   "budgetPeriodSeconds": 2592000,
+  "contentSafety": {
+    "$comment": "Blocked before spend: Azure AI Content Safety screens prompts, MCP tool arguments and A2A tasks at the gateway before any spend (plans opt in with contentSafety: true). The check is charged to the plan $ budget at pricePer1KRecordsUsd per 1,000 text records (1 record = up to 1,000 characters; Prompt Shields analyzes the text a second time).",
+    "enabled": true,
+    "shieldPrompt": true,
+    "thresholds": { "Hate": 4, "Sexual": 4, "SelfHarm": 4, "Violence": 4 },
+    "surfaces": ["model", "tool", "agent"],
+    "pricePer1KRecordsUsd": 0.38,
+    "blocklistName": "sensitive-data",
+    "blocklist": [
+      { "name": "us-ssn", "pattern": "[0-9]{3}-[0-9]{2}-[0-9]{4}" },
+      { "name": "card-number", "pattern": "[0-9]{4}[ -][0-9]{4}[ -][0-9]{4}[ -][0-9]{4}" }
+    ]
+  },
+  "purviewDlp": {
+    "$comment": "OPTIONAL Microsoft Purview DLP (Graph processContent on behalf of the signed-in user). Off by default: it needs real Entra users, an app registration with admin-consented Graph permissions, a client secret (PURVIEW_CLIENT_SECRET) and a Purview DLP policy for custom AI apps. See the README.",
+    "enabled": false,
+    "clientId": "",
+    "requireUser": false
+  },
   "tools": [
     { "name": "search-products", "priceUsd": 0.0005, "description": "Search the product catalog" },
     { "name": "check-inventory", "priceUsd": 0.0002, "description": "Stock level of a SKU per warehouse" },
