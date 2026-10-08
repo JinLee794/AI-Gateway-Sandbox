@@ -140,6 +140,34 @@ flowchart LR
 
 The [lab README](labs/ai-gateway-sandbox/README.md) explains every policy, price and log.
 
+## 🗺️ Roadmap: what's not in the Sandbox yet
+
+The upstream labs already show each of these patterns on their own. The Sandbox doesn't include them yet. 🚧 = in progress, 💡 = idea.
+
+**Scenarios**
+
+| Status | Scenario | What it would show | Builds on |
+|---|---|---|---|
+| 💡 | Cache hits cost $0 | Repeated questions are answered from a semantic cache, and chargeback shows the savings. | [semantic-caching](labs/semantic-caching/) |
+| 🚧 | Blocked before spend | Unsafe prompts and sensitive data are stopped at the gateway, so no tokens are spent on them. | [content-safety](labs/content-safety/), [apim-purview-dlp](labs/apim-purview-dlp/) |
+| 💡 | Is the cheaper model good enough? | Cost compared with quality, using stored prompts and Foundry evaluations. | [message-storing](labs/message-storing/), [foundry-models-evals](labs/foundry-models-evals/) |
+| 💡 | GitHub Copilot chargeback | Copilot BYOK traffic goes through the gateway and is billed per developer. | [ghcp-byok-foundry](labs/ghcp-byok-foundry/) |
+| 💡 | Foundry agents and Toolbox | Agents hosted in Foundry and Foundry Toolbox tools are billed back to the team that calls them. | [ai-foundry-model-gateway](labs/ai-foundry-model-gateway/), [ai-foundry-toolbox](labs/ai-foundry-toolbox/) |
+| 🚧 | Over budget, switched off | An Azure Monitor alert and a Logic App suspend a subscription that goes over its budget. | [finops-framework](labs/finops-framework/) |
+| 🚧 | Real users, not keys | Chargeback by Entra ID user, instead of one subscription key per user. | [access-controlling](labs/access-controlling/), [mcp-client-authorization](labs/mcp-client-authorization/) |
+| 💡 | One budget across clouds | Amazon Bedrock and Google Gemini models share the same plans and price list. | [aws-bedrock](labs/aws-bedrock/), [google-gemini-api](labs/google-gemini-api/) |
+| 💡 | Self-hosted showback | Self-hosted models are priced per GPU-second instead of per token. | [serverless-gpu](labs/serverless-gpu/), [self-hosted-ollama](labs/self-hosted-ollama/) |
+| 🚧 | Pricing beyond tokens | Charges per image, for audio tokens and for stateful Responses API calls. | [image-generation](labs/image-generation/), [realtime-audio](labs/realtime-audio/), [secure-responses-api](labs/secure-responses-api/) |
+
+**Ways to deploy**
+
+| Status | Deployment | Why | Builds on |
+|---|---|---|---|
+| 💡 | AI Gateway tier (preview) | Runs the Sandbox on the new SKU built for AI models and MCP servers. | [aigw-foundry-models](labs/aigw-foundry-models/), [`modules/ai-gateway`](modules/ai-gateway/) |
+| 💡 | Private networking | StandardV2 with private endpoints to Foundry, for regulated customers. | [private-connectivity](labs/private-connectivity/), [foundry-e2e-private](labs/foundry-e2e-private/) |
+| 💡 | Terraform | Deploys the same resources as `azd up`, for teams that use Terraform. | [backend-pool-load-balancing-tf](labs/backend-pool-load-balancing-tf/) |
+| 💡 | Hybrid / on-premises | The self-hosted gateway applies the same token governance outside Azure. | [slm-self-hosting](labs/slm-self-hosting/) |
+
 ## 📦 What's in this repo
 
 | Path | What it is |
