@@ -1329,6 +1329,7 @@ async function init() {
   const done = busy(document.querySelector("main"), "Loading the sandbox…", "Reading the gateway configuration");
   try { cfg = await (await fetch("/api/config")).json(); } finally { done(); }
   cfg.tools = cfg.tools || []; cfg.a2aAgents = cfg.a2aAgents || [];
+  if (!cfg.contentSafety?.enabled) delete SURFACES.safety;  // no safety line item unless content safety is deployed
   if (cfg.hosted) {  // App Service + Easy Auth: gateway tokens come from the app's managed identity, on behalf of the signed-in user
     $("envLabel").innerHTML = `Hosted demo · signed in as <b>${escapeHtml(cfg.user || "unknown")}</b> · <a href="/.auth/logout" style="color:inherit">Sign out</a>`;
     $("useToken").parentElement.title = "Microsoft Entra ID token of the demo UI's managed identity (on behalf of the signed-in user), validated by validate-azure-ad-token";
@@ -1678,8 +1679,8 @@ function renderLedger() {
   const who = (n) => cfg.agents.find(a => a.name === n) || { displayName: n };
   const sum = (xs, k) => xs.reduce((s, x) => s + x[k], 0), teams = {};
   for (const l of rows) { const a = who(l.agent); (teams[a.team || "Unassigned"] ||= { cc: new Set(), rows: [] }).rows.push({ ...l, a }); teams[a.team || "Unassigned"].cc.add(a.costCenter || "-"); }
-  const cells = (xs) => `<td>${sum(xs, "calls")}</td><td>${sum(xs, "blocked") || ""}</td><td>${fmtUsd(sum(xs, "model"))}</td><td>${fmtUsd(sum(xs, "tool"))}</td><td>${fmtUsd(sum(xs, "agentFee"))}</td><td>${fmtUsd(sum(xs, "safety"))}</td>`;
-  let html = `<table><thead><tr><th>Team › user / app</th><th>Cost center</th><th>Session</th><th>Calls</th><th>Blocked</th><th>AI models</th><th>MCP tools</th><th>A2A fees</th><th>Safety checks</th><th>Total USD</th></tr></thead><tbody>`;
+  const cells = (xs) => `<td>${sum(xs, "calls")}</td><td>${sum(xs, "blocked") || ""}</td><td>${fmtUsd(sum(xs, "model"))}</td><td>${fmtUsd(sum(xs, "tool"))}</td>  <td>${fmtUsd(sum(xs, "agentFee"))}</td>${SURFACES.safety ? `<td>${fmtUsd(sum(xs, "safety"))}</td>` : ""}`;
+    let html = `<table><thead><tr><th>Team › user / app</th><th>Cost center</th><th>Session</th><th>Calls</th><th>Blocked</th><th>AI models</th><th>MCP tools</th><th>A2A fees</th>${SURFACES.safety ? "<th>Safety checks</th>" : ""}<th>Total USD</th></tr></thead><tbody>`;
   for (const [team, g] of Object.entries(teams).sort((x, y) => sum(y[1].rows, "cost") - sum(x[1].rows, "cost"))) {
     html += `<tr class="sub"><td>${escapeHtml(team)}</td><td>${escapeHtml([...g.cc].join(", "))}</td><td>${g.rows.length} session${g.rows.length === 1 ? "" : "s"}</td>${cells(g.rows)}<td>${fmtUsd(sum(g.rows, "cost"))}</td></tr>`;
     html += g.rows.sort((x, y) => String(x.a.displayName).localeCompare(String(y.a.displayName)) || x.first - y.first).map(l =>
@@ -2617,7 +2618,7 @@ const SCENARIOS = [
       policiesLoaded = true; loadPolicies(); loadPolicyEvidence();
       takeaway(`The trace shows each policy as it ran: Entra validation and caller, the plan's model downgrade, token limit and budget checks, the backend pool and retry, and the cost metric. The same request then shows up in <code>ApiManagementGatewayLogs</code> (product, backend, status, failing policy) and <code>ApiManagementGatewayLlmLog</code> (deployment and tokens) about 2-5 minutes later; the panel keeps checking. <b>Open in Azure portal</b> runs each query in Log Analytics.`);
     } },
-  { title: "Blocked before spend: content safety", cost: "5 calls · < $0.002",
+  { title: "Blocked before spend: content safety", get cost() { return cfg?.contentSafety?.enabled ? "5 calls · < $0.002" : "off · set contentSafety.enabled to try it"; },
     gist: "A jailbreak and prompts, tool arguments and agent tasks carrying sensitive data are stopped at the gateway: 403, $0 of model tokens, and only the safety check is billed.",
     policies: ["llm-content-safety", "Prompt Shields", "blocklist (sensitive data)", "safety-ledger fragment"],
     preview: () => { const m = tierOf(tierAgent("gold")).allowedModels[0];
@@ -2680,7 +2681,7 @@ function showPreview(btn) {
 function hidePreview() { $("scPreview").classList.remove("show"); }
 function renderScenarios() {
   $("scenarios").innerHTML = SCENARIOS.map((s, i) => `<button data-i="${i}"><span class="n">${i + 1}</span><span><span class="t">${s.title}</span><span class="c">${s.cost}</span></span></button>`).join("")
-    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.length})</span><span class="c">≈ 90 calls · < $0.10 · about 10 minutes</span></span></button>`;
+    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.length})</span><span class="c">${cfg.contentSafety?.enabled ? "≈ 90 calls · < $0.10 · about 10 minutes" : "≈ 85 calls · < $0.10 · about 9 minutes"}</span></span></button>`;
   document.querySelectorAll(".scenarios button[data-i]").forEach(b => {
     b.onclick = async () => {
       const s = SCENARIOS[b.dataset.i];

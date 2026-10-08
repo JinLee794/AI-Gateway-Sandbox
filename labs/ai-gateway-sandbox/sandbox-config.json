@@ -42,8 +42,8 @@
   ],
   "budgetPeriodSeconds": 2592000,
   "contentSafety": {
-    "$comment": "Blocked before spend: Azure AI Content Safety screens prompts, MCP tool arguments and A2A tasks at the gateway before any spend (plans opt in with contentSafety: true). The check is charged to the plan $ budget at pricePer1KRecordsUsd per 1,000 text records (1 record = up to 1,000 characters; Prompt Shields analyzes the text a second time).",
-    "enabled": true,
+    "$comment": "Blocked before spend (OFF by default; set enabled to true to deploy it): Azure AI Content Safety screens prompts, MCP tool arguments and A2A tasks at the gateway before any spend (plans opt in with contentSafety: true). The check is charged to the plan $ budget at pricePer1KRecordsUsd per 1,000 text records (1 record = up to 1,000 characters; Prompt Shields analyzes the text a second time), about $0.0008 per call, which makes Silver's $0.01 budget run out a call or two sooner.",
+    "enabled": false,
     "shieldPrompt": true,
     "thresholds": { "Hate": 4, "Sexual": 4, "SelfHarm": 4, "Violence": 4 },
     "surfaces": ["model", "tool", "agent"],
