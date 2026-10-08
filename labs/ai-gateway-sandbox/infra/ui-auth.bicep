@@ -55,6 +55,20 @@ resource userAssignment 'Microsoft.Graph/appRoleAssignedTo@v1.0' = if (!empty(pr
   resourceId: servicePrincipal.id
 }
 
+resource microsoftGraph 'Microsoft.Graph/servicePrincipals@v1.0' existing = {
+  appId: '00000003-0000-0000-c000-000000000000'
+}
+
+// Consent on behalf of the deployer only: tenants that restrict user consent (e.g. to members, while the deployer is a
+// guest) would otherwise ask for admin approval at sign-in. Other users still consent themselves when allowed.
+resource userConsent 'Microsoft.Graph/oauth2PermissionGrants@v1.0' = if (!empty(principalId)) {
+  clientId: servicePrincipal.id
+  consentType: 'Principal'
+  principalId: principalId
+  resourceId: microsoftGraph.id
+  scope: 'openid profile email offline_access User.Read'
+}
+
 resource authConfig 'Microsoft.App/containerApps/authConfigs@2024-10-02-preview' = {
   parent: app
   name: 'current'
