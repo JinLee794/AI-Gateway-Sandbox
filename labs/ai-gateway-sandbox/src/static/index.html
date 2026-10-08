@@ -278,6 +278,21 @@
   .lstat .live { width:8px; height:8px; border-radius:50%; background:var(--ok); display:none; animation:pulse 1.2s ease-in-out infinite; flex:0 0 8px; }
   .launch.running .lstat .live { display:inline-block; }
   @keyframes pulse { 50% { opacity:.25; } }
+  /* Loading: busy() overlay on the region that is waiting, plus a thin top bar while any API call is in flight */
+  .busy { position:absolute; inset:0; z-index:45; background:rgba(255,255,255,.74); backdrop-filter:blur(1.5px);
+          border-radius:inherit; cursor:progress; animation:busyIn .18s ease-out; }
+  .busy .bcard { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:max-content; display:flex; align-items:center; gap:14px; background:#fff; border:1px solid var(--border); border-radius:8px; padding:14px 20px; max-width:min(440px, 90%);
+                 box-shadow:0 6.4px 14.4px rgba(0,0,0,.13),0 1.2px 3.6px rgba(0,0,0,.11); }
+  .busy .bcard b { display:block; font-size:14px; font-weight:600; } .busy .bcard small { display:block; color:var(--muted); font-size:12px; margin-top:2px; }
+  .spin { width:28px; height:28px; flex:0 0 28px; border-radius:50%; border:3px solid #c7e0f4; border-top-color:var(--accent); animation:spin .8s linear infinite; }
+  .spin.sm { width:12px; height:12px; flex-basis:12px; border-width:2px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @keyframes busyIn { from { opacity:0; } }
+  #topbar { position:fixed; top:0; left:0; right:0; height:3px; z-index:200; overflow:hidden; pointer-events:none; opacity:0; transition:opacity .2s; }
+  #topbar.on { opacity:1; } #topbar::before { content:""; position:absolute; top:0; bottom:0; width:30%; background:var(--accent); animation:topbar 1.1s ease-in-out infinite; }
+  @keyframes topbar { from { left:-30%; } to { left:100%; } }
+  .launch.running .lstat .live { display:none; } .lstat .spin.sm { display:none; } .launch.running .lstat .spin.sm { display:inline-block; }
+  @media (prefers-reduced-motion: reduce) { .spin { animation-duration:2.4s; } #topbar::before { animation-duration:3s; } .busy { animation:none; } }
   .lbody { padding:16px 18px 18px; }
   .guided .scenarios { grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); }
   .guided .scenarios button.all { grid-column:1 / -1; }
@@ -390,7 +405,7 @@
       </div>
       <span class="lsum hidden" id="lsum"></span>
       <span class="sp"></span>
-      <span class="lstat"><span class="live"></span><span class="muted" id="runStatus"></span></span>
+      <span class="lstat"><span class="live"></span><span class="spin sm" aria-hidden="true"></span><span class="muted" id="runStatus"></span></span>
       <button class="secondary hidden" id="btnStop">Stop</button>
       <button class="secondary hidden" id="btnAgain">↻ Run again</button>
       <button class="secondary" id="btnToggle">Collapse ▴</button>
@@ -1219,6 +1234,7 @@
     </div>
   </section>
 </main>
+<div id="topbar" role="progressbar" aria-label="Loading"></div>
 <div class="toast" id="toast"></div>
 <div class="preview" id="scPreview" role="tooltip"></div>
 <div class="insp-drawer" id="inspDrawer" hidden role="dialog" aria-modal="true" aria-labelledby="inspTitle" onclick="if (event.target === this) closeInspector()">
@@ -1249,12 +1265,67 @@ function fmtUsd(v) { return "$" + Number(v || 0).toFixed(6); }
 function statusClass(s) { return ["200", "401", "403", "429"].includes(String(s)) ? "s" + s : "sother"; }
 const ICON_OF = { model: "foundry-models", tool: "mcp", agent: "a2a" };
 const ico = (name, cls = "", alt = "") => `<img class="ico ${cls}" src="/icons/${name}.svg" alt="${alt}">`;
+
+// ---------- Loading feedback ----------
+// Thin top bar while any API call is in flight (history saves are background work and stay quiet).
+let netPending = 0;
+const nativeFetch = window.fetch.bind(window);
+window.fetch = (url, ...rest) => {
+  const quiet = String(url).startsWith("/api/history");
+  if (!quiet) $("topbar").classList.toggle("on", ++netPending > 0);
+  return nativeFetch(url, ...rest).finally(() => { if (!quiet) $("topbar").classList.toggle("on", --netPending > 0); });
+};
+// busy(el, label, sub) covers el with a spinner overlay and returns done(). Calls on the same element are counted.
+// A "soft" overlay (the run overlay) gives way as soon as a more specific overlay starts inside it.
+function busy(el, label = "Loading…", sub = "", soft = false) {
+  if (!el) return () => {};
+  let ov = el.querySelector(":scope > .busy");
+  if (!ov) {
+    ov = document.createElement("div"); ov.className = "busy"; ov.setAttribute("role", "status"); ov.setAttribute("aria-live", "polite"); ov._n = 0;
+    ov.innerHTML = `<div class="bcard"><span class="spin" aria-hidden="true"></span><div><b></b><small></small></div></div>`;
+    ov._restore = { position: el.style.position, minHeight: el.style.minHeight };
+    if (getComputedStyle(el).position === "static") el.style.position = "relative";
+    if (el.offsetHeight < 110) el.style.minHeight = "110px";
+    el.appendChild(ov); el.setAttribute("aria-busy", "true"); placeBusy();
+  }
+  for (let p = el.parentElement; p; p = p.parentElement) { const o = p.querySelector(":scope > .busy"); if (o?._soft) o._soft(); }
+  ov._n++; ov.querySelector("b").textContent = label;
+  const s = ov.querySelector("small"); s.textContent = sub; s.hidden = !sub;
+  let finished = false;
+  const done = () => {
+    if (finished) return; finished = true;
+    if (--ov._n > 0) return;
+    ov.remove(); Object.assign(el.style, ov._restore); el.removeAttribute("aria-busy");
+  };
+  if (soft) ov._soft = done;
+  return done;
+}
+// Keeps each spinner card centred in the part of its region that is on screen, while the page scrolls or the region grows
+let busyRaf = 0;
+function placeBusy() {
+  if (busyRaf) return;
+  const step = () => {
+    const all = document.querySelectorAll(".busy");
+    all.forEach(ov => {
+      const h = ov.getBoundingClientRect(), c = ov.firstElementChild, ch = c.offsetHeight;
+      const top = Math.max(h.top, 0), bot = Math.min(h.bottom, innerHeight);
+      const mid = bot - top > ch + 16 ? (top + bot) / 2 - h.top : h.height / 2;
+      c.style.top = Math.max(ch / 2 + 8, Math.min(h.height - ch / 2 - 8, mid)) + "px";
+    });
+    busyRaf = all.length ? requestAnimationFrame(step) : 0;
+  };
+  busyRaf = requestAnimationFrame(step);
+}
+// Run overlay: covers the results from the moment a run starts until the gateway answers the first call.
+let runBusy = null;
+function releaseRunBusy() { if (runBusy) { runBusy(); runBusy = null; } }
 const surfChip = (s) => `<span class="surf ${s}">${ICON_OF[s] ? ico(ICON_OF[s], "sm") : ""}${{ model: "AI model", tool: "MCP tool", agent: "A2A agent" }[s] || s}</span>`;
 const toolPrice = (name) => (cfg.tools.find(t => t.name === name) || {}).priceUsd || 0;
 const list = (xs) => (xs && xs.length ? xs.join(", ") : "<i>none</i>");
 
 async function init() {
-  cfg = await (await fetch("/api/config")).json();
+  const done = busy(document.querySelector("main"), "Loading the sandbox…", "Reading the gateway configuration");
+  try { cfg = await (await fetch("/api/config")).json(); } finally { done(); }
   cfg.tools = cfg.tools || []; cfg.a2aAgents = cfg.a2aAgents || [];
   if (cfg.hosted) {  // App Service + Easy Auth: gateway tokens come from the app's managed identity, on behalf of the signed-in user
     $("envLabel").innerHTML = `Hosted demo · signed in as <b>${escapeHtml(cfg.user || "unknown")}</b> · <a href="/.auth/logout" style="color:inherit">Sign out</a>`;
@@ -1381,6 +1452,7 @@ function newSessionId(prefix = "s") { return `${prefix}-${new Date().toISOString
 async function post(path, body) {
   const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const r = await res.json();
+  releaseRunBusy();
   if (r.status === undefined) { toast(r.error || "request failed"); return { status: 0, agent: body.agent, surface: "model", error: r.error }; }
   record(r);
   return r;
@@ -1615,9 +1687,10 @@ function renderLedger() {
 let cbLoaded = false, cbRun = 0;
 const shortTime = (rows) => (Array.isArray(rows) ? rows : []).map(r => Object.fromEntries(Object.entries(r).map(([k, v]) =>
   [k, /^(Started|LastCall|TimeGenerated)$/.test(k) && v ? new Date(v).toLocaleTimeString() : v])));
-async function loadChargeback(sessionId) {
+async function loadChargeback(sessionId, quiet = false) {
   const run = ++cbRun;
   $("cbStatus").textContent = "Querying Log Analytics…"; $("btnChargeback").disabled = true;
+  const done = quiet ? () => {} : busy($("cbMonitor").closest(".card"), "Querying Log Analytics…", sessionId ? "Every call in this session" : "Chargeback by team and session");
   try {
     const d = await (await fetch("/api/chargeback", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ window: $("cbWindow").value, session: sessionId }) })).json();
@@ -1632,11 +1705,11 @@ async function loadChargeback(sessionId) {
     $("cbStatus").textContent = `Updated ${new Date().toLocaleTimeString()}. Chargeback records reach Log Analytics 1-3 minutes after a call. Click a session to see every call in it.`;
     return d;
   } catch (e) { if (run === cbRun) $("cbStatus").textContent = "Failed: " + e.message; return null; }
-  finally { if (run === cbRun) $("btnChargeback").disabled = false; }
+  finally { done(); if (run === cbRun) $("btnChargeback").disabled = false; }
 }
-// Polls Log Analytics every 30 s (up to 5 minutes) until every given session has a chargeback record
+// Polls Log Analytics every 30 s (up to 5 minutes) until every given session has a chargeback record (only the first query blocks the card)
 async function waitForChargeback(sessions, attempt = 0) {
-  const d = await loadChargeback();
+  const d = await loadChargeback(undefined, attempt > 0);
   const seen = new Set((Array.isArray(d?.sessions?.rows) ? d.sessions.rows : []).map(r => r.Session));
   const missing = sessions.filter(s => !seen.has(s));
   if (missing.length && attempt < 10) {
@@ -1651,7 +1724,10 @@ function setRunning(on, label = "") {
   document.querySelectorAll(".scenarios button").forEach(b => b.disabled = on);
   $("btnStop").classList.toggle("hidden", !on); $("runStatus").textContent = label;
   $("launch").classList.toggle("running", on);
-  if (on) { rememberRun(label); collapseLaunch(true); $("sessionArea").classList.remove("idle"); } else endRun();
+  releaseRunBusy();
+  if (on) { rememberRun(label); collapseLaunch(true); $("sessionArea").classList.remove("idle");
+            runBusy = busy($("sessionArea"), label || "Running…", "Waiting for the gateway to answer. Results appear here as they arrive.", true); }
+  else endRun();
   updateLaunch();
 }
 // Launch panel: the user picks ONE mode (guided scenario OR build your own). A run collapses it to a sticky bar so the results get the focus.
@@ -1907,7 +1983,7 @@ $("btnSim").onclick = async () => {
   await Promise.all(inflight);
   setRunning(false, `Simulation finished after ${i} requests.`);
 };
-$("btnStop").onclick = () => { running = false; stopRequested = true; };
+$("btnStop").onclick = () => { running = false; stopRequested = true; releaseRunBusy(); };
 async function resetBudgets() {
   const r = await (await fetch("/api/reset-budgets", { method: "POST" })).json();
   if (r.error) { toast("Reset failed: " + r.error); return false; }
@@ -1973,6 +2049,8 @@ $("sinks").innerHTML = SINKS.map(x => `<div class="sink"><div class="h">${ico(x.
   + `<div class="chips">${x.f.map(f => `<span class="chip">${f}</span>`).join("")}</div><div class="fk">find a call by <span class="chip key">${x.key}</span></div></div>`).join("");
 
 async function loadPolicies() {
+  const done = [busy($("backendsKv").closest(".card"), "Reading the backend pool…", "Azure API Management"),
+                busy($("deployedPolicies").closest(".card"), "Reading deployed policies…", "Azure API Management")];
   try {
     const d = await (await fetch("/api/policies", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).json();
     if (d.error) throw new Error(d.error);
@@ -1994,6 +2072,7 @@ async function loadPolicies() {
             + names.map(n => `<span class="chip${KEY_SOURCES.test(n) ? " key" : ""}">${n}</span>`).join("") + `</div></div>`).join("")
             + `<details><summary>View XML</summary><pre class="xml">${escapeHtml(p.xml)}</pre></details></div>`; }).join("") + `</div></div>`).join("");
   } catch (e) { $("deployedPolicies").textContent = "Failed to read policies: " + e.message; }
+  finally { done.forEach(f => f()); }
 }
 // Policy statements in a policy document, grouped by section (regex: policy XML can hold C# generics such as <string> that break XML parsers)
 const POL_SKIP = new Set(["policies", "fragment", "inbound", "backend", "outbound", "on-error", "base", "choose", "when", "otherwise", "value", "set-variable", "string", "int", "bool", "double", "long", "decimal", "object",
@@ -2021,6 +2100,7 @@ function barTable(rows) {
 }
 async function loadPolicyEvidence() {
   $("evStatus").textContent = "Querying Log Analytics…"; $("btnEvidence").disabled = true;
+  const done = busy($("policyEvidence").closest(".card"), "Querying Log Analytics…", "Policy outcomes from the gateway logs");
   try {
     const d = await (await fetch("/api/policy-evidence", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ window: $("evWindow").value }) })).json();
     if (d.error) throw new Error(d.error);
@@ -2028,7 +2108,7 @@ async function loadPolicyEvidence() {
       return `<details class="kq"${j < 2 ? " open" : ""}><summary>${ico(EV_ICON[k] || "log-analytics", "", "")}<span class="t">${escapeHtml(x.title)}</span><span class="cnt${n ? " has" : ""}">${Array.isArray(x.rows) ? n + " row" + (n === 1 ? "" : "s") : "error"}</span>${x.portalLink ? `<a href="${x.portalLink}" target="_blank" title="Run this query in the Azure portal">Portal ↗</a>` : ""}</summary><div class="body">${barTable(x.rows)}</div></details>`; }).join("");
     $("evStatus").textContent = `Updated ${new Date().toLocaleTimeString()} · gateway diagnostic logs reach Log Analytics 2-5 minutes after a call.`;
   } catch (e) { $("evStatus").textContent = "Failed: " + e.message; }
-  $("btnEvidence").disabled = false;
+  done(); $("btnEvidence").disabled = false;
 }
 $("btnEvidence").onclick = loadPolicyEvidence;
 $("evWindow").onchange = loadPolicyEvidence;
@@ -2151,10 +2231,13 @@ async function showEvidence(i, attempt = 0, opts = {}) {
       : `<div class="muted">This call was not traced. Tick <b>Trace policies</b> before sending to record a policy-by-policy trace.</div>`;
     $("evLogs").innerHTML = `<div class="muted">Querying Log Analytics for request <code>${escapeHtml(h["x-gw-request-id"] || "-")}</code>…</div>`;
     window.gwFlow?.fromCall(r, i); if (opts.scroll !== false) $("evLogCard").scrollIntoView({ behavior: "smooth" });
-    if (h["apim-trace-id"]) loadTrace(h["apim-trace-id"]).then(html => { if (run === evRun) $("evTrace").innerHTML = html; });
+    if (h["apim-trace-id"]) { const done = busy($("evTrace").parentElement, "Fetching the policy trace…", "APIM request tracing");
+      loadTrace(h["apim-trace-id"]).then(html => { if (run === evRun) $("evTrace").innerHTML = html; }).finally(done); }
   }
   if (!h["x-gw-request-id"]) { $("evLogs").innerHTML = `<div class="muted">The response has no x-gw-request-id header.</div>`; return; }
-  const ev = await loadEvidence(h["x-gw-request-id"], r.surface);
+  // Only the first lookup blocks the panel; the ingestion polls that follow run in the background
+  const done = attempt ? () => {} : busy($("evLogs").parentElement, "Querying Log Analytics…", "Gateway logs for this request id");
+  const ev = await loadEvidence(h["x-gw-request-id"], r.surface).finally(done);
   if (run !== evRun) return;
   $("evLogs").innerHTML = ev.html;
   if (!ev.found && attempt < 10) { // diagnostic logs arrive 2-5 minutes after the call: poll every 30 s for up to 5 minutes
@@ -2173,6 +2256,7 @@ function table(rows, rowAttr) {
 }
 async function refreshMonitor() {
   $("monStatus").textContent = "Querying Application Insights…"; $("btnRefresh").disabled = true;
+  const done = busy($("tab-monitor"), "Querying Application Insights…", `Cost, tokens and governance · ${$("timespan").selectedOptions[0]?.textContent || $("timespan").value}`);
   try {
     const d = await (await fetch("/api/telemetry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ timespan: $("timespan").value }) })).json();
     if (d.error) throw new Error(d.error);
@@ -2190,7 +2274,7 @@ async function refreshMonitor() {
     $("mTokens").innerHTML = table(d.tokensByAgentModel); $("mGov").innerHTML = table(d.governance);
     $("monStatus").textContent = "Updated " + new Date().toLocaleTimeString() + " (App Insights ingestion delay is typically 1-3 minutes).";
   } catch (e) { $("monStatus").textContent = "Failed: " + e.message; }
-  $("btnRefresh").disabled = false;
+  done(); $("btnRefresh").disabled = false;
 }
 // ---------- Guided scenarios: small, bounded sequences of real calls through the gateway ----------
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -2567,7 +2651,8 @@ function renderScenarios() {
     + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.length})</span><span class="c">≈ 85 calls · < $0.10 · about 9 minutes</span></span></button>`;
   document.querySelectorAll(".scenarios button[data-i]").forEach(b => {
     b.onclick = async () => {
-      hidePreview(); setRunning(true, "Running scenario…"); await runScenario(SCENARIOS[b.dataset.i]); setRunning(false, "Scenario finished.");
+      const s = SCENARIOS[b.dataset.i];
+      hidePreview(); setRunning(true, `Running “${s.title}”…`); await runScenario(s); setRunning(false, "Scenario finished.");
     };
     b.setAttribute("aria-describedby", "scPreview");
     b.addEventListener("mouseenter", () => showPreview(b));
@@ -2578,7 +2663,7 @@ function renderScenarios() {
   $("scenarios").addEventListener("mouseleave", hidePreview); // disabled buttons may not fire their own mouseleave
   window.addEventListener("scroll", () => { const b = document.querySelector(".scenarios button[data-i]:hover"); b ? showPreview(b) : hidePreview(); }, true);
   $("btnAll").onclick = async () => {
-    setRunning(true);
+    setRunning(true, "Running the full demo…");
     for (const [i, s] of SCENARIOS.entries()) {
       if (!running) break;
       $("runStatus").textContent = `Full demo: scenario ${i + 1}/${SCENARIOS.length}`;
