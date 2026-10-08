@@ -233,6 +233,16 @@
   .rpart + .rpart { margin-top:10px; } .rpart summary { cursor:pointer; font-weight:600; font-size:13px; padding:4px 0; } .rpart summary .muted { font-weight:400; }
   .rkv { grid-template-columns:130px 1fr; }
   #runDetail tr.click.sel td { background:var(--accent-light); }
+  /* Policies & evidence: request log */
+  #evLogCard { scroll-margin-top:84px; }
+  .evlbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px; } .evlbar h2 { margin:0; flex:1; min-width:180px; }
+  .evlbar select { width:auto; max-width:320px; height:28px; font-size:12px; } .evlbar button { height:28px; padding:0 12px; font-size:12px; }
+  .evlchk { display:inline-flex; align-items:center; gap:4px; font-size:12px; white-space:nowrap; }
+  #evLogWrap { max-height:236px; margin-top:8px; border:1px solid var(--divider); border-radius:4px; } #evLogWrap:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  #evLog td { padding-top:5px; padding-bottom:5px; }
+  #evLog tr.click.sel td { background:var(--accent-light); } #evLog tr.click.sel td:first-child { box-shadow:inset 3px 0 0 var(--accent); font-weight:600; }
+  .evnav { margin-left:auto; display:inline-flex; gap:6px; align-items:center; font-size:12px; font-weight:400; } .evnav button { height:26px; padding:0 10px; font-size:12px; }
+  #evPanel { margin-top:16px; scroll-margin-top:84px; }
   .runempty { padding:40px; text-align:center; color:var(--muted); }
   @media (max-width:1180px) { .runs { grid-template-columns:1fr; } .rlist { position:static; max-height:320px; } .rkpis { grid-template-columns:repeat(3,1fr); } }
   @media (max-width:1180px) { .build { grid-template-columns:1fr; } .build .form { border-left:0; padding-left:0; } .build .agents, .build .users { grid-template-columns:1fr 1fr; } }
@@ -394,13 +404,27 @@
     </div>
 
     <div id="tab-policies" class="hidden">
+      <div class="card" id="evLogCard">
+        <div class="evlbar">
+          <h2>Request log <span class="muted" id="evLogCount"></span></h2>
+          <select id="evRunFilter" aria-label="Show requests from"></select>
+          <label class="evlchk"><input type="checkbox" id="evBlockedOnly"/> Blocked only</label>
+          <button class="secondary" id="evPrev" title="Previous request (↑)">↑ Previous</button>
+          <button class="secondary" id="evNext" title="Next request (↓)">Next ↓</button>
+        </div>
+        <div class="muted" style="font-size:13px">Every call from this page session, newest first. Click a request (or use ↑ / ↓) to replay it in the flow below and load its policy trace and Log Analytics rows. You don't need to leave this tab.</div>
+        <div class="scroll" id="evLogWrap" tabindex="0" aria-label="Request log: use the up and down arrow keys to step through the requests"><table>
+          <thead><tr><th>#</th><th>Time · run</th><th>Agent / user</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Gateway decision</th><th>Backend</th><th>Tokens</th><th>Cost USD</th><th>Latency</th><th>Evidence</th></tr></thead>
+          <tbody id="evLog"></tbody>
+        </table></div>
+      </div>
       <!-- ================= Gateway flow animation + "See the pattern" lightbox (self-contained: style, markup, script) =================
            window.gwFlow.fromCall(r, i)        replays one recorded call from its x-gw-* response headers (called by showEvidence)
            window.gwFlow.trace(traceId, rows)   adds the APIM request trace summary for that call (called by loadTrace)
            window.gwFlow.pattern(key, start)    opens the GIF lightbox; any element with data-pat="key[:index]" opens it too -->
       <div id="gwFlowSection">
       <style>
-        #gwFlow { margin-top:0; scroll-margin-top:84px; }
+        #gwFlow { margin-top:16px; scroll-margin-top:84px; }
         .gwf-bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:8px 0 10px; }
         .gwf-bar .sp { flex:1; }
         .gwf-bar button { height:28px; padding:0 12px; font-size:12px; }
@@ -471,7 +495,7 @@
       <div class="card" id="gwFlow">
         <h2>How a call flows through the gateway <span class="gwf-src" id="gwfSrc"></span></h2>
         <div class="muted" style="font-size:13px">Follow one request through API Management: the components it touches, the policy that stops it, the region that serves it, and the evidence it leaves behind.
-          Open the <b>evidence</b> of any call (request log or Run history) to replay that exact call from its <code>x-gw-*</code> response headers and APIM trace, or play an example below. Click a component to see its AI Gateway lab pattern.</div>
+          Pick a request in the <b>request log</b> above, or click <b>evidence</b> on any call in the Live session or Run history tabs. The flow then replays that exact call from its <code>x-gw-*</code> response headers and APIM trace. You can also play an example below, and click a component to see its AI Gateway lab pattern.</div>
         <div class="gwf-bar">
           <div class="gwf-chips" id="gwfDemos" role="group" aria-label="Example flows"></div>
           <span class="sp"></span>
@@ -928,13 +952,14 @@
       </div>
       <!-- ================= end of gateway flow section ================= -->
       <div class="card hidden" id="evPanel">
-        <h2>Evidence for one request <span class="muted" id="evTitle"></span></h2>
+        <h2>Evidence for one request <span class="muted" id="evTitle"></span>
+          <span class="evnav"><span class="muted" id="evPos"></span><button class="secondary" id="evPrev2" title="Previous request in the log">↑ Previous</button><button class="secondary" id="evNext2" title="Next request in the log">Next ↓</button></span></h2>
         <div class="grid2">
           <div><h3 style="font-size:14px;margin:0 0 4px">Policy trace <span class="muted">(APIM request tracing)</span></h3><div id="evTrace" class="scroll" style="max-height:420px"></div></div>
           <div><h3 style="font-size:14px;margin:0 0 4px">Azure Monitor <span class="muted">(Log Analytics, same request id)</span></h3><div id="evLogs" class="scroll" style="max-height:420px"></div></div>
         </div>
       </div>
-      <div class="card" style="margin-top:0">
+      <div class="card" style="margin-top:16px">
         <h2>Request pipeline: the policies every call goes through</h2>
         <div class="muted" style="font-size:13px">Policies run in scopes: <b>product</b> (the plan) wraps the <b>API</b> policy. A call is rejected by the first policy that fails, before it costs anything.
           Every response carries <code>x-gw-request-id</code>, the key that finds the same call in the trace and in every Log Analytics table.</div>
@@ -1442,6 +1467,7 @@ function record(r) {
 
   const v = callView(r, idx); $("last").innerHTML = v.last; $("log").insertAdjacentHTML("afterbegin", v.row);
   if (curTab === "runs") renderRuns();
+  renderEvLog();
 
   const agents = [...new Set(Object.keys(session.costByAgentSurface).map(k => k.split("|")[0]))];
   charts.costAgent.data.labels = agents;
@@ -1608,6 +1634,7 @@ function runStats(run) {
 }
 function renderRuns() {
   $("runCount").textContent = runs.length;
+  renderEvLog();
   if (curTab !== "runs") return;
   if (!runs.length) {
     $("runList").innerHTML = `<div class="muted" style="padding:8px">No runs yet.</div>`;
@@ -1749,7 +1776,7 @@ function showTab(tab) {
   if (tab === "chargeback" && !cbLoaded) { cbLoaded = true; loadChargeback(); }
   if (tab === "monitor" && !charts._loaded) { charts._loaded = true; refreshMonitor(); }
   if (tab === "policies" && !policiesLoaded) { policiesLoaded = true; loadPolicies(); loadPolicyEvidence(); }
-  if (tab === "policies") window.gwFlow?.shown();
+  if (tab === "policies") { renderEvLog(); window.gwFlow?.shown(); }
 }
 
 // ---------- Policies & evidence: deployed policies (ARM), request traces (APIM tracing) and Log Analytics evidence ----------
@@ -1814,16 +1841,77 @@ async function loadEvidence(requestId, surface) {
 function vtable(row) { // one log record as a vertical name / value table
   return `<table class="steps"><tbody>${Object.entries(row).filter(([, v]) => v !== "" && v !== null).map(([k, v]) => `<tr><td style="width:170px">${k}</td><td style="white-space:normal;word-break:break-word">${escapeHtml(typeof v === "object" ? JSON.stringify(v) : v)}</td></tr>`).join("")}</tbody></table>`;
 }
-async function showEvidence(i, attempt = 0) {
+// Request log on the Policies & evidence tab: pick a call to replay it and load its trace and logs without leaving the tab
+let evFilterRun = "all", evBlockedOnly = false;
+function evLogIdxs() {
+  const out = [];
+  for (let i = session.calls.length - 1; i >= 0; i--) {
+    const r = session.calls[i];
+    if ((evFilterRun === "all" || String(r.run) === evFilterRun) && (!evBlockedOnly || isBlocked(r))) out.push(i);
+  }
+  return out;
+}
+function evLogRow(r, i) {
+  const h = r.headers || {}, cost = callCost(r), route = h["x-gw-route"] || "";
+  const gov = h["x-gw-governance"] && h["x-gw-governance"] !== "none" ? `<span class="gov">${escapeHtml(h["x-gw-governance"])}</span>` : "";
+  const decision = h["x-gw-blocked-by"] ? `<span class="src err">${escapeHtml(h["x-gw-blocked-by"])}</span>` : gov || (r.status === 200 ? "allowed" : "-");
+  const tok = r.surface === "model" ? `${h["x-gw-prompt-tokens"] || "-"} / ${h["x-gw-completion-tokens"] || "-"}` : (r.tokens || "-");
+  return `<tr class="click${i === evIndex ? " sel" : ""}" data-idx="${i}"><td>${i + 1}</td><td>${new Date(r.at || Date.now()).toLocaleTimeString()}${r.run ? ` <span class="rtag">#${r.run}</span>` : ""}</td>
+    <td>${escapeHtml(r.agent)}</td><td>${surfChip(r.surface)}</td><td><span class="status ${statusClass(r.status)}">${r.status}</span></td><td>${resourceOf(r)}</td><td>${decision}</td>
+    <td title="${escapeHtml(route)}">${escapeHtml(h["x-gw-backend"] || "-")}${route.includes(" > ") ? ' <span class="gov">failover</span>' : ""}</td>
+    <td>${tok}</td><td>${cost ? cost.toFixed(6) : "-"}</td><td>${r.latencyMs ?? "-"} ms</td>
+    <td>${h["apim-trace-id"] ? "trace + logs" : h["x-gw-request-id"] ? "logs" : "-"}${(r.invocations || []).length ? ` · <a class="ev" title="The HTTP calls app.py made for this result (secrets masked)" onclick="openInspector(${i})">inspect</a>` : ""}</td></tr>`;
+}
+function renderEvLog() {
+  if (curTab !== "policies") return;
+  const sel = $("evRunFilter");
+  if (evFilterRun !== "all" && !runs.some(r => String(r.n) === evFilterRun)) evFilterRun = "all";
+  sel.innerHTML = `<option value="all">All runs</option>` + runs.slice().reverse().map(r => `<option value="${r.n}">Run #${r.n} · ${escapeHtml(r.title)}</option>`).join("");
+  sel.value = evFilterRun; $("evBlockedOnly").checked = evBlockedOnly;
+  const idxs = evLogIdxs(), blocked = idxs.filter(i => isBlocked(session.calls[i])).length;
+  $("evLogCount").textContent = session.calls.length ? `(${idxs.length} request${idxs.length === 1 ? "" : "s"}${blocked && !evBlockedOnly ? `, ${blocked} blocked` : ""})` : "";
+  $("evLog").innerHTML = idxs.length ? idxs.map(i => evLogRow(session.calls[i], i)).join("")
+    : `<tr><td colspan="12" class="muted" style="padding:16px">${session.calls.length ? "No requests match this filter." : "No requests yet. Run a guided scenario or send a request, and every call shows up here."}</td></tr>`;
+  const p = idxs.indexOf(evIndex);
+  for (const [a, b] of [["evPrev", "evNext"], ["evPrev2", "evNext2"]]) { $(a).disabled = !idxs.length || p === 0; $(b).disabled = !idxs.length || p === idxs.length - 1; }
+  $("evPos").textContent = p >= 0 ? `request ${p + 1} of ${idxs.length}` : "";
+  const row = $("evLog").querySelector("tr.sel"), wrap = $("evLogWrap");
+  if (row) { // keep the selected row visible inside the log without scrolling the page
+    const rr = row.getBoundingClientRect(), wr = wrap.getBoundingClientRect(), head = wrap.querySelector("thead").offsetHeight;
+    if (rr.top < wr.top + head || rr.bottom > wr.bottom) wrap.scrollTop += rr.top - wr.top - (wr.height - rr.height) / 2;
+  }
+}
+function stepEvidence(d, opts) {
+  const idxs = evLogIdxs();
+  if (!idxs.length) return;
+  const p = idxs.indexOf(evIndex), n = p < 0 ? idxs[0] : idxs[p + d];
+  if (n !== undefined) showEvidence(n, 0, opts);
+}
+$("evLog").onclick = (e) => {
+  const tr = e.target.closest("tr[data-idx]");
+  if (!tr || e.target.closest("a")) return;
+  $("evLogWrap").focus({ preventScroll: true }); showEvidence(+tr.dataset.idx, 0, { scroll: false });
+};
+$("evLogWrap").onkeydown = (e) => {
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  e.preventDefault(); stepEvidence(e.key === "ArrowDown" ? 1 : -1, { scroll: false });
+};
+$("evPrev").onclick = () => stepEvidence(-1, { scroll: false }); $("evNext").onclick = () => stepEvidence(1, { scroll: false });
+$("evPrev2").onclick = () => stepEvidence(-1, { scroll: false }); $("evNext2").onclick = () => stepEvidence(1, { scroll: false });
+$("evRunFilter").onchange = (e) => { evFilterRun = e.target.value; renderEvLog(); };
+$("evBlockedOnly").onchange = (e) => { evBlockedOnly = e.target.checked; renderEvLog(); };
+
+async function showEvidence(i, attempt = 0, opts = {}) {
   const r = session.calls[i], h = r.headers || {}, run = attempt ? evRun : ++evRun;
   evIndex = i;
   if (!attempt) {
+    if (!evLogIdxs().includes(i)) { evFilterRun = "all"; evBlockedOnly = false; } // opened from another tab: make sure the call is visible in the log
     showTab("policies"); $("evPanel").classList.remove("hidden");
-    $("evTitle").textContent = `· ${r.agent} · ${r.surface} · HTTP ${r.status}`;
+    $("evTitle").textContent = `· #${i + 1} · ${r.agent} · ${r.surface} · HTTP ${r.status}`;
     $("evTrace").innerHTML = h["apim-trace-id"] ? `<div class="muted">Fetching the trace…</div>`
       : `<div class="muted">This call was not traced. Tick <b>Trace policies</b> before sending to record a policy-by-policy trace.</div>`;
     $("evLogs").innerHTML = `<div class="muted">Querying Log Analytics for request <code>${escapeHtml(h["x-gw-request-id"] || "-")}</code>…</div>`;
-    window.gwFlow?.fromCall(r, i); $("gwFlow").scrollIntoView({ behavior: "smooth" });
+    window.gwFlow?.fromCall(r, i); if (opts.scroll !== false) $("evLogCard").scrollIntoView({ behavior: "smooth" });
     if (h["apim-trace-id"]) loadTrace(h["apim-trace-id"]).then(html => { if (run === evRun) $("evTrace").innerHTML = html; });
   }
   if (!h["x-gw-request-id"]) { $("evLogs").innerHTML = `<div class="muted">The response has no x-gw-request-id header.</div>`; return; }
