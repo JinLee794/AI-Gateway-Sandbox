@@ -1,0 +1,107 @@
+<!--
+    AI Gateway Sandbox - Responses API operation policy (createResponse, getResponse, deleteResponse and
+    listInputItems of the inference-api). Applied by modules/responses-ops.bicep.
+
+    The Responses API is stateful: a stored response (store defaults to true) lives in the Microsoft Foundry resource
+    that created it, so a follow-up call (previous_response_id), a read (GET /responses/{id}) or a delete must reach
+    the SAME backend. The inference API load-balances across two regions, so without affinity a follow-up call can
+    land on the other region and fail with "response not found".
+
+    - Outbound (POST 200, stored): remembers "<backend>|<subscription>|<model>" for the new response id in the
+      APIM cache (cache-store-value, 30 days).
+    - Inbound (after the API and plan policies): looks up the response id (path response_id or the
+      previous_response_id of the body), sends the call to the backend that stored it (set-backend-service), and
+      refuses a response that belongs to another subscription (404, x-gw-blocked-by: response-ownership).
+    - DELETE 200 removes the mapping.
+    - x-gw-affinity: new:<backend> | sticky:<backend> | unknown (cache miss: the pool routes the call) | none
+
+    The built-in cache is volatile: after a cache miss the call is routed by the backend pool (best effort).
+    Pricing of Responses calls (cached input tokens, free stored reads) is in the responses-pricing fragment.
+-->
+<policies>
+    <inbound>
+        <base />
+        <set-variable name="responseRef" value="@{
+            var id = context.Request.MatchedParameters.GetValueOrDefault("response_id", "");
+            if (id == "" && context.Request.Method == "POST") {
+                var body = context.Request.Body?.As<JObject>(preserveContent: true);
+                id = body?["previous_response_id"]?.ToString() ?? "";
+            }
+            return System.Text.RegularExpressions.Regex.IsMatch(id, "^[A-Za-z0-9_-]{1,128}$") ? id : "";
+        }" />
+        <set-variable name="affinity" value="none" />
+        <choose>
+            <when condition="@((string)context.Variables["responseRef"] != "")">
+                <cache-lookup-value key="@("resp-" + (string)context.Variables["responseRef"])" variable-name="responseOwner" default-value="" />
+                <choose>
+                    <when condition="@((string)context.Variables["responseOwner"] == "")">
+                        <set-variable name="affinity" value="unknown" />
+                    </when>
+                    <when condition="@(((string)context.Variables["responseOwner"]).Split('|')[1] != (context.Subscription?.Id ?? ""))">
+                        <return-response>
+                            <set-status code="404" reason="Not Found" />
+                            <set-header name="Content-Type" exists-action="override">
+                                <value>application/json</value>
+                            </set-header>
+                            <set-header name="x-gw-blocked-by" exists-action="override">
+                                <value>response-ownership</value>
+                            </set-header>
+                            <set-header name="x-gw-request-id" exists-action="override">
+                                <value>@(context.RequestId.ToString())</value>
+                            </set-header>
+                            <set-body>@(new JObject(new JProperty("error", new JObject(
+                                new JProperty("code", "ResponseNotFound"),
+                                new JProperty("message", "Response '" + (string)context.Variables["responseRef"] + "' was not found for this subscription.")))).ToString())</set-body>
+                        </return-response>
+                    </when>
+                    <otherwise>
+                        <set-variable name="affinity" value="@("sticky:" + ((string)context.Variables["responseOwner"]).Split('|')[0])" />
+                        <set-backend-service backend-id="@(((string)context.Variables["responseOwner"]).Split('|')[0])" />
+                        <!-- reads carry no model in the body: report the model of the stored response -->
+                        <choose>
+                            <when condition="@(context.Variables.GetValueOrDefault<string>("servedModel", "") == "")">
+                                <set-variable name="servedModel" value="@(((string)context.Variables["responseOwner"]).Split('|')[2])" />
+                            </when>
+                        </choose>
+                    </otherwise>
+                </choose>
+            </when>
+        </choose>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+        <choose>
+            <when condition="@(context.Request.Method == "POST" && context.Response.StatusCode == 200 && context.Response.Headers.GetValueOrDefault("Content-Type", "").Contains("application/json"))">
+                <set-variable name="newResponseId" value="@{
+                    var body = context.Response.Body.As<JObject>(preserveContent: true);
+                    var stored = body["store"] == null || body["store"].Type == JTokenType.Null || (bool)body["store"];
+                    var id = body["id"]?.ToString() ?? "";
+                    return stored && System.Text.RegularExpressions.Regex.IsMatch(id, "^[A-Za-z0-9_-]{1,128}$") ? id : "";
+                }" />
+                <choose>
+                    <when condition="@((string)context.Variables["newResponseId"] != "" && context.Variables.GetValueOrDefault<string>("attemptBackend", "") != "")">
+                        <cache-store-value key="@("resp-" + (string)context.Variables["newResponseId"])"
+                            value="@((string)context.Variables["attemptBackend"] + "|" + (context.Subscription?.Id ?? "") + "|" + context.Variables.GetValueOrDefault<string>("servedModel", ""))"
+                            duration="2592000" />
+                        <set-variable name="affinity" value="@(((string)context.Variables["affinity"]).StartsWith("sticky:") ? (string)context.Variables["affinity"] : "new:" + (string)context.Variables["attemptBackend"])" />
+                    </when>
+                </choose>
+            </when>
+            <when condition="@(context.Request.Method == "DELETE" && context.Response.StatusCode == 200 && (string)context.Variables["responseRef"] != "")">
+                <cache-remove-value key="@("resp-" + (string)context.Variables["responseRef"])" />
+            </when>
+        </choose>
+        <set-header name="x-gw-affinity" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("affinity", "none"))</value>
+        </set-header>
+        <set-header name="x-gw-model-served" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("servedModel", ""))</value>
+        </set-header>
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

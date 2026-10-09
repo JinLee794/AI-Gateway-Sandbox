@@ -25,6 +25,7 @@ A hands-on sandbox for Azure API Management as **one AI Gateway for the three AI
 
 - **One plan, one contract.** Each APIM **product** (Gold, Silver, Bronze) is a commercial plan. It bundles which models, MCP tools and A2A agents a consumer may use, their limits, and **one $ budget**.
 - **Every call is priced.** Model calls by tokens, MCP tool calls per call, A2A tasks by a fee plus everything the agent spends downstream.
+- **Pricing beyond tokens.** Responses API calls pay the cheaper cached rate for input tokens served from the prompt cache. Reading a stored response is free, and follow-up calls stay on the region that stored the response. Optional image generation is priced per image by model, quality and size. All of it draws on the same plan and $ budget (see [Pricing beyond tokens](#pricing-beyond-tokens-responses-api-and-images)).
 - **Spend follows the payer.** When an A2A agent calls models and tools for a caller, the gateway charges that spend back to the caller's budget and records the agent as `Via`.
 - **One chargeback view.** Cost by consumer, plan, surface (model, tool, agent) and resource in Application Insights and an Azure Monitor workbook.
 - **Chargeback by user and session.** Demo users (one subscription key each, no Entra ID accounts needed) work in sessions. A $ cap per session stops a runaway conversation or agent loop, and every priced call is recorded by user, team, cost center and session (see [FinOps chargeback by user and session](#finops-chargeback-by-user-and-session)).
@@ -68,6 +69,8 @@ Each **consumer** has its own APIM subscription, which gives it an identity and 
 | 📦 **Token quota** per day/month | models | [`llm-token-limit`](https://learn.microsoft.com/azure/api-management/llm-token-limit-policy) | 403 |
 | 🧰 **Tool entitlement + calls per minute** | MCP | `choose` + [`rate-limit-by-key`](https://learn.microsoft.com/azure/api-management/rate-limit-by-key-policy) | 403 `tool-denied` (JSON-RPC error) / 429 |
 | 🤝 **Agent entitlement + tasks per minute** | A2A | `choose` + [`rate-limit-by-key`](https://learn.microsoft.com/azure/api-management/rate-limit-by-key-policy) | 403 `agent-denied` / 429 |
+| 🖼️ **Image model and quality entitlement + images per minute** (optional) | images | `choose` + `rate-limit-by-key` | 403 `image-entitlement` / `image-quality` / 429 |
+| 🔒 **Stored responses stay with their owner** | Responses API | APIM cache: response id → backend + subscription | 404 `response-ownership` |
 | 💵 **One $ budget** for models, tools and agents | all | [`quota-by-key`](https://learn.microsoft.com/azure/api-management/quota-by-key-policy) incremented by each call's cost | 403 |
 | 🧾 **$ cap per session** | all | a second `quota-by-key` keyed on subscription + session | 403 `session-budget` |
 | 🛡️ **Blocked before spend**: content safety (optional, off by default; Gold, Silver, Bronze when on) | all | [`llm-content-safety`](https://learn.microsoft.com/azure/api-management/llm-content-safety-policy) with Prompt Shields and a sensitive-data blocklist, in the [blocked-before-spend fragment](content-safety-fragment.xml) | 403 `llm-content-safety`, $0 of model tokens; the check itself is billed to the $ budget |
@@ -80,6 +83,8 @@ Each **consumer** has its own APIM subscription, which gives it an identity and 
 | Research Agent | 🥈 Silver | gpt-4.1-mini, gpt-4.1-nano, DeepSeek-V3.2 | downgraded to gpt-4.1-mini | 12,000 | 200K / month | 800 | `search-products`, `check-inventory`, 30/min | Sourcing Agent, 3/min | $0.01 | $0.01 |
 | Marketing Copilot | 🥉 Bronze | gpt-4.1-nano | denied (403) | 1,500 | 20K / day | 300 | `search-products`, 10/min | none | $0.02 | $0.01 |
 
+Image generation (optional, `images.enabled`): Gold may generate `low`, `medium` and `high` quality images, 5 per minute. Silver may generate `low` and `medium`, 2 per minute. Bronze may not generate images.
+
 Demo price list (the `model-pricing`, `tool-pricing` and `agent-pricing` named values):
 
 | Resource | Surface | Price |
@@ -90,6 +95,9 @@ Demo price list (the `model-pricing`, `tool-pricing` and `agent-pricing` named v
 | `sourcing-agent` | A2A agent | $0.0050 per task + its downstream model and tool spend |
 | `content-safety` (screening) | safety check | $0.38 per 1K text records (1 record = up to 1,000 characters; Prompt Shields adds a second record per call), from `contentSafety.pricePer1KRecordsUsd` |
 | Foundry models | AI model | per 1M input/output tokens, see the notebook |
+| Cached input tokens (Responses API) | AI model | `gpt-4.1` $0.50, `gpt-4.1-mini` $0.10, `gpt-4.1-nano` $0.025 per 1M (`cached-input-pricing`); other models pay the full input price |
+| Stored response read (`GET /responses/{id}`) | AI model | free |
+| `gpt-image-1-mini` (optional) | Image | per image (`image-pricing`): `low` $0.005–0.006, `medium` $0.011–0.015, `high` $0.036–0.052, by size (1024x1024, 1024x1536, 1536x1024) |
 
 ### How it works
 
@@ -162,6 +170,26 @@ traces
 > [!TIP]
 > In production, take the user from the Entra ID token (the `oid` or `preferred_username` claim that `validate-azure-ad-token` already validates) and the team and cost center from a directory attribute, instead of one subscription key per user. The session cap, the records and the queries stay the same.
 
+### Pricing beyond tokens: Responses API and images
+
+The same plan and $ budget also cover the **Responses API** and **image generation**:
+
+| Surface | Priced by | Named value | Plan controls | Response headers |
+|---|---|---|---|---|
+| Responses API (`POST /responses`, also with `previous_response_id`) | tokens. Input tokens served from the prompt cache use the model's cached rate | `model-pricing` + `cached-input-pricing` | same as chat completions: models, output cap, TPM, token quota, $ budget, $ per session | `x-gw-cached-tokens`, `x-gw-cached-savings-usd`, `x-gw-pricing-rule` (`tokens` / `tokens+cached`), `x-gw-affinity` |
+| Stored response (`GET /responses/{id}`, input items, `DELETE`) | free (`stored-read`) | | only the subscription that created the response can use it | `x-gw-pricing-rule: stored-read`, `x-gw-affinity` |
+| Image generation (`POST /images/generations`, optional) | **per image** by model, quality and size | `image-pricing` | image models and qualities per plan, images per minute, $ budget, $ per session | `x-gw-image-count`, `x-gw-image-unit-usd`, `x-gw-image-spec`, `x-gw-remaining-images` |
+
+- **Cached input.** When a prompt over 1,024 tokens repeats a recent prefix, Foundry serves part of it from the prompt cache and reports `usage.input_tokens_details.cached_tokens`. The [`responses-pricing` fragment](responses-pricing-fragment.xml), included by the models API policy, prices those tokens at `cached-input-pricing` instead of the full input price. The cost metric, the chargeback record (`cachedTokens`) and the $ budget all use the lower price. Prompt caching is best effort, so a cold cache reports 0 cached tokens.
+- **Session affinity for stateful calls.** A stored response lives in the Foundry resource that created it, but model calls are load balanced across two regions. The [Responses operation policy](responses-policy.xml) ([responses-ops.bicep](responses-ops.bicep)) records which backend and subscription created each response id in the APIM cache (30 days). Follow-up calls, reads and deletes then go to that backend (`x-gw-affinity: sticky:foundry1`). A call that names another subscription's response id gets 404 `response-ownership`. The built-in cache is volatile: after a cache miss (`x-gw-affinity: unknown`) the backend pool routes the call, so treat affinity and ownership as best effort, not as a security boundary.
+- **Images** are an optional API ([image-api.bicep](image-api.bicep), [image policy](image-policy.xml)) at `{gateway}/images/openai/v1/images/generations`. It uses the same plans, keys, Entra ID token and managed identity as the models API. The plan policy checks the image model and quality (403 `image-entitlement` / `image-quality`), the images per minute (429), and the shared $ budget and session cap. The image policy refuses a model, quality and size combination with no price (400) and more than `maxImagesPerRequest` images. It prices the images the backend actually returned, then emits `CostMicroUSD` with `Surface = image` and a chargeback record with `imageCount`.
+- **Enable images.** Images are off by default, so the base demo needs no extra model quota. To turn them on, set `"enabled": true` under `images` in [sandbox-config.json](sandbox-config.json) (for `azd up`), or set `images_config["enabled"] = True` in the notebook's first cell, then deploy again. `gpt-image-1-mini` (GlobalStandard, capacity 2) is deployed in the **priority-1 region only**, because gpt-image models are not offered in France Central, and the image API routes there directly. The image prices are illustrative, so check the [Azure OpenAI pricing](https://azure.microsoft.com/pricing/details/cognitive-services/openai-service/) for your region.
+- **Realtime audio (not yet).** Realtime traffic runs over a WebSocket, and APIM runs WebSocket API policies only at the handshake (`onHandshake`), not per message. Audio tokens can't be priced or limited per message at the gateway. A reduced design would apply the plan entitlement, a connection rate limit and a budget pre-check at the handshake, then price the session afterwards from `ApiManagementGatewayLlmLog` (audio vs text tokens) with KQL. This is tracked on the roadmap in the [root README](../../README.md).
+
+**Observed in an isolated Sweden Central test:** a Responses follow-up stayed on its owning backend and used 2,944 cached input tokens, saving $0.000883 at the demo rates. A stored read was free; a different subscription received 404 `response-ownership`. A Gold low-quality 1024x1024 image returned one image and cost $0.005; Silver's high-quality request was denied. The charges appeared in Application Insights.
+
+**Validation limits:** Bronze image denial, the live UI scenario cards, workbook rendering, and stored-read token-quota behavior were not verified in that Azure round. The combined safety, suspension and pricing configuration has local integration checks, but has not had a combined Azure deployment test. Per-image amounts are configured demo charges, not a reconciliation of Azure's infrastructure and model invoice.
+
 ### Policies in action: Entra ID, load balancing and what the logs track
 
 The plan policies above decide *what a consumer may spend*. These policies decide *who may call* and *how the call is served*:
@@ -233,6 +261,7 @@ A suspended key is rejected on **every** API (models, MCP tools, A2A agents) wit
     - **Chargeback**: cost by team and cost center and by user or app, plus a Team › User › Session tree. Select a session to see its cumulative spend and a call-by-call ledger.
     - **Budgets & governance**: budget burn per consumer, enforcement events and gateway outcomes by plan, blocked calls over time, who hit which limit, and content safety checks, blocks and what the screening cost. With [Over budget, switched off](#over-budget-switched-off) deployed, it also shows the `BudgetBreach` audit trail, spend per budget epoch, and Logic App runs.
     - **Gateway evidence**: outcomes by policy (select one to list the calls it stopped), latency by API, backend calls by region, failovers, tokens by deployment, MCP tool calls, and the calls `llm-content-safety` stopped before any backend call
+    - **Beyond tokens**: input tokens served from the prompt cache per model, Responses API stateful operations by the backend that served them, image count and spend by consumer, image plan enforcement and image spend over time
 - All the data lives in **Application Insights** and **Log Analytics**:
   - `customMetrics` for tokens, cost, governance events and backend attempts
   - `traces` for the chargeback records by user, team, cost center and session
@@ -255,7 +284,7 @@ A suspended key is rejected on **every** API (models, MCP tools, A2A agents) wit
 - watch **How a call flows through the gateway**: an animated diagram of the client, the product (plan) and API policy scopes, the backend pool, managed identity, Foundry regions, the MCP server, the A2A agent, and the Log Analytics and Application Insights sinks. Opening the **evidence** of any call replays that call from its `x-gw-*` response headers: a 401, 403 or 429 stops at the policy that rejected it, a downgrade swaps the model, a retry jumps to the next region, and the response leaves log and metric drops in Azure Monitor. If the call was traced, the APIM trace is summarised next to it. With no call selected, play the canned examples (happy path, downgrade, 429, 403 budget, regional failover, MCP tool call, A2A task, 401). The animation honours *reduce motion*
 - click **See the pattern** on a pipeline stage, or any component in the diagram, to open the matching AI Gateway lab animation from [images](../../images) (identity, token limits, FinOps, load balancing, circuit breaking, token metrics and logging)
 - open the **Chargeback** tab: act as a demo user in a session (or start a new one), see a live session ledger from the response headers, and the Azure Monitor chargeback by team, user and session with a drill-down into every call of a session
-- compare plans in the **Plans & pricing** tab
+- compare plans in the **Plans & pricing** tab, including the cached-input prices, the per-image prices and each plan's image entitlement
 - track each consumer's $ budget and its split by surface
 - query the Application Insights chargeback live
 - reset the budgets
@@ -282,7 +311,7 @@ The deployment cell zips `app.py`, `static/` and the generated configuration. Th
 
 ### Guided scenarios
 
-Click a scenario in the UI, or **Run the full demo** to play scenarios 1-15 in order (about 85 calls, under $0.10 at the demo prices, about 9 minutes; about 90 calls and 10 minutes with content safety on). Scenario 16 waits on Azure Monitor for several minutes, so run it on its own. Each scenario card draws its path (consumer → gateway → model, tool or agent) as it starts:
+Click a scenario in the UI, or **Run the full demo** to play the quick scenarios in order (about 89 calls with content safety and images off; up to about 99 with both enabled, at demo prices, about 10 minutes). Scenario 16 waits on Azure Monitor for several minutes, so run it on its own. Each scenario card draws its path as it starts:
 
 | # | Scenario | What the customer sees | Calls |
 |---|----------|------------------------|-------|
@@ -302,6 +331,8 @@ Click a scenario in the UI, or **Run the full demo** to play scenarios 1-15 in o
 | 14 | Policy trace & Azure Monitor evidence | A traced Silver call is downgraded. The UI shows the policy-by-policy trace, then the call's rows in the gateway and LLM log tables, the deployed policy XML and the aggregate evidence, each with a portal link. | 1 |
 | 15 | Blocked before spend: content safety | Needs content safety turned on (`contentSafety.enabled`; off by default). Gold sends a clean prompt (200, plus a small safety-check charge), then a jailbreak, an SSN in a prompt, an SSN in MCP tool arguments and a card number in an A2A task. Each gets 403 `llm-content-safety` and $0 of model tokens, and never reaches Foundry, the MCP server or the agent. The screening shows up as a **Safety checks** line item. | 5 |
 | 16 | Over budget, switched off (5-12 min, not in the full demo) | Budgets are reset, then Ben (Silver) runs long reports until `quota-by-key` returns 403. The UI then polls every 30 seconds: the spend Azure Monitor sees for the epoch, and the subscription state until the alert's Logic App flips it to **suspended**. Ben's next model call and MCP call are rejected, and the UI shows the Logic App runs and the `BudgetBreach` audit event. **Reset budgets** re-activates him. Needs `budgetSuspend.enabled` (off by default, see [Over budget, switched off](#over-budget-switched-off)). | ≤ 14 |
+| 17 | Responses API: cached input & sticky state | Gold starts a Responses API conversation with a long shared context, then continues it with `previous_response_id`. The follow-up goes to the backend that stored the response (`x-gw-affinity: sticky:…`), and input tokens served from the prompt cache are priced at the cached rate (`x-gw-cached-tokens`, `x-gw-cached-savings-usd`). Reading the stored response is free (`stored-read`). Silver gets 404 `response-ownership` for Gold's response id. | 4 |
+| 18 | Images priced per image | Requires `images.enabled`; otherwise it explains how to turn images on and sends no calls. Gold generates a `low` image priced per image (`x-gw-image-spec`, `x-gw-image-unit-usd`). Silver is denied `high` quality (403 `image-quality`) and Bronze has no image entitlement (403 `image-entitlement`). A Silver `medium` image ($0.011) uses up the same $0.01 budget that tokens, tools and agents draw on, so the next image returns 403 from `quota-by-key`. | ≤ 5 |
 
 ### Suggested demo script (manual)
 

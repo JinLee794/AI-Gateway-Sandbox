@@ -60,6 +60,14 @@ param purviewDlpConfig object = {}
 param purviewClientSecret string = ''
 @description('Over budget, switched off: an Azure Monitor alert on the chargeback spend triggers a Logic App that suspends the APIM subscription. { enabled, subscriptions, suspendAtPercent, useCustomRole, notifyEmails }. See budget-suspend.bicep.')
 param budgetSuspend object = { enabled: false }
+@description('Cached input token price list (Responses API and Chat Completions prompt cache). Format: "<deployment>=<USD per 1M cached input tokens>;...". Models not listed pay the full input price.')
+param cachedInputPricing string = ''
+
+@description('Image price list (micro-USD per image). Format: "<model>|<quality>|<size>=<micro-USD>;..."')
+param imagePricing string = ''
+
+@description('Image generation: enabled, model (name, publisher, version, sku, capacity; deployed in the priority-1 region only), defaultSize, defaultQuality, maxImagesPerRequest and tiers (per tier: allowedImageModels, allowedImageQualities, imagesPerMinute)')
+param imagesConfig object = { enabled: false }
 
 // ------------------
 //    VARIABLES
@@ -68,6 +76,10 @@ param budgetSuspend object = { enabled: false }
 var resourceSuffix = uniqueString(subscription().id, resourceGroup().id)
 var contentSafetyEnabled = contentSafetyConfig.?enabled ?? false
 var purviewDlpEnabled = contentSafetyEnabled && (purviewDlpConfig.?enabled ?? false)
+
+// Image generation (optional): the image model is deployed in the priority-1 Foundry resource only
+var enableImages = imagesConfig.?enabled ?? false
+var primaryFoundryName = filter(aiServicesConfig, config => (config.?priority ?? 1) == 1)[0].name
 
 // ------------------
 //    RESOURCES
@@ -108,9 +120,9 @@ module foundryModule '../../modules/cognitive-services/v3/foundry.bicep' = [for 
     aiServicesConfig: [
       config
     ]
-    modelsConfig: map(modelsConfig, model => union(model, {
+    modelsConfig: concat(map(modelsConfig, model => union(model, {
       capacity: (config.?priority ?? 1) == 1 ? (model.?primaryCapacity ?? model.capacity) : model.capacity
-    }))
+    })), enableImages && config.name == primaryFoundryName ? [imagesConfig.model] : [])
     apimPrincipalId: apimModule.outputs.principalId
     foundryProjectName: foundryProjectName
   }
@@ -173,6 +185,40 @@ resource agentBackendSecretNamedValue 'Microsoft.ApiManagement/service/namedValu
     value: agentBackendSecret
     secret: true
   }
+}
+
+// Pricing beyond tokens: cached input tokens (Responses API / prompt cache) and images (per image)
+resource cachedInputPricingNamedValue 'Microsoft.ApiManagement/service/namedValues@2024-06-01-preview' = {
+  parent: apim
+  name: 'cached-input-pricing'
+  properties: {
+    displayName: 'cached-input-pricing'
+    value: empty(cachedInputPricing) ? 'none=0' : cachedInputPricing
+    secret: false
+  }
+}
+
+resource imagePricingNamedValue 'Microsoft.ApiManagement/service/namedValues@2024-06-01-preview' = {
+  parent: apim
+  name: 'image-pricing'
+  properties: {
+    displayName: 'image-pricing'
+    value: empty(imagePricing) ? 'none=0' : imagePricing
+    secret: false
+  }
+}
+
+resource responsesPricingFragment 'Microsoft.ApiManagement/service/policyFragments@2024-06-01-preview' = {
+  parent: apim
+  name: 'responses-pricing'
+  properties: {
+    description: 'Prices cached input tokens at their discounted price and makes reads of stored responses free'
+    format: 'rawxml'
+    value: loadTextContent('responses-pricing-fragment.xml')
+  }
+  dependsOn: [
+    cachedInputPricingNamedValue
+  ]
 }
 
 // FinOps chargeback logic shared by the model and MCP tool APIs (who pays for a call)
@@ -341,6 +387,19 @@ module inferenceAPIModule '../../modules/apim/v3/inference-api.bicep' = {
     budgetEpochNamedValue
     attributionFragment
     chargebackFragment
+    responsesPricingFragment
+  ]
+}
+
+// 6b. Responses API: stateful calls (previous_response_id, stored responses) stick to the backend that stored them
+module responsesOpsModule 'responses-ops.bicep' = {
+  name: 'responsesOpsModule'
+  params: {
+    apimName: apim.name
+    policyXml: loadTextContent('responses-policy.xml')
+  }
+  dependsOn: [
+    inferenceAPIModule
   ]
 }
 
@@ -654,6 +713,9 @@ resource tierProductPolicy 'Microsoft.ApiManagement/service/products/policies@20
       '{allowed-agents}': join(tier.allowedAgents, ',')
       '{agent-calls-per-minute}': string(tier.agentCallsPerMinute)
       '{content-safety}': (contentSafetyEnabled && (tier.?contentSafety ?? false)) ? 'on' : 'off'
+      '{allowed-image-models}': join(imagesConfig.?tiers[?tier.name].?allowedImageModels ?? [], ',')
+      '{allowed-image-qualities}': join(imagesConfig.?tiers[?tier.name].?allowedImageQualities ?? [], ',')
+      '{images-per-minute}': string(imagesConfig.?tiers[?tier.name].?imagesPerMinute ?? 1)
     }), productPolicyTemplate, (xml, placeholder) => replace(xml, placeholder.key, placeholder.value))
   }
   dependsOn: [
@@ -683,6 +745,27 @@ resource agentSubscription 'Microsoft.ApiManagement/service/subscriptions@2024-0
     tierProductPolicy
   ]
 }]
+
+// 10b. Optional: image generation API, priced per image and linked to every customer-facing plan
+module imageApiModule 'image-api.bicep' = if (enableImages) {
+  name: 'imageApiModule'
+  params: {
+    apimName: apim.name
+    policyXml: replace(replace(replace(replace(loadTextContent('image-policy.xml'),
+      '{backend-id}', primaryFoundryName),
+      '{default-size}', imagesConfig.?defaultSize ?? '1024x1024'),
+      '{default-quality}', imagesConfig.?defaultQuality ?? 'low'),
+      '{max-images-per-request}', string(imagesConfig.?maxImagesPerRequest ?? 4))
+    productNames: map(filter(tiersConfig, tier => !(tier.?internal ?? false)), tier => tier.name)
+  }
+  dependsOn: [
+    inferenceAPIModule
+    imagePricingNamedValue
+    chargebackFragment
+    attributionFragment
+    tierProductPolicy
+  ]
+}
 
 // 11. Sandbox workbook on top of Application Insights
 var budgetRows = join(map(agentsConfig, agent => '\'${agent.name}\', \'${agent.displayName}\', \'${agent.tier}\', ${filter(tiersConfig, tier => tier.name == agent.tier)[0].budgetMicroUsd}'), ', ')
@@ -766,6 +849,7 @@ output a2aUrl string = '${apimModule.outputs.gatewayUrl}/${sourcingAgentApi.prop
 output agentCardUrl string = '${apimModule.outputs.gatewayUrl}/${sourcingAgentApi.properties.path}/.well-known/agent-card.json'
 output agentAppUrl string = 'https://${sourcingAgentApp.properties.configuration.ingress.fqdn}'
 output containerAppsEnvironmentId string = agentEnvironment.id
+output imagesBaseUrl string = enableImages ? '${apimModule.outputs.gatewayUrl}/images/openai/v1' : ''
 output toolPricing string = toolPricing
 output agentPricing string = agentPricing
 output demoUiUrl string = hostDemoUi ? demoUi!.outputs.url : ''

@@ -82,6 +82,8 @@
                     }
                     return (int)Math.Ceiling((int)context.Variables["promptTokens"] * inputPrice + (int)context.Variables["completionTokens"] * outputPrice);
                 }" />
+                <!-- cached input tokens at their discounted price; reads of stored responses (non-POST) are free -->
+                <include-fragment fragment-id="responses-pricing" />
                 <emit-metric name="CostMicroUSD" value="@((double)(int)context.Variables["costMicroUsd"])" namespace="ai-gateway-sandbox">
                     <dimension name="Agent" value="@((string)context.Variables["payer"])" />
                     <dimension name="Tier" value="@((string)context.Variables["payerTier"])" />

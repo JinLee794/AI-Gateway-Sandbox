@@ -19,6 +19,9 @@
       A2A agents (sourcing-agent)
         - Agent entitlement  - only {allowed-agents} can be called (403 otherwise)
         - Agent rate limit   - {agent-calls-per-minute} agent tasks per minute (429)
+      Images (image-api, optional)
+        - Image entitlement  - only {allowed-image-models} at qualities {allowed-image-qualities} (403)
+        - Image rate limit   - {images-per-minute} images per minute (429)
       All surfaces
         - $ budget           - ONE quota-by-key counter per subscription accumulates the cost (micro-USD) of
                                models, tool calls and agent tasks (fee + everything the agent spent downstream).
@@ -230,6 +233,43 @@
                 <rate-limit-by-key calls="{agent-calls-per-minute}" renewal-period="60"
                     counter-key="@("agentcalls-" + context.Subscription?.Id + "-" + (string)context.Variables["budgetEpoch"])"
                     remaining-calls-header-name="x-gw-remaining-agent-calls" retry-after-header-name="retry-after" />
+            </when>
+            <!-- ============ Image generation (image-api, optional) ============ -->
+            <when condition="@(context.Variables.GetValueOrDefault<string>("surface", "") == "image")">
+                <set-variable name="imageDenial" value="@{
+                    if (!(",{allowed-image-models},").Contains("," + context.Variables.GetValueOrDefault<string>("requestedModel", "") + ",")) { return "image-entitlement"; }
+                    if (!(",{allowed-image-qualities},").Contains("," + context.Variables.GetValueOrDefault<string>("imageQuality", "") + ",")) { return "image-quality"; }
+                    return "";
+                }" />
+                <choose>
+                    <when condition="@((string)context.Variables["imageDenial"] != "")">
+                        <emit-metric name="GovernanceEvents" value="1" namespace="ai-gateway-sandbox">
+                            <dimension name="Agent" value="@(context.Subscription?.Id ?? "anonymous")" />
+                            <dimension name="Tier" value="{tier}" />
+                            <dimension name="Event" value="@((string)context.Variables["imageDenial"] == "image-entitlement" ? "image-denied" : "image-quality-denied")" />
+                            <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("requestedModel", ""))" />
+                        </emit-metric>
+                        <return-response>
+                            <set-status code="403" reason="Image Not In Plan" />
+                            <set-header name="Content-Type" exists-action="override">
+                                <value>application/json</value>
+                            </set-header>
+                            <set-header name="x-gw-blocked-by" exists-action="override">
+                                <value>@((string)context.Variables["imageDenial"])</value>
+                            </set-header>
+                            <set-header name="x-gw-request-id" exists-action="override">
+                                <value>@(context.RequestId.ToString())</value>
+                            </set-header>
+                            <set-body>@(new JObject(new JProperty("error", new JObject(
+                                new JProperty("code", "ImageNotInPlan"),
+                                new JProperty("message", "Image model '" + context.Variables.GetValueOrDefault<string>("requestedModel", "") + "' at quality '" + context.Variables.GetValueOrDefault<string>("imageQuality", "") + "' is not included in the '{tier}' plan. Image models: {allowed-image-models}; qualities: {allowed-image-qualities}")))).ToString())</set-body>
+                        </return-response>
+                    </when>
+                </choose>
+                <rate-limit-by-key calls="{images-per-minute}" renewal-period="60"
+                    counter-key="@("images-" + context.Subscription?.Id + "-" + (string)context.Variables["budgetEpoch"])"
+                    increment-count="@(context.Variables.GetValueOrDefault<int>("imagesRequested", 1))"
+                    remaining-calls-header-name="x-gw-remaining-images" retry-after-header-name="retry-after" />
             </when>
         </choose>
         <!-- $ budget per subscription, shared by every surface: each successful call increments the counter by its

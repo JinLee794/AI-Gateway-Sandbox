@@ -99,7 +99,7 @@ Each user is on a **Gold, Silver or Bronze plan** with one $ budget for all thre
 ![Cost and outcome charts from Application Insights](labs/ai-gateway-sandbox/images/azure-monitor.png)
 
 <details>
-<summary><b>All 16 scenarios</b></summary>
+<summary><b>All 18 scenarios</b></summary>
 
 | # | Scenario | What you see |
 |---|----------|--------------|
@@ -119,8 +119,10 @@ Each user is on a **Gold, Silver or Bronze plan** with one $ budget for all thre
 | 14 | Policy trace & Azure Monitor evidence | The policy trace, then the same call in the logs. |
 | 15 | Blocked before spend: content safety | Optional (off by default). A jailbreak and sensitive data get 403 at the gateway: $0 of tokens, only the safety check is billed. |
 | 16 | Over budget, switched off | Optional (off by default). An alert suspends Ben's subscription; Reset budgets re-activates it. Runs separately because it waits several minutes for Azure Monitor. |
+| 17 | Responses API: cached input & sticky state | Follow-up calls stay on the owning region, cached input is discounted, stored reads are free, and another subscription cannot read the response. |
+| 18 | Images priced per image | Optional (off by default). Image quality and size determine the price; plan entitlements and the shared budget still apply. |
 
-The full demo is about 85 calls and costs less than $0.10. Turning on content safety (`contentSafety.enabled` in [sandbox-config.json](labs/ai-gateway-sandbox/sandbox-config.json)) adds scenario 15's 5 calls and about $0.0008 per screened call, which comes out of each plan's $ budget. Scenario 16 is not included in the full demo.
+The full demo makes about 89 calls with optional features off. Turning on content safety adds scenario 15's five calls and about $0.0008 per screened call. Turning on images adds up to five calls in scenario 18. Both use the plan's shared budget and demo price lists. Scenario 16 runs separately because it waits for Azure Monitor.
 
 </details>
 
@@ -159,7 +161,8 @@ The upstream labs show these patterns on their own. This table tracks which ones
 | 🚧 | Real users, not keys | Chargeback by Entra ID user, instead of one subscription key per user. | [access-controlling](labs/access-controlling/), [mcp-client-authorization](labs/mcp-client-authorization/) |
 | 💡 | One budget across clouds | Amazon Bedrock and Google Gemini models share the same plans and price list. | [aws-bedrock](labs/aws-bedrock/), [google-gemini-api](labs/google-gemini-api/) |
 | 💡 | Self-hosted showback | Self-hosted models are priced per GPU-second instead of per token. | [serverless-gpu](labs/serverless-gpu/), [self-hosted-ollama](labs/self-hosted-ollama/) |
-| 🚧 | Pricing beyond tokens | Charges per image, for audio tokens and for stateful Responses API calls. | [image-generation](labs/image-generation/), [realtime-audio](labs/realtime-audio/), [secure-responses-api](labs/secure-responses-api/) |
+| ✅ | [Pricing beyond tokens](labs/ai-gateway-sandbox/README.md#pricing-beyond-tokens-responses-api-and-images) | Images are charged per image by quality and size (optional). Responses API calls pay the cached rate for cached input tokens, stored reads are free, and follow-up calls stay on the region that stored the response. Everything draws on the same plan and $ budget. | [image-generation](labs/image-generation/), [secure-responses-api](labs/secure-responses-api/), [session-awareness](labs/session-awareness/) |
+| 💡 | Audio tokens over realtime | APIM runs WebSocket policies only at the handshake. The idea: check entitlement, rate and budget at the handshake, then price audio and text tokens afterwards from the LLM log. | [realtime-audio](labs/realtime-audio/) |
 
 **Ways to deploy**
 

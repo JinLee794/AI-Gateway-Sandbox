@@ -117,6 +117,7 @@
   .surf { font-size:11px; padding:1px 8px; border-radius:10px; font-weight:600; display:inline-flex; align-items:center; gap:4px; white-space:nowrap; vertical-align:middle; }
   .surf img.ico.sm { width:12px; height:12px; }
   .surf.model { background:#eff6fc; color:#005a9e; } .surf.tool { background:#e8f5f6; color:#00666d; } .surf.agent { background:#f4effa; color:#5c2e91; } .surf.safety { background:#fdf3ec; color:#8e3a0b; }
+  .surf.image { background:#fdf3ec; color:#8e3a0a; }
   .matrix th, .matrix td { text-align:center; white-space:normal; } .matrix th:first-child, .matrix td:first-child { text-align:left; }
   .matrix td.grp { background:var(--panel2); font-weight:600; text-align:left; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.4px; }
   .yes { color:var(--ok); font-weight:600; } .no { color:#a19f9d; } .dg { color:var(--warn); font-weight:600; } .deny { color:var(--bad); font-weight:600; }
@@ -1257,15 +1258,15 @@ let cfg, selectedAgent, running = false, surface = "model";
 const session = { calls: [], costByAgent: {}, costBySurface: {}, costByAgentSurface: {}, outcomes: {}, ledger: {} };
 const charts = {};
 const $ = (id) => document.getElementById(id);
-const SURFACES = { model: "AI models", tool: "MCP tools", agent: "A2A agents", safety: "Safety checks" };
-const SURFACE_COLORS = { model: "#0078d4", tool: "#00b7c3", agent: "#8764b8", safety: "#ca5010" };
+const SURFACES = { model: "AI models", tool: "MCP tools", agent: "A2A agents", safety: "Safety checks", image: "Images" };
+const SURFACE_COLORS = { model: "#0078d4", tool: "#00b7c3", agent: "#8764b8", safety: "#ca5010", image: "#d29200" };
 const TOOL_ARGS = { "search-products": { category: "electronics" }, "check-inventory": { sku: "SKU-1042" }, "get-supplier-quote": { sku: "SKU-1042", quantity: 500 } };
 
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 5000); }
 function tierOf(agent) { return cfg.tiers.find(t => t.name === agent.tier) || {}; }
 function fmtUsd(v) { return "$" + Number(v || 0).toFixed(6); }
 function statusClass(s) { return ["200", "401", "403", "429"].includes(String(s)) ? "s" + s : "sother"; }
-const ICON_OF = { model: "foundry-models", tool: "mcp", agent: "a2a" };
+const ICON_OF = { model: "foundry-models", tool: "mcp", agent: "a2a", image: "foundry-models" };
 const ico = (name, cls = "", alt = "") => `<img class="ico ${cls}" src="/icons/${name}.svg" alt="${alt}">`;
 
 // ---------- Loading feedback ----------
@@ -1321,7 +1322,7 @@ function placeBusy() {
 // Run overlay: covers the results from the moment a run starts until the gateway answers the first call.
 let runBusy = null;
 function releaseRunBusy() { if (runBusy) { runBusy(); runBusy = null; } }
-const surfChip = (s) => `<span class="surf ${s}">${ICON_OF[s] ? ico(ICON_OF[s], "sm") : ""}${{ model: "AI model", tool: "MCP tool", agent: "A2A agent" }[s] || s}</span>`;
+const surfChip = (s) => `<span class="surf ${s}">${ICON_OF[s] ? ico(ICON_OF[s], "sm") : ""}${{ model: "AI model", tool: "MCP tool", agent: "A2A agent", image: "Image" }[s] || s}</span>`;
 const toolPrice = (name) => (cfg.tools.find(t => t.name === name) || {}).priceUsd || 0;
 const list = (xs) => (xs && xs.length ? xs.join(", ") : "<i>none</i>");
 
@@ -1411,21 +1412,31 @@ function renderPlans() {
   html += grp(`${surfChip("agent")} Agents on the A2A API`);
   for (const a of cfg.a2aAgents) html += row(`${a.name} <span class="muted">$${a.feeUsd} per task + its spend</span>`, t => (t.allowedAgents || []).includes(a.name) ? yes : no);
   html += row("Agent tasks per minute", t => (t.allowedAgents || []).length ? t.agentCallsPerMinute : no);
+  const img = cfg.images || {}, imgTier = (t) => (img.tiers || {})[t.name] || {};
+  if (img.model) {
+    html += grp(`${surfChip("image")} Image generation${img.enabled ? "" : ` <span class="muted">(not deployed: images.enabled is false)</span>`}`);
+    for (const q of Object.keys((img.prices || {})[img.model.name] || { low: 0, medium: 0, high: 0 }))
+      html += row(`${img.model.name} · ${q} quality`, t => (imgTier(t).allowedImageModels || []).includes(img.model.name) && (imgTier(t).allowedImageQualities || []).includes(q) ? yes : `<span class="deny">denied</span>`);
+    html += row("Images per minute", t => (imgTier(t).allowedImageModels || []).length ? imgTier(t).imagesPerMinute : no);
+  }
   html += grp(`${ico("cost-budgets")} FinOps`);
-  html += row("$ budget (models + tools + agents)", t => `<b>$${t.budgetUsd}</b> / 30 days`);
+  html += row(`$ budget (models + tools + agents${img.model ? " + images" : ""})`, t => `<b>$${t.budgetUsd}</b> / 30 days`);
   html += row("$ cap per session", t => `$${t.sessionBudgetUsd ?? t.budgetUsd}`);
   html += "</tbody></table>";
   $("plansMatrix").innerHTML = html;
+  const cachedP = cfg.cachedInputPrices || {}, imgPrices = (img.prices || {})[img.model?.name] || {};
   $("priceList").innerHTML = `<table><thead><tr><th>Surface</th><th>Resource</th><th>Price</th><th>Metered from</th></tr></thead><tbody>`
-    + cfg.models.map(m => `<tr><td>${surfChip("model")}</td><td>${m.name}</td><td>$${m.inputPrice} in / $${m.outputPrice} out per 1M tokens</td><td>token usage returned by Foundry</td></tr>`).join("")
+    + cfg.models.map(m => `<tr><td>${surfChip("model")}</td><td>${m.name}</td><td>$${m.inputPrice} in / $${m.outputPrice} out per 1M tokens${cachedP[m.name] !== undefined ? ` · $${cachedP[m.name]} cached in` : ""}</td><td>token usage returned by Foundry${cachedP[m.name] !== undefined ? " (Responses API: cached tokens; stored reads free)" : ""}</td></tr>`).join("")
     + cfg.tools.map(x => `<tr><td>${surfChip("tool")}</td><td>${x.name}</td><td>$${x.priceUsd} per call</td><td>MCP <code>tools/call</code></td></tr>`).join("")
     + cfg.a2aAgents.map(a => `<tr><td>${surfChip("agent")}</td><td>${a.name}</td><td>$${a.feeUsd} per task + downstream spend</td><td>A2A <code>message/send</code></td></tr>`).join("")
-    + `</tbody></table><div class="facts"><span>${ico("key")} named values <code>model-pricing</code> · <code>tool-pricing</code> · <code>agent-pricing</code></span></div>`;
+    + Object.entries(imgPrices).map(([q, sizes]) => `<tr><td>${surfChip("image")}</td><td>${img.model.name} · ${q}</td><td>${Object.entries(sizes).map(([s, p]) => `$${p} ${s}`).join(" · ")} per image</td><td>images returned (<code>data[]</code>)</td></tr>`).join("")
+    + `</tbody></table><div class="facts"><span>${ico("key")} named values <code>model-pricing</code> · <code>cached-input-pricing</code> · <code>tool-pricing</code> · <code>agent-pricing</code> · <code>image-pricing</code></span></div>`;
   const ep = cfg.endpoints || {};
   $("endpoints").innerHTML = `<div>${surfChip("model")} OpenAI v1</div><div><code>${ep.inferenceBaseUrl || "-"}</code></div>
     <div>${surfChip("tool")} MCP server</div><div><code>${ep.mcpUrl || "-"}</code></div>
     <div>${surfChip("agent")} A2A agent</div><div><code>${ep.a2aUrl || "-"}</code></div>
-    <div>Agent card</div><div><code>${ep.agentCardUrl || "-"}</code></div>`;
+    <div>Agent card</div><div><code>${ep.agentCardUrl || "-"}</code></div>
+    <div>${surfChip("image")} Images</div><div><code>${ep.imagesBaseUrl || "not deployed"}</code></div>`;
 }
 
 function chart(id, type, opts = {}) {
@@ -1468,6 +1479,14 @@ function callTool(agentName, tool, args, opts = {}) { return post("/api/mcp", { 
 function listTools(agentName, opts = {}) { return post("/api/mcp", { agent: agentName, action: "list", ...authOpts(opts) }); }
 function callAgent(agentName, prompt, opts = {}) { return post("/api/a2a", { agent: agentName, action: "send", prompt: prompt ?? $("agentTask").value, ...authOpts(opts) }); }
 function agentCard(agentName) { return post("/api/a2a", { agent: agentName, action: "card", ...authOpts() }); }
+// Responses API: opts.previous chains a follow-up (previous_response_id), opts.responseId reads a stored response (GET)
+function sendResponse(agentName, model, opts = {}) {
+  return post("/api/responses", { agent: agentName, model, prompt: opts.prompt ?? $("prompt").value, maxTokens: opts.maxTokens,
+                                  previousResponseId: opts.previous, responseId: opts.responseId, ...authOpts(opts) });
+}
+function genImage(agentName, opts = {}) {
+  return post("/api/image", { agent: agentName, model: opts.model, prompt: opts.prompt, size: opts.size, quality: opts.quality, n: opts.n || 1, ...authOpts(opts) });
+}
 
 function resourceOf(r) {
   const h = r.headers || {};
@@ -1592,6 +1611,10 @@ function callView(r, idx) {
   let kv = `<div>Surface</div><div>${surfChip(r.surface)} ${resourceOf(r)}</div><div>Governance</div><div>${gov}</div>`;
   if (r.surface === "model") kv += `<div>Tokens (prompt / completion)</div><div>${h["x-gw-prompt-tokens"] || "-"} / ${h["x-gw-completion-tokens"] || "-"}</div>
       <div>Remaining TPM</div><div>${h["x-gw-remaining-tpm"] ?? "-"}</div><div>Remaining token quota</div><div>${h["x-gw-remaining-quota-tokens"] ?? "-"}</div>`;
+  if (h["x-gw-pricing-rule"]) kv += `<div>Pricing rule</div><div>${escapeHtml(h["x-gw-pricing-rule"])}${Number(h["x-gw-cached-tokens"]) ? ` · ${h["x-gw-cached-tokens"]} cached tokens saved ${fmtUsd(h["x-gw-cached-savings-usd"])}` : ""}</div>`;
+  if (h["x-gw-affinity"]) kv += `<div>Response affinity</div><div>${escapeHtml(h["x-gw-affinity"])}</div>`;
+  if (r.surface === "image") kv += `<div>Images</div><div>${h["x-gw-image-count"] ?? "-"} × ${h["x-gw-image-unit-usd"] ? fmtUsd(h["x-gw-image-unit-usd"]) : "-"} (${escapeHtml(h["x-gw-image-spec"] || "-")})</div>
+      <div>Remaining images (minute)</div><div>${h["x-gw-remaining-images"] ?? "-"}</div>`;
   if (r.surface === "tool" && r.action !== "list") kv += `<div>Tool price</div><div>$${toolPrice(r.tool)} per call</div><div>Remaining tool calls (minute)</div><div>${h["x-gw-remaining-tool-calls"] ?? "-"}</div>`;
   if (r.surface === "agent" && r.action === "send") kv += `<div>Agent fee</div><div>${h["x-gw-agent-fee-usd"] ? fmtUsd(h["x-gw-agent-fee-usd"]) : "-"}</div>
       <div>Agent's model + tool spend</div><div>${h["x-gw-downstream-cost-usd"] ? fmtUsd(h["x-gw-downstream-cost-usd"]) : "-"}</div>
@@ -1638,7 +1661,7 @@ function record(r) {
   }
   const key = r.agent + "|" + r.status; session.outcomes[key] = (session.outcomes[key] || 0) + 1;
   const sid = h["x-gw-session"] || "no-session", lk = r.agent + "|" + sid;
-  const led = session.ledger[lk] ||= { agent: r.agent, session: sid, calls: 0, blocked: 0, cost: 0, model: 0, tool: 0, agentFee: 0, safety: 0, first: Date.now() };
+  const led = session.ledger[lk] ||= { agent: r.agent, session: sid, calls: 0, blocked: 0, cost: 0, model: 0, tool: 0, agentFee: 0, safety: 0, image: 0, first: Date.now() };
   led.calls++; if ([401, 403, 429].includes(r.status)) led.blocked++; led.cost += cost;
   for (const [s, v] of Object.entries(costParts(r))) led[s === "agent" ? "agentFee" : s] += v;
   renderLedger();
@@ -1677,10 +1700,10 @@ function renderLedger() {
   const rows = Object.values(session.ledger);
   if (!rows.length) return;
   const who = (n) => cfg.agents.find(a => a.name === n) || { displayName: n };
-  const sum = (xs, k) => xs.reduce((s, x) => s + x[k], 0), teams = {};
+  const sum = (xs, k) => xs.reduce((s, x) => s + (x[k] || 0), 0), teams = {};
   for (const l of rows) { const a = who(l.agent); (teams[a.team || "Unassigned"] ||= { cc: new Set(), rows: [] }).rows.push({ ...l, a }); teams[a.team || "Unassigned"].cc.add(a.costCenter || "-"); }
-  const cells = (xs) => `<td>${sum(xs, "calls")}</td><td>${sum(xs, "blocked") || ""}</td><td>${fmtUsd(sum(xs, "model"))}</td><td>${fmtUsd(sum(xs, "tool"))}</td>  <td>${fmtUsd(sum(xs, "agentFee"))}</td>${SURFACES.safety ? `<td>${fmtUsd(sum(xs, "safety"))}</td>` : ""}`;
-    let html = `<table><thead><tr><th>Team › user / app</th><th>Cost center</th><th>Session</th><th>Calls</th><th>Blocked</th><th>AI models</th><th>MCP tools</th><th>A2A fees</th>${SURFACES.safety ? "<th>Safety checks</th>" : ""}<th>Total USD</th></tr></thead><tbody>`;
+  const cells = (xs) => `<td>${sum(xs, "calls")}</td><td>${sum(xs, "blocked") || ""}</td><td>${fmtUsd(sum(xs, "model"))}</td><td>${fmtUsd(sum(xs, "tool"))}</td><td>${fmtUsd(sum(xs, "agentFee"))}</td>${cfg.images?.enabled ? `<td>${fmtUsd(sum(xs, "image"))}</td>` : ""}${SURFACES.safety ? `<td>${fmtUsd(sum(xs, "safety"))}</td>` : ""}`;
+  let html = `<table><thead><tr><th>Team › user / app</th><th>Cost center</th><th>Session</th><th>Calls</th><th>Blocked</th><th>AI models</th><th>MCP tools</th><th>A2A fees</th>${cfg.images?.enabled ? "<th>Images</th>" : ""}${SURFACES.safety ? "<th>Safety checks</th>" : ""}<th>Total USD</th></tr></thead><tbody>`;
   for (const [team, g] of Object.entries(teams).sort((x, y) => sum(y[1].rows, "cost") - sum(x[1].rows, "cost"))) {
     html += `<tr class="sub"><td>${escapeHtml(team)}</td><td>${escapeHtml([...g.cc].join(", "))}</td><td>${g.rows.length} session${g.rows.length === 1 ? "" : "s"}</td>${cells(g.rows)}<td>${fmtUsd(sum(g.rows, "cost"))}</td></tr>`;
     html += g.rows.sort((x, y) => String(x.a.displayName).localeCompare(String(y.a.displayName)) || x.first - y.first).map(l =>
@@ -2303,9 +2326,13 @@ function step(r, note = "") {
   } else if (r.surface === "agent") {
     what = `sent a task to <b>sourcing-agent</b>`;
     detail = r.status === 200 ? ` · ${(r.steps || []).length} downstream calls · fee ${fmtUsd(hdr(r, "x-gw-agent-fee-usd"))} + agent spend ${fmtUsd(hdr(r, "x-gw-downstream-cost-usd"))} = <b>${fmtUsd(usd(r))}</b>` : err;
+  } else if (r.surface === "image") {
+    what = `generated an image with <b>${hdr(r, "x-gw-model-served") || r.requestedModel}</b>${hdr(r, "x-gw-image-spec") ? ` <code>${escapeHtml(hdr(r, "x-gw-image-spec"))}</code>` : ""}`;
+    detail = r.status === 200 ? ` · ${hdr(r, "x-gw-image-count") || r.imageCount} × ${fmtUsd(hdr(r, "x-gw-image-unit-usd"))} = <b>${fmtUsd(usd(r))}</b>` : err;
   } else {
     what = `asked <b>${r.requestedModel}</b> → served <b>${hdr(r, "x-gw-model-served") || "-"}</b>`;
-    detail = r.status === 200 ? ` · ${hdr(r, "x-gw-prompt-tokens")}+${hdr(r, "x-gw-completion-tokens")} tokens · ${fmtUsd(usd(r))}` : err;
+    const cached = Number(hdr(r, "x-gw-cached-tokens") || 0) ? ` (${hdr(r, "x-gw-cached-tokens")} cached)` : "";
+    detail = r.status === 200 ? ` · ${hdr(r, "x-gw-prompt-tokens")}${cached}+${hdr(r, "x-gw-completion-tokens")} tokens · ${fmtUsd(usd(r))}` : err;
   }
   $("scSteps").insertAdjacentHTML("beforeend", `<li><span class="status ${statusClass(r.status)}">${r.status}</span> ${surfChip(r.surface || "model")}
     ${r.agent} ${what}${gov}${detail}${note ? ` <span class="muted">· ${note}</span>` : ""}</li>`);
@@ -2704,7 +2731,73 @@ const SCENARIOS = [
       info(`<code>BudgetBreach</code> audit events (Application Insights) · <a href="${st.events?.portalLink || "#"}" target="_blank">query ↗</a>${table(st.events?.rows)}`);
       takeaway(`Two controls, two jobs. <code>quota-by-key</code> stopped ${b.displayName} <b>on the next call</b> (403) inside the gateway. The alert + Logic App loop took <b>${Math.round((Date.now() - started) / 60000) || 1}+ minutes</b>, then <b>suspended the APIM subscription</b> with a least-privilege managed identity: his key now fails on every API (HTTP ${r1.status} / ${r2.status}), the action group can notify people, and the <code>BudgetBreach</code> event is the audit trail. Use it for thresholds the gateway counters don't see, like monthly spend across epochs. <b>Reset budgets</b> re-activates the subscription.`);
     } },
+  { title: "Responses API: cached input & sticky state", cost: "4 calls · < $0.003",
+    gist: "A stateful Responses conversation: the follow-up's cached input tokens are priced lower, it sticks to the backend that stored the first response, and reading a stored response is free.",
+    policies: ["responses-pricing fragment", "cache-lookup-value (affinity)", "set-backend-service"],
+    preview: () => { const m = respModel(), c = (cfg.cachedInputPrices || {})[m], p = modelInfo(m).inputPrice;
+      return dg.row(dg.agent("gold"), dg.arrow("POST /responses"), dg.gw("stores id → backend"), dg.arrow("new"), dg.model(m, "foundry1"), dg.code(200))
+        + dg.row(dg.agent("gold"), dg.arrow("previous_response_id"), dg.gw("affinity lookup"), dg.arrow("sticky", "ok"), dg.model(m, "same backend"), dg.code(200))
+        + dg.row(dg.agent("gold"), dg.arrow("GET /responses/{id}"), dg.gw("stored read"), dg.arrow("$0", "ok"), dg.model(m, "stored"), dg.code(200))
+        + dg.row(dg.agent("silver"), dg.arrow("GET gold's id"), dg.gw("ownership check"), dg.arrow("other plan", "bad"), dg.node("Foundry", "never called", "dim"), dg.code(404))
+        + (c !== undefined ? dg.bar("Input price", [[100, "#0078d4"]], `$${p} per 1M`) + dg.bar("Cached input", [[100 * c / p, "#107c10"]], `$${c} per 1M`) : ""); },
+    story: () => `Gold <b>${tierAgent("gold").displayName}</b> starts a <b>Responses API</b> conversation with a long shared context, then sends a follow-up with <code>previous_response_id</code>. The gateway remembers which backend stored each response and routes follow-ups back to it, prices <b>cached input tokens</b> at the cheaper cached rate, and does not charge for reading a stored response. Another plan cannot read it.`,
+    async run() {
+      const g = tierAgent("gold"), s = tierAgent("silver"), m = respModel();
+      const r1 = await sendResponse(g.name, m, { prompt: RESP_CONTEXT + "\n\nSummarize the policy in one sentence.", maxTokens: 60 });
+      step(r1, `affinity <code>${escapeHtml(hdr(r1, "x-gw-affinity") || "-")}</code> · id <code>${escapeHtml(r1.responseId || "-")}</code>`);
+      if (!running || r1.status !== 200 || !r1.responseId) { if (r1.status !== 200) takeaway("The first Responses call failed, so the follow-ups were skipped."); return; }
+      await sleep(1500);
+      const r2 = await sendResponse(g.name, m, { prompt: "Which rule covers refunds? Answer in one sentence.", previous: r1.responseId, maxTokens: 60 });
+      step(r2, `affinity <code>${escapeHtml(hdr(r2, "x-gw-affinity") || "-")}</code> · rule <code>${escapeHtml(hdr(r2, "x-gw-pricing-rule") || "-")}</code>`);
+      if (!running) return;
+      const r3 = await sendResponse(g.name, m, { responseId: r1.responseId });
+      step(r3, `stored read · rule <code>${escapeHtml(hdr(r3, "x-gw-pricing-rule") || "-")}</code>`);
+      if (!running) return;
+      const r4 = await sendResponse(s.name, m, { responseId: r1.responseId });
+      step(r4, r4.status === 404 ? `blocked by <code>${escapeHtml(hdr(r4, "x-gw-blocked-by") || "?")}</code>` : "ownership unknown to the gateway (cache miss)");
+      const cached = Number(hdr(r2, "x-gw-cached-tokens") || 0), saved = Number(hdr(r2, "x-gw-cached-savings-usd") || 0);
+      takeaway(`The follow-up re-sent the whole conversation (${hdr(r2, "x-gw-prompt-tokens") || "-"} input tokens) and ${cached
+        ? `<b>${cached} of them were served from the prompt cache</b>, priced at the cached rate: ${fmtUsd(saved)} less than list price`
+        : "none were served from the prompt cache this time (caching is best effort and needs 1,024+ identical leading tokens; run it again)"}. It was routed <code>${escapeHtml(hdr(r2, "x-gw-affinity") || "-")}</code>, so state never splits across regions. Reading the stored response cost ${fmtUsd(usd(r3))}, and Silver's attempt to read Gold's response answered <b>${r4.status}</b>. All of it draws on the same $ budget as chat completions.`);
+    } },
+  { title: "Images priced per image", cost: "≤ 5 calls · ≈ $0.02",
+    gist: "Image generation draws on the same plan and $ budget: priced per image by quality and size, with plan entitlements on model and quality.",
+    policies: ["image-pricing named value", "image entitlement", "rate-limit-by-key (images)", "quota-by-key ($ budget)"],
+    preview: () => { const im = cfg.images || {}, name = im.model?.name || "gpt-image-1-mini";
+      return dg.row(dg.agent("gold"), dg.arrow("low 1024x1024"), dg.gw("price per image"), dg.arrow("", "ok"), dg.model(name), dg.code(200))
+        + dg.row(dg.agent("silver"), dg.arrow("high quality"), dg.gw("plan check"), dg.arrow("not in plan", "bad"), dg.node("Foundry", "never called · $0", "dim"), dg.code(403))
+        + dg.row(dg.agent("bronze"), dg.arrow("any image"), dg.gw("plan check"), dg.arrow("not in plan", "bad"), dg.node("Foundry", "never called · $0", "dim"), dg.code(403))
+        + dg.row(dg.agent("silver"), dg.arrow("medium, then low"), dg.gw("$ budget"), dg.arrow("budget used up", "bad"), dg.model(name), dg.code(403))
+        + dg.note(im.enabled ? "Budgets are reset first. Prices are per image from the image-pricing named value." : "Not deployed: set <code>images.enabled</code> to true in sandbox-config.json and redeploy."); },
+    story: () => `Images are priced <b>per image</b> by model, quality and size, and they draw on the <b>same $ budget</b> as tokens, tool calls and agent tasks. Gold may use every quality, Silver only low and medium, and Bronze has no image entitlement. Budgets are reset first.`,
+    async run() {
+      if (!cfg.images?.enabled) { info("Image generation is not deployed in this sandbox."); takeaway("Set <code>images.enabled</code> to <code>true</code> in <code>sandbox-config.json</code> (or the notebook's <code>images_config</code>) and redeploy to add <b>gpt-image-1-mini</b> to the primary region. No calls were made."); return; }
+      const g = tierAgent("gold"), s = tierAgent("silver"), b = tierAgent("bronze"), P = "A minimalist line drawing of a paper airplane";
+      info("Resetting budgets (budget-epoch named value)…");
+      if (!await resetBudgets()) return;
+      await sleep(8000);
+      const r1 = await genImage(g.name, { prompt: P, quality: "low", size: "1024x1024" }); step(r1);
+      if (!running) return;
+      const r2 = await genImage(s.name, { prompt: P, quality: "high", size: "1024x1024" }); step(r2, `blocked by <code>${escapeHtml(hdr(r2, "x-gw-blocked-by") || "?")}</code>`);
+      if (!running) return;
+      const r3 = await genImage(b.name, { prompt: P, quality: "low", size: "1024x1024" }); step(r3, `blocked by <code>${escapeHtml(hdr(r3, "x-gw-blocked-by") || "?")}</code>`);
+      if (!running) return;
+      const r4 = await genImage(s.name, { prompt: P, quality: "medium", size: "1024x1024" }); step(r4, `Silver budget is $${tierOf(s).budgetUsd}`);
+      if (!running) return;
+      await sleep(3000);
+      const r5 = await genImage(s.name, { prompt: P, quality: "low", size: "1024x1024" });
+      step(r5, r5.status === 200 ? "quota counters sync asynchronously, so one more call got through" : `blocked by <code>${escapeHtml(hdr(r5, "x-gw-blocked-by") || "?")}</code>`);
+      takeaway(`Gold's image cost <b>${fmtUsd(usd(r1))}</b> (${escapeHtml(hdr(r1, "x-gw-image-spec") || "-")}), priced per image, not per token. Silver asking for high quality got <b>${r2.status}</b> and Bronze got <b>${r3.status}</b>, both $0 because Foundry is never called. Silver's medium image (${fmtUsd(usd(r4))}) used up its $${tierOf(s).budgetUsd} budget, and the next image answered <b>${r5.status}</b>: one plan and one $ budget cover tokens, tools, agents and images.`);
+    } },
 ];
+const respModel = () => { const al = tierOf(tierAgent("gold")).allowedModels || []; return ["gpt-4.1-mini", "gpt-4.1-nano"].find(m => al.includes(m)) || al[0]; };
+// A long, identical prefix (more than 1,024 tokens) so the follow-up can be served from the model's prompt cache
+const RESP_CONTEXT = "You are the support assistant for Contoso Outfitters. Follow these store policies exactly.\n"
+  + Array.from({ length: 70 }, (_, i) => `Policy ${i + 1}: ${["Refunds are issued to the original payment method within 14 days of an approved return.",
+    "Orders over $75 ship free within the contiguous United States; other orders pay a flat $6.95.",
+    "Gift cards never expire and cannot be redeemed for cash except where required by law.",
+    "Damaged items must be reported with a photo within 7 days of delivery to qualify for a replacement.",
+    "Loyalty members earn 2 points per dollar and can redeem 500 points for a $10 reward."][i % 5]}`).join("\n");
 
 async function runScenario(s) {
   $("scenario").classList.remove("hidden"); $("scSteps").innerHTML = "";
@@ -2740,7 +2833,7 @@ function showPreview(btn) {
 function hidePreview() { $("scPreview").classList.remove("show"); }
 function renderScenarios() {
   $("scenarios").innerHTML = SCENARIOS.map((s, i) => `<button data-i="${i}"><span class="n">${i + 1}</span><span><span class="t">${s.title}</span><span class="c">${s.cost}</span></span></button>`).join("")
-    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.filter(s => !s.slow).length})</span><span class="c">${cfg.contentSafety?.enabled ? "≈ 90 calls · < $0.10 · about 10 minutes" : "≈ 85 calls · < $0.10 · about 9 minutes"}</span></span></button>`;
+    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.filter(s => !s.slow).length})</span><span class="c">${cfg.contentSafety?.enabled ? (cfg.images?.enabled ? "≈ 99 calls" : "≈ 94 calls") : (cfg.images?.enabled ? "≈ 94 calls" : "≈ 89 calls")} · demo prices · about 10 minutes</span></span></button>`;
   document.querySelectorAll(".scenarios button[data-i]").forEach(b => {
     b.onclick = async () => {
       const s = SCENARIOS[b.dataset.i];

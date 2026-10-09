@@ -81,6 +81,31 @@
     { "name": "user-chloe", "displayName": "Chloe Martin", "tier": "bronze", "kind": "user", "team": "Marketing", "costCenter": "CC-3003" },
     { "name": "user-dev", "displayName": "Dev Patel", "tier": "gold", "kind": "user", "team": "Supply Chain", "costCenter": "CC-2002" }
   ],
+  "responses": {
+    "$comment": "Responses API (POST /responses, previous_response_id, stored responses). Cached input tokens are priced at cachedInputPrices (USD per 1M tokens); models not listed pay the full input price. Reading a stored response (GET /responses/{id}) is free. Follow-up calls stick to the backend that stored the response.",
+    "cachedInputPrices": { "gpt-4.1": 0.50, "gpt-4.1-mini": 0.10, "gpt-4.1-nano": 0.025 }
+  },
+  "images": {
+    "$comment": "Image generation priced per image (USD) by model, quality and size, charged to the same plan $ budget. Off by default: enabling it deploys the model in the priority-1 region only (gpt-image models are not available in francecentral). Prices are illustrative list prices: check the Azure OpenAI pricing page.",
+    "enabled": false,
+    "model": { "name": "gpt-image-1-mini", "publisher": "OpenAI", "version": "2025-10-06", "sku": "GlobalStandard", "capacity": 2 },
+    "defaultSize": "1024x1024",
+    "defaultQuality": "low",
+    "maxImagesPerRequest": 4,
+    "prices": {
+      "gpt-image-1-mini": {
+        "low":    { "1024x1024": 0.005, "1024x1536": 0.006, "1536x1024": 0.006 },
+        "medium": { "1024x1024": 0.011, "1024x1536": 0.015, "1536x1024": 0.015 },
+        "high":   { "1024x1024": 0.036, "1024x1536": 0.052, "1536x1024": 0.052 }
+      }
+    },
+    "tiers": {
+      "gold":   { "allowedImageModels": ["gpt-image-1-mini"], "allowedImageQualities": ["low", "medium", "high"], "imagesPerMinute": 5 },
+      "silver": { "allowedImageModels": ["gpt-image-1-mini"], "allowedImageQualities": ["low", "medium"], "imagesPerMinute": 2 },
+      "bronze": { "allowedImageModels": [], "allowedImageQualities": [], "imagesPerMinute": 1 },
+      "agent-platform": { "allowedImageModels": [], "allowedImageQualities": [], "imagesPerMinute": 1 }
+    }
+  },
   "apimSku": "Basicv2",
   "agentLocation": "westeurope",
   "inferenceAPIPath": "inference",

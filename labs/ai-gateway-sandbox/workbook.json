@@ -121,7 +121,7 @@
             },
             "defaultValue": "value::all",
             "timeContextFromParameter": "TimeRange",
-            "jsonData": "[{\"value\": \"model\", \"label\": \"AI models\"}, {\"value\": \"tool\", \"label\": \"MCP tools\"}, {\"value\": \"agent\", \"label\": \"A2A agents\"}, {\"value\": \"safety\", \"label\": \"Safety checks\"}]"
+            "jsonData": "[{\"value\": \"model\", \"label\": \"AI models\"}, {\"value\": \"tool\", \"label\": \"MCP tools\"}, {\"value\": \"agent\", \"label\": \"A2A agents\"}, {\"value\": \"safety\", \"label\": \"Safety checks\"}, {\"value\": \"image\", \"label\": \"Images\"}]"
           }
         ]
       }
@@ -217,6 +217,14 @@
             "linkTarget": "parameter",
             "linkLabel": "🔍 Gateway evidence",
             "subTarget": "evidence",
+            "style": "link"
+          },
+          {
+            "id": "5b0f3c2e-8f4a-5d61-9a7e-2c1b6e4d9f30",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "🖼️ Beyond tokens",
+            "subTarget": "beyondtokens",
             "style": "link"
           },
           {
@@ -2013,6 +2021,308 @@
         "parameterName": "Tab",
         "comparison": "isEqualTo",
         "value": "about"
+      }
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "Pricing beyond per-token chat completions, under the same plan and $ budget. **Responses API**: input tokens served from the prompt cache are priced at the model's cached-input rate (`cached-input-pricing`), reads of a stored response are free, and stateful calls stick to the Foundry backend that stored the response. **Images** are priced per image by model, quality and size (`image-pricing`); the plan sets which qualities a consumer may generate and how many images per minute. Image tiles stay empty unless `images.enabled` is true in `sandbox-config.json`."
+            },
+            "name": "beyond-tokens-intro"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "traces\n| where tostring(customDimensions.record) == \"chargeback\"\n| extend Consumer = tostring(customDimensions.user), Name = tostring(customDimensions.displayName), Plan = tostring(customDimensions.tier),\n         Surface = tostring(customDimensions.surface), Item = tostring(customDimensions.item),\n         CostUSD = tolong(customDimensions.costMicroUsd) / 1e6, PromptTokens = tolong(customDimensions.promptTokens),\n         CachedTokens = tolong(customDimensions.cachedTokens), Images = tolong(customDimensions.imageCount)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer}))\n| where Surface == \"model\"\n| summarize Calls = count(), CallsWithCache = countif(CachedTokens > 0), PromptTokens = sum(PromptTokens), CachedTokens = sum(CachedTokens),\n            SpendUSD = sum(CostUSD) by Model = Item\n| extend CachedShare = round(100.0 * CachedTokens / iff(PromptTokens == 0, 1, PromptTokens), 1)\n| project Model, Calls, CallsWithCache, PromptTokens, CachedTokens, CachedShare, SpendUSD\n| order by CachedTokens desc",
+              "size": 0,
+              "title": "Responses API: input tokens served from the prompt cache",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.insights/components",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "PromptTokens",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 17,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 1
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "CachedTokens",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "green"
+                    },
+                    "numberFormat": {
+                      "unit": 17,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 1
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "SpendUSD",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 6
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "CachedShare",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "green"
+                    },
+                    "numberFormat": {
+                      "unit": 1,
+                      "options": {
+                        "style": "decimal"
+                      }
+                    }
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "CallsWithCache",
+                    "label": "Calls with cache hits"
+                  },
+                  {
+                    "columnId": "PromptTokens",
+                    "label": "Input tokens"
+                  },
+                  {
+                    "columnId": "CachedTokens",
+                    "label": "Cached input tokens"
+                  },
+                  {
+                    "columnId": "CachedShare",
+                    "label": "Cached %"
+                  },
+                  {
+                    "columnId": "SpendUSD",
+                    "label": "Spend"
+                  }
+                ]
+              }
+            },
+            "name": "responses-cache",
+            "customWidth": "50",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ApiManagementGatewayLogs\n| extend Plan = ProductId, Consumer = ApimSubscriptionId\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer}))\n| where ApiId == \"inference-api\" and OperationId in (\"createResponse\", \"getResponse\", \"deleteResponse\", \"listInputItems\")\n| extend Outcome = case(ResponseCode between (200 .. 299), \"Allowed\", ResponseCode == 403, \"Denied: plan, entitlement or budget (403)\",\n                        ResponseCode == 429, \"Throttled (429)\", ResponseCode == 404, \"Not found or not owner (404)\",\n                        ResponseCode >= 500 or ResponseCode == 0, \"Backend error (5xx)\", \"Other (4xx)\")\n| extend Backend = iff(isempty(BackendUrl), \"(not forwarded)\", tostring(split(parse_url(BackendUrl).Host, \".\")[0]))\n| summarize Calls = count() by Operation = OperationId, Method, Backend, Outcome\n| order by Operation asc, Calls desc",
+              "size": 0,
+              "title": "Responses API: stateful operations and the backend that served them",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{law-id}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Calls",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "blue"
+                    },
+                    "numberFormat": {
+                      "unit": 17,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "name": "responses-affinity",
+            "customWidth": "50",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "traces\n| where tostring(customDimensions.record) == \"chargeback\"\n| extend Consumer = tostring(customDimensions.user), Name = tostring(customDimensions.displayName), Plan = tostring(customDimensions.tier),\n         Surface = tostring(customDimensions.surface), Item = tostring(customDimensions.item),\n         CostUSD = tolong(customDimensions.costMicroUsd) / 1e6, PromptTokens = tolong(customDimensions.promptTokens),\n         CachedTokens = tolong(customDimensions.cachedTokens), Images = tolong(customDimensions.imageCount)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer}))\n| where Surface == \"image\"\n| summarize Calls = count(), Images = sum(Images), SpendUSD = sum(CostUSD) by Consumer = strcat(Name, \" (\", Consumer, \")\"), Plan, Model = Item\n| extend AvgPerImageUSD = SpendUSD / iff(Images == 0, 1, Images)\n| order by SpendUSD desc",
+              "size": 0,
+              "title": "Images: count and spend by consumer and model",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.insights/components",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Images",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "orange"
+                    },
+                    "numberFormat": {
+                      "unit": 17,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 1
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "SpendUSD",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 6
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "AvgPerImageUSD",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 6
+                      }
+                    }
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "SpendUSD",
+                    "label": "Spend"
+                  },
+                  {
+                    "columnId": "AvgPerImageUSD",
+                    "label": "Avg per image"
+                  }
+                ]
+              }
+            },
+            "name": "image-spend",
+            "customWidth": "50",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ApiManagementGatewayLogs\n| extend Plan = ProductId, Consumer = ApimSubscriptionId\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer}))\n| where ApiId == \"image-api\"\n| extend Outcome = case(ResponseCode between (200 .. 299), \"Allowed\", ResponseCode == 403, \"Denied: plan, entitlement or budget (403)\",\n                        ResponseCode == 429, \"Throttled (429)\", ResponseCode == 404, \"Not found or not owner (404)\",\n                        ResponseCode >= 500 or ResponseCode == 0, \"Backend error (5xx)\", \"Other (4xx)\")\n| extend StoppedBy = iff(isempty(LastErrorSource), \"(none: call passed)\", LastErrorSource)\n| summarize Calls = count() by Plan, Outcome, StoppedBy\n| order by Plan asc, Calls desc",
+              "size": 0,
+              "title": "Images: plan enforcement (entitlement, images per minute, $ budget)",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{law-id}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Calls",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "orange"
+                    },
+                    "numberFormat": {
+                      "unit": 17,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 1
+                      }
+                    }
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "StoppedBy",
+                    "label": "Stopped by"
+                  }
+                ]
+              }
+            },
+            "name": "image-outcomes",
+            "customWidth": "50",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "customMetrics\n| where name == \"CostMicroUSD\" and tostring(customDimensions.Surface) == \"image\"\n| extend Consumer = tostring(customDimensions.Agent), Plan = tostring(customDimensions.Tier)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer}))\n| summarize CostUSD = sum(valueSum) / 1e6 by Consumer, bin(timestamp, {TimeRange:grain})",
+              "size": 0,
+              "title": "Image spend over time",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "timechart",
+              "resourceType": "microsoft.insights/components",
+              "chartSettings": {
+                "ySettings": {
+                  "numberFormatSettings": {
+                    "unit": 0,
+                    "options": {
+                      "style": "currency",
+                      "currency": "USD",
+                      "maximumFractionDigits": 4
+                    }
+                  }
+                }
+              }
+            },
+            "name": "image-trend",
+            "customWidth": "100",
+            "styleSettings": {
+              "showBorder": true
+            }
+          }
+        ]
+      },
+      "name": "tab-beyond-tokens",
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "beyondtokens"
       }
     }
   ],
