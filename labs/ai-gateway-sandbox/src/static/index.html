@@ -2645,6 +2645,65 @@ const SCENARIOS = [
       takeaway(`<b>${blocked.length} of ${res.length - 1}</b> unsafe calls were stopped at the gateway with 403, before any model, tool or agent was called: <b>${tokens} model tokens, ${fmtUsd(blocked.reduce((x, r) => x + usd(r), 0))}</b> of model spend. The clean prompt went through for ${fmtUsd(usd(ok))}. Screening all ${res.length} calls cost ${fmtUsd(safetyTotal)}, charged to the Gold plan's $ budget as a <b>Safety checks</b> line item, and every block is a <code>content-blocked</code> governance event.`
         + (blocked.length < res.length - 1 ? ` Some calls were not blocked: a new blocklist can take a few minutes to take effect after deployment, so run the scenario again.` : ""));
     } },
+  { title: "Over budget, switched off", cost: "≤ 14 calls · ≈ $0.01 · 5-12 min, runs on its own", slow: true,
+    gist: "Ben overspends his plan. The gateway blocks the next call right away; minutes later an Azure Monitor alert calls a Logic App that suspends his APIM subscription, so his key stops working everywhere.",
+    policies: ["quota-by-key ($ budget)", "chargeback-record trace", "log search alert", "Logic App + managed identity"],
+    preview: () => { const b = byName((cfg.budgetSuspend?.subscriptions || ["user-ben"])[0]) || tierAgent("silver"), t = tierOf(b);
+      return dg.row(dg.user(b.name), dg.arrow("overspends"), dg.gw("quota-by-key"), dg.arrow("403, per call", "bad"), dg.node("Blocked", "real time", "x"))
+        + dg.row(dg.node("Log Analytics", "chargeback records", "mon"), dg.arrow("every 5 min"), dg.node("Alert", `≥ ${cfg.budgetSuspend?.suspendAtPercent ?? 100}% of $${t.budgetUsd}`, "mon"),
+                 dg.arrow("action group"), dg.node("Logic App", "managed identity", "gw"), dg.arrow("suspend", "bad"), dg.node("Subscription", "suspended", "x"))
+        + dg.note("An operations loop, not a per-call check: expect 3-10 minutes (ingestion 1-3 min + evaluation every 5 min). <b>Reset budgets</b> re-activates the subscription."); },
+    story: () => { const b = byName((cfg.budgetSuspend?.subscriptions || ["user-ben"])[0]) || tierAgent("silver"), t = tierOf(b);
+      return `Budgets are reset first. <b>${b.displayName}</b> (${t.displayName}, <b>$${t.budgetUsd}</b> budget) then runs long reports until the gateway's <code>quota-by-key</code> answers 403: that is the real-time, per-call stop. Separately, an <b>Azure Monitor log search alert</b> adds up his chargeback records per budget epoch every 5 minutes. When they reach ${cfg.budgetSuspend?.suspendAtPercent ?? 100}% of the budget, its action group calls a <b>Logic App</b> that suspends his APIM subscription with its managed identity and writes a <code>BudgetBreach</code> audit event. That loop takes minutes, and it revokes the key on every API, notifies people and leaves an audit trail.`; },
+    async run() {
+      const bs = cfg.budgetSuspend || {};
+      if (!bs.enabled) { info("Not deployed (off by default): set <code>budgetSuspend.enabled</code> to <code>true</code> in <code>sandbox-config.json</code> (or <code>budget_suspend_config</code> in the notebook) and redeploy (notebook or <code>azd up</code>)."); return; }
+      const b = byName(bs.subscriptions?.[0]);
+      if (!b) { info(`Watched subscription ${escapeHtml(bs.subscriptions?.[0] || "-")} is missing from the config.`); return; }
+      const t = tierOf(b), m = t.allowedModels.includes("gpt-4.1-mini") ? "gpt-4.1-mini" : t.allowedModels[0];
+      info("Resetting budgets (new budget-epoch, re-activates suspended subscriptions)…");
+      if (!await resetBudgets()) return;
+      await sleep(8000);
+      let spent = 0, blocked = null;
+      for (let i = 0; i < 12 && running && !blocked; i++) { // a new session per call, so the plan budget (not the session cap) is what runs out
+        const r = await send(b.name, m, { prompt: LONG, maxTokens: t.maxOutputTokens, session: newSessionId("ben") });
+        spent += callCost(r);
+        if (r.status === 403) blocked = r;
+        step(r, r.status === 200 ? `spent ${fmtUsd(spent)} of $${t.budgetUsd}` : r.status === 403 ? `blocked in real time by <code>${escapeHtml(hdr(r, "x-gw-blocked-by") || "quota-by-key")}</code>` : "");
+        if (r.status === 429) await sleep(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5));
+      }
+      if (!running) return;
+      if (!blocked) { takeaway(`Spent ${fmtUsd(spent)} without exhausting the $${t.budgetUsd} budget. Run the scenario again.`); return; }
+      info("Now the operations loop: chargeback records reach Log Analytics (1-3 min), the alert evaluates every 5 minutes, then the action group calls the Logic App. Checking every 30 seconds for up to 12 minutes…");
+      $("scSteps").insertAdjacentHTML("beforeend", `<li class="muted" id="bsWait"></li>`);
+      const started = Date.now();
+      let st = {}, sub;
+      while (running && Date.now() - started < 12 * 60000) {
+        await sleep(30000);
+        if (!running) return;
+        try { st = await (await fetch("/api/budget-suspend", { method: "POST" })).json(); } catch (e) { st = { error: e.message }; }
+        sub = (st.subscriptions || []).find(x => x.name === b.name);
+        const row = (Array.isArray(st.spend?.rows) ? st.spend.rows : []).find(x => x.Subscription === b.name && x.BudgetEpoch === st.budgetEpoch);
+        $("bsWait").innerHTML = `${Math.round((Date.now() - started) / 60000)} min · subscription <b>${escapeHtml(sub?.state || st.error || "?")}</b> · `
+          + `spend Azure Monitor sees this epoch: ${row ? `${fmtUsd(row.SpendMicroUsd / 1e6)} (${row.Calls} records)` : "no records yet (ingestion)"} · Logic App runs: ${(st.runs || []).length}`;
+        if (sub?.state === "suspended") break;
+      }
+      if (!running) return;
+      if (sub?.state !== "suspended") {
+        takeaway(`The gateway blocked ${b.displayName} in real time, but the subscription is still <b>${escapeHtml(sub?.state || "unknown")}</b> after 12 minutes. Check the alert rule and the Logic App run history${st.links?.logicApp ? ` (<a href="${st.links.logicApp}" target="_blank">Logic App ↗</a>)` : ""}; the Azure Monitor workbook's Governance tab shows the same data.`);
+        return;
+      }
+      info(`Subscription <b>${escapeHtml(b.name)}</b> is <b>suspended</b>${sub.stateComment ? `: ${escapeHtml(sub.stateComment)}` : " by the Logic App"}.`);
+      const r1 = await send(b.name, m, { prompt: ASK, maxTokens: 60, session: newSessionId("ben") });
+      step(r1, "the key is switched off: rejected before any plan policy runs");
+      if (!running) return;
+      const r2 = await callTool(b.name, "search-products", undefined, { session: newSessionId("ben") });
+      step(r2, "same key on the MCP server");
+      const runs = (st.runs || []).slice(0, 3).map(x => ({ Run: x.name, Status: x.status, Started: x.startTime, Ended: x.endTime }));
+      info(`Logic App runs ${st.links?.logicApp ? `· <a href="${st.links.logicApp}" target="_blank">open ↗</a>` : ""}${table(runs)}`);
+      info(`<code>BudgetBreach</code> audit events (Application Insights) · <a href="${st.events?.portalLink || "#"}" target="_blank">query ↗</a>${table(st.events?.rows)}`);
+      takeaway(`Two controls, two jobs. <code>quota-by-key</code> stopped ${b.displayName} <b>on the next call</b> (403) inside the gateway. The alert + Logic App loop took <b>${Math.round((Date.now() - started) / 60000) || 1}+ minutes</b>, then <b>suspended the APIM subscription</b> with a least-privilege managed identity: his key now fails on every API (HTTP ${r1.status} / ${r2.status}), the action group can notify people, and the <code>BudgetBreach</code> event is the audit trail. Use it for thresholds the gateway counters don't see, like monthly spend across epochs. <b>Reset budgets</b> re-activates the subscription.`);
+    } },
 ];
 
 async function runScenario(s) {
@@ -2681,7 +2740,7 @@ function showPreview(btn) {
 function hidePreview() { $("scPreview").classList.remove("show"); }
 function renderScenarios() {
   $("scenarios").innerHTML = SCENARIOS.map((s, i) => `<button data-i="${i}"><span class="n">${i + 1}</span><span><span class="t">${s.title}</span><span class="c">${s.cost}</span></span></button>`).join("")
-    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.length})</span><span class="c">${cfg.contentSafety?.enabled ? "≈ 90 calls · < $0.10 · about 10 minutes" : "≈ 85 calls · < $0.10 · about 9 minutes"}</span></span></button>`;
+    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.filter(s => !s.slow).length})</span><span class="c">${cfg.contentSafety?.enabled ? "≈ 90 calls · < $0.10 · about 10 minutes" : "≈ 85 calls · < $0.10 · about 9 minutes"}</span></span></button>`;
   document.querySelectorAll(".scenarios button[data-i]").forEach(b => {
     b.onclick = async () => {
       const s = SCENARIOS[b.dataset.i];
@@ -2697,9 +2756,10 @@ function renderScenarios() {
   window.addEventListener("scroll", () => { const b = document.querySelector(".scenarios button[data-i]:hover"); b ? showPreview(b) : hidePreview(); }, true);
   $("btnAll").onclick = async () => {
     setRunning(true, "Running the full demo…");
-    for (const [i, s] of SCENARIOS.entries()) {
+    const quick = SCENARIOS.filter(s => !s.slow); // slow scenarios (minutes of Azure Monitor latency) run on their own
+    for (const [i, s] of quick.entries()) {
       if (!running) break;
-      $("runStatus").textContent = `Full demo: scenario ${i + 1}/${SCENARIOS.length}`;
+      $("runStatus").textContent = `Full demo: scenario ${i + 1}/${quick.length}`;
       await runScenario(s); await sleep(4000);
     }
     setRunning(false, "Full demo finished.");

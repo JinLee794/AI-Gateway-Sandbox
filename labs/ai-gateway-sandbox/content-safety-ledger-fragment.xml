@@ -54,6 +54,7 @@
                 <metadata name="costCenter" value="@(((string)context.Variables["safetyOwner"]).Split('|')[2])" />
                 <metadata name="kind" value="@(((string)context.Variables["safetyOwner"]).Split('|')[3])" />
                 <metadata name="session" value="@(context.Variables.GetValueOrDefault<string>("session", "no-session"))" />
+                <metadata name="budgetEpoch" value="{{budget-epoch}}" />
                 <metadata name="surface" value="safety" />
                 <metadata name="item" value="content-safety" />
                 <metadata name="costMicroUsd" value="@(((int)context.Variables["safetyMicroUsd"]).ToString())" />

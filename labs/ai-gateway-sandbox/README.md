@@ -72,6 +72,7 @@ Each **consumer** has its own APIM subscription, which gives it an identity and 
 | 🧾 **$ cap per session** | all | a second `quota-by-key` keyed on subscription + session | 403 `session-budget` |
 | 🛡️ **Blocked before spend**: content safety (optional, off by default; Gold, Silver, Bronze when on) | all | [`llm-content-safety`](https://learn.microsoft.com/azure/api-management/llm-content-safety-policy) with Prompt Shields and a sensitive-data blocklist, in the [blocked-before-spend fragment](content-safety-fragment.xml) | 403 `llm-content-safety`, $0 of model tokens; the check itself is billed to the $ budget |
 | 🔏 **Purview DLP** (optional, off by default) | all | Microsoft Graph `processContent` in the [purview-dlp fragment](purview-dlp-fragment.xml) | 403 `purview-dlp` |
+| ⛔ **Over budget, switched off** (operations loop, optional) | all | Azure Monitor log search alert on the chargeback records → action group → Logic App with a managed identity ([budget-suspend.bicep](budget-suspend.bicep)) | the APIM **subscription is suspended** 3-10 minutes later: its key is rejected on every API, people can be emailed and a `BudgetBreach` audit event is written. See [Over budget, switched off](#over-budget-switched-off) |
 
 | Consumer | Plan | Models | Disallowed models | TPM | Token quota | Max output | MCP tools | A2A agents | $ budget | $ per session |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -194,6 +195,34 @@ Every gateway response returns `x-gw-request-id`, so any call in the UI can be l
 - **APIM → Backends** shows the pool, priorities and circuit breaker rules. **APIM → APIs → (API) → Policies** and **Policy fragments** show the deployed XML.
 - The workbook's **Gateway evidence** tab shows outcomes by policy (select one to list the calls it stopped), latency by API, backend calls by region, failovers, tokens by deployment and MCP tool calls.
 
+### Over budget, switched off
+
+`quota-by-key` is the **real-time** stop: the gateway answers 403 on the next call once a consumer's budget is spent. This optional loop, taken from the [FinOps framework lab](../finops-framework/), adds the **operations** side on top of it. It is deployed by [budget-suspend.bicep](budget-suspend.bicep) when `budgetSuspend.enabled` is `true` in [sandbox-config.json](sandbox-config.json) (or `budget_suspend_config` in the notebook's first cell). **It is off by default**, so the standard demo deploys without it. To turn it on, set `"enabled": true` in `sandbox-config.json` (for `azd up`) or `"enabled": True` in `budget_suspend_config` (for the notebook), then deploy again. The default watches `user-ben` (Silver, $0.01).
+
+1. Every priced call writes a chargeback record to Application Insights, stamped with the current `budget-epoch`. When content safety is enabled, its separate safety-check records carry the same epoch, so the alert includes screening spend too.
+2. A **log search alert** (`alert-budget-breach-<suffix>`) runs every 5 minutes. It adds up the `costMicroUsd` of each watched subscription per budget epoch (over the last 2 days), and fires once per subscription and epoch when the spend reaches `suspendAtPercent` of the plan budget.
+3. Its **action group** (`ag-budget-suspend-<suffix>`) calls the **Logic App** `la-budget-suspend-<suffix>` and emails `notifyEmails`, if you set any.
+4. The Logic App reads the current `budget-epoch` and the subscription. If the breach belongs to an older epoch (the budgets were reset since), or the subscription is not active, it does nothing. Otherwise it **suspends the APIM subscription** (`state: suspended`). It also sends a `stateComment`, but APIM keeps that comment only for `rejected` subscriptions, so the audit event is the record of why. In every case it writes a `BudgetBreach` **audit event** (action, reason, subscription, epoch, previous state, alert and run id) to Application Insights.
+
+A suspended key is rejected on **every** API (models, MCP tools, A2A agents) with **HTTP 401** (`Access denied due to invalid subscription key`) before any plan policy runs. **Reset budgets** (UI) and the notebook reset step set a new epoch first, then re-activate the watched subscriptions, so an alert that is still firing for the old epoch can't suspend them again.
+
+| | `quota-by-key` (in the gateway) | Alert + Logic App (operations loop) |
+|---|---|---|
+| Latency | the next call | **3-10 minutes**: ingestion 1-3 min + evaluation every 5 min + the Logic App run |
+| Scope | the plan's budget counter for this API call | the APIM subscription: its key stops working on every API |
+| Thresholds | the counters the gateway keeps (budget per period, per session) | anything you can query: monthly spend across epochs, spend from other sources, a % warning level |
+| Side effects | 403 to the caller | notification, audit event, the subscription state changes until someone re-activates it |
+
+**Observed in a test deployment (Sweden Central):** the gateway answered 403 on user-ben's first over-budget call. The chargeback records reached Log Analytics about 30 seconds later, the alert fired at its next evaluation 2.5 minutes after that, and the Logic App suspended the subscription 12 seconds later: **about 3 minutes** from the first 403 to the switch-off (it can be up to about 10). Allow for these delays when you watch the evidence:
+
+- The `BudgetBreach` event takes a few minutes to show up in Log Analytics. The Log Analytics query API can also cache an identical query's empty result for a few minutes.
+- The Logic App's `WorkflowRuntime` diagnostics (`AzureDiagnostics`, used by the workbook's run tile) had still not arrived 20 minutes after the first run. The UI and the notebook read the run history from ARM instead, which is immediate.
+
+**Least privilege.** The Logic App's system-assigned managed identity gets a custom role, *AI Gateway Sandbox budget suspender*, on the APIM instance only. The role allows `Microsoft.ApiManagement/service/read`, `service/subscriptions/read`, `service/subscriptions/write` and `service/namedValues/read`. Set `useCustomRole` to `false` if you can't create custom roles; the identity then gets the built-in *API Management Service Contributor* role, still scoped to the APIM instance. **Permissions to deploy it:** creating the custom role definition needs `Microsoft.Authorization/roleDefinitions/write` at subscription scope, which comes with *Owner* or *User Access Administrator* (the lab's usual *Role Based Access Control Administrator* is not enough). With `useCustomRole: false`, the lab's usual Contributor + Role Based Access Control Administrator roles are enough. The audit event uses the Application Insights ingestion endpoint (no role needed). The role definition lives at the subscription level, so the clean-up notebook and the `azd down` hook delete it after the resource group.
+
+> [!NOTE]
+> This is an operations workflow, not a per-call control: don't rely on it to stop spend in real time. The demo keeps `quota-by-key` as the hard stop and uses the alert to switch the key off, notify and audit. Set `budgetSuspend.enabled` back to `false` (the default) to skip these resources.
+
 ### Monitoring
 
 - The **AI Gateway Sandbox** Azure Monitor workbook, deployed with the lab, has:
@@ -202,11 +231,12 @@ Every gateway response returns `x-gw-request-id`, so any call in the UI can be l
   - four tabs, each with a drill-down, plus an **About** tab that lists the data sources:
     - **Overview**: spend over time and by surface, top consumers and top resources. Select a consumer to see its resources, direct vs via-agent spend, line items with the Entra ID caller, and its plan enforcement events.
     - **Chargeback**: cost by team and cost center and by user or app, plus a Team › User › Session tree. Select a session to see its cumulative spend and a call-by-call ledger.
-    - **Budgets & governance**: budget burn per consumer, enforcement events and gateway outcomes by plan, blocked calls over time, who hit which limit, and content safety checks, blocks and what the screening cost
+    - **Budgets & governance**: budget burn per consumer, enforcement events and gateway outcomes by plan, blocked calls over time, who hit which limit, and content safety checks, blocks and what the screening cost. With [Over budget, switched off](#over-budget-switched-off) deployed, it also shows the `BudgetBreach` audit trail, spend per budget epoch, and Logic App runs.
     - **Gateway evidence**: outcomes by policy (select one to list the calls it stopped), latency by API, backend calls by region, failovers, tokens by deployment, MCP tool calls, and the calls `llm-content-safety` stopped before any backend call
 - All the data lives in **Application Insights** and **Log Analytics**:
   - `customMetrics` for tokens, cost, governance events and backend attempts
   - `traces` for the chargeback records by user, team, cost center and session
+  - `customEvents` for the `BudgetBreach` audit events of the over-budget Logic App, and its run history in Log Analytics (`AzureDiagnostics`, category `WorkflowRuntime`)
   - `requests` for the gateway outcomes, by subscription (agent) and product (plan)
   - `ApiManagementGatewayLogs`, `ApiManagementGatewayLlmLog` and `ApiManagementGatewayMCPLog` for the per-request policy evidence
 
@@ -252,7 +282,7 @@ The deployment cell zips `app.py`, `static/` and the generated configuration. Th
 
 ### Guided scenarios
 
-Click a scenario in the UI, or **Run the full demo** to play them all in order (about 85 calls, under $0.10 at the demo prices, about 9 minutes; about 90 calls and 10 minutes with content safety on). Each scenario card draws its path (consumer → gateway → model, tool or agent) as it starts:
+Click a scenario in the UI, or **Run the full demo** to play scenarios 1-15 in order (about 85 calls, under $0.10 at the demo prices, about 9 minutes; about 90 calls and 10 minutes with content safety on). Scenario 16 waits on Azure Monitor for several minutes, so run it on its own. Each scenario card draws its path (consumer → gateway → model, tool or agent) as it starts:
 
 | # | Scenario | What the customer sees | Calls |
 |---|----------|------------------------|-------|
@@ -271,6 +301,7 @@ Click a scenario in the UI, or **Run the full demo** to play them all in order (
 | 13 | Load balancing & regional failover | Gold bursts `gpt-4.1-nano`. Sweden Central returns 429, the gateway retries in France Central (`x-gw-route`), and the circuit breaker keeps sending calls to France. | 8 |
 | 14 | Policy trace & Azure Monitor evidence | A traced Silver call is downgraded. The UI shows the policy-by-policy trace, then the call's rows in the gateway and LLM log tables, the deployed policy XML and the aggregate evidence, each with a portal link. | 1 |
 | 15 | Blocked before spend: content safety | Needs content safety turned on (`contentSafety.enabled`; off by default). Gold sends a clean prompt (200, plus a small safety-check charge), then a jailbreak, an SSN in a prompt, an SSN in MCP tool arguments and a card number in an A2A task. Each gets 403 `llm-content-safety` and $0 of model tokens, and never reaches Foundry, the MCP server or the agent. The screening shows up as a **Safety checks** line item. | 5 |
+| 16 | Over budget, switched off (5-12 min, not in the full demo) | Budgets are reset, then Ben (Silver) runs long reports until `quota-by-key` returns 403. The UI then polls every 30 seconds: the spend Azure Monitor sees for the epoch, and the subscription state until the alert's Logic App flips it to **suspended**. Ben's next model call and MCP call are rejected, and the UI shows the Logic App runs and the `BudgetBreach` audit event. **Reset budgets** re-activates him. Needs `budgetSuspend.enabled` (off by default, see [Over budget, switched off](#over-budget-switched-off)). | ≤ 14 |
 
 ### Suggested demo script (manual)
 
@@ -288,7 +319,7 @@ Click a scenario in the UI, or **Run the full demo** to play them all in order (
 - [Python 3.12 or later version](https://www.python.org/) installed
 - [VS Code](https://code.visualstudio.com/) installed with the [Jupyter notebook extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter) enabled
 - [uv](https://docs.astral.sh/uv/): run `uv sync` from the repo root to install dependencies
-- [An Azure Subscription](https://azure.microsoft.com/free/) with [Contributor](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/privileged#contributor) + [RBAC Administrator](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/privileged#role-based-access-control-administrator) or [Owner](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/privileged#owner) roles
+- [An Azure Subscription](https://azure.microsoft.com/free/) with [Contributor](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/privileged#contributor) + [RBAC Administrator](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/privileged#role-based-access-control-administrator) or [Owner](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/privileged#owner) roles. The optional [Over budget, switched off](#over-budget-switched-off) loop with its default custom role needs Owner or User Access Administrator.
 - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) installed and [Signed into your Azure subscription](https://learn.microsoft.com/cli/azure/authenticate-azure-cli-interactively)
 
 ### 🚀 Get started
@@ -312,7 +343,7 @@ azd up        # asks for an environment name, subscription and region (e.g. swed
 - the UI uses its **managed identity** instead of your Azure CLI login: the gateway approves it as a caller and records the signed-in user as the caller (`x-gw-caller: you@contoso.com (via demo UI)`, or `sandbox-ui (managed identity)` without a signed-in user), and it has *API Management Service Contributor*, *Log Analytics Reader* and *Monitoring Reader* on the resource group for the traces, policy read-back, budget reset and Azure Monitor queries. The configuration written by step 3️⃣ of the notebook is a Container App secret.
 - only the user who ran `azd up` can sign in. To let others in, assign them to the *AI Gateway Sandbox UI (&lt;environment&gt;)* enterprise application in Microsoft Entra ID.
 
-Run `azd deploy` to ship UI changes only. If your tenant requires a service tree ID on app registrations, run `azd env set AZURE_SERVICE_MANAGEMENT_REFERENCE <id>` first. Remove everything with `azd down --purge` (it also purges the Foundry resources); the app registration is not deleted by `azd down`.
+Run `azd deploy` to ship UI changes only. If your tenant requires a service tree ID on app registrations, run `azd env set AZURE_SERVICE_MANAGEMENT_REFERENCE <id>` first. Remove everything with `azd down --purge` (it also purges the Foundry resources, and a `postdown` hook, [infra/scripts/delete_budget_role.py](infra/scripts/delete_budget_role.py), deletes the custom role of the over-budget Logic App); the app registration is not deleted by `azd down`.
 
 > [!NOTE]
 > The hosted UI image only contains `src/app.py` and `src/static`; the **See the pattern** GIFs are redirected to GitHub. Running the UI locally (`python src/app.py`) still works with a notebook deployment.

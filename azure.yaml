@@ -17,6 +17,15 @@ hooks:
       shell: sh
       run: python3 ./labs/ai-gateway-sandbox/infra/scripts/build_config.py
       continueOnError: false
+  postdown:
+    windows:
+      shell: pwsh
+      run: python ./labs/ai-gateway-sandbox/infra/scripts/delete_budget_role.py
+      continueOnError: true
+    posix:
+      shell: sh
+      run: python3 ./labs/ai-gateway-sandbox/infra/scripts/delete_budget_role.py
+      continueOnError: true
 services:
   ui:
     project: ./labs/ai-gateway-sandbox/src

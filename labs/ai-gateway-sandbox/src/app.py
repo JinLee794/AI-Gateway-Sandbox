@@ -617,7 +617,107 @@ def reset_budgets(_payload):
     status, _, text, _ = http("PATCH", url, {"properties": {"value": epoch}}, {"Authorization": f"Bearer {token}", "If-Match": "*"})
     if status not in (200, 202):
         return 502, {"error": text[:500]}
-    return 200, {"epoch": epoch, "message": "Budgets and token quotas reset (named value budget-epoch updated). It can take a few seconds to apply."}
+    # After the new epoch is in place: the budget-breach Logic App ignores breaches of an older epoch, so it can't switch them off again
+    reactivated, errors = reactivate_suspended(token)
+    message = "Budgets and token quotas reset (named value budget-epoch updated). It can take a few seconds to apply."
+    if reactivated:
+        message += f" Re-activated suspended subscription(s): {', '.join(reactivated)}."
+    if errors:
+        message += f" Could not re-activate: {'; '.join(errors)}."
+    return 200, {"epoch": epoch, "reactivated": reactivated, "reactivateErrors": errors, "message": message}
+
+
+# ---- Over budget, switched off: an Azure Monitor log alert on the chargeback records calls a Logic App that suspends the
+#      APIM subscription (budget-suspend.bicep). Reset budgets re-activates the watched subscriptions.
+APIM_API = "2024-06-01-preview"
+BUDGET_BREACH_EVENTS = ('AppEvents | where Name == "BudgetBreach" '
+                        '| project TimeGenerated, Action = tostring(Properties.action), Reason = tostring(Properties.reason), '
+                        'Subscription = tostring(Properties.subscription), BudgetEpoch = tostring(Properties.budgetEpoch), '
+                        'CurrentEpoch = tostring(Properties.currentEpoch), PreviousState = tostring(Properties.previousState), '
+                        'AlertFired = tostring(Properties.firedDateTime), MonitorCondition = tostring(Properties.monitorCondition), '
+                        'LogicAppRun = tostring(Properties.logicAppRun) | order by TimeGenerated desc | take 20')
+BUDGET_SPEND = ('AppTraces | where tostring(Properties.record) == "chargeback" '
+                '| extend Subscription = tostring(Properties.user), BudgetEpoch = tostring(Properties.budgetEpoch) '
+                '| where Subscription in ({subs}) and isnotempty(BudgetEpoch) '
+                '| summarize SpendMicroUsd = sum(tolong(Properties.costMicroUsd)), Calls = count(), LastCall = max(TimeGenerated) by Subscription, BudgetEpoch '
+                '| order by LastCall desc')
+
+
+def budget_suspend_config():
+    config = CONFIG.get("budgetSuspend") or {}
+    return config if config.get("enabled") else {"enabled": False}
+
+
+def _arm_auth(token):
+    return {"Authorization": "Bearer " + token}
+
+
+def _subscription_url(name):
+    return f"{ARM}{CONFIG['apimServiceId']}/subscriptions/{urllib.parse.quote(name, safe='')}?api-version={APIM_API}"
+
+
+def subscription_state(name, token):
+    status, _, text, _ = http("GET", _subscription_url(name), None, _arm_auth(token), timeout=60)
+    if status != 200:
+        return {"name": name, "error": f"HTTP {status}: {text[:200]}"}
+    props = json.loads(text).get("properties", {})
+    return {"name": name, "displayName": props.get("displayName"), "state": props.get("state"), "stateComment": props.get("stateComment")}
+
+
+def reactivate_suspended(token):
+    reactivated, errors = [], []
+    for name in budget_suspend_config().get("subscriptions", []):
+        if subscription_state(name, token).get("state") != "suspended":
+            continue
+        body = {"properties": {"state": "active", "stateComment": f"Re-activated by Reset budgets at {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}"}}
+        status, _, text, _ = http("PATCH", _subscription_url(name), body, {**_arm_auth(token), "If-Match": "*"}, timeout=60)
+        if status in (200, 202):
+            reactivated.append(name)
+        else:
+            errors.append(f"{name}: HTTP {status} {text[:200]}")
+    return reactivated, errors
+
+
+def budget_suspend(_payload):
+    """State of the over-budget loop: watched subscriptions, the Logic App runs, the BudgetBreach audit events and the spend per epoch."""
+    config = budget_suspend_config()
+    if not config.get("enabled"):
+        return 200, {"enabled": False, "reason": "budgetSuspend.enabled is false in sandbox-config.json (no alert or Logic App deployed)."}
+    token = az_token(ARM)
+    status, _, text, _ = http("GET", f"{ARM}{CONFIG['apimServiceId']}/namedValues/budget-epoch?api-version={APIM_API}", None, _arm_auth(token), timeout=60)
+    epoch = json.loads(text).get("properties", {}).get("value") if status == 200 else None
+    runs, runs_error = [], None
+    if config.get("logicAppId"):
+        status, _, text, _ = http("GET", f"{ARM}{config['logicAppId']}/runs?api-version=2019-05-01&$top=10", None, _arm_auth(token), timeout=60)
+        if status == 200:
+            for run in json.loads(text).get("value", []):
+                props = run.get("properties", {})
+                runs.append({"name": run.get("name"), "status": props.get("status"), "startTime": props.get("startTime"),
+                             "endTime": props.get("endTime"), "error": (props.get("error") or {}).get("message")})
+        else:
+            runs_error = f"HTTP {status}: {text[:200]}"
+    subs = ", ".join(json.dumps(s) for s in config.get("subscriptions", [])) or '""'
+    spend_query = BUDGET_SPEND.replace("{subs}", subs)
+    tiers = {t["name"]: t for t in CONFIG.get("tiers", [])}
+
+    def tier_limit(tier):
+        tier = tiers.get(tier) or {}
+        return tier.get("budgetMicroUsd") or (int(round(tier["budgetUsd"] * 1_000_000)) if tier.get("budgetUsd") is not None else None)
+
+    limits = {a["name"]: tier_limit(a.get("tier")) for a in CONFIG.get("agents", [])}
+    portal = "https://portal.azure.com/#@/resource"
+    return 200, {
+        "enabled": True,
+        "suspendAtPercent": config.get("suspendAtPercent", 100),
+        "budgetEpoch": epoch,
+        "subscriptions": [dict(subscription_state(n, token), limitMicroUsd=limits.get(n)) for n in config.get("subscriptions", [])],
+        "runs": runs, "runsError": runs_error,
+        "events": {"query": BUDGET_BREACH_EVENTS, "portalLink": portal_logs_link(BUDGET_BREACH_EVENTS, "P2D"), "rows": law_query(BUDGET_BREACH_EVENTS, "P2D")},
+        "spend": {"query": spend_query, "portalLink": portal_logs_link(spend_query, "P2D"), "rows": law_query(spend_query, "P2D")},
+        "links": {"logicApp": f"{portal}{config['logicAppId']}/logicApp" if config.get("logicAppId") else None,
+                  "alertRule": f"{portal}{config['alertRuleId']}/overview" if config.get("alertRuleId") else None},
+        "note": "The alert evaluates every 5 minutes on records that reach Log Analytics 1-3 minutes after the call: expect the suspension 3-10 minutes after the breach.",
+    }
 
 
 # Run history: one append-only JSON Lines log per user. Hosted, the user is the Easy Auth Entra ID object id and the log lives in
@@ -717,6 +817,7 @@ def public_config(user=None):
         "a2aAgents": CONFIG.get("a2aAgents", []),
         "foundryBackends": CONFIG.get("foundryBackends", []),
         "contentSafety": CONFIG.get("contentSafety", {"enabled": False}),
+        "budgetSuspend": {k: v for k, v in budget_suspend_config().items() if k in ("enabled", "subscriptions", "suspendAtPercent", "logicAppName", "alertRuleName")},
         "endpoints": {k: CONFIG.get(k) for k in ("inferenceBaseUrl", "mcpUrl", "a2aUrl", "agentCardUrl")},
         "links": {
             "workbook": f"{portal}{CONFIG['workbookId']}/workbook" if CONFIG.get("workbookId") else None,
@@ -786,7 +887,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json(500, {"error": scrub(str(error))})
         routes = {"/api/chat": chat, "/api/mcp": mcp, "/api/a2a": a2a, "/api/telemetry": telemetry, "/api/reset-budgets": reset_budgets,
                   "/api/trace": trace, "/api/evidence": evidence, "/api/policy-evidence": policy_evidence, "/api/policies": policies,
-                  "/api/chargeback": chargeback}
+                  "/api/chargeback": chargeback, "/api/budget-suspend": budget_suspend}
         handler = routes.get(self.path)
         if not handler:
             return self.send_json(404, {"error": "not found"})

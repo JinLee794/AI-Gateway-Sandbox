@@ -58,6 +58,8 @@ param purviewDlpConfig object = {}
 @description('Client secret of the Purview DLP app registration (only used when purviewDlpConfig.enabled is true)')
 @secure()
 param purviewClientSecret string = ''
+@description('Over budget, switched off: an Azure Monitor alert on the chargeback spend triggers a Logic App that suspends the APIM subscription. { enabled, subscriptions, suspendAtPercent, useCustomRole, notifyEmails }. See budget-suspend.bicep.')
+param budgetSuspend object = { enabled: false }
 
 // ------------------
 //    VARIABLES
@@ -713,6 +715,30 @@ module demoUi 'demo-ui.bicep' = if (hostDemoUi) {
   }
 }
 
+// 13. Optional: over budget, switched off (alert on the chargeback spend -> Logic App suspends the APIM subscription)
+var budgetSuspendEnabled = budgetSuspend.?enabled ?? false
+module budgetSuspendModule 'budget-suspend.bicep' = if (budgetSuspendEnabled) {
+  name: 'budgetSuspendModule'
+  params: {
+    resourceSuffix: resourceSuffix
+    apimName: apimModule.outputs.name
+    logAnalyticsId: lawModule.outputs.id
+    appInsightsName: appInsightsModule.outputs.name
+    watchedSubscriptions: map(filter(agentsConfig, agent => contains(budgetSuspend.?subscriptions ?? [], agent.name)), agent => {
+      name: agent.name
+      limitMicroUsd: filter(tiersConfig, tier => tier.name == agent.tier)[0].budgetMicroUsd
+    })
+    suspendAtPercent: budgetSuspend.?suspendAtPercent ?? 100
+    useCustomRole: budgetSuspend.?useCustomRole ?? true
+    notifyEmails: budgetSuspend.?notifyEmails ?? []
+    readerPrincipalId: hostDemoUi ? uiIdentity!.properties.principalId : ''
+  }
+  dependsOn: [
+    agentSubscription
+    budgetEpochNamedValue
+  ]
+}
+
 // ------------------
 //    OUTPUTS
 // ------------------
@@ -749,6 +775,18 @@ output contentSafetyEnabled bool = contentSafetyEnabled
 output contentSafetyEndpoint string = contentSafetyEnabled ? contentSafetyModule!.outputs.contentSafetyEndpoint : ''
 output contentSafetyTiers array = contentSafetyEnabled ? map(filter(tiersConfig, tier => tier.?contentSafety ?? false), tier => tier.name) : []
 output purviewDlpEnabled bool = purviewDlpEnabled
+output budgetSuspend object = budgetSuspendEnabled ? {
+  enabled: true
+  subscriptions: budgetSuspend.?subscriptions ?? []
+  suspendAtPercent: budgetSuspend.?suspendAtPercent ?? 100
+  logicAppName: budgetSuspendModule!.outputs.logicAppName
+  logicAppId: budgetSuspendModule!.outputs.logicAppId
+  alertRuleName: budgetSuspendModule!.outputs.alertRuleName
+  alertRuleId: budgetSuspendModule!.outputs.alertRuleId
+  actionGroupId: budgetSuspendModule!.outputs.actionGroupId
+  roleDefinitionId: budgetSuspendModule!.outputs.roleDefinitionId
+  customRole: budgetSuspendModule!.outputs.customRole
+} : { enabled: false }
 
 #disable-next-line outputs-should-not-contain-secrets
 output agentKeys array = [for (agent, i) in agentsConfig: {

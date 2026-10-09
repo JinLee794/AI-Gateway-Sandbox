@@ -99,7 +99,7 @@ Each user is on a **Gold, Silver or Bronze plan** with one $ budget for all thre
 ![Cost and outcome charts from Application Insights](labs/ai-gateway-sandbox/images/azure-monitor.png)
 
 <details>
-<summary><b>All 15 scenarios</b></summary>
+<summary><b>All 16 scenarios</b></summary>
 
 | # | Scenario | What you see |
 |---|----------|--------------|
@@ -118,8 +118,9 @@ Each user is on a **Gold, Silver or Bronze plan** with one $ budget for all thre
 | 13 | Load balancing & regional failover | A busy region is retried in the other one. |
 | 14 | Policy trace & Azure Monitor evidence | The policy trace, then the same call in the logs. |
 | 15 | Blocked before spend: content safety | Optional (off by default). A jailbreak and sensitive data get 403 at the gateway: $0 of tokens, only the safety check is billed. |
+| 16 | Over budget, switched off | Optional (off by default). An alert suspends Ben's subscription; Reset budgets re-activates it. Runs separately because it waits several minutes for Azure Monitor. |
 
-The full demo is about 85 calls and costs less than $0.10. Turning on content safety (`contentSafety.enabled` in [sandbox-config.json](labs/ai-gateway-sandbox/sandbox-config.json)) adds scenario 15's 5 calls and about $0.0008 per screened call, which comes out of each plan's $ budget.
+The full demo is about 85 calls and costs less than $0.10. Turning on content safety (`contentSafety.enabled` in [sandbox-config.json](labs/ai-gateway-sandbox/sandbox-config.json)) adds scenario 15's 5 calls and about $0.0008 per screened call, which comes out of each plan's $ budget. Scenario 16 is not included in the full demo.
 
 </details>
 
@@ -141,9 +142,9 @@ flowchart LR
 
 The [lab README](labs/ai-gateway-sandbox/README.md) explains every policy, price and log.
 
-## 🗺️ Roadmap: what's not in the Sandbox yet
+## 🗺️ Roadmap: supported scenarios and remaining gaps
 
-The upstream labs already show each of these patterns on their own. The Sandbox doesn't include them yet. ✅ = done, 🚧 = in progress, 💡 = idea.
+The upstream labs show these patterns on their own. This table tracks which ones are integrated into the Sandbox. ✅ = implemented, 🚧 = in progress, 💡 = idea. Optional features are off by default; see the lab README for requirements and validation limits.
 
 **Scenarios**
 
@@ -154,7 +155,7 @@ The upstream labs already show each of these patterns on their own. The Sandbox 
 | 💡 | Is the cheaper model good enough? | Cost compared with quality, using stored prompts and Foundry evaluations. | [message-storing](labs/message-storing/), [foundry-models-evals](labs/foundry-models-evals/) |
 | 💡 | GitHub Copilot chargeback | Copilot BYOK traffic goes through the gateway and is billed per developer. | [ghcp-byok-foundry](labs/ghcp-byok-foundry/) |
 | 💡 | Foundry agents and Toolbox | Agents hosted in Foundry and Foundry Toolbox tools are billed back to the team that calls them. | [ai-foundry-model-gateway](labs/ai-foundry-model-gateway/), [ai-foundry-toolbox](labs/ai-foundry-toolbox/) |
-| 🚧 | Over budget, switched off | An Azure Monitor alert and a Logic App suspend a subscription that goes over its budget. | [finops-framework](labs/finops-framework/) |
+| ✅ | Over budget, switched off | An Azure Monitor alert and a Logic App suspend a subscription that goes over its budget (optional, off by default in the [AI Gateway Sandbox](labs/ai-gateway-sandbox/#over-budget-switched-off)). | [finops-framework](labs/finops-framework/) |
 | 🚧 | Real users, not keys | Chargeback by Entra ID user, instead of one subscription key per user. | [access-controlling](labs/access-controlling/), [mcp-client-authorization](labs/mcp-client-authorization/) |
 | 💡 | One budget across clouds | Amazon Bedrock and Google Gemini models share the same plans and price list. | [aws-bedrock](labs/aws-bedrock/), [google-gemini-api](labs/google-gemini-api/) |
 | 💡 | Self-hosted showback | Self-hosted models are priced per GPU-second instead of per token. | [serverless-gpu](labs/serverless-gpu/), [self-hosted-ollama](labs/self-hosted-ollama/) |

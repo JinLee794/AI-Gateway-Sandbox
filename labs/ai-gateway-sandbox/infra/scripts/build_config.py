@@ -31,6 +31,7 @@ lab_parameters = {
     "inferenceAPIPath": config["inferenceAPIPath"],
     "inferenceAPIType": config["inferenceAPIType"],
     "foundryProjectName": config["foundryProjectName"],
+    "budgetSuspend": {k: v for k, v in config.get("budgetSuspend", {"enabled": False}).items() if not k.startswith("$")},
 }
 
 # Blocked before spend: content safety price per text record in micro-USD (USD per 1,000 records / 1,000 * 1e6)
