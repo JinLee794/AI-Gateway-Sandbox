@@ -121,7 +121,7 @@
             },
             "defaultValue": "value::all",
             "timeContextFromParameter": "TimeRange",
-            "jsonData": "[{\"value\": \"model\", \"label\": \"AI models\"}, {\"value\": \"tool\", \"label\": \"MCP tools\"}, {\"value\": \"agent\", \"label\": \"A2A agents\"}]"
+            "jsonData": "[{\"value\": \"model\", \"label\": \"AI models\"}, {\"value\": \"tool\", \"label\": \"MCP tools\"}, {\"value\": \"agent\", \"label\": \"A2A agents\"}, {\"value\": \"safety\", \"label\": \"Safety checks\"}]"
           }
         ]
       }
@@ -1361,6 +1361,75 @@
             "styleSettings": {
               "showBorder": true
             }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "traces\n| where tostring(customDimensions.record) == \"chargeback\" and tostring(customDimensions.surface) == \"safety\"\n| extend Consumer = tostring(customDimensions.user), Name = tostring(customDimensions.displayName), Plan = tostring(customDimensions.tier),\n         Checked = tostring(customDimensions.checkedSurface), Blocked = tostring(customDimensions.blocked) == \"true\",\n         CostUSD = tolong(customDimensions.costMicroUsd) / 1e6, Records = tolong(customDimensions.safetyRecords)\n| where (\"*\" in ({Plan}) or Plan in ({Plan})) and (\"*\" in ({Consumer}) or Consumer in ({Consumer}))\n| extend Checked = case(Checked == \"model\", \"AI models\", Checked == \"tool\", \"MCP tools\", Checked == \"agent\", \"A2A agents\", Checked)\n| summarize Checks = count(), Blocked = countif(Blocked), TextRecords = sum(Records), SafetyUSD = sum(CostUSD) by Payer = Name, Plan, Checked\n| extend ModelTokensOnBlocked = 0\n| order by Blocked desc, Checks desc",
+              "size": 0,
+              "title": "🛡️ Blocked before spend: content safety checks, blocks and what the screening cost",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.insights/components",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Checks",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "blue"
+                    }
+                  },
+                  {
+                    "columnMatch": "Blocked",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redBright",
+                      "min": 0
+                    }
+                  },
+                  {
+                    "columnMatch": "SafetyUSD",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "currency",
+                        "currency": "USD",
+                        "maximumFractionDigits": 6
+                      }
+                    }
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "Checked",
+                    "label": "Screened surface"
+                  },
+                  {
+                    "columnId": "TextRecords",
+                    "label": "Text records"
+                  },
+                  {
+                    "columnId": "SafetyUSD",
+                    "label": "Safety check $ (charged)"
+                  },
+                  {
+                    "columnId": "ModelTokensOnBlocked",
+                    "label": "Model tokens on blocked calls"
+                  }
+                ]
+              },
+              "noDataMessage": "No content safety checks in the time range. Content safety is set per plan in sandbox-config.json (contentSafety).",
+              "noDataMessageStyle": 3
+            },
+            "name": "safety-ledger",
+            "customWidth": "100",
+            "styleSettings": {
+              "showBorder": true
+            }
           }
         ]
       },
@@ -1716,6 +1785,70 @@
             },
             "name": "mcp-tools",
             "customWidth": "50",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ApiManagementGatewayLogs\n| where LastErrorReason == \"ContentSafetyPolicyViolated\"\n| extend Surface = case(ApiId == \"inference-api\", \"AI models\", ApiId == \"sourcing-agent\", \"A2A agents\", ApiId in (\"commerce-mcp\", \"commerce-api\"), \"MCP tools\", ApiId)\n| where (\"*\" in ({Plan}) or ProductId in ({Plan})) and (\"*\" in ({Consumer}) or ApimSubscriptionId in ({Consumer}))\n| summarize Blocked = count(), ReachedBackend = countif(BackendResponseCode > 0 or isnotempty(BackendUrl)), LastSeen = max(TimeGenerated) by Surface, Plan = ProductId, ResponseCode, Reason = LastErrorReason\n| order by Blocked desc",
+              "size": 0,
+              "title": "🛡️ Blocked before spend: calls stopped by llm-content-safety (Reached backend should be 0)",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "visualization": "table",
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{law-id}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Blocked",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "redBright"
+                    }
+                  },
+                  {
+                    "columnMatch": "ReachedBackend",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "0",
+                          "representation": "success",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "Default",
+                          "representation": "2",
+                          "text": "{0}"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "ReachedBackend",
+                    "label": "Reached backend"
+                  },
+                  {
+                    "columnId": "Reason",
+                    "label": "Content Safety verdict"
+                  }
+                ]
+              },
+              "noDataMessage": "No calls were blocked by content safety in the time range.",
+              "noDataMessageStyle": 3
+            },
+            "name": "safety-blocks",
+            "customWidth": "100",
             "styleSettings": {
               "showBorder": true
             }

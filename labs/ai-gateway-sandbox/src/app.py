@@ -34,7 +34,8 @@ GW_HEADERS = ["x-gw-agent", "x-gw-tier", "x-gw-model-requested", "x-gw-model-ser
               "x-gw-remaining-quota-tokens", "x-gw-tokens-consumed", "x-gw-block-reason", "retry-after",
               "x-gw-billed-to", "x-gw-tool", "x-gw-remaining-tool-calls", "x-gw-remaining-agent-calls",
               "x-gw-agent-fee-usd", "x-gw-downstream-cost-usd", "mcp-session-id", "x-gw-request-id", "x-gw-caller",
-              "x-gw-route", "x-gw-backend", "x-gw-blocked-by", "x-ms-region", "apim-trace-id", "x-gw-session"]
+              "x-gw-route", "x-gw-backend", "x-gw-blocked-by", "x-ms-region", "apim-trace-id", "x-gw-session",
+              "x-gw-safety-cost-usd"]
 GATEWAY_AUDIENCE = "https://cognitiveservices.azure.com"
 ARM = "https://management.azure.com"
 TRACE_APIS = {"model": "inference-api", "tool": "commerce-mcp", "agent": "sourcing-agent"}
@@ -69,6 +70,9 @@ POLICY_EVIDENCE_QUERIES = {
             '| summarize Calls = count(), Errors = countif(isnotempty(Error)) by ToolName, ClientName | order by Calls desc'),
     "entra": ("Entra ID: rejected tokens", 'ApiManagementGatewayLogs | where TimeGenerated > ago({window}) and LastErrorSource == "validate-azure-ad-token" '
               '| summarize Rejected = count() by ProductId, LastErrorReason | order by Rejected desc'),
+    "safety": ("Blocked before spend: content safety (empty BackendUrl = never sent to a backend)",
+               'ApiManagementGatewayLogs | where TimeGenerated > ago({window}) and LastErrorReason == "ContentSafetyPolicyViolated" '
+               '| summarize Blocked = count(), ReachedBackend = countif(isnotempty(BackendUrl)) by ApiId, ProductId, ResponseCode, Source = LastErrorSource | order by Blocked desc'),
 }
 
 # Chargeback records written by the chargeback-record policy fragment (one per billable call). Workspace-based
@@ -87,6 +91,7 @@ CHARGEBACK_QUERIES = {
     "sessions": ("Chargeback by user and session",
                  '| summarize CostUSD = round(sum(CostMicroUsd) / 1e6, 6), Calls = count(), Models = round(sumif(CostMicroUsd, Surface == "model") / 1e6, 6), '
                  'Tools = round(sumif(CostMicroUsd, Surface == "tool") / 1e6, 6), Agents = round(sumif(CostMicroUsd, Surface == "agent") / 1e6, 6), '
+                 'Safety = round(sumif(CostMicroUsd, Surface == "safety") / 1e6, 6), '
                  'ViaAgent = round(sumif(CostMicroUsd, Via != "direct") / 1e6, 6), PromptTokens = sum(PromptTokens), CompletionTokens = sum(CompletionTokens), '
                  'Started = min(TimeGenerated), LastCall = max(TimeGenerated) by Team, CostCenter, User, DisplayName, Kind, Session '
                  '| order by Team asc, DisplayName asc, Started asc'),
@@ -586,7 +591,9 @@ def policies(_payload):
              ("API", "A2A agent (sourcing-agent)", f"{apim}/apis/sourcing-agent/policies/policy"),
              ("Fragment", "entra-identity", f"{apim}/policyFragments/entra-identity"),
              ("Fragment", "payer-attribution", f"{apim}/policyFragments/payer-attribution"),
-             ("Fragment", "chargeback-record", f"{apim}/policyFragments/chargeback-record")]
+             ("Fragment", "chargeback-record", f"{apim}/policyFragments/chargeback-record"),
+             ("Fragment", "blocked-before-spend", f"{apim}/policyFragments/blocked-before-spend"),
+             ("Fragment", "safety-ledger", f"{apim}/policyFragments/safety-ledger")]
     items += [("Product", f"{t['displayName']} ({t['name']})", f"{apim}/products/{t['name']}/policies/policy") for t in CONFIG.get("tiers", [])]
     result = []
     for scope, name, url in items:
@@ -709,6 +716,7 @@ def public_config(user=None):
         "tools": CONFIG.get("tools", []),
         "a2aAgents": CONFIG.get("a2aAgents", []),
         "foundryBackends": CONFIG.get("foundryBackends", []),
+        "contentSafety": CONFIG.get("contentSafety", {"enabled": False}),
         "endpoints": {k: CONFIG.get(k) for k in ("inferenceBaseUrl", "mcpUrl", "a2aUrl", "agentCardUrl")},
         "links": {
             "workbook": f"{portal}{CONFIG['workbookId']}/workbook" if CONFIG.get("workbookId") else None,

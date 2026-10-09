@@ -70,6 +70,8 @@ Each **consumer** has its own APIM subscription, which gives it an identity and 
 | 🤝 **Agent entitlement + tasks per minute** | A2A | `choose` + [`rate-limit-by-key`](https://learn.microsoft.com/azure/api-management/rate-limit-by-key-policy) | 403 `agent-denied` / 429 |
 | 💵 **One $ budget** for models, tools and agents | all | [`quota-by-key`](https://learn.microsoft.com/azure/api-management/quota-by-key-policy) incremented by each call's cost | 403 |
 | 🧾 **$ cap per session** | all | a second `quota-by-key` keyed on subscription + session | 403 `session-budget` |
+| 🛡️ **Blocked before spend**: content safety (optional, off by default; Gold, Silver, Bronze when on) | all | [`llm-content-safety`](https://learn.microsoft.com/azure/api-management/llm-content-safety-policy) with Prompt Shields and a sensitive-data blocklist, in the [blocked-before-spend fragment](content-safety-fragment.xml) | 403 `llm-content-safety`, $0 of model tokens; the check itself is billed to the $ budget |
+| 🔏 **Purview DLP** (optional, off by default) | all | Microsoft Graph `processContent` in the [purview-dlp fragment](purview-dlp-fragment.xml) | 403 `purview-dlp` |
 
 | Consumer | Plan | Models | Disallowed models | TPM | Token quota | Max output | MCP tools | A2A agents | $ budget | $ per session |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -85,6 +87,7 @@ Demo price list (the `model-pricing`, `tool-pricing` and `agent-pricing` named v
 | `check-inventory` | MCP tool | $0.0002 per call |
 | `get-supplier-quote` (premium data) | MCP tool | $0.0020 per call |
 | `sourcing-agent` | A2A agent | $0.0050 per task + its downstream model and tool spend |
+| `content-safety` (screening) | safety check | $0.38 per 1K text records (1 record = up to 1,000 characters; Prompt Shields adds a second record per call), from `contentSafety.pricePer1KRecordsUsd` |
 | Foundry models | AI model | per 1M input/output tokens, see the notebook |
 
 ### How it works
@@ -99,6 +102,34 @@ Demo price list (the `model-pricing`, `tool-pricing` and `agent-pricing` named v
 > The prices are **demo prices**. Check the [Azure OpenAI](https://azure.microsoft.com/pricing/details/cognitive-services/openai-service/) and Foundry Models pricing for current prices in your region. The Silver and Bronze budgets are deliberately tiny so you can exhaust them live: one Sourcing Agent task (about $0.009) nearly uses up Silver's $0.01. Every counter key includes the `budget-epoch` named value, so changing it resets all budgets and quotas: use the notebook reset step or the UI **Reset budgets** button before each demo.
 
 In the Azure portal, open the APIM instance to see the gateway's own views of the three surfaces: **APIs → AI models**, **APIs → MCP servers** and **APIs → A2A agents** (preview), and **Products** for the plans.
+
+### Blocked before spend: content safety and Purview DLP
+
+A guardrail that runs *after* the model has answered has already spent the tokens. The [blocked-before-spend fragment](content-safety-fragment.xml) runs **last in the plan policy's inbound**, after identity, entitlements, limits and the $ budget check, and before any backend is called:
+
+- **What is screened.** The text the caller sends, on every surface listed in `contentSafety.surfaces`: model `messages` / `input`, the MCP `tools/call` **arguments**, and the A2A `message/send` **task text**. A blocked tool call never reaches the MCP server, and a blocked task never reaches the Sourcing Agent or spends anything downstream.
+- **How.** [`llm-content-safety`](https://learn.microsoft.com/azure/api-management/llm-content-safety-policy) calls an [Azure AI Content Safety](https://learn.microsoft.com/azure/ai-services/content-safety/overview) account ([content-safety.bicep](content-safety.bicep), managed identity, local auth disabled) with **Prompt Shields** (jailbreaks), the four harm categories (threshold `contentSafety.thresholds`, eight severity levels) and a **sensitive-data blocklist** (`contentSafety.blocklist`: US SSN and card number regexes). Edit those in [sandbox-config.json](sandbox-config.json) (or the notebook's first cell).
+- **Which plans.** `"contentSafety": true` on a plan in `sandbox-config.json`. Gold, Silver and Bronze have it; the internal `agent-platform` plan doesn't, because the Sourcing Agent's downstream calls carry a task that was already screened when it came in.
+- **What the caller sees.** **403** with `x-gw-blocked-by: llm-content-safety`, `x-gw-governance: content-blocked`, `x-gw-prompt-tokens: 0`, `x-gw-cost-usd: 0` and `x-gw-safety-cost-usd`. Every screened call, passed or blocked, returns `x-gw-safety-cost-usd`.
+- **Tokenomics.** Blocked calls spend **$0 of model tokens**. The screening itself is not free: the [safety-ledger fragment](content-safety-ledger-fragment.xml) prices each check from the text length (records × `pricePer1KRecordsUsd`), draws it from the plan's $ budget, and writes it as its own line item: a chargeback record with `surface = safety`, `item = content-safety`, `blocked`, `checkedSurface` and `checkedItem`, plus a `CostMicroUSD` metric with `Surface = safety`. A block also emits `GovernanceEvents` with `Event = content-blocked`. A short call costs 2 records, about **$0.00076**.
+- **Evidence.** `ApiManagementGatewayLogs` rows with `LastErrorReason == "ContentSafetyPolicyViolated"` and no backend call (Prompt Shields and harm blocks log `LastErrorSource = llm-content-safety`, blocklist matches `request-forwarder`; the `x-gw-blocked-by` header is `llm-content-safety` for both), the `content-blocked` events, and the `safety` chargeback records. The workbook's **Budgets & governance** and **Gateway evidence** tabs show them, and so do the UI's **Safety checks** ledger column and **Policies & evidence** tab.
+
+**It is off by default.** To turn it on, set `"contentSafety": {"enabled": true}` in [sandbox-config.json](sandbox-config.json) (or `content_safety_config["enabled"] = True` in the notebook's first cell) and redeploy (`azd up` or the notebook's deployment step). The plans already opt in (`"contentSafety": true` on Gold, Silver and Bronze), so the lab-level flag is all it takes. It deploys one Content Safety account (S0, pay per use). Every screened call then costs about **$0.0008 more**, and that comes out of the plan's $ budget. Silver's budget is deliberately tiny ($0.01), so with content safety on, scenarios 5 and 8 reach Silver's 403 a call or two sooner. When it's off, the fragments are deployed as no-ops, no Content Safety account is created, scenario 15 only says how to turn it on, and scenarios 1–14 behave exactly as before.
+
+> [!NOTE]
+> The [Content Safety price](https://azure.microsoft.com/pricing/details/cognitive-services/content-safety/) is a list price for the standard tier at the time of writing [verify for your region and agreement]. Content Safety blocklists can take a few minutes to take effect after a deployment. If the sensitive-data calls pass right after `azd up`, run the scenario again.
+
+#### Purview DLP (optional, off by default)
+
+The [purview-dlp fragment](purview-dlp-fragment.xml) and [purview-dlp.bicep](purview-dlp.bicep) follow the [Purview DLP lab](../apim-purview-dlp/README.md): the gateway exchanges the caller's **user** token (sent as `x-user-assertion`) on behalf of the user and calls Microsoft Graph [`processContent`](https://learn.microsoft.com/graph/api/userprotectionscopecontainer-processcontent). If a Purview DLP policy for custom AI apps says *block*, the call returns **403** `x-gw-blocked-by: purview-dlp` and emits a `dlp-blocked` governance event. An unreadable verdict also blocks (fail closed). Calls without `x-user-assertion` are not evaluated (`x-gw-purview: skipped-no-user`), or get 403 when `purviewDlp.requireUser` is true. A Purview block returns directly from inbound, so its content safety check is not written to the safety ledger. It is **off by default** (`purviewDlp.enabled: false`) because it needs things a demo tenant usually doesn't have:
+
+- real **Entra ID users** (not the subscription-key demo users), each with a Microsoft 365 E5 or E5 Compliance license, sending a delegated user token
+- an app registration with the Graph delegated permissions `Content.Process.User`, `ProtectionScopes.Compute.User` and `ContentActivity.Write`, admin consent, and a **client secret** (`PURVIEW_CLIENT_SECRET` for `azd`, or the environment variable of the same name for the notebook)
+- a Purview DLP policy scoped to custom AI apps, Purview pay-as-you-go billing and Audit turned on, and up to about an hour of policy propagation
+
+Content safety's sensitive-data blocklist covers the demo story without any of that. Turn Purview on with `purviewDlp.enabled: true` and `purviewDlp.clientId` once the tenant is ready. Only the Bicep build is validated for this path.
+
+In the Azure portal, the content safety account and its blocklist are under **Azure AI services → Content Safety**, and the two fragments are under **APIM → Policy fragments**.
 
 ### FinOps chargeback by user and session
 
@@ -171,8 +202,8 @@ Every gateway response returns `x-gw-request-id`, so any call in the UI can be l
   - four tabs, each with a drill-down, plus an **About** tab that lists the data sources:
     - **Overview**: spend over time and by surface, top consumers and top resources. Select a consumer to see its resources, direct vs via-agent spend, line items with the Entra ID caller, and its plan enforcement events.
     - **Chargeback**: cost by team and cost center and by user or app, plus a Team › User › Session tree. Select a session to see its cumulative spend and a call-by-call ledger.
-    - **Budgets & governance**: budget burn per consumer, enforcement events and gateway outcomes by plan, blocked calls over time, and who hit which limit
-    - **Gateway evidence**: outcomes by policy (select one to list the calls it stopped), latency by API, backend calls by region, failovers, tokens by deployment and MCP tool calls
+    - **Budgets & governance**: budget burn per consumer, enforcement events and gateway outcomes by plan, blocked calls over time, who hit which limit, and content safety checks, blocks and what the screening cost
+    - **Gateway evidence**: outcomes by policy (select one to list the calls it stopped), latency by API, backend calls by region, failovers, tokens by deployment, MCP tool calls, and the calls `llm-content-safety` stopped before any backend call
 - All the data lives in **Application Insights** and **Log Analytics**:
   - `customMetrics` for tokens, cost, governance events and backend attempts
   - `traces` for the chargeback records by user, team, cost center and session
@@ -221,7 +252,7 @@ The deployment cell zips `app.py`, `static/` and the generated configuration. Th
 
 ### Guided scenarios
 
-Click a scenario in the UI, or **Run the full demo** to play them all in order (about 85 calls, under $0.10 at the demo prices, about 9 minutes). Each scenario card draws its path (consumer → gateway → model, tool or agent) as it starts:
+Click a scenario in the UI, or **Run the full demo** to play them all in order (about 85 calls, under $0.10 at the demo prices, about 9 minutes; about 90 calls and 10 minutes with content safety on). Each scenario card draws its path (consumer → gateway → model, tool or agent) as it starts:
 
 | # | Scenario | What the customer sees | Calls |
 |---|----------|------------------------|-------|
@@ -239,6 +270,7 @@ Click a scenario in the UI, or **Run the full demo** to play them all in order (
 | 12 | Zero trust: Microsoft Entra ID | A model call and an MCP call with the key but **no token** get 401 from `validate-azure-ad-token`. The same call with a token returns 200, and `x-gw-caller` shows who called. | 3 |
 | 13 | Load balancing & regional failover | Gold bursts `gpt-4.1-nano`. Sweden Central returns 429, the gateway retries in France Central (`x-gw-route`), and the circuit breaker keeps sending calls to France. | 8 |
 | 14 | Policy trace & Azure Monitor evidence | A traced Silver call is downgraded. The UI shows the policy-by-policy trace, then the call's rows in the gateway and LLM log tables, the deployed policy XML and the aggregate evidence, each with a portal link. | 1 |
+| 15 | Blocked before spend: content safety | Needs content safety turned on (`contentSafety.enabled`; off by default). Gold sends a clean prompt (200, plus a small safety-check charge), then a jailbreak, an SSN in a prompt, an SSN in MCP tool arguments and a card number in an A2A task. Each gets 403 `llm-content-safety` and $0 of model tokens, and never reaches Foundry, the MCP server or the agent. The screening shows up as a **Safety checks** line item. | 5 |
 
 ### Suggested demo script (manual)
 

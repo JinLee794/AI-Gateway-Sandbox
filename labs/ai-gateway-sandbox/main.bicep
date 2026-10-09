@@ -49,11 +49,23 @@ param demoUiSku string = 'B1'
 @description('Client ID of the hosted demo UI managed identity, approved as a gateway caller (set by azd up; empty for the notebook)')
 param uiClientId string = ''
 
+@description('Blocked before spend - Azure AI Content Safety at the gateway: enabled, shieldPrompt, thresholds (Hate, Sexual, SelfHarm, Violence: 0-7), microUsdPerRecord, surfaces (model, tool, agent), blocklist (name, pattern), location (optional). Tiers opt in with contentSafety: true. Empty or enabled: false deploys nothing.')
+param contentSafetyConfig object = {}
+
+@description('Blocked before spend - OPTIONAL Microsoft Purview DLP (Graph processContent, On-Behalf-Of the user in x-user-assertion): enabled, clientId, tenantId (optional), graphHost (optional), requireUser (optional). Needs real Entra users and tenant setup (see README). Default off.')
+param purviewDlpConfig object = {}
+
+@description('Client secret of the Purview DLP app registration (only used when purviewDlpConfig.enabled is true)')
+@secure()
+param purviewClientSecret string = ''
+
 // ------------------
 //    VARIABLES
 // ------------------
 
 var resourceSuffix = uniqueString(subscription().id, resourceGroup().id)
+var contentSafetyEnabled = contentSafetyConfig.?enabled ?? false
+var purviewDlpEnabled = contentSafetyEnabled && (purviewDlpConfig.?enabled ?? false)
 
 // ------------------
 //    RESOURCES
@@ -226,6 +238,86 @@ resource entraIdentityFragment 'Microsoft.ApiManagement/service/policyFragments@
       '{ui-client-id}': empty(demoUiClientId) ? 'none' : demoUiClientId
     }), loadTextContent('entra-identity-fragment.xml'), (xml, placeholder) => replace(xml, placeholder.key, placeholder.value))
   }
+}
+
+// Blocked before spend: Azure AI Content Safety (llm-content-safety) screens prompts, MCP tool arguments and A2A tasks
+// after the free checks and before any spend. Optional (contentSafetyConfig.enabled); per plan with tier.contentSafety.
+module contentSafetyModule 'content-safety.bicep' = if (contentSafetyEnabled) {
+  name: 'contentSafetyModule'
+  params: {
+    apimName: apimModule.outputs.name
+    apimPrincipalId: apimModule.outputs.principalId
+    location: contentSafetyConfig.?location ?? resourceGroup().location
+    resourceSuffix: resourceSuffix
+    blocklistName: contentSafetyConfig.?blocklistName ?? 'sensitive-data'
+    blocklistItems: contentSafetyConfig.?blocklist ?? []
+  }
+}
+
+// Optional Purview DLP (needs content safety; see the README for the tenant prerequisites)
+module purviewDlpModule 'purview-dlp.bicep' = if (purviewDlpEnabled) {
+  name: 'purviewDlpModule'
+  params: {
+    apimName: apimModule.outputs.name
+    tenantId: purviewDlpConfig.?tenantId ?? tenant().tenantId
+    clientId: purviewDlpConfig.?clientId ?? ''
+    clientSecret: purviewClientSecret
+    graphHost: purviewDlpConfig.?graphHost ?? 'graph.microsoft.com'
+  }
+}
+
+resource purviewDlpFragment 'Microsoft.ApiManagement/service/policyFragments@2024-06-01-preview' = if (purviewDlpEnabled) {
+  parent: apim
+  name: 'purview-dlp'
+  properties: {
+    description: 'Blocked before spend (optional): Microsoft Purview DLP processContent on behalf of the user in x-user-assertion'
+    format: 'rawxml'
+    value: replace(loadTextContent('purview-dlp-fragment.xml'), '{purview-require-user}', (purviewDlpConfig.?requireUser ?? false) ? 'true' : 'false')
+  }
+  dependsOn: [
+    purviewDlpModule
+  ]
+}
+
+var contentSafetyThresholds = contentSafetyConfig.?thresholds ?? {}
+resource blockedBeforeSpendFragment 'Microsoft.ApiManagement/service/policyFragments@2024-06-01-preview' = {
+  parent: apim
+  name: 'blocked-before-spend'
+  properties: {
+    description: 'Blocked before spend: llm-content-safety (harm categories, Prompt Shields, sensitive-data blocklist) before any model, tool or agent spend. A no-op when content safety is disabled.'
+    format: 'rawxml'
+    value: contentSafetyEnabled ? reduce(items({
+      '{cs-backend-id}': 'content-safety-backend'
+      '{cs-shield-prompt}': (contentSafetyConfig.?shieldPrompt ?? true) ? 'true' : 'false'
+      '{cs-threshold-hate}': string(contentSafetyThresholds.?Hate ?? 4)
+      '{cs-threshold-sexual}': string(contentSafetyThresholds.?Sexual ?? 4)
+      '{cs-threshold-selfharm}': string(contentSafetyThresholds.?SelfHarm ?? 4)
+      '{cs-threshold-violence}': string(contentSafetyThresholds.?Violence ?? 4)
+      '{cs-micro-usd-per-record}': string(contentSafetyConfig.?microUsdPerRecord ?? 380)
+      '{cs-surfaces}': join(contentSafetyConfig.?surfaces ?? ['model', 'tool', 'agent'], ',')
+      '{cs-blocklists}': empty(contentSafetyConfig.?blocklist ?? []) ? '' : '<blocklists><id>${contentSafetyConfig.?blocklistName ?? 'sensitive-data'}</id></blocklists>'
+      '{purview-include}': purviewDlpEnabled ? '<include-fragment fragment-id="purview-dlp" />' : ''
+    }), loadTextContent('content-safety-fragment.xml'), (xml, placeholder) => replace(xml, placeholder.key, placeholder.value))
+      : '<fragment>\n    <!-- Blocked before spend is disabled (contentSafety.enabled = false in sandbox-config.json) -->\n    <set-variable name="safetyMicroUsd" value="@(0)" />\n</fragment>'
+  }
+  dependsOn: [
+    contentSafetyModule
+    purviewDlpFragment
+  ]
+}
+
+// Safety line item: x-gw-safety-cost-usd, a "safety" chargeback record and the content-blocked governance event
+resource safetyLedgerFragment 'Microsoft.ApiManagement/service/policyFragments@2024-06-01-preview' = {
+  parent: apim
+  name: 'safety-ledger'
+  properties: {
+    description: 'Blocked before spend: charges the content safety check as its own chargeback line item and emits the content-blocked governance event'
+    format: 'rawxml'
+    value: loadTextContent('content-safety-ledger-fragment.xml')
+  }
+  dependsOn: [
+    chargebackDirectoryNamedValue
+  ]
 }
 
 // 6. AI model API (OpenAI v1 compatible) with the API-level pricing policy. With more than one Foundry resource the
@@ -559,11 +651,14 @@ resource tierProductPolicy 'Microsoft.ApiManagement/service/products/policies@20
       '{tool-calls-per-minute}': string(tier.toolCallsPerMinute)
       '{allowed-agents}': join(tier.allowedAgents, ',')
       '{agent-calls-per-minute}': string(tier.agentCallsPerMinute)
+      '{content-safety}': (contentSafetyEnabled && (tier.?contentSafety ?? false)) ? 'on' : 'off'
     }), productPolicyTemplate, (xml, placeholder) => replace(xml, placeholder.key, placeholder.value))
   }
   dependsOn: [
     budgetEpochNamedValue
     entraIdentityFragment
+    blockedBeforeSpendFragment
+    safetyLedgerFragment
     tierProductApiLink
     tierProductMcpLink
     tierProductAgentLink
@@ -650,6 +745,10 @@ output agentPricing string = agentPricing
 output demoUiUrl string = hostDemoUi ? demoUi!.outputs.url : ''
 output demoUiName string = hostDemoUi ? demoUi!.outputs.name : ''
 output demoUiAppId string = hostDemoUi ? demoUi!.outputs.appId : ''
+output contentSafetyEnabled bool = contentSafetyEnabled
+output contentSafetyEndpoint string = contentSafetyEnabled ? contentSafetyModule!.outputs.contentSafetyEndpoint : ''
+output contentSafetyTiers array = contentSafetyEnabled ? map(filter(tiersConfig, tier => tier.?contentSafety ?? false), tier => tier.name) : []
+output purviewDlpEnabled bool = purviewDlpEnabled
 
 #disable-next-line outputs-should-not-contain-secrets
 output agentKeys array = [for (agent, i) in agentsConfig: {

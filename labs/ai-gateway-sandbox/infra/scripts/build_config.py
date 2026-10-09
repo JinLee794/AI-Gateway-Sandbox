@@ -33,12 +33,22 @@ lab_parameters = {
     "foundryProjectName": config["foundryProjectName"],
 }
 
+# Blocked before spend: content safety price per text record in micro-USD (USD per 1,000 records / 1,000 * 1e6)
+content_safety = config.get("contentSafety", {})
+lab_parameters["contentSafetyConfig"] = {
+    **{k: v for k, v in content_safety.items() if k not in ("$comment", "pricePer1KRecordsUsd")},
+    "microUsdPerRecord": int(round(content_safety.get("pricePer1KRecordsUsd", 0.38) * 1_000)),
+} if content_safety.get("enabled") else {"enabled": False}
+lab_parameters["purviewDlpConfig"] = {k: v for k, v in config.get("purviewDlp", {}).items() if k != "$comment"}
+
 # Static part of the demo UI configuration (the endpoints and subscription keys are added by Bicep)
 ui_config = {
     "tiers": tiers,
     "models": [{k: m[k] for k in ("name", "inputPrice", "outputPrice")} for m in models],
     "tools": tools,
     "a2aAgents": a2a_agents,
+    "contentSafety": {"enabled": bool(content_safety.get("enabled")), "shieldPrompt": content_safety.get("shieldPrompt", True),
+                      "pricePer1KRecordsUsd": content_safety.get("pricePer1KRecordsUsd", 0.38)},
 }
 
 target = os.path.join(INFRA, "sandbox.generated.json")

@@ -26,6 +26,11 @@
                                {session-budget-micro-usd} micro-USD (403, x-gw-blocked-by: quota-by-key (session-budget)).
                                The session comes from x-session-id (or Mcp-Session-Id / the A2A contextId) and is
                                returned in x-gw-session; the chargeback-record fragment logs it with every billable call.
+        - Blocked before spend - blocked-before-spend fragment (last, after the free checks above, only when
+                               {content-safety} is "on"): llm-content-safety screens the prompt / tool arguments / task
+                               text and returns 403 (x-gw-blocked-by: llm-content-safety) before anything is spent on a
+                               model, tool or agent. The check's own price (safetyMicroUsd) is added to the $ budget and
+                               written as a "safety" chargeback line item by the safety-ledger fragment.
 
     The {{budget-epoch}} named value is part of every counter key, so changing it resets all budgets and quotas.
 
@@ -232,8 +237,8 @@
         <set-variable name="quotaStage" value="subscription-budget" />
         <quota-by-key calls="{budget-micro-usd}" renewal-period="{budget-period-seconds}"
             counter-key="@("budget-" + context.Subscription?.Id + "-" + (string)context.Variables["budgetEpoch"])"
-            increment-condition="@(context.Response.StatusCode == 200)"
-            increment-count="@(context.Variables.GetValueOrDefault<int>("costMicroUsd", 0))" />
+            increment-condition="@(context.Response.StatusCode == 200 || context.Variables.GetValueOrDefault<int>("safetyMicroUsd", 0) > 0)"
+            increment-count="@(context.Variables.GetValueOrDefault<int>("costMicroUsd", 0) + context.Variables.GetValueOrDefault<int>("safetyMicroUsd", 0))" />
         <!-- $ cap per session ({session-budget-micro-usd} micro-USD): stops a runaway conversation or agent loop long
              before it drains the plan budget. A new session starts with a fresh cap. -->
         <choose>
@@ -241,10 +246,13 @@
                 <set-variable name="quotaStage" value="session-budget" />
                 <quota-by-key calls="{session-budget-micro-usd}" renewal-period="{budget-period-seconds}"
                     counter-key="@("session-" + context.Subscription?.Id + "-" + (string)context.Variables["session"] + "-" + (string)context.Variables["budgetEpoch"])"
-                    increment-condition="@(context.Response.StatusCode == 200)"
-                    increment-count="@(context.Variables.GetValueOrDefault<int>("costMicroUsd", 0))" />
+                    increment-condition="@(context.Response.StatusCode == 200 || context.Variables.GetValueOrDefault<int>("safetyMicroUsd", 0) > 0)"
+                    increment-count="@(context.Variables.GetValueOrDefault<int>("costMicroUsd", 0) + context.Variables.GetValueOrDefault<int>("safetyMicroUsd", 0))" />
             </when>
         </choose>
+        <!-- Blocked before spend: content safety (and optional Purview DLP) after the free checks, before any spend -->
+        <set-variable name="contentSafetyPlan" value="{content-safety}" />
+        <include-fragment fragment-id="blocked-before-spend" />
     </inbound>
     <backend>
         <base />
@@ -260,6 +268,7 @@
         <set-header name="x-gw-session" exists-action="override">
             <value>@(context.Variables.GetValueOrDefault<string>("session", "no-session"))</value>
         </set-header>
+        <include-fragment fragment-id="safety-ledger" />
     </outbound>
     <on-error>
         <base />
@@ -283,5 +292,6 @@
         <set-header name="x-gw-session" exists-action="override">
             <value>@(context.Variables.GetValueOrDefault<string>("session", "no-session"))</value>
         </set-header>
+        <include-fragment fragment-id="safety-ledger" />
     </on-error>
 </policies>
