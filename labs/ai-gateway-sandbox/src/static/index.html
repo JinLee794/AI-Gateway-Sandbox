@@ -212,7 +212,7 @@
   .s401 { background:var(--bad-bg); color:var(--bad); }
   a.ev { cursor:pointer; }
   /* Scenario preview: hover card with a small diagram of what a guided scenario does */
-  .preview { position:fixed; z-index:50; width:540px; max-width:calc(100vw - 16px); background:#fff; border-radius:8px; padding:14px 16px 12px; pointer-events:none;
+  .preview { position:fixed; z-index:50; width:540px; max-width:calc(100vw - 16px); max-height:calc(100vh - 16px); overflow-y:auto; background:#fff; border-radius:8px; padding:14px 16px 12px;
              box-shadow:0 25.6px 57.6px rgba(0,0,0,.22),0 4.8px 14.4px rgba(0,0,0,.18); opacity:0; visibility:hidden; transform:translateX(-6px); transition:opacity .12s, transform .12s; }
   .preview.show { opacity:1; visibility:visible; transform:none; }
   .preview .ph { display:flex; gap:10px; align-items:flex-start; }
@@ -244,6 +244,15 @@
   .dseq { display:flex; gap:4px; align-items:center; font-size:11px; color:var(--muted); }
   .dseq .dq { font-size:10px; font-weight:600; border-radius:3px; padding:2px 5px; }
   .dnote { font-size:11px; color:var(--muted); line-height:1.5; }
+  .dlane + .dlane { border-top:1px solid var(--divider); padding-top:10px; }
+  .dlhead { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; font-size:11px; }
+  .dlane .dr { gap:6px; }
+  .dlane .dn { flex:1 1 0; min-width:0; max-width:none; overflow-wrap:anywhere; padding:6px; }
+  .dlane .da { flex:0 0 18px; min-width:18px; padding:0; }
+  .dlane .da > span { display:none; }
+  .dn.ok { border-color:#a7d3a7; background:var(--ok-bg); }
+  .dn.ok b { color:var(--ok); }
+  .preview .pf code { overflow-wrap:anywhere; }
   .dmx { font-size:11px; } .dmx th, .dmx td { padding:3px 6px; text-align:center; } .dmx th:first-child, .dmx td:first-child { text-align:left; }
   .dmx th { position:static; background:transparent; }
   .dchips { display:flex; flex-wrap:wrap; gap:4px; align-items:center; font-size:10.5px; }
@@ -2355,6 +2364,7 @@ const dg = {
   seq: (codes, after = "") => `<div class="dseq">${codes.map(c => `<span class="dq status ${statusClass(c)}">${c}</span>`).join("")}${after}</div>`,
   chips: (xs) => `<div class="dchips">${xs.map(x => `<span>${x}</span>`).join("<i>›</i>")}</div>`,
   note: (html) => `<div class="dnote">${html}</div>`,
+  lane: (label, status, ...nodes) => `<div class="dlane"><div class="dlhead"><b>${label}</b>${status ? dg.code(status) : ""}</div>${dg.row(...nodes.flatMap((node, i) => i ? [dg.arrow("", status === 200 ? "ok" : status >= 400 ? "bad" : ""), node] : [node]))}</div>`,
   user: (name, sub) => { const a = byName(name); return dg.node(a ? a.displayName : name, sub ?? (a ? `${a.team} · ${a.costCenter}` : "demo user")); },
 };
 const premiumFor = (tier) => cfg.models.find(m => !tierOf(tierAgent(tier)).allowedModels.includes(m.name))?.name || cfg.models[0].name;
@@ -2645,14 +2655,22 @@ const SCENARIOS = [
       policiesLoaded = true; loadPolicies(); loadPolicyEvidence();
       takeaway(`The trace shows each policy as it ran: Entra validation and caller, the plan's model downgrade, token limit and budget checks, the backend pool and retry, and the cost metric. The same request then shows up in <code>ApiManagementGatewayLogs</code> (product, backend, status, failing policy) and <code>ApiManagementGatewayLlmLog</code> (deployment and tokens) about 2-5 minutes later; the panel keeps checking. <b>Open in Azure portal</b> runs each query in Log Analytics.`);
     } },
-  { title: "Blocked before spend: content safety", get cost() { return cfg?.contentSafety?.enabled ? "5 calls · < $0.002" : "off · set contentSafety.enabled to try it"; },
-    gist: "A jailbreak and prompts, tool arguments and agent tasks carrying sensitive data are stopped at the gateway: 403, $0 of model tokens, and only the safety check is billed.",
+  { title: "Blocked before spend: content safety", get cost() { return cfg?.contentSafety?.enabled
+      ? `5 calls · ≈ ${fmtUsd(5 * (cfg.contentSafety.shieldPrompt === false ? 1 : 2) * (cfg.contentSafety.pricePer1KRecordsUsd ?? 0.38) / 1000)} screening + model usage`
+      : "off · set contentSafety.enabled to try it"; },
+    gist: "Compare a clean request with a jailbreak or sensitive data. The gateway screens model prompts, MCP arguments and A2A tasks before calling their backend.",
     policies: ["llm-content-safety", "Prompt Shields", "blocklist (sensitive data)", "safety-ledger fragment"],
-    preview: () => { const m = tierOf(tierAgent("gold")).allowedModels[0];
-      return dg.row(dg.agent("gold"), dg.arrow("clean prompt"), dg.gw("content safety ✓"), dg.arrow("", "ok"), dg.model(m), dg.code(200))
-        + dg.row(dg.agent("gold"), dg.arrow("jailbreak · SSN"), dg.gw("content safety ✗"), dg.arrow("blocked", "bad"), dg.node("Foundry", "never called · $0 tokens", "dim"), dg.code(403))
-        + dg.row(dg.agent("gold"), dg.arrow(`${surfChip("tool")} ${surfChip("agent")}`), dg.gw("same check"), dg.arrow("blocked", "bad"), dg.node("MCP server · A2A agent", "never called", "dim"), dg.code(403))
-        + dg.note(`Each check is billed as a <span style="color:${SURFACE_COLORS.safety}">■</span> Safety checks line item ($${cfg.contentSafety?.pricePer1KRecordsUsd ?? 0.38} per 1K text records) against the plan's $ budget.`); },
+    preview: () => dg.lane("1 · Clean request: screen, then forward", 200,
+        dg.node("Clean prompt", "Gold caller"),
+        dg.gw("Safety check passes"),
+        dg.node("Backend called", "Screening + model cost", "ok"))
+      + dg.lane("2 · Unsafe request: stop before the backend", 403,
+        dg.node("Jailbreak / sensitive data", "Prompt, tool arguments or task"),
+        dg.gw("Shields / blocklist"),
+        dg.node("Request blocked", "No backend call · $0 backend spend", "x"))
+      + dg.note("<b>One gate, three surfaces:</b> Foundry models · MCP tools · A2A agents.")
+      + dg.note(`<b>Billing:</b> Screening is charged even when a request is blocked; it shares the plan's $ budget. Configured demo rate: $${cfg.contentSafety?.pricePer1KRecordsUsd ?? 0.38} / 1K text records.`)
+      + (!cfg.contentSafety?.enabled ? dg.note("<b>Off in this deployment.</b> Enable <code>contentSafety.enabled</code> and redeploy to run this scenario.") : ""),
     story: () => `Every Gold, Silver and Bronze call is screened by <b>Azure AI Content Safety</b> before it reaches a model, an MCP tool or an A2A agent: <b>Prompt Shields</b> for jailbreaks, harm categories, and a <b>sensitive-data blocklist</b> (US SSNs, card numbers). The Gold <b>${tierAgent("gold").displayName}</b> sends one clean prompt and four that should never leave the gateway. A blocked call gets <b>403</b> with <code>x-gw-blocked-by: llm-content-safety</code>, no model tokens are spent, and the screening itself shows up as a separate chargeback line.`,
     async run() {
       if (!cfg.contentSafety?.enabled) { info("Content safety is not enabled in this deployment. Set <code>contentSafety.enabled</code> in <code>sandbox-config.json</code> and redeploy."); return; }
@@ -2672,16 +2690,23 @@ const SCENARIOS = [
       takeaway(`<b>${blocked.length} of ${res.length - 1}</b> unsafe calls were stopped at the gateway with 403, before any model, tool or agent was called: <b>${tokens} model tokens, ${fmtUsd(blocked.reduce((x, r) => x + usd(r), 0))}</b> of model spend. The clean prompt went through for ${fmtUsd(usd(ok))}. Screening all ${res.length} calls cost ${fmtUsd(safetyTotal)}, charged to the Gold plan's $ budget as a <b>Safety checks</b> line item, and every block is a <code>content-blocked</code> governance event.`
         + (blocked.length < res.length - 1 ? ` Some calls were not blocked: a new blocklist can take a few minutes to take effect after deployment, so run the scenario again.` : ""));
     } },
-  { title: "Over budget, switched off", cost: "≤ 14 calls · ≈ $0.01 · 5-12 min, runs on its own", slow: true,
-    gist: "Ben overspends his plan. The gateway blocks the next call right away; minutes later an Azure Monitor alert calls a Logic App that suspends his APIM subscription, so his key stops working everywhere.",
+  { title: "Over budget, switched off", get cost() { return cfg?.budgetSuspend?.enabled ? "≤ 14 calls · ≈ $0.01 · 5-12 min, runs on its own" : "off · set budgetSuspend.enabled to try it"; }, slow: true,
+    gist: "Two stops on different clocks: a gateway budget check rejects requests immediately; an Azure Monitor alert later suspends the watched APIM subscription.",
     policies: ["quota-by-key ($ budget)", "chargeback-record trace", "log search alert", "Logic App + managed identity"],
     preview: () => { const b = byName((cfg.budgetSuspend?.subscriptions || ["user-ben"])[0]) || tierAgent("silver"), t = tierOf(b);
-      return dg.row(dg.user(b.name), dg.arrow("overspends"), dg.gw("quota-by-key"), dg.arrow("403, per call", "bad"), dg.node("Blocked", "real time", "x"))
-        + dg.row(dg.node("Log Analytics", "chargeback records", "mon"), dg.arrow("every 5 min"), dg.node("Alert", `≥ ${cfg.budgetSuspend?.suspendAtPercent ?? 100}% of $${t.budgetUsd}`, "mon"),
-                 dg.arrow("action group"), dg.node("Logic App", "managed identity", "gw"), dg.arrow("suspend", "bad"), dg.node("Subscription", "suspended", "x"))
-        + dg.note("An operations loop, not a per-call check: expect 3-10 minutes (ingestion 1-3 min + evaluation every 5 min). <b>Reset budgets</b> re-activates the subscription."); },
+      return dg.lane("1 · Immediate: the next over-budget request", 403,
+          dg.node(escapeHtml(b.displayName), `Plan budget: $${t.budgetUsd}`),
+          dg.gw("Per-call budget check"),
+          dg.node("Request blocked", "Subscription still active", "x"))
+        + dg.lane("2 · Minutes later: disable the subscription key", 401,
+          dg.node("Azure Monitor", `Spend records → alert at ${cfg.budgetSuspend?.suspendAtPercent ?? 100}%`, "mon"),
+          dg.node("Logic App", "Action group → managed identity", "gw"),
+          dg.node("Key rejected", "APIM subscription suspended", "x"))
+        + dg.note("<b>Timing:</b> Log ingestion + alert evaluation every 5 minutes; the scenario waits up to 12 minutes. Suspension stops the same key on models, MCP and A2A.")
+        + dg.note("<b>Recovery:</b> Reset budgets starts a new budget epoch and reactivates watched subscriptions.")
+        + (!cfg.budgetSuspend?.enabled ? dg.note("<b>Off in this deployment.</b> Enable <code>budgetSuspend.enabled</code> and redeploy.") : ""); },
     story: () => { const b = byName((cfg.budgetSuspend?.subscriptions || ["user-ben"])[0]) || tierAgent("silver"), t = tierOf(b);
-      return `Budgets are reset first. <b>${b.displayName}</b> (${t.displayName}, <b>$${t.budgetUsd}</b> budget) then runs long reports until the gateway's <code>quota-by-key</code> answers 403: that is the real-time, per-call stop. Separately, an <b>Azure Monitor log search alert</b> adds up his chargeback records per budget epoch every 5 minutes. When they reach ${cfg.budgetSuspend?.suspendAtPercent ?? 100}% of the budget, its action group calls a <b>Logic App</b> that suspends his APIM subscription with its managed identity and writes a <code>BudgetBreach</code> audit event. That loop takes minutes, and it revokes the key on every API, notifies people and leaves an audit trail.`; },
+      return `Budgets are reset first. <b>${b.displayName}</b> (${t.displayName}, <b>$${t.budgetUsd}</b> budget) then runs long reports until the gateway's <code>quota-by-key</code> answers 403: that is the real-time, per-call stop. Separately, an <b>Azure Monitor log search alert</b> adds up his chargeback records per budget epoch every 5 minutes. When they reach ${cfg.budgetSuspend?.suspendAtPercent ?? 100}% of the budget, its action group calls a <b>Logic App</b> that suspends his APIM subscription with its managed identity and writes a <code>BudgetBreach</code> audit event. After suspension, the same key receives <b>401</b> on every API. Notifications are optional; <b>Reset budgets</b> reactivates the watched subscription.`; },
     async run() {
       const bs = cfg.budgetSuspend || {};
       if (!bs.enabled) { info("Not deployed (off by default): set <code>budgetSuspend.enabled</code> to <code>true</code> in <code>sandbox-config.json</code> (or <code>budget_suspend_config</code> in the notebook) and redeploy (notebook or <code>azd up</code>)."); return; }
@@ -2732,15 +2757,28 @@ const SCENARIOS = [
       takeaway(`Two controls, two jobs. <code>quota-by-key</code> stopped ${b.displayName} <b>on the next call</b> (403) inside the gateway. The alert + Logic App loop took <b>${Math.round((Date.now() - started) / 60000) || 1}+ minutes</b>, then <b>suspended the APIM subscription</b> with a least-privilege managed identity: his key now fails on every API (HTTP ${r1.status} / ${r2.status}), the action group can notify people, and the <code>BudgetBreach</code> event is the audit trail. Use it for thresholds the gateway counters don't see, like monthly spend across epochs. <b>Reset budgets</b> re-activates the subscription.`);
     } },
   { title: "Responses API: cached input & sticky state", cost: "4 calls · < $0.003",
-    gist: "A stateful Responses conversation: the follow-up's cached input tokens are priced lower, it sticks to the backend that stored the first response, and reading a stored response is free.",
+    gist: "Create a response, continue on its original backend, then read it without a gateway dollar charge. Only input tokens reported as cached get the discounted rate.",
     policies: ["responses-pricing fragment", "cache-lookup-value (affinity)", "set-backend-service"],
     preview: () => { const m = respModel(), c = (cfg.cachedInputPrices || {})[m], p = modelInfo(m).inputPrice;
-      return dg.row(dg.agent("gold"), dg.arrow("POST /responses"), dg.gw("stores id → backend"), dg.arrow("new"), dg.model(m, "foundry1"), dg.code(200))
-        + dg.row(dg.agent("gold"), dg.arrow("previous_response_id"), dg.gw("affinity lookup"), dg.arrow("sticky", "ok"), dg.model(m, "same backend"), dg.code(200))
-        + dg.row(dg.agent("gold"), dg.arrow("GET /responses/{id}"), dg.gw("stored read"), dg.arrow("$0", "ok"), dg.model(m, "stored"), dg.code(200))
-        + dg.row(dg.agent("silver"), dg.arrow("GET gold's id"), dg.gw("ownership check"), dg.arrow("other plan", "bad"), dg.node("Foundry", "never called", "dim"), dg.code(404))
-        + (c !== undefined ? dg.bar("Input price", [[100, "#0078d4"]], `$${p} per 1M`) + dg.bar("Cached input", [[100 * c / p, "#107c10"]], `$${c} per 1M`) : ""); },
-    story: () => `Gold <b>${tierAgent("gold").displayName}</b> starts a <b>Responses API</b> conversation with a long shared context, then sends a follow-up with <code>previous_response_id</code>. The gateway remembers which backend stored each response and routes follow-ups back to it, prices <b>cached input tokens</b> at the cheaper cached rate, and does not charge for reading a stored response. Another plan cannot read it.`,
+      return dg.lane("1 · Create: save where the response lives", 200,
+          dg.node("Gold caller", "POST /responses"),
+          dg.gw("Pick backend; remember the returned response ID"),
+          dg.model(escapeHtml(m), "Returns a stored response ID"))
+        + dg.lane("2 · Continue: reuse the backend, not the answer", 200,
+          dg.node("Gold follow-up", "previous_response_id"),
+          dg.gw("Affinity cache hit"),
+          dg.node("Same backend", "New answer; cached input may cost less", "ok"))
+        + dg.lane("3 · Read: no new generation", 200,
+          dg.node("Gold caller", "GET /responses/{id}"),
+          dg.gw("Route stored read"),
+          dg.node("Stored response", "$0 gateway dollar charge", "ok"))
+        + dg.lane("4 · Different subscription: reject on cache hit", 404,
+          dg.node("Silver caller", "Reads Gold's response ID"),
+          dg.gw("Cached owner differs"),
+          dg.node("Read rejected", "Backend not called", "x"))
+        + (c !== undefined ? dg.note(`<b>${escapeHtml(m)} input / 1M tokens:</b> $${p} standard → $${c} cached. The model reports cache hits; discounts are not guaranteed.`) : dg.note("<b>Pricing:</b> No cached-input discount is configured for this model."))
+        + dg.note("<b>Best effort:</b> Affinity and ownership depend on a volatile gateway cache; these checks are not a durable security boundary."); },
+    story: () => `Gold <b>${tierAgent("gold").displayName}</b> starts a <b>Responses API</b> conversation with a long shared context, then sends a follow-up with <code>previous_response_id</code>. On a cache hit, the gateway routes the follow-up to the original backend. Only input tokens the model reports as <b>cached</b> receive the discounted rate. A stored read has no gateway dollar charge. Silver's different subscription is rejected only while the owner mapping is cached: affinity and ownership are <b>best effort, not a durable security boundary</b>.`,
     async run() {
       const g = tierAgent("gold"), s = tierAgent("silver"), m = respModel();
       const r1 = await sendResponse(g.name, m, { prompt: RESP_CONTEXT + "\n\nSummarize the policy in one sentence.", maxTokens: 60 });
@@ -2756,19 +2794,30 @@ const SCENARIOS = [
       const r4 = await sendResponse(s.name, m, { responseId: r1.responseId });
       step(r4, r4.status === 404 ? `blocked by <code>${escapeHtml(hdr(r4, "x-gw-blocked-by") || "?")}</code>` : "ownership unknown to the gateway (cache miss)");
       const cached = Number(hdr(r2, "x-gw-cached-tokens") || 0), saved = Number(hdr(r2, "x-gw-cached-savings-usd") || 0);
-      takeaway(`The follow-up re-sent the whole conversation (${hdr(r2, "x-gw-prompt-tokens") || "-"} input tokens) and ${cached
+      takeaway(`The follow-up reported ${hdr(r2, "x-gw-prompt-tokens") || "-"} input tokens, and ${cached
         ? `<b>${cached} of them were served from the prompt cache</b>, priced at the cached rate: ${fmtUsd(saved)} less than list price`
-        : "none were served from the prompt cache this time (caching is best effort and needs 1,024+ identical leading tokens; run it again)"}. It was routed <code>${escapeHtml(hdr(r2, "x-gw-affinity") || "-")}</code>, so state never splits across regions. Reading the stored response cost ${fmtUsd(usd(r3))}, and Silver's attempt to read Gold's response answered <b>${r4.status}</b>. All of it draws on the same $ budget as chat completions.`);
+        : "none were served from the prompt cache this time (caching is best effort and needs 1,024+ identical leading tokens; run it again)"}. Its reported affinity was <code>${escapeHtml(hdr(r2, "x-gw-affinity") || "-")}</code>. Reading the stored response cost ${fmtUsd(usd(r3))}, and Silver's attempt to read Gold's response answered <b>${r4.status}</b>. Affinity and ownership rely on a volatile gateway cache; they are not a durable security boundary. Priced generation draws on the same $ budget as chat completions.`);
     } },
-  { title: "Images priced per image", cost: "≤ 5 calls · ≈ $0.02",
-    gist: "Image generation draws on the same plan and $ budget: priced per image by quality and size, with plan entitlements on model and quality.",
+  { title: "Images priced per image", get cost() { return cfg?.images?.enabled ? "≤ 5 calls · ≈ $0.02" : "off · set images.enabled to try it"; },
+    gist: "Check plan access and quality before generation. Allowed images are charged by count, quality and size to the same dollar budget as models, tools and agents.",
     policies: ["image-pricing named value", "image entitlement", "rate-limit-by-key (images)", "quota-by-key ($ budget)"],
     preview: () => { const im = cfg.images || {}, name = im.model?.name || "gpt-image-1-mini";
-      return dg.row(dg.agent("gold"), dg.arrow("low 1024x1024"), dg.gw("price per image"), dg.arrow("", "ok"), dg.model(name), dg.code(200))
-        + dg.row(dg.agent("silver"), dg.arrow("high quality"), dg.gw("plan check"), dg.arrow("not in plan", "bad"), dg.node("Foundry", "never called · $0", "dim"), dg.code(403))
-        + dg.row(dg.agent("bronze"), dg.arrow("any image"), dg.gw("plan check"), dg.arrow("not in plan", "bad"), dg.node("Foundry", "never called · $0", "dim"), dg.code(403))
-        + dg.row(dg.agent("silver"), dg.arrow("medium, then low"), dg.gw("$ budget"), dg.arrow("budget used up", "bad"), dg.model(name), dg.code(403))
-        + dg.note(im.enabled ? "Budgets are reset first. Prices are per image from the image-pricing named value." : "Not deployed: set <code>images.enabled</code> to true in sandbox-config.json and redeploy."); },
+      const price = im.prices?.[name]?.low?.["1024x1024"];
+      return dg.lane("1 · Allowed: generate and debit the shared budget", 200,
+          dg.node("Gold request", "Low quality · 1024 × 1024"),
+          dg.gw("Plan + quality + budget"),
+          dg.node("Image generated", price !== undefined ? `1 image × ${fmtUsd(price)}` : "Count × configured unit price", "ok"))
+        + dg.lane("2 · Not entitled: reject before generation", 403,
+          dg.node("Silver: high quality", "Or Bronze: any image"),
+          dg.gw("Plan / quality denied"),
+          dg.node("No image generated", "Backend not called · $0 image cost", "x"))
+        + dg.lane("3 · Shared budget exhausted: stop the next request", 403,
+          dg.node("Silver: medium → low", `Plan budget: $${tierOf(tierAgent("silver")).budgetUsd}`),
+          dg.gw("Budget limit reached"),
+          dg.node("No new image", "Backend not called", "x"))
+        + dg.note("<b>Billing:</b> Count × configured price for the model, quality and size. Demo charges, not Azure invoice reconciliation.")
+        + dg.note("<b>Timing:</b> Budgets reset first; asynchronous counters can let an additional request through before the budget block.")
+        + (!im.enabled ? dg.note("<b>Off in this deployment.</b> Enable <code>images.enabled</code> and redeploy.") : ""); },
     story: () => `Images are priced <b>per image</b> by model, quality and size, and they draw on the <b>same $ budget</b> as tokens, tool calls and agent tasks. Gold may use every quality, Silver only low and medium, and Bronze has no image entitlement. Budgets are reset first.`,
     async run() {
       if (!cfg.images?.enabled) { info("Image generation is not deployed in this sandbox."); takeaway("Set <code>images.enabled</code> to <code>true</code> in <code>sandbox-config.json</code> (or the notebook's <code>images_config</code>) and redeploy to add <b>gpt-image-1-mini</b> to the primary region. No calls were made."); return; }
@@ -2815,7 +2864,9 @@ async function runScenario(s) {
   try { await s.run(); } catch (e) { info("Scenario failed: " + escapeHtml(e.message)); }
   snapPart(curPart);
 }
+let previewHideTimer;
 function showPreview(btn) {
+  clearTimeout(previewHideTimer);
   const i = Number(btn.dataset.i), s = SCENARIOS[i], p = $("scPreview");
   if (!s?.preview) return;
   let body;
@@ -2830,7 +2881,8 @@ function showPreview(btn) {
   p.style.top = Math.max(8, Math.min(innerHeight - h - 8, r.top + r.height / 2 - h / 2)) + "px";
   p.classList.add("show");
 }
-function hidePreview() { $("scPreview").classList.remove("show"); }
+function hidePreview() { clearTimeout(previewHideTimer); $("scPreview").classList.remove("show"); }
+function queueHidePreview() { clearTimeout(previewHideTimer); previewHideTimer = setTimeout(hidePreview, 150); }
 function renderScenarios() {
   $("scenarios").innerHTML = SCENARIOS.map((s, i) => `<button data-i="${i}"><span class="n">${i + 1}</span><span><span class="t">${s.title}</span><span class="c">${s.cost}</span></span></button>`).join("")
     + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.filter(s => !s.slow).length})</span><span class="c">${cfg.contentSafety?.enabled ? (cfg.images?.enabled ? "≈ 99 calls" : "≈ 94 calls") : (cfg.images?.enabled ? "≈ 94 calls" : "≈ 89 calls")} · demo prices · about 10 minutes</span></span></button>`;
@@ -2842,11 +2894,18 @@ function renderScenarios() {
     b.setAttribute("aria-describedby", "scPreview");
     b.addEventListener("mouseenter", () => showPreview(b));
     b.addEventListener("focus", () => showPreview(b));
-    b.addEventListener("mouseleave", hidePreview);
+    b.addEventListener("mouseleave", queueHidePreview);
     b.addEventListener("blur", hidePreview);
   });
-  $("scenarios").addEventListener("mouseleave", hidePreview); // disabled buttons may not fire their own mouseleave
-  window.addEventListener("scroll", () => { const b = document.querySelector(".scenarios button[data-i]:hover"); b ? showPreview(b) : hidePreview(); }, true);
+  $("scenarios").addEventListener("mouseleave", queueHidePreview); // disabled buttons may not fire their own mouseleave
+  $("scPreview").onmouseenter = () => clearTimeout(previewHideTimer);
+  $("scPreview").onmouseleave = queueHidePreview;
+  window.addEventListener("scroll", (e) => {
+    if (e.target === $("scPreview")) return;
+    const b = document.querySelector(".scenarios button[data-i]:hover, .scenarios button[data-i]:focus");
+    b ? showPreview(b) : hidePreview();
+  }, true);
+  window.addEventListener("keydown", (e) => { if (e.key === "Escape") hidePreview(); });
   $("btnAll").onclick = async () => {
     setRunning(true, "Running the full demo…");
     const quick = SCENARIOS.filter(s => !s.slow); // slow scenarios (minutes of Azure Monitor latency) run on their own
