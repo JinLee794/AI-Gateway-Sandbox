@@ -70,19 +70,74 @@
   .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
   .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
-  .kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:16px; }
+  .kpis { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:16px; }
   .kpi { background:var(--panel); border-radius:6px; padding:12px 16px; box-shadow:var(--shadow); border-top:3px solid var(--accent); }
-  .kpi.ok { border-top-color:var(--ok); } .kpi.bad { border-top-color:#d13438; } .kpi.cost { border-top-color:#8764b8; }
-  .kpi .v { font-size:26px; font-weight:600; margin-top:2px; } .kpi .l { color:var(--muted); font-size:12px; }
+  .kpi.ok { border-top-color:var(--ok); } .kpi.bad { border-top-color:#d13438; } .kpi.cost { border-top-color:#8764b8; } .kpi.lat { border-top-color:#038387; }
+  .kpi .v { font-size:26px; font-weight:600; margin-top:2px; } .kpi .l { color:var(--muted); font-size:12px; } .kpi .v small { font-size:60%; font-weight:400; color:var(--muted); white-space:nowrap; } .kpi.lat .v { white-space:nowrap; }
   .status { font-weight:600; padding:1px 8px; border-radius:10px; font-size:12px; display:inline-block; min-width:38px; text-align:center; }
   .s200 { background:var(--ok-bg); color:var(--ok); } .s403 { background:var(--bad-bg); color:var(--bad); } .s429 { background:var(--warn-bg); color:var(--warn); } .sother { background:#edebe9; color:#484644; }
   .kv { display:grid; grid-template-columns:170px 1fr; gap:6px 12px; font-size:13px; margin-top:10px; }
   .kv div:nth-child(odd) { color:var(--muted); }
   .content { background:var(--panel2); border:1px solid var(--divider); border-radius:4px; padding:10px 12px; margin-top:12px; white-space:pre-wrap; max-height:180px; overflow:auto; font-size:13px; }
+  /* Conversation: every prompt / tool call / task and what came back, as one chat transcript with details on demand */
+  .cvhead { display:flex; align-items:center; gap:10px; margin-bottom:8px; } .cvhead h2 { margin:0; flex:1; }
+  .cvhead select { width:auto; min-width:220px; font-size:12px; min-height:28px; padding:2px 6px; }
+  .convo { display:flex; flex-direction:column; gap:10px; max-height:560px; overflow:auto; padding:2px 4px 6px; scroll-behavior:smooth; }
+  .convo:empty::before { content:"Run a scenario or send a request: the prompts, tool calls and answers appear here as a conversation."; color:var(--muted); font-size:13px; }
+  .cv-div { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin:8px 0 0; }
+  .cv-div::before, .cv-div::after { content:""; flex:1; border-top:1px solid var(--divider); } .cv-div b { color:var(--text); font-weight:600; }
+  .cv-turn { display:flex; flex-direction:column; gap:6px; }
+  .cv-u, .cv-a { max-width:min(78%, 900px); padding:8px 12px; font-size:13px; }
+  .cv-u { align-self:flex-end; background:var(--accent-light); border:1px solid #c7e0f4; border-radius:12px 12px 2px 12px; }
+  .cv-a { align-self:flex-start; background:var(--panel2); border:1px solid var(--border); border-radius:12px 12px 12px 2px; min-width:280px; }
+  .cv-a.err { background:#fdf6f6; border-color:#f1bbbc; } .cv-a.warn { background:#fffbf0; border-color:#f2d58a; }
+  .cv-who { font-size:11px; color:var(--muted); margin-bottom:3px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .cv-txt { white-space:pre-wrap; line-height:1.45; word-break:break-word; max-height:320px; overflow:auto; }
+  .cv-txt.code, .cv-u code.args { font-family:Consolas,monospace; font-size:12px; }
+  .cv-u code.args { display:block; white-space:pre-wrap; word-break:break-all; margin-top:2px; }
+  .cv-meta { font-size:11px; color:var(--muted); margin-top:6px; display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; }
+  .cv-meta .status { font-size:11px; min-width:0; padding:0 6px; }
+  .cv-a details { margin-top:6px; border-top:1px dashed var(--divider); padding-top:4px; }
+  .cv-turn summary { cursor:pointer; font-size:12px; color:var(--accent); list-style:none; } .cv-turn summary::-webkit-details-marker { display:none; }
+  .cv-turn summary::before { content:"▸ "; } .cv-turn details[open] > summary::before { content:"▾ "; }
+  .cv-a details .kv { grid-template-columns:150px 1fr; font-size:12px; }
+  .cv-sec { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin:10px 0 4px; }
+  .cache { border-radius:10px; padding:1px 8px; font-size:11px; font-weight:600; white-space:nowrap; } .cache.hit { background:#dff6dd; color:#0e700e; } .cache.miss { background:#f3f2f1; color:var(--muted); font-weight:500; }
+  /* where a model call was served, and region switches between turns */
+  .cv-loc { border-radius:10px; padding:1px 8px; font-size:11px; font-weight:600; white-space:nowrap; background:#eff6fc; color:#005a9e; }
+  .cv-loc.sec { background:#fff4ce; color:#8a5a00; }
+  .cv-hops { display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:6px; font-size:11px; }
+  .cv-hops .hop { border:1px solid var(--border); border-radius:6px; padding:1px 6px; background:#fff; white-space:nowrap; }
+  .cv-hops .hop.bad { border-color:#f1bbbc; background:#fdf6f6; color:#a4262c; } .cv-hops .hop.ok { border-color:#9fd89f; background:#f1faf1; color:#0e700e; }
+  .cv-hops .arr { color:var(--muted); }
+  .cv-region { align-self:center; display:flex; align-items:center; gap:8px; max-width:92%; margin:2px auto; padding:5px 12px; border-radius:14px;
+    background:#fff8e1; border:1px solid #f2d58a; color:#5c3b00; font-size:12px; line-height:1.4; }
+  .cv-region.back { background:#eff6fc; border-color:#a9d3f2; color:#004578; }
+  .cv-region .ic { font-size:15px; flex:0 0 auto; } .cv-region .why { color:var(--muted); }
+  .cv-cache { font-size:12px; line-height:1.5; } .cv-cbar { display:flex; height:6px; border-radius:3px; overflow:hidden; background:#c8c6c4; margin:8px 0 2px; max-width:360px; } .cv-cbar i { background:#107c10; }
+  .cv-cache .muted { font-size:11px; } .cv-how { margin:8px 0 0; padding-left:18px; } .cv-how li { margin:3px 0; }
+  .cv-steps { list-style:none; padding:0; margin:0; font-size:12px; } .cv-steps li { padding:3px 0; border-bottom:1px solid var(--divider); }
+  .cv-pre { background:#fff; border:1px solid var(--divider); border-radius:4px; padding:6px 8px; font-family:Consolas,monospace; font-size:12px; white-space:pre-wrap; word-break:break-word; max-height:220px; overflow:auto; margin:0; }
+  .cv-typing { display:inline-flex; gap:3px; padding:4px 0; } .cv-typing i { width:6px; height:6px; border-radius:50%; background:#a19f9d; animation:cvdot 1s infinite; }
+  .cv-typing i:nth-child(2) { animation-delay:.15s; } .cv-typing i:nth-child(3) { animation-delay:.3s; }
+  @keyframes cvdot { 0%, 60%, 100% { opacity:.25; transform:translateY(0); } 30% { opacity:1; transform:translateY(-3px); } }
+  .cv-compose { display:flex; gap:8px; align-items:flex-end; margin-top:10px; padding-top:10px; border-top:1px solid var(--divider); }
+  .cv-compose textarea { min-height:38px; height:38px; flex:1; } .cv-compose button { flex:0 0 auto; }
+  .cv-ctx { font-size:11px; color:var(--muted); margin-top:4px; } .cv-ctx a { cursor:pointer; }
   .gov { color:var(--warn); background:var(--warn-bg); padding:1px 8px; border-radius:10px; font-weight:600; font-size:12px; }
-  .budget { margin:10px 0; } .budget .bar { height:8px; background:#edebe9; border-radius:4px; overflow:hidden; margin-top:6px; }
+  .budget { margin:8px 0; } .budget .bar { display:flex; height:8px; background:#edebe9; border-radius:4px; overflow:hidden; margin-top:5px; }
   .budget .fill { height:100%; background:var(--ok); transition:width .3s; }
-  .budget .lbl { display:flex; justify-content:space-between; align-items:center; font-size:13px; }
+  .budget .fill.pend { background:repeating-linear-gradient(45deg, #8a8886 0 4px, #c8c6c4 4px 8px); }
+  .budget .lbl { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px; } .budget .lbl .status { font-size:10px; min-width:0; padding:0 5px; }
+  .budget .lbl .ico { width:14px; height:14px; vertical-align:-2px; }
+  .btier { border-top:1px solid var(--divider); padding-top:8px; margin-top:8px; } .btier:first-child { border-top:0; margin-top:0; padding-top:0; }
+  .bth { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px 8px; font-size:13px; }
+  .bout { color:var(--bad); } .bfoot { margin-top:10px; line-height:1.5; } .bfoot a { cursor:pointer; }
+  .bspin { display:inline-block; width:10px; height:10px; border-radius:50%; border:2px solid #c7e0f4; border-top-color:var(--accent); animation:spin .8s linear infinite; vertical-align:-1px; }
+  .bl { display:flex; align-items:center; gap:6px; margin-top:5px; font-size:11px; color:var(--muted); }
+  .bl-b { flex:1; height:3px; background:#edebe9; border-radius:2px; overflow:hidden; } .bl-f { height:100%; background:#107c10; transition:width .3s; }
+  .bl-t { white-space:nowrap; } .bl-t.out { color:var(--bad); font-weight:600; }
+  .cv-ctx .bchip { white-space:nowrap; } .cv-ctx .bchip.out { color:var(--bad); font-weight:600; }
   table { width:100%; border-collapse:collapse; font-size:13px; }
   th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--divider); white-space:nowrap; }
   th { color:var(--muted); font-weight:600; font-size:12px; position:sticky; top:0; background:#fff; border-bottom:1px solid var(--border); }
@@ -100,6 +155,13 @@
   .scenarios button.all { background:var(--accent); border-color:var(--accent); color:#fff; justify-content:center; margin-top:4px; }
   .scenarios button.all:hover:not(:disabled) { background:var(--accent-hover); } .scenarios button.all .c { color:#deecf9; }
   .scenarios button:disabled { background:#faf9f8; color:#a19f9d; border-color:var(--divider); }
+  /* scenarios whose feature isn't deployed: hatched, dashed, greyed and not clickable */
+  .scenarios button.off, .scenarios button.off:disabled { cursor:not-allowed; border-style:dashed; border-color:#c8c6c4; color:#8a8886;
+    background:repeating-linear-gradient(135deg,#f3f2f1 0 6px,#faf9f8 6px 12px); }
+  .scenarios button.off .n { background:#e1dfdd; color:#8a8886; }
+  .scenarios button.off .t { text-decoration:line-through; text-decoration-color:#a19f9d; font-weight:500; }
+  .scenarios button.off .c { color:#8a8886; }
+  .scenarios button .offtag { margin-left:auto; align-self:center; flex:0 0 auto; font-size:10px; font-weight:700; letter-spacing:.06em; padding:2px 7px; border-radius:10px; background:#edebe9; color:#605e5c; border:1px solid #c8c6c4; }
   #scenario { margin-bottom:16px; border-left:4px solid var(--accent); }
   #scSteps, .rsteps { margin:12px 0 0; padding-left:22px; line-height:2; font-size:13px; }
   #scTakeaway, .rtake { margin-top:12px; padding:10px 12px 10px 38px; background:var(--accent-light); border:1px solid #c7e0f4; border-radius:4px; position:relative; font-size:13px; }
@@ -224,26 +286,28 @@
   .dr { display:flex; align-items:center; width:100%; }
   .dc { display:grid; gap:6px; flex:1; }
   .dn { border:1px solid var(--border); background:#fff; border-radius:6px; padding:4px 8px; font-size:11px; line-height:1.3; text-align:center; flex:0 0 auto; max-width:120px; }
-  .dn b { display:block; font-size:12px; font-weight:600; } .dn > span { color:var(--muted); font-size:10.5px; display:block; }
+  .dn b { display:block; font-size:12px; font-weight:600; } .dn > span { color:var(--muted); font-size:10.5px; display:block; text-wrap:balance; }
   .dn .badge { font-size:9px; padding:0 5px; }
   .dn.gw { border-color:var(--accent); background:var(--accent-light); } .dn.gw b { color:#005a9e; }
   .dn.model { border-color:#9fc5ea; } .dn.tool { border-color:#7fc8cd; background:#f2fafa; } .dn.a2a { border-color:#b9a4d8; background:#f9f6fc; }
   .dn.mon { border-color:#c3b3e0; } .dn.x { border-color:#e8a3a7; background:var(--bad-bg); } .dn.x b { color:var(--bad); }
   .dn.dim { border-style:dashed; color:var(--muted); }
-  .da { --c:#8a8886; flex:1 1 0; min-width:26px; display:flex; flex-direction:column; align-items:center; font-size:10px; color:var(--muted); padding:0 3px; text-align:center; line-height:1.2; }
-  .da > span { white-space:nowrap; margin-bottom:2px; }
-  .da i { display:block; width:100%; height:2px; background:var(--c); position:relative; }
+  /* arrow: label above a line that stays level with the middle of the boxes; long labels wrap instead of running over the boxes */
+  .da { --c:#8a8886; flex:1 1 0; min-width:52px; align-self:stretch; display:grid; grid-template-rows:1fr auto 1fr; justify-items:center; font-size:10px; color:var(--muted); padding:0 4px; text-align:center; line-height:1.2; }
+  .da > span { align-self:end; margin-bottom:3px; max-width:100%; text-wrap:balance; overflow-wrap:break-word; }
+  .da i { display:block; width:100%; height:2px; background:var(--c); position:relative; grid-row:2; }
+  .dc .da:only-child { grid-template-rows:auto auto; }
   .da i::after { content:""; position:absolute; right:-2px; top:-4px; border:5px solid transparent; border-left:7px solid var(--c); border-right:0; }
   .da.ok { --c:#107c10; } .da.bad { --c:#d13438; } .da.warn { --c:#ca5010; } .da.ok > span { color:var(--ok); } .da.bad > span { color:var(--bad); } .da.warn > span { color:var(--warn); }
   .da.dash i { background:repeating-linear-gradient(90deg,var(--c) 0 4px,transparent 4px 7px); }
   .dr > .status { margin-left:6px; flex:0 0 auto; }
-  .db { display:grid; grid-template-columns:110px 1fr 120px; gap:8px; align-items:center; font-size:11px; }
+  .db { display:grid; grid-template-columns:110px 1fr auto; gap:8px; align-items:center; font-size:11px; }
   .db .t { height:10px; background:#edebe9; border-radius:5px; overflow:hidden; display:flex; } .db .t span { display:block; height:100%; }
   .db .t span + span { border-left:2px solid #fff; }
-  .db .r { color:var(--muted); text-align:right; }
+  .db .r { color:var(--muted); text-align:right; white-space:nowrap; }
   .dseq { display:flex; gap:4px; align-items:center; font-size:11px; color:var(--muted); }
   .dseq .dq { font-size:10px; font-weight:600; border-radius:3px; padding:2px 5px; }
-  .dnote { font-size:11px; color:var(--muted); line-height:1.5; }
+  .dnote { font-size:11px; color:var(--muted); line-height:1.5; } .dnote code { white-space:nowrap; }
   .dlane + .dlane { border-top:1px solid var(--divider); padding-top:10px; }
   .dlhead { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; font-size:11px; }
   .dlane .dr { gap:6px; }
@@ -310,7 +374,7 @@
   .build .agents { grid-template-columns:repeat(3,minmax(0,1fr)); } .build .agrp, .build .users { grid-column:1 / -1; }
   .build .users { grid-template-columns:repeat(4,minmax(0,1fr)); }
   .build .form { border-left:1px solid var(--divider); padding-left:24px; }
-  #sessionArea.idle #tab-live > :not(.idlehint) { opacity:.45; filter:grayscale(.5); }
+  #sessionArea.idle #tab-live > :not(.idlehint):not(.grid2), #sessionArea.idle #tab-live > .grid2 > :not(.bcard) { opacity:.45; filter:grayscale(.5); }
   .idlehint { border:1px dashed #8a8886; border-radius:6px; padding:10px 14px; margin-bottom:14px; font-size:13px; background:#fff; }
   #sessionArea:not(.idle) .idlehint { display:none; }
   .lsum { cursor:pointer; } .lsum:hover { color:var(--accent); text-decoration:underline; }
@@ -330,7 +394,7 @@
   a.rtag:hover { background:var(--accent); color:#fff; }
   .rhead { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:16px; } .rhead h2 { margin:0; flex:1; min-width:200px; }
   .rhead .rtag { font-size:13px; padding:2px 9px; } .rhead .kind { font-size:12px; padding:2px 9px; }
-  .rkpis { grid-template-columns:repeat(6,1fr); } .rkpis .kpi .v { font-size:20px; }
+  .rkpis { grid-template-columns:repeat(7,1fr); } .rkpis .kpi .v { font-size:20px; }
   .rpart + .rpart { margin-top:10px; } .rpart summary { cursor:pointer; font-weight:600; font-size:13px; padding:4px 0; } .rpart summary .muted { font-weight:400; }
   .rkv { grid-template-columns:130px 1fr; }
   #runDetail tr.click.sel td { background:var(--accent-light); }
@@ -348,6 +412,51 @@
   @media (max-width:1180px) { .runs { grid-template-columns:1fr; } .rlist { position:static; max-height:320px; } .rkpis { grid-template-columns:repeat(3,1fr); } }
   @media (max-width:1180px) { .build { grid-template-columns:1fr; } .build .form { border-left:0; padding-left:0; } .build .agents, .build .users { grid-template-columns:1fr 1fr; } }
   @media (max-width:760px) { .modes { flex-wrap:wrap; } .build .agents, .build .users { grid-template-columns:1fr; } }
+  /* Workbench: configure on the left, converse on the right (stacked on narrow screens). Agent plan details live in a hover card. */
+  .bench { display:grid; grid-template-columns:minmax(440px,5fr) minmax(0,6fr); gap:16px; margin:16px 0; align-items:stretch; }
+  .bench .launch { margin:0; min-width:0; }
+  .bench:has(.launch.collapsed) { display:contents; } .bench:has(.launch.collapsed) .launch { margin:16px 0; }
+  .cvcol { position:relative; min-height:560px; min-width:0; }
+  .cvcol > #cvCard { position:absolute; inset:0; display:flex; flex-direction:column; margin:0; }
+  .cvcol > #cvCard .convo { flex:1 1 0; min-height:0; max-height:none; }
+  .bench:has(.launch.collapsed) .cvcol { min-height:620px; margin-bottom:16px; }
+  .bench .lbar { padding:10px 14px; gap:8px; } .bench .lbar .q { display:none; }
+  .bench .modes { flex:1 1 300px; min-width:0; } .bench .modes .or { display:none; }
+  .bench .mode { flex:1 1 0; min-width:0; padding:6px 10px 6px 8px; } .bench .mode small { display:none; } .bench .mode b { font-size:13px; }
+  .bench .mode .ic { width:24px; height:24px; flex-basis:24px; font-size:12px; }
+  .bench .lbody { padding:12px 14px 14px; }
+  .bench .build { grid-template-columns:1fr; gap:12px; }
+  .bench .build .form { border-left:0; padding-left:0; border-top:1px solid var(--divider); padding-top:12px; }
+  .bench .build .agents, .bench .build .users { grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:6px; }
+  .bench .agent { padding:6px 10px; } .bench .agent .meta { display:none; }
+  .agent .short { color:var(--muted); font-size:12px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .agent .name > span:first-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bench .lbody h2 { margin-bottom:8px; } .bench label { margin:8px 0 3px; } .bench #prompt { min-height:56px; }
+  .bench .toggles { flex-wrap:wrap; gap:6px 14px; margin-top:10px; } .bench .actions { margin-top:10px; }
+  .bench .scenarios { grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); } .bench .scenarios button { padding:6px 10px; }
+  .bench .scenarios button.all { grid-column:1 / -1; }
+  .preview.narrow { width:380px; }
+  .preview .ptip .name { font-weight:600; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .preview .ptip .meta { font-size:12px; line-height:1.6; color:var(--muted); margin-top:6px; }
+  .preview .ptip .hint { font-size:11px; color:var(--muted); margin-top:8px; border-top:1px solid var(--divider); padding-top:6px; }
+  /* Minimized: the launch panel shrinks to a slim rail (side by side only) and the conversation takes the width */
+  .rlab { display:none; } #btnMini { padding:0 10px; font-size:16px; }
+  @media (min-width:1101px) {
+    .bench:has(.launch.mini) { grid-template-columns:52px minmax(0,1fr); }
+    .bench:has(.launch.mini) .cvcol { min-height:max(560px, calc(100vh - 260px)); }
+    .launch.mini .lbody, .launch.mini .lsum, .launch.mini #runStatus, .launch.mini #btnToggle, .launch.mini .sp, .launch.mini .mode > span:not(.ic), .launch.mini #btnAgain .lbl { display:none; }
+    .launch.mini .lbar { flex-direction:column; flex-wrap:nowrap; height:100%; padding:8px 0; gap:8px; border-bottom:0; }
+    .launch.mini #btnMini { order:-1; }
+    .launch.mini .modes { flex:none; flex-direction:column; gap:6px; }
+    .launch.mini .mode, .launch.mini .mode:hover:not(:disabled), .launch.mini .mode.active { flex:none; width:36px; height:36px; padding:0; justify-content:center; border-color:transparent; background:transparent; box-shadow:none; }
+    .launch.mini .mode .ic { width:28px; height:28px; flex-basis:28px; font-size:13px; }
+    .launch.mini #btnMini, .launch.mini #btnAgain, .launch.mini #btnStop { width:40px; padding:0; font-size:12px; }
+    .launch.mini #btnMini { font-size:16px; }
+    .launch.mini .rlab { display:block; flex:1; writing-mode:vertical-rl; transform:rotate(180deg); background:none; border:0; height:auto; padding:8px 0; color:var(--muted); font-weight:600; font-size:12px; letter-spacing:.3px; cursor:pointer; }
+    .launch.mini .rlab:hover { color:var(--accent); }
+  }
+  @media (max-width:1100px) { #btnMini { display:none; } .bench { grid-template-columns:1fr; } .cvcol, .bench:has(.launch.collapsed) .cvcol { min-height:0; }
+    .cvcol > #cvCard { position:static; } .cvcol > #cvCard .convo { flex:none; min-height:220px; max-height:560px; } }
   /* Request inspector: the redacted HTTP calls app.py made through APIM for one result */
   .insp { margin-top:12px; border:1px solid var(--border); border-radius:4px; background:var(--panel); }
   .insp > summary { cursor:pointer; padding:8px 12px; font-weight:600; font-size:13px; display:flex; align-items:center; gap:8px; list-style:none; }
@@ -405,20 +514,23 @@
 </div>
 
 <main>
+  <div class="bench" id="bench">
   <section class="launch" id="launch">
     <div class="lbar">
       <span class="q">How do you want to drive the gateway?</span>
       <div class="modes" role="tablist" aria-label="Choose one">
-        <button class="mode active" data-mode="guided" role="tab" aria-selected="true"><span class="ic">▶</span><span><b>Run a guided scenario</b><small>one click · a scripted story with a takeaway</small></span></button>
+        <button class="mode active" data-mode="guided" role="tab" aria-selected="true" title="Run a guided scenario"><span class="ic">▶</span><span><b>Run a guided scenario</b><small>one click · a scripted story with a takeaway</small></span></button>
         <span class="or">or</span>
-        <button class="mode" data-mode="build" role="tab" aria-selected="false"><span class="ic">✎</span><span><b>Build your own request</b><small>pick an agent, a target and a prompt</small></span></button>
+        <button class="mode" data-mode="build" role="tab" aria-selected="false" title="Build your own request"><span class="ic">✎</span><span><b>Build your own request</b><small>pick an agent, a target and a prompt</small></span></button>
       </div>
       <span class="lsum hidden" id="lsum"></span>
       <span class="sp"></span>
       <span class="lstat"><span class="live"></span><span class="spin sm" aria-hidden="true"></span><span class="muted" id="runStatus"></span></span>
       <button class="secondary hidden" id="btnStop">Stop</button>
-      <button class="secondary hidden" id="btnAgain">↻ Run again</button>
+      <button class="secondary hidden" id="btnAgain" title="Run again">↻<span class="lbl"> Run again</span></button>
       <button class="secondary" id="btnToggle">Collapse ▴</button>
+      <button class="rlab" id="rlab" title="Expand the panel">Scenarios &amp; request builder</button>
+      <button class="secondary" id="btnMini" title="Minimize the panel to a side rail" aria-expanded="true">«</button>
     </div>
     <div class="lbody" id="lbody">
     <div class="guided" id="mode-guided">
@@ -467,6 +579,7 @@
       <div class="toggles">
         <label title="Microsoft Entra ID token from your az login, validated by validate-azure-ad-token"><input type="checkbox" id="useToken" checked /> Send Entra ID token</label>
         <label title="Requests an APIM debug credential so the gateway records a policy-by-policy trace"><input type="checkbox" id="useTrace" /> Trace policies</label>
+        <label title="Send sends the earlier prompts and answers of this session with the new prompt, so the model sees the conversation. Bursts always send a single prompt."><input type="checkbox" id="useHistory" checked /> Remember earlier turns</label>
       </div>
       <div class="actions">
         <button id="btnSend">Send</button>
@@ -479,6 +592,21 @@
     </div>
     </div>
   </section>
+  <div class="cvcol">
+    <div class="card" id="cvCard">
+      <div class="cvhead">
+        <h2>Conversation <span class="info" tabindex="0" data-tip="Every prompt, tool call and agent task sent from this page, and what came back through the gateway. Expand Details for the gateway's decision, tool arguments, agent steps and errors.">i</span></h2>
+        <select id="cvFilter" aria-label="Show the conversation of"></select>
+      </div>
+      <div class="convo" id="convo" aria-live="polite"></div>
+      <div class="cv-compose">
+        <textarea id="cvInput" placeholder="Message the model…" aria-label="Message"></textarea>
+        <button id="cvSend">Send</button>
+      </div>
+      <div class="cv-ctx" id="cvCtx"></div>
+    </div>
+  </div>
+  </div>
 
   <section class="idle" id="sessionArea">
     <div class="card hidden" id="scenario">
@@ -1188,21 +1316,22 @@
     </div>
 
     <div id="tab-live">
-      <div class="idlehint">Results show up here. Pick <b>one</b> above: run a guided scenario, <i>or</i> build your own request and press <b>Send</b>.</div>
+      <div class="idlehint">Results show up here. Run a guided scenario, <i>or</i> build your own request and press <b>Send</b>, <i>or</i> just type a message in the conversation.</div>
       <div class="kpis">
         <div class="kpi"><div class="l">Requests</div><div class="v" id="kCalls">0</div></div>
         <div class="kpi ok"><div class="l">Allowed (200)</div><div class="v" id="kOk">0</div></div>
         <div class="kpi bad"><div class="l">Blocked (401/403/429)</div><div class="v" id="kBlocked">0</div></div>
         <div class="kpi"><div class="l">Tokens</div><div class="v" id="kTokens">0</div></div>
         <div class="kpi cost"><div class="l">Cost (USD)</div><div class="v" id="kCost">$0.000000</div></div>
+        <div class="kpi lat" title="End-to-end latency per call as measured by the demo app: app → APIM gateway (policies) → backend and back"><div class="l">Latency p50 · p95</div><div class="v" id="kLat">-</div></div>
       </div>
       <div class="grid2">
         <div class="card">
           <h2>Last response</h2>
           <div id="last" class="muted">Send a request to see what the gateway did.</div>
         </div>
-        <div class="card">
-          <h2>$ budget consumed this session <span class="muted">(since last reset)</span></h2>
+        <div class="card bcard">
+          <h2>$ budget left by tier and subscription <span class="info" tabindex="0" data-tip="Each user and agent has its own subscription key on a Gold, Silver or Bronze plan, and the gateway's quota-by-key counts every call's cost against that subscription's $ budget. API Management can't read that counter back, so this sums the chargeback records the gateway writes for each subscription's own calls since the last reset, and adds this page's newer calls until their records land.">i</span></h2>
           <div id="budgets"></div>
         </div>
       </div>
@@ -1348,13 +1477,16 @@ async function init() {
     if (cfg.links[k]) $(id).href = cfg.links[k]; else $(id).classList.add("hidden");
   }
   loadHistory();
+  const bl = (a) => `<div class="bl" data-bl="${a.name}"><div class="bl-b"><div class="bl-f" style="width:100%"></div></div><span class="bl-t">$${tierOf(a).budgetUsd} budget</span></div>`;
   const card = (a) => {
     const t = tierOf(a);
     if (a.kind === "user") return `<div class="agent" data-agent="${a.name}">
       <div class="name"><span>${ico("users")} ${a.displayName}</span> <span class="badge ${a.tier}">${a.tier}</span></div>
+      <div class="short">${escapeHtml(a.team || "-")} · $${t.sessionBudgetUsd ?? t.budgetUsd} per session</div>${bl(a)}
       <div class="meta">${escapeHtml(a.team || "-")} · ${escapeHtml(a.costCenter || "-")}<br/>budget <b>$${t.budgetUsd}</b> · <b>$${t.sessionBudgetUsd ?? t.budgetUsd}</b> per session</div></div>`;
     return `<div class="agent" data-agent="${a.name}">
       <div class="name"><span>${ico("foundry-agent-service")} ${a.displayName}</span> <span class="badge ${a.tier}">${a.tier}</span></div>
+      <div class="short">${t.allowedModels.length} model${t.allowedModels.length === 1 ? "" : "s"} · ${t.allowedTools.length} tool${t.allowedTools.length === 1 ? "" : "s"} · ${(t.tpm / 1000).toLocaleString()}k TPM</div>${bl(a)}
       <div class="meta">${surfChip("model")} ${t.allowedModels.join(", ")} · disallowed → ${t.onDisallowedModel === "deny" ? "<b>deny</b>" : "downgrade to " + t.fallbackModel}<br/>
       ${surfChip("tool")} ${list(t.allowedTools)}<br/>
       ${surfChip("agent")} ${list(t.allowedAgents)}<br/>
@@ -1363,9 +1495,15 @@ async function init() {
   const apps = cfg.agents.filter(a => a.kind !== "user"), people = cfg.agents.filter(a => a.kind === "user");
   $("agents").innerHTML = `<div class="agrp">Apps &amp; agents</div>` + apps.map(card).join("")
     + (people.length ? `<div class="agrp">Demo users <span>· one subscription key each, no Entra ID user needed</span></div><div class="users">${people.map(card).join("")}</div>` : "");
-  document.querySelectorAll(".agent").forEach(el => el.onclick = () => selectAgent(el.dataset.agent));
+  document.querySelectorAll(".agent").forEach(el => {
+    el.onclick = () => selectAgent(el.dataset.agent);
+    el.tabIndex = 0;
+    el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectAgent(el.dataset.agent); } };
+    el.onmouseenter = el.onfocus = () => showAgentTip(el);
+    el.onmouseleave = queueHidePreview; el.onblur = hidePreview;
+  });
   $("sessionId").value = newSessionId("ui");
-  $("btnNewSession").onclick = () => { $("sessionId").value = newSessionId(selectedAgent?.kind === "user" ? selectedAgent.name.replace(/^user-/, "") : "ui"); toast("New session " + $("sessionId").value); };
+  $("btnNewSession").onclick = () => { $("sessionId").value = newSessionId(selectedAgent?.kind === "user" ? selectedAgent.name.replace(/^user-/, "") : "ui"); toast("New session " + $("sessionId").value); cvCtx(); };
   $("btnChargeback").onclick = () => loadChargeback();
   $("cbWindow").onchange = () => loadChargeback();
   $("preset").innerHTML = Object.keys(PRESETS).map(p => `<option>${p}</option>`).join("");
@@ -1376,8 +1514,11 @@ async function init() {
   document.querySelectorAll("#surfacePivot button").forEach(b => b.onclick = () => setSurface(b.dataset.surface));
   selectAgent(cfg.agents[0].name);
   $("toolArgs").value = JSON.stringify(TOOL_ARGS[$("tool").value] || {});
+  cvInit();
   initCharts();
   renderBudgets();
+  refreshBudgets();
+  setInterval(() => { if (document.visibilityState === "visible") refreshBudgets(); }, 60000);  // other users and agents spend too
   renderPlans();
   renderScenarios();
 }
@@ -1388,6 +1529,7 @@ function setSurface(s) {
   for (const k of ["model", "tool", "agent"]) $("pane-" + k).classList.toggle("hidden", k !== s);
   $("btnList").classList.toggle("hidden", s !== "tool"); $("btnCard").classList.toggle("hidden", s !== "agent");
   $("btnBurst").classList.toggle("hidden", s === "agent");
+  cvCtx();
 }
 
 function selectAgent(name) {
@@ -1402,6 +1544,7 @@ function selectAgent(name) {
   if (current) $("model").value = current;
   $("tool").innerHTML = cfg.tools.map(x => `<option value="${x.name}">${x.name}  ($${x.priceUsd} per call)  ${(t.allowedTools || []).includes(x.name) ? "· in plan" : "· not in plan"}</option>`).join("");
   if (currentTool) $("tool").value = currentTool;
+  cvCtx();
 }
 
 function renderPlans() {
@@ -1473,15 +1616,26 @@ function setOutcomes(c, rows) { // rows: [{Agent, resultCode, Calls}]
 function authOpts(opts = {}) { return { noToken: opts.noToken ?? !$("useToken").checked, trace: opts.trace ?? $("useTrace").checked, session: opts.session ?? $("sessionId").value.trim() }; }
 function newSessionId(prefix = "s") { return `${prefix}-${new Date().toISOString().slice(5, 16).replace(/[-T:]/g, "")}-${Math.random().toString(36).slice(2, 6)}`; }
 async function post(path, body) {
-  const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const r = await res.json();
+  const pend = cvPending(path, body);
+  let r;
+  try {  // a dead server or a non-JSON error page (e.g. a proxy 502) must fail the call, not leave the run stuck on "Sending…"
+    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    r = await res.json().catch(() => ({ error: `${path} answered HTTP ${res.status} without JSON` }));
+  } catch (e) { r = { error: `Can't reach the demo app (${e.message}). Is app.py still running?` }; }
   releaseRunBusy();
-  if (r.status === undefined) { toast(r.error || "request failed"); return { status: 0, agent: body.agent, surface: "model", error: r.error }; }
+  if (r.status === undefined) {
+    toast(r.error || "request failed");
+    const failed = { status: 0, agent: body.agent, surface: { "/api/mcp": "tool", "/api/a2a": "agent", "/api/image": "image" }[path] || "model", requestedModel: body.model, tool: body.tool, action: body.action, error: r.error, sent: pend.sent };
+    cvResult(pend, failed, -1); return failed;
+  }
+  Object.assign(r, { sent: pend.sent, cvKey: pend.key, cvLabel: pend.label });
   record(r);
+  cvResult(pend, r, session.calls.length - 1);
+  if (curRun?.req) step(r);  // build-your-own runs list each call in their own results card
   return r;
 }
 function send(agentName, model, opts = {}) {
-  return post("/api/chat", { agent: agentName, model, prompt: opts.prompt ?? $("prompt").value,
+  return post("/api/chat", { agent: agentName, model, prompt: opts.prompt ?? $("prompt").value, history: opts.history,
                              maxTokens: opts.maxTokens ?? (Number($("maxTokens").value) || undefined), ...authOpts(opts) });
 }
 function callTool(agentName, tool, args, opts = {}) { return post("/api/mcp", { agent: agentName, action: "call", tool, arguments: args ?? TOOL_ARGS[tool] ?? {}, ...authOpts(opts) }); }
@@ -1495,6 +1649,241 @@ function sendResponse(agentName, model, opts = {}) {
 }
 function genImage(agentName, opts = {}) {
   return post("/api/image", { agent: agentName, model: opts.model, prompt: opts.prompt, size: opts.size, quality: opts.quality, n: opts.n || 1, ...authOpts(opts) });
+}
+
+// ---- Conversation: one chat transcript of what this page sends (scenarios and build-your-own) and what came back through the gateway.
+// Each call becomes a prompt bubble and an answer bubble; Details expands the gateway's decision, tool arguments, agent steps and errors.
+const cv = { lastKey: null, sessions: new Map(), lastBackend: null };
+// The earlier turns of a build-your-own session, sent with Send so the model sees the conversation (app.py caps them at 20 messages)
+function chatHistory(sid, maxTurns = 10) {
+  if (!sid) return [];
+  const turns = session.calls.filter(c => !c.past && c.surface === "model" && !c.api && c.status === 200 && c.sent?.path === "/api/chat"
+    && c.sent.session === sid && c.sent.prompt && c.content).slice(-maxTurns);
+  let msgs = turns.flatMap(c => [{ role: "user", content: c.sent.prompt }, { role: "assistant", content: c.content }]);
+  while (msgs.length && msgs.reduce((s, m) => s + m.content.length, 0) > 20000) msgs = msgs.slice(2);
+  return msgs;
+}
+function cvSentOf(path, b) {
+  const s = { path, session: b.session || "", model: b.model, prompt: b.prompt, action: b.action, tool: b.tool, args: b.arguments,
+              history: (b.history || []).length || undefined, previous: b.previousResponseId, responseId: b.responseId, size: b.size, quality: b.quality };
+  for (const k of Object.keys(s)) if (s[k] == null) delete s[k];
+  return s;
+}
+// Which run (and scenario) a call belongs to. Build-your-own sends to the same session read as one conversation.
+function cvGroup(sent) {
+  if (!curRun) return { key: "none", label: "Requests" };
+  if (curRun.kind === "custom") return { key: "c|" + sent.session, label: "Build your own" };
+  const label = curRun.kind === "demo" ? `Full demo · ${curPart?.title || ""}` : curRun.kind === "scenario" ? `${curRun.chip} · ${curRun.title}` : curRun.title;
+  return { key: `${curRun.n}|${curPart?.title || ""}`, label };
+}
+const cvShows = (sid) => !$("cvFilter").value || $("cvFilter").value === sid;
+function cvDivider(box, key, label, sid) {
+  if (key === cv.lastKey) return;
+  cv.lastKey = key; cv.lastBackend = null;  // region switches are tracked within one conversation group
+  box.insertAdjacentHTML("beforeend", `<div class="cv-div"><span><b>${escapeHtml(label)}</b>${sid ? ` · session <span class="sess">${escapeHtml(sid)}</span>` : " · no session"}</span></div>`);
+}
+function cvTrack(sid, label) {
+  if (!sid || cv.sessions.has(sid)) return;
+  cv.sessions.set(sid, label);
+  $("cvFilter").options[0].insertAdjacentHTML("afterend", `<option value="${escapeHtml(sid)}">${escapeHtml(sid)} · ${escapeHtml(label)}</option>`);
+}
+function cvClip(text, n = 600) {
+  const t = String(text ?? "");
+  return t.length <= n ? escapeHtml(t) : `${escapeHtml(t.slice(0, n))}… <details><summary>show all ${t.length.toLocaleString()} characters</summary>${escapeHtml(t)}</details>`;
+}
+function cvMd(text) {  // just enough markdown for model answers: code fences, inline code, bold, headings (escaped first)
+  return String(text).split(/```[\w-]*\n?/).map((p, i) => i % 2 ? `<pre class="cv-pre">${escapeHtml(p.replace(/\n$/, ""))}</pre>`
+    : escapeHtml(p).replace(/`([^`\n]+)`/g, "<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>").replace(/^#{1,4} (.+)$/gm, "<b>$1</b>")).join("");
+}
+function cvJson(s) { try { const v = JSON.parse(s); return v && typeof v === "object" ? JSON.stringify(v, null, 2) : null; } catch { return null; } }
+// The backend pool's path for a call, from x-gw-route ("foundry1 (swedencentral) 429 > foundry2 (francecentral) 200") and x-gw-backend
+function routeOf(r) {
+  if (r.surface !== "model" && r.surface !== "image") return null;
+  const h = r.headers || {}, pool = cfg.foundryBackends || [], be = (n) => pool.find(x => x.name === n);
+  const hops = String(h["x-gw-route"] || "").split(" > ").map(s => s.trim().match(/^(\S+)(?: \(([^)]*)\))? (\d{3})$/)).filter(Boolean)
+    .map(m => ({ name: m[1], region: m[2] && m[2] !== "unknown" ? m[2] : be(m[1])?.location || "", code: Number(m[3]), primary: (be(m[1])?.priority ?? 1) === 1 }));
+  const name = h["x-gw-backend"] || hops.at(-1)?.name;
+  if (!name) return null;
+  const last = hops.at(-1);
+  return { hops, name, region: (last?.name === name && last.region) || be(name)?.location || "", primary: (be(name)?.priority ?? 1) === 1, failover: hops.length > 1 };
+}
+const regionTxt = (b) => `<b>${escapeHtml(b.region || b.name)}</b>${b.region ? ` <span class="why">(${escapeHtml(b.name)})</span>` : ""}`;
+// A divider before the first answer served from a different backend region than the previous one in this conversation
+function cvRegionMark(r) {
+  const rt = r.status === 200 ? routeOf(r) : null;
+  if (!rt) return "";
+  const prev = cv.lastBackend; cv.lastBackend = rt;
+  if (!prev || prev.name === rt.name) return "";
+  const first = rt.hops[0];
+  const why = rt.failover ? `${escapeHtml(first.name)} answered <b>${first.code}</b>, so the retry policy re-sent this request to the next backend in the pool`
+    : !rt.primary && prev.primary ? `the gateway went straight to the spillover backend: the circuit breaker has taken ${escapeHtml(prev.name)} out of rotation`
+    : rt.primary ? `the primary is back in rotation, so the priority pool sends calls to it again`
+    : `the backend pool picked another backend`;
+  return `<div class="cv-region${rt.primary ? " back" : ""}" role="note"><span class="ic">${rt.primary ? "↩" : "⇄"}</span><span>Region switched: ${regionTxt(prev)} → ${regionTxt(rt)} <span class="why">· ${why}</span></span></div>`;
+}
+// Cached input is Foundry's prompt cache, not APIM: it keeps the leading tokens of prompts of 1,024+ tokens for a few minutes, and a later
+// request that starts with the same tokens reports the reused ones as usage.*_tokens_details.cached_tokens. The responses-pricing fragment
+// reprices them (x-gw-cached-tokens / x-gw-cached-savings-usd). The gateway's own cache only remembers which backend owns a response ID.
+const CACHE_MIN = 1024;
+function cacheInfo(r) {
+  const h = r.headers || {}, u = r.usage || {}, model = h["x-gw-model-served"] || r.requestedModel || "";
+  const field = u.input_tokens_details ? "input_tokens_details" : "prompt_tokens_details", reported = (u[field] || {}).cached_tokens;
+  return { prompt: Number(h["x-gw-prompt-tokens"] ?? u.prompt_tokens ?? u.input_tokens ?? 0), cached: Number(h["x-gw-cached-tokens"] ?? reported ?? 0),
+           reported, field, gw: h["x-gw-cached-tokens"] !== undefined, saved: Number(h["x-gw-cached-savings-usd"] || 0), rule: h["x-gw-pricing-rule"] || "", affinity: h["x-gw-affinity"] || "",
+           model, list: modelInfo(model).inputPrice, rate: (cfg.cachedInputPrices || {})[model] };
+}
+const cacheable = (r) => r.surface === "model" && r.status === 200 && !r.sent?.responseId && r.headers?.["x-gw-pricing-rule"] !== "stored-read";
+function cacheBadge(c) {
+  if (c.cached > 0) return `<span class="cache hit" title="Foundry's prompt cache reused the start of this prompt. Open Details for how.">⚡ ${c.cached.toLocaleString()} of ${c.prompt.toLocaleString()} input cached${c.saved ? ` · −${fmtUsd(c.saved)}` : ""}</span>`;
+  if (c.prompt >= CACHE_MIN) return `<span class="cache miss" title="Long enough to be cached, but no recent request started with the same tokens. Open Details for how.">no cache hit</span>`;
+  return "";
+}
+function cacheDetails(r, c) {
+  const pct = c.prompt ? Math.round(100 * c.cached / c.prompt) : 0, n = (v) => Number(v).toLocaleString();
+  const head = c.cached > 0 ? `<b>Cache hit: ${n(c.cached)} of ${n(c.prompt)} input tokens (${pct}%)</b> were reused from an earlier request instead of being processed again. The answer itself was generated fresh.`
+    : c.prompt >= CACHE_MIN ? `<b>Cache miss.</b> At ${n(c.prompt)} tokens this prompt can be cached, but no recent request to this backend started with the same tokens. Its start is cached now: a prompt that begins the same way in the next few minutes can hit it.`
+    : `<b>Not cacheable.</b> This prompt has ${n(c.prompt)} input tokens; Foundry only caches prompts of ${n(CACHE_MIN)} tokens or more, so every token was processed at the full price.`;
+  const why = r.sent?.previous ? `This follow-up names <code>previous_response_id</code>, so Foundry puts the first response's input (the long shared context) ahead of the new question: the same leading tokens as before.`
+    : r.sent?.history ? `<b>Remember earlier turns</b> re-sends the earlier turns first, so each new turn starts with the same tokens as the last one. The prefix grows past ${n(CACHE_MIN)} tokens as the conversation gets longer.`
+    : `A request hits when its prompt starts with the same ${n(CACHE_MIN)}+ tokens as a recent one, e.g. a long shared system prompt or document. Try the <b>Responses API: cached input</b> scenario.`;
+  const aff = c.affinity.startsWith("sticky:") ? ` The gateway routed it to <code>${escapeHtml(c.affinity.slice(7))}</code>, the backend that served the first response (<code>x-gw-affinity: ${escapeHtml(c.affinity)}</code>), where that prefix is cached. Another backend would start cold.`
+    : c.affinity.startsWith("new:") ? ` The gateway remembered this response's backend (<code>x-gw-affinity: ${escapeHtml(c.affinity)}</code>) so a follow-up returns to the same cache.`
+    : c.affinity === "unknown" ? ` The gateway no longer knew which backend owns the earlier response (<code>x-gw-affinity: unknown</code>), so the pool picked one; its cache may be cold.` : "";
+  const price = !c.gw ? `Not discounted by this gateway: it returned no <code>x-gw-cached-tokens</code> header, so the <code>responses-pricing</code> fragment isn't deployed on it and every input token was billed at the full <b>$${c.list}</b> per 1M. Redeploy the lab's policies to price cached tokens separately.`
+    : c.rate === undefined ? `No cached-input price is configured for <b>${escapeHtml(c.model)}</b> in the <code>cached-input-pricing</code> named value, so cached tokens cost the full input price.`
+    : `The <code>responses-pricing</code> fragment bills cached tokens at <b>$${c.rate}</b> instead of <b>$${c.list}</b> per 1M input tokens${c.cached ? `: ${n(c.cached)} × ($${c.list} − $${c.rate}) / 1M = <b>${fmtUsd(c.saved)} saved</b>` : ""}. Pricing rule <code>${escapeHtml(c.rule || "tokens")}</code>.`;
+  return `<div class="cv-sec">Prompt cache (cached input)</div><div class="cv-cache">${head}`
+    + (c.prompt >= CACHE_MIN ? `<div class="cv-cbar" title="${pct}% cached"><i style="width:${pct}%"></i></div><div class="muted">▮ cached ${n(c.cached)} · processed ${n(c.prompt - c.cached)}</div>` : "")
+    + `<ol class="cv-how"><li><b>Who caches:</b> Foundry, on the model backend. It keeps the first ${n(CACHE_MIN)}+ tokens of a prompt (then in 128-token blocks) for about 5–10 minutes of inactivity, at most an hour. APIM does not store prompts or answers here: this is not semantic caching.</li>`
+    + `<li><b>How it's hit:</b> ${why}${aff}</li>`
+    + `<li><b>How it's reported:</b> the model returns <code>usage.${c.field}.cached_tokens</code>${c.reported !== undefined ? ` = <b>${n(c.reported)}</b>` : ""}${c.gw ? `; the gateway copies it to <code>x-gw-cached-tokens: ${n(c.cached)}</code>` : ""}.</li>`
+    + `<li><b>How it's priced:</b> ${price}</li></ol></div>`;
+}
+function cvUser(s, agentName) {
+  const a = byName(agentName), who = a ? `<b>${escapeHtml(a.displayName)}</b> <span class="badge ${a.tier}">${a.tier}</span>` : `<b>${escapeHtml(agentName || "")}</b>`;
+  let to, body;
+  if (s.path === "/api/mcp") {
+    to = surfChip("tool");
+    body = s.action === "list" ? `<code>tools/list</code>` : `<code>tools/call</code> <b>${escapeHtml(s.tool || "")}</b>`
+      + (s.args && Object.keys(s.args).length ? `<code class="args">${escapeHtml(JSON.stringify(s.args))}</code>` : "");
+  } else if (s.path === "/api/a2a") {
+    to = `${surfChip("agent")} Sourcing Agent`; body = s.action === "card" ? "Get the agent card" : cvClip(s.prompt);
+  } else if (s.path === "/api/image") {
+    to = `${surfChip("image")} ${escapeHtml(s.model || "")}`; body = cvClip(s.prompt) + (s.size || s.quality ? ` <span class="muted">· ${escapeHtml([s.size, s.quality].filter(Boolean).join(" "))}</span>` : "");
+  } else if (s.path === "/api/responses") {
+    to = `${surfChip("model")} ${escapeHtml(s.model || "")} · Responses API`;
+    body = s.responseId ? `Read the stored response <code>${escapeHtml(s.responseId)}</code>` : cvClip(s.prompt);
+  } else { to = `${surfChip("model")} ${escapeHtml(s.model || "")}`; body = cvClip(s.prompt); }
+  const notes = [s.history ? `with ${s.history / 2} earlier turn${s.history === 2 ? "" : "s"}` : "", s.previous ? `follow-up of <code>${escapeHtml(s.previous)}</code>` : ""].filter(Boolean);
+  return `<div class="cv-u"><div class="cv-who">${who} → ${to}${notes.length ? ` <span>· ${notes.join(" · ")}</span>` : ""}</div><div class="cv-txt">${body}</div></div>`;
+}
+function cvAnswer(r, idx) {
+  const h = r.headers || {}, ok = r.status === 200, cost = callCost(r), served = h["x-gw-model-served"];
+  let target;
+  if (r.surface === "tool") target = `${surfChip("tool")} <b>${escapeHtml(r.action === "list" ? "tools/list" : r.tool || "tool")}</b>`;
+  else if (r.surface === "agent") target = `${surfChip("agent")} <b>sourcing-agent</b>`;
+  else target = `${surfChip(r.surface || "model")} ${served && served !== r.requestedModel ? `${escapeHtml(r.requestedModel || "")} → ` : ""}<b>${escapeHtml(served || r.requestedModel || "model")}</b>`;
+  let cls = "", body;
+  if (!ok) {
+    cls = r.status === 429 ? "warn" : "err";
+    const by = h["x-gw-blocked-by"];
+    body = `<div class="cv-txt">${by ? `<b>Blocked by ${escapeHtml(by)}</b>\n` : r.status ? "" : "<b>No answer from the demo app</b>\n"}${escapeHtml(r.error || `HTTP ${r.status}`)}${h["retry-after"] ? `\nRetry after ${escapeHtml(h["retry-after"])} s.` : ""}</div>`;
+  } else if (r.tools) {
+    body = `<div class="cv-txt">${r.tools.length} tool${r.tools.length === 1 ? "" : "s"} on the server:\n${r.tools.map(t => `• <b>${escapeHtml(t.name)}</b> <span class="muted">${escapeHtml(t.description || "")}</span>`).join("\n")}</div>`;
+  } else if (r.card) {
+    body = `<div class="cv-txt"><b>${escapeHtml(r.card.name || "agent")}</b>${r.card.description ? ` · ${escapeHtml(r.card.description)}` : ""}\nSkills: ${(r.card.skills || []).map(s => escapeHtml(s.name)).join(", ") || "-"}</div>`;
+  } else if (r.surface === "image") {
+    body = r.preview ? `<img src="data:image/png;base64,${r.preview}" alt="Generated image" style="max-width:280px;border-radius:6px;display:block">` : `<div class="cv-txt muted">${r.imageCount || 0} image(s) generated, too large to preview</div>`;
+  } else if (r.surface === "tool") {
+    const j = cvJson(r.content);
+    body = j ? `<pre class="cv-pre">${escapeHtml(j)}</pre>` : `<div class="cv-txt">${r.content ? escapeHtml(r.content) : '<span class="muted">(empty result)</span>'}</div>`;
+    if (r.isError) { cls = "warn"; body = `<div class="cv-txt"><b>The tool reported an error</b></div>` + body; }
+  } else {
+    body = `<div class="cv-txt">${r.content ? cvMd(r.content) : '<span class="muted">(empty answer)</span>'}</div>`;
+  }
+  if (ok && r.finishReason === "length") body += `<div class="cv-meta">⚠ Cut off at max_tokens: the builder's value or the plan's output cap.</div>`;
+  const g = h["x-gw-governance"], meta = [`<span class="status ${statusClass(r.status)}">${r.status || "—"}</span>`];
+  if (typeof r.latencyMs === "number") meta.push(fmtLat(r.latencyMs));
+  if (r.surface === "model" && ok) meta.push(`${h["x-gw-prompt-tokens"] ?? r.usage?.prompt_tokens ?? "-"} + ${h["x-gw-completion-tokens"] ?? r.usage?.completion_tokens ?? "-"} tokens`);
+  const ci = cacheable(r) ? cacheInfo(r) : null, cb = ci && cacheBadge(ci);
+  if (cb) meta.push(cb);
+  if (r.surface === "agent" && r.steps?.length) meta.push(`${r.steps.length} downstream calls`);
+  if (cost) meta.push(fmtUsd(cost));
+  if (g && g !== "none") meta.push(`<span class="gov">${escapeHtml(g)}</span>`);
+  const rt = routeOf(r);
+  if (rt && ok) meta.push(`<span class="cv-loc${rt.primary ? "" : " sec"}" title="Served by ${escapeHtml(rt.name)}${rt.primary ? ", the primary" : ", a spillover backend"} in the priority pool (x-gw-backend)">📍 ${escapeHtml(rt.region || rt.name)}</span>`);
+  if (rt?.failover) meta.push(`<span class="gov">failover</span>`);
+  if (rt && (rt.failover || (!ok && rt.hops.length))) body += `<div class="cv-hops" title="x-gw-route: every attempt the gateway made">${rt.hops.map((x, i) =>
+    `${i ? `<span class="arr">${x.code === 200 ? "retry →" : "→"}</span>` : ""}<span class="hop ${x.code === 200 ? "ok" : "bad"}">${escapeHtml(x.name)} · ${escapeHtml(x.region || "?")} · ${x.code}</span>`).join("")}</div>`;
+  const sec = (t) => `<div class="cv-sec">${t}</div>`;
+  let det = "";
+  if (r.surface === "tool" && r.sent?.args) det += sec("Arguments") + `<pre class="cv-pre">${escapeHtml(JSON.stringify(r.sent.args, null, 2))}</pre>`;
+  if (r.steps?.length) det += sec("What the agent did through the gateway") + `<ul class="cv-steps">${r.steps.map(s => `<li><span class="status ${statusClass(s.status)}">${s.status}</span> ${surfChip(s.type)} ${escapeHtml(s.name || "")} · ${fmtUsd((s.costMicroUsd || 0) / 1e6)}${s.billedTo ? ` · billed to ${escapeHtml(s.billedTo)}` : ""}</li>`).join("")}</ul>`;
+  if (ci) det += cacheDetails(r, ci);
+  if (idx >= 0) {
+    det += sec("What the gateway decided") + `<div class="kv">${callKv(r, idx)}</div>`;
+    if ((r.invocations || []).length) det += `<div class="cv-meta"><a class="ev" onclick="openInspector(${idx})">Inspect the HTTP calls ›</a></div>`;
+  }
+  return `<div class="cv-a ${cls}"><div class="cv-who">${target}</div>${body}<div class="cv-meta">${meta.join("<span>·</span>")}</div>`
+    + (det ? `<details><summary>Details${ok ? "" : ": why it didn't go through"}</summary>${det}</details>` : "") + `</div>`;
+}
+function cvPending(path, body) {
+  const sent = cvSentOf(path, body), grp = cvGroup(sent), p = { sent, key: grp.key, label: grp.label, el: null };
+  if (!cvShows(sent.session)) return p;
+  const box = $("convo"), stick = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+  cvDivider(box, grp.key, grp.label, sent.session);
+  p.el = document.createElement("div"); p.el.className = "cv-turn";
+  p.el.innerHTML = cvUser(sent, body.agent) + `<div class="cv-a"><span class="cv-typing" role="status" aria-label="Waiting for the gateway"><i></i><i></i><i></i></span></div>`;
+  box.append(p.el);
+  if (stick) box.scrollTop = box.scrollHeight;
+  return p;
+}
+function cvResult(p, r, idx) {
+  cvTrack(p.sent.session, p.label);
+  const html = cvUser(p.sent, r.agent) + cvAnswer(r, idx), box = $("convo"), stick = box.scrollHeight - box.scrollTop - box.clientHeight < 160;
+  if (p.el?.isConnected) { const mark = cvRegionMark(r); if (mark) p.el.insertAdjacentHTML("beforebegin", mark); p.el.innerHTML = html; }
+  else if (cvShows(p.sent.session)) { cvDivider(box, p.key, p.label, p.sent.session); box.insertAdjacentHTML("beforeend", cvRegionMark(r) + `<div class="cv-turn">${html}</div>`); }
+  if (stick) box.scrollTop = box.scrollHeight;
+  cvCtx();
+}
+function cvRender() {
+  const box = $("convo"); box.innerHTML = ""; cv.lastKey = null; cv.lastBackend = null;
+  session.calls.forEach((r, i) => {
+    if (r.past || !r.sent || !cvShows(r.sent.session)) return;
+    cvDivider(box, r.cvKey, r.cvLabel, r.sent.session);
+    box.insertAdjacentHTML("beforeend", `${cvRegionMark(r)}<div class="cv-turn">${cvUser(r.sent, r.agent)}${cvAnswer(r, i)}</div>`);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+// The composer sends through the builder: same agent, target, session and toggles, so it is just a faster Send
+function cvCtx() {
+  const a = selectedAgent;
+  if (!a) return;
+  const sid = $("sessionId").value.trim(), mem = $("useHistory").checked, turns = surface === "model" && mem ? chatHistory(sid).length / 2 : 0;
+  const to = surface === "tool" ? `MCP tool <b>${escapeHtml($("tool").value)}</b>` : surface === "agent" ? "the <b>Sourcing Agent</b> (A2A)" : `<b>${escapeHtml($("model").value)}</b>`;
+  const memo = surface === "model" ? (mem ? ` · the model sees ${turns} earlier turn${turns === 1 ? "" : "s"}` : " · single turn") : surface === "agent" ? " · the agent keeps the session's context" : "";
+  const b = budgetState(a), bchip = ` · <span class="bchip${b.exhausted ? " out" : ""}" title="${escapeHtml(budgetTip(a, b))}">${b.exhausted ? "$ budget spent" : `${usdShort(b.left)} of $${b.limit} left`}</span>`;
+  $("cvCtx").innerHTML = `As <b>${escapeHtml(a.displayName)}</b> <span class="badge ${a.tier}">${a.tier}</span>${bchip} → ${to} · session <span class="sess">${escapeHtml(sid || "none")}</span>${memo} · <a onclick="cvChange()">change</a> · <a onclick="cvNewSession()">new session</a>`;
+  $("cvInput").placeholder = surface === "tool" ? `JSON arguments for ${$("tool").value}, e.g. ${$("toolArgs").value || "{}"} (empty: use the builder's)`
+    : surface === "agent" ? "Give the Sourcing Agent a task…  (Enter to send, Shift+Enter for a new line)" : "Message the model…  (Enter to send, Shift+Enter for a new line)";
+}
+function cvChange() { setMode("build"); collapseLaunch(false); $("launch").scrollIntoView({ block: "start", behavior: "smooth" }); }
+function cvNewSession() { $("btnNewSession").click(); }
+function cvSend() {
+  if (running || !selectedAgent) return;
+  const text = $("cvInput").value.trim();
+  if (surface === "tool") { if (text) $("toolArgs").value = text; }
+  else if (!text) { $("cvInput").focus(); return; }
+  else { $(surface === "agent" ? "agentTask" : "prompt").value = text; $("cvInput").value = ""; }
+  setMode("build"); $("btnSend").click();
+}
+function cvInit() {
+  $("cvFilter").innerHTML = `<option value="">All sessions on this page</option>`;
+  $("cvFilter").onchange = cvRender;
+  $("cvSend").onclick = cvSend;
+  $("cvInput").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); cvSend(); } });
+  for (const [id, ev] of [["model", "change"], ["tool", "change"], ["sessionId", "input"], ["useHistory", "change"]]) $(id).addEventListener(ev, cvCtx);
+  cvCtx();
 }
 
 function resourceOf(r) {
@@ -1613,8 +2002,8 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("insp
 
 const callCost = (r) => (r.status === 200 ? Number((r.headers || {})["x-gw-cost-usd"] || 0) : 0) + Number((r.headers || {})["x-gw-safety-cost-usd"] || 0);
 // HTML for one call: the detail panel (Last response / Run history) and its request-log row
-function callView(r, idx) {
-  const h = r.headers || {}, cost = callCost(r), tokens = r.tokens;
+function callKv(r, idx) {
+  const h = r.headers || {}, cost = callCost(r);
   const gov = h["x-gw-governance"] && h["x-gw-governance"] !== "none" ? `<span class="gov">${h["x-gw-governance"]}</span>` : "none";
   const billed = h["x-gw-billed-to"] || (cost ? r.agent : "-");
   let kv = `<div>Surface</div><div>${surfChip(r.surface)} ${resourceOf(r)}</div><div>Governance</div><div>${gov}</div>`;
@@ -1636,6 +2025,13 @@ function callView(r, idx) {
   if (h["x-gw-blocked-by"]) kv += `<div>Blocked by policy</div><div><span class="src err">${escapeHtml(h["x-gw-blocked-by"])}</span></div>`;
   if (h["x-gw-route"]) kv += `<div>Backend route</div><div>${escapeHtml(h["x-gw-route"])}${h["x-gw-route"].includes(" > ") ? ' <span class="gov">failover</span>' : ""}</div>`;
   kv += `<div>Request id</div><div><code>${escapeHtml(h["x-gw-request-id"] || "-")}</code> <a class="ev" onclick="showEvidence(${idx})">${h["apim-trace-id"] ? "trace + logs" : "logs"} ›</a></div>`;
+  return kv;
+}
+function callView(r, idx) {
+  const h = r.headers || {}, cost = callCost(r), tokens = r.tokens;
+  const gov = h["x-gw-governance"] && h["x-gw-governance"] !== "none" ? `<span class="gov">${h["x-gw-governance"]}</span>` : "none";
+  const billed = h["x-gw-billed-to"] || (cost ? r.agent : "-");
+  const kv = callKv(r, idx);
   let body = r.status === 200 ? (r.content || "") : (r.error || "");
   if (r.tools) body = r.tools.map(t => `${t.name}: ${t.description}`).join("\n");
   if (r.card) body = JSON.stringify({ name: r.card.name, url: r.card.url, preferredTransport: r.card.preferredTransport, skills: (r.card.skills || []).map(s => s.name), securitySchemes: r.card.securitySchemes }, null, 2);
@@ -1664,6 +2060,7 @@ function record(r) {
   const idx = session.calls.push(r) - 1; if (curRun) { curRun.calls.push(idx); curPart?.calls.push(idx); }
   session.totalCost = (session.totalCost || 0) + cost; session.tokens = (session.tokens || 0) + tokens;
   session.costByAgent[r.agent] = (session.costByAgent[r.agent] || 0) + cost;
+  if (cost || isBudgetBlock(r)) queueBudgetRefresh();
   for (const [s, v] of Object.entries(costParts(r))) {
     session.costBySurface[s] = (session.costBySurface[s] || 0) + v;
     session.costByAgentSurface[r.agent + "|" + s] = (session.costByAgentSurface[r.agent + "|" + s] || 0) + v;
@@ -1680,6 +2077,7 @@ function record(r) {
   $("kBlocked").textContent = live.filter(c => [401, 403, 429].includes(c.status)).length;
   $("kTokens").textContent = session.tokens.toLocaleString();
   $("kCost").textContent = fmtUsd(session.totalCost);
+  $("kLat").innerHTML = latKpi(latStats(live));
 
   const v = callView(r, idx); $("last").innerHTML = v.last; $("log").insertAdjacentHTML("afterbegin", v.row);
   if (curTab === "runs") renderRuns();
@@ -1696,13 +2094,79 @@ function record(r) {
   renderBudgets();
 }
 
+// ---- $ budget left per subscription. The gateway's quota-by-key counter can't be read back, so /api/budgets sums the
+//      chargeback records (about 20 s behind the call); this page's calls the logs don't have yet are added from their headers.
+const budgetLive = { data: null, err: null, at: 0, resetAt: 0, timer: null, loading: false };
+const budgetDrawn = (r) => callCost(r);
+const isBudgetBlock = (r) => r.status === 403 && /quota-by-key(?! \(session)/.test((r.headers || {})["x-gw-blocked-by"] || "");
+function budgetState(a) {
+  const t = tierOf(a), d = budgetLive.data, u = d?.users?.find(x => x.name === a.name);
+  const limit = u?.limitMicroUsd != null ? u.limitMicroUsd / 1e6 : Number(t.budgetUsd || 0);
+  const since = Math.max(d?.since || 0, budgetLive.resetAt), seen = new Set(u?.recentRequestIds || []);
+  let pending = 0, pendingCalls = 0, last = null;
+  for (const r of session.calls) {
+    if (r.past || r.agent !== a.name || (r.at || 0) < since) continue;
+    last = r;
+    const draw = budgetDrawn(r), id = (r.headers || {})["x-gw-request-id"];
+    // not in the logs yet: newer than the last read, or its record hasn't been ingested (the set covers the last 30 min)
+    if (draw && (!d || (!seen.has(id) && r.at > Date.now() - 25 * 60000))) { pending += draw; pendingCalls++; }
+  }
+  const logged = u && d.since >= budgetLive.resetAt ? u.spentMicroUsd / 1e6 : 0, spent = logged + pending;
+  const blocked = !!last && isBudgetBlock(last), left = Math.max(0, limit - spent);
+  return { limit, logged, pending, pendingCalls, spent, left, blocked, exhausted: blocked || (limit > 0 && spent >= limit),
+           pct: limit ? Math.min(100, 100 * spent / limit) : 0, calls: (u?.calls || 0) + pendingCalls,
+           tokensLeft: last && (last.headers || {})["x-gw-remaining-quota-tokens"] };
+}
+const usdShort = (v) => "$" + (v >= 1 ? v.toFixed(2) : v >= 0.01 ? v.toFixed(3) : v > 0 ? v.toFixed(4) : "0");
+const budgetColor = (b) => b.exhausted ? "#d13438" : b.pct >= 75 ? "#f7630c" : "#107c10";
+const budgetTip = (a, b) => `${a.displayName}: ${fmtUsd(b.left)} left of $${b.limit} (${fmtUsd(b.logged)} in the chargeback logs`
+  + `${b.pending ? ` + ${fmtUsd(b.pending)} from ${b.pendingCalls} newer call${b.pendingCalls === 1 ? "" : "s"}` : ""})${b.blocked ? " · the gateway answered 403: budget spent" : ""}`;
+async function refreshBudgets(fresh = false) {
+  clearTimeout(budgetLive.timer); budgetLive.timer = null;
+  if (budgetLive.loading || !cfg) return;
+  budgetLive.loading = true; renderBudgets();
+  try {
+    const r = await (await fetch("/api/budgets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fresh }) })).json();
+    if (r.error) budgetLive.err = r.error; else { budgetLive.data = r; budgetLive.err = null; }
+  } catch (e) { budgetLive.err = String(e); }
+  budgetLive.loading = false; budgetLive.at = Date.now(); renderBudgets();
+  // calls not in the logs yet: check again shortly instead of waiting for the 60 s poll
+  if (budgetLive.data && cfg.agents.some(a => budgetState(a).pendingCalls)) queueBudgetRefresh(20000);
+}
+// after calls, re-read the logs once their records have landed (at most every 25 s while a scenario keeps calling)
+function queueBudgetRefresh(ms = 25000) { if (!budgetLive.timer) budgetLive.timer = setTimeout(() => refreshBudgets(), ms); }
+
 function renderBudgets() {
-  $("budgets").innerHTML = cfg.agents.map(a => {
-    const budget = tierOf(a).budgetUsd, spent = session.costByAgent[a.name] || 0, pct = Math.min(100, 100 * spent / budget);
-    const color = pct >= 100 ? "#d13438" : pct >= 75 ? "#f7630c" : "#107c10";
-    return `<div class="budget"><div class="lbl"><span>${a.displayName} <span class="badge ${a.tier}">${a.tier}</span></span><span>${fmtUsd(spent)} / $${budget} (${pct.toFixed(0)}%)</span></div>
-      <div class="bar"><div class="fill" style="width:${pct}%;background:${color}"></div></div></div>`;
-  }).join("") + `<div class="muted">When an agent exhausts its $ budget the gateway answers <b>403</b> until the budget period renews or budgets are reset.</div>`;
+  if (!cfg) return;
+  const states = new Map(cfg.agents.map(a => [a.name, budgetState(a)]));
+  for (const el of document.querySelectorAll("[data-bl]")) {
+    const a = byName(el.dataset.bl), b = states.get(el.dataset.bl); if (!a || !b) continue;
+    el.querySelector(".bl-t").textContent = b.exhausted ? "budget spent" : `${usdShort(b.left)} of $${b.limit} left`;
+    el.querySelector(".bl-t").classList.toggle("out", b.exhausted);
+    const f = el.querySelector(".bl-f"); f.style.width = (100 - b.pct) + "%"; f.style.background = budgetColor(b);
+    el.title = budgetTip(a, b);
+  }
+  const d = budgetLive.data;
+  const status = budgetLive.loading ? `<span class="bspin"></span> reading the chargeback logs…`
+    : budgetLive.err ? `<span class="bout">Couldn't read the logs (${escapeHtml(String(budgetLive.err).slice(0, 120))}); showing this page's calls only.</span>`
+    : d ? `Updated ${new Date(budgetLive.at).toLocaleTimeString()} · since the last reset ${new Date(d.since).toLocaleString()}` : "Not read yet";
+  const tiers = cfg.tiers.filter(t => cfg.agents.some(a => a.tier === t.name));
+  $("budgets").innerHTML = tiers.map(t => {
+    const subs = cfg.agents.filter(a => a.tier === t.name), bs = subs.map(a => states.get(a.name));
+    const left = bs.reduce((s, b) => s + b.left, 0), total = bs.reduce((s, b) => s + b.limit, 0), out = bs.filter(b => b.exhausted).length;
+    return `<div class="btier"><div class="bth"><span><span class="badge ${t.name}">${t.name}</span> <b>${escapeHtml(t.displayName || t.name)}</b>
+        <span class="muted">· $${t.budgetUsd} per subscription · $${t.sessionBudgetUsd ?? t.budgetUsd} per session</span></span>
+        <span>${fmtUsd(left)} left of $${+total.toFixed(6)}${out ? ` · <span class="bout">${out} spent</span>` : ""}</span></div>`
+      + subs.map(a => { const b = states.get(a.name);
+        return `<div class="budget" title="${escapeHtml(budgetTip(a, b))}"><div class="lbl"><span>${ico(a.kind === "user" ? "users" : "foundry-agent-service")} ${escapeHtml(a.displayName)}
+            ${b.blocked ? `<span class="status s403">403</span>` : ""}</span>
+          <span><b class="${b.exhausted ? "bout" : ""}">${fmtUsd(b.left)}</b> left · ${b.pct > 0 && b.pct < 0.1 ? "<0.1" : b.pct.toFixed(b.pct > 0 && b.pct < 1 ? 1 : 0)}% used${b.tokensLeft ? ` · ${Number(b.tokensLeft).toLocaleString()} quota tokens left` : ""}</span></div>
+          <div class="bar"><div class="fill" style="width:${b.limit ? Math.min(100, 100 * b.logged / b.limit) : 0}%;background:${budgetColor(b)}"></div><div class="fill pend" style="width:${b.limit ? Math.min(100 - Math.min(100, 100 * b.logged / b.limit), 100 * b.pending / b.limit) : 0}%"></div></div></div>`; }).join("")
+      + `</div>`;
+  }).join("")
+    + `<div class="muted bfoot">${status} · <a onclick="refreshBudgets(true)">↻ refresh</a>${d?.portalLink ? ` · <a href="${d.portalLink}" target="_blank" rel="noopener">query</a>` : ""}<br>`
+    + `Spend is summed from the gateway's chargeback records for each subscription's own calls (they land about 20 s after a call). This page's newer calls are added right away (striped). When a subscription's $ budget is spent the gateway answers <b>403</b> until the budget period renews or budgets are reset.</div>`;
+  if (selectedAgent) cvCtx();
 }
 
 function renderLedger() {
@@ -1758,24 +2222,29 @@ async function waitForChargeback(sessions, attempt = 0) {
 
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function setRunning(on, label = "") {
-  running = on; ["btnSend", "btnBurst", "btnSim", "btnReset", "btnList", "btnCard", "btnAgain"].forEach(id => $(id).disabled = on);
-  document.querySelectorAll(".scenarios button").forEach(b => b.disabled = on);
+  running = on; ["btnSend", "btnBurst", "btnSim", "btnReset", "btnList", "btnCard", "btnAgain", "cvSend"].forEach(id => $(id).disabled = on);
+  document.querySelectorAll(".scenarios button").forEach(b => b.disabled = on || b.classList.contains("off"));
   $("btnStop").classList.toggle("hidden", !on); $("runStatus").textContent = label;
   $("launch").classList.toggle("running", on);
   releaseRunBusy();
-  if (on) { rememberRun(label); collapseLaunch(true); $("sessionArea").classList.remove("idle");
+  if (on) { rememberRun(label); if (!sideBySide()) collapseLaunch(true); $("sessionArea").classList.remove("idle");
             runBusy = busy($("sessionArea"), label || "Running…", "Waiting for the gateway to answer. Results appear here as they arrive.", true); }
   else endRun();
   updateLaunch();
 }
-// Launch panel: the user picks ONE mode (guided scenario OR build your own). A run collapses it to a sticky bar so the results get the focus.
+// Launch panel: the user picks ONE mode (guided scenario OR build your own). When it is stacked above the conversation (narrow screens),
+// a run collapses it to a sticky bar so the results get the focus; side by side it stays open next to the conversation.
 let mode = "guided", lastBtn = null, lastRun = null;
+function sideBySide() { return matchMedia("(min-width:1101px)").matches; }
 function setMode(m) {
   mode = m; hidePreview();
   document.querySelectorAll(".modes .mode").forEach(b => { const on = b.dataset.mode === m; b.classList.toggle("active", on); b.setAttribute("aria-selected", on); });
   $("mode-guided").classList.toggle("hidden", m !== "guided"); $("mode-build").classList.toggle("hidden", m !== "build");
+  const card = $("scenario");  // the results card belongs to one mode: don't leave a scenario's story up while building a request (or vice versa)
+  if (!running && card.dataset.mode && card.dataset.mode !== m) card.classList.add("hidden");
 }
 function collapseLaunch(c) {
+  if (!c) miniLaunch(false);
   const L = $("launch"); if (L.classList.contains("collapsed") === c) return;
   L.classList.toggle("collapsed", c); $("lbody").classList.toggle("hidden", c); hidePreview();
   const top = document.querySelector("main").offsetTop;
@@ -1804,6 +2273,7 @@ function rememberRun(label) {
     run = { kind: "custom", req, title: `${req.who} → ${req.target}`, chip: "Custom", text: `${req.who} → ${req.target} · ${req.action}` };
   }
   startRun(run);
+  if (run.req) showRequestCard(run);
   lastRun = { btn: b, text: run.text, mode: b.closest("#mode-guided") ? "guided" : "build", n: curRun.n };
 }
 function updateLaunch() {
@@ -1817,6 +2287,18 @@ function updateLaunch() {
 $("lbody").addEventListener("click", e => { const b = e.target.closest("button"); if (b && !b.disabled) lastBtn = b; }, true);
 document.querySelectorAll(".modes .mode").forEach(b => b.onclick = () => { setMode(b.dataset.mode); collapseLaunch(false); });
 $("btnToggle").onclick = () => collapseLaunch(!$("launch").classList.contains("collapsed"));
+// Minimize (side by side only): the panel becomes a slim rail with the mode icons, so the conversation gets the width. Remembered across reloads.
+function miniLaunch(on) {
+  const L = $("launch"); if (L.classList.contains("mini") === on) return;
+  if (on && L.classList.contains("collapsed")) { L.classList.remove("collapsed"); $("lbody").classList.remove("hidden"); }
+  L.classList.toggle("mini", on); hidePreview();
+  $("btnMini").textContent = on ? "»" : "«"; $("btnMini").title = on ? "Expand the panel" : "Minimize the panel to a side rail";
+  $("btnMini").setAttribute("aria-expanded", !on);
+  try { localStorage.setItem("sbx.mini", on ? "1" : ""); } catch {}
+  updateLaunch();
+}
+$("btnMini").onclick = () => miniLaunch(!$("launch").classList.contains("mini"));
+$("rlab").onclick = () => miniLaunch(false);
 $("btnAgain").onclick = () => { if (lastRun) { setMode(lastRun.mode); lastRun.btn.click(); } };
 $("lsum").onclick = () => { if (lastRun) openRun(lastRun.n); };
 
@@ -1829,8 +2311,46 @@ function startRun(run) {
   runs.push(curRun); curPart = null; stopRequested = false; selRun = null; selCall = null; renderRuns();
 }
 function snapPart(p) { if (p) Object.assign(p, { story: $("scStory").innerHTML, steps: $("scSteps").innerHTML, takeaway: $("scTakeaway").innerHTML }); }
+// Build-your-own runs get their own results card (instead of whatever scenario ran last), scoped to the x-session-id they add to
+function sessionTotals(sid) {
+  const t = { calls: 0, blocked: 0, cost: 0 };
+  for (const c of session.calls) {
+    if ((c.headers || {})["x-gw-session"] !== sid) continue;
+    t.calls++; if (isBlocked(c)) t.blocked++; t.cost += callCost(c);
+  }
+  return t;
+}
+function showRequestCard(run) {
+  const q = run.req, sid = q.sessionId.trim(), prior = sid ? sessionTotals(sid) : { calls: 0, cost: 0, blocked: 0 };
+  const a = q.agent && byName(q.agent), t = a ? tierOf(a) : null, cap = t ? (t.sessionBudgetUsd ?? t.budgetUsd) : null;
+  run.sessionStart = prior;
+  const card = $("scenario"); card.dataset.mode = "build"; card.classList.remove("hidden");
+  $("scTitle").textContent = `Your request: ${q.who} → ${q.target}`;
+  const sess = !sid ? `No <code>x-session-id</code>: these calls aren't tied to a session.`
+    : prior.calls ? `Adds to session <span class="sess">${escapeHtml(sid)}</span>, which already has <b>${prior.calls}</b> call${prior.calls === 1 ? "" : "s"} (${fmtUsd(prior.cost)}) from this page. Press <b>New session</b> to start a fresh one.`
+    : `Starts session <span class="sess">${escapeHtml(sid)}</span>. Send again to add to it, or press <b>New session</b> to start a fresh one.`;
+  $("scStory").innerHTML = `<b>${escapeHtml(q.action)}</b>${a ? ` as <b>${escapeHtml(a.displayName)}</b> <span class="badge ${a.tier}">${a.tier}</span>` : ""} · ${surfChip(q.surface === "mixed" ? "model" : q.surface)} ${escapeHtml(q.target)}`
+    + `${cap != null ? ` · $${cap} per-session cap` : ""} · Entra ID token ${q.token ? "on" : "off"} · policy trace ${q.trace ? "on" : "off"}<br>${sess}`;
+  $("scSteps").innerHTML = ""; $("scTakeaway").innerHTML = "";
+  try {
+    $("scFlow").innerHTML = `<div class="dgm">${dg.row(a ? dg.node(escapeHtml(a.displayName), `<span class="badge ${a.tier}">${a.tier}</span>`) : dg.node(escapeHtml(q.who)),
+      dg.arrow(q.surface === "mixed" ? "models + tools" : SURFACES[q.surface] || q.surface), dg.gw(sid ? escapeHtml(sid) : "no session"), dg.arrow(), dg.node(escapeHtml(q.target), "", "model"))}</div>`;
+    $("scFlow").querySelectorAll(".dr").forEach(row => [...row.children].forEach((c, k) => c.style.setProperty("--i", k)));
+  } catch (e) { $("scFlow").innerHTML = ""; }
+  if (curTab !== "runs") showTab("live");
+}
+function requestTakeaway(run) {
+  const sid = run.req.sessionId.trim(), s = runStats(run);
+  let html = `This run: <b>${s.calls}</b> call${s.calls === 1 ? "" : "s"}, <b>${s.ok}</b> allowed, <b>${s.blocked}</b> blocked, <b>${fmtUsd(s.cost)}</b>${s.lat.n ? `, latency <b>${latText(s.lat)}</b>` : ""}.`;
+  if (sid) {
+    const now = sessionTotals(sid), a = run.req.agent && byName(run.req.agent), t = a ? tierOf(a) : null, cap = t ? (t.sessionBudgetUsd ?? t.budgetUsd) : null;
+    html += ` Session <span class="sess">${escapeHtml(sid)}</span> now totals <b>${now.calls}</b> call${now.calls === 1 ? "" : "s"} and <b>${fmtUsd(now.cost)}</b>${cap != null ? ` (${Math.min(100, 100 * now.cost / cap).toFixed(0)}% of the $${cap} session cap)` : ""}${run.sessionStart?.calls ? `, including ${run.sessionStart.calls} earlier call${run.sessionStart.calls === 1 ? "" : "s"}` : ""}.`;
+  }
+  takeaway(html);
+}
 function endRun() {
   if (!curRun) return;
+  if (curRun.req && $("scenario").dataset.mode === "build") requestTakeaway(curRun);
   snapPart(curPart);
   Object.assign(curRun, { ended: Date.now(), status: stopRequested ? "stopped" : "finished" });
   if (curRun.kind === "custom" && !curRun.calls.length) runs.splice(runs.indexOf(curRun), 1); // e.g. invalid tool JSON: nothing reached the gateway
@@ -1880,6 +2400,16 @@ async function clearHistory() {
 function openRun(n) { selRun = n; selCall = null; showTab("runs"); $("tab-runs").scrollIntoView({ block: "start" }); scrollBy(0, -80); }
 const fmtDur = (ms) => { const s = Math.round(ms / 1000); return s < 60 ? `${s} s` : `${Math.floor(s / 60)} m ${String(s % 60).padStart(2, "0")} s`; };
 const isBlocked = (r) => [401, 403, 429].includes(r.status);
+// Latency is end to end per call, as measured by app.py (app → APIM policies → backend → back), so it includes the gateway's overhead
+const fmtLat = (ms) => ms == null ? "-" : ms >= 10000 ? (ms / 1000).toFixed(1) + " s" : Math.round(ms) + " ms";
+function latStats(calls) {
+  const xs = calls.map(c => c.latencyMs).filter(v => typeof v === "number").sort((a, b) => a - b);
+  if (!xs.length) return { n: 0 };
+  const p = (q) => xs[Math.min(xs.length - 1, Math.max(0, Math.ceil(q * xs.length) - 1))];
+  return { n: xs.length, p50: p(0.5), p95: p(0.95), min: xs[0], max: xs[xs.length - 1], avg: xs.reduce((s, v) => s + v, 0) / xs.length };
+}
+const latKpi = (l) => l.n ? `${fmtLat(l.p50)} <small>· ${fmtLat(l.p95)}</small>` : "-";
+const latText = (l) => !l.n ? "" : l.n === 1 ? fmtLat(l.p50) : `p50 ${fmtLat(l.p50)} · p95 ${fmtLat(l.p95)} · max ${fmtLat(l.max)}`;
 function runStats(run) {
   const st = { calls: 0, ok: 0, blocked: 0, tokens: 0, cost: 0, by: {}, what: {}, sessions: new Set() };
   for (const i of run.calls) {
@@ -1891,8 +2421,9 @@ function runStats(run) {
     for (const [s, v] of Object.entries(costParts(r))) a[s] = (a[s] || 0) + v;
     const gov = h["x-gw-governance"] && h["x-gw-governance"] !== "none" ? h["x-gw-governance"] : "", by = h["x-gw-blocked-by"] || "";
     const k = [r.surface, resourceOf(r), r.status, gov, by].join("|");
-    const w = st.what[k] ||= { surface: r.surface, res: resourceOf(r), status: r.status, gov, by, calls: 0, cost: 0 }; w.calls++; w.cost += c;
+    const w = st.what[k] ||= { surface: r.surface, res: resourceOf(r), status: r.status, gov, by, calls: 0, cost: 0, items: [] }; w.calls++; w.cost += c; w.items.push(r);
   }
+  st.lat = latStats(run.calls.map(i => session.calls[i]));
   return st;
 }
 function renderRuns() {
@@ -1938,8 +2469,8 @@ function renderRunDetail(run, s) {
     + agents.map(([a, v]) => `<tr><td>${escapeHtml(a)}</td><td>${v.calls}</td><td>${v.blocked || "-"}</td>${Object.keys(SURFACES).map(k => `<td>${v[k] ? v[k].toFixed(6) : "-"}</td>`).join("")}<td><b>${v.cost.toFixed(6)}</b></td></tr>`).join("")
     + `</tbody></table>` : `<div class="muted">No calls in this run.</div>`;
   const whats = Object.values(s.what).sort((a, b) => b.calls - a.calls);
-  const byWhat = whats.length ? `<table><thead><tr><th>Surface</th><th>Model / tool / agent</th><th>Status</th><th>Governance / blocked by</th><th>Calls</th><th>Cost USD</th></tr></thead><tbody>`
-    + whats.map(w => `<tr><td>${surfChip(w.surface)}</td><td>${w.res}</td><td><span class="status ${statusClass(w.status)}">${w.status}</span></td><td>${w.gov ? `<span class="gov">${escapeHtml(w.gov)}</span> ` : ""}${w.by ? `<span class="src err">${escapeHtml(w.by)}</span>` : w.gov ? "" : "-"}</td><td>${w.calls}</td><td>${w.cost ? w.cost.toFixed(6) : "-"}</td></tr>`).join("")
+  const byWhat = whats.length ? `<table><thead><tr><th>Surface</th><th>Model / tool / agent</th><th>Status</th><th>Governance / blocked by</th><th>Calls</th><th title="End-to-end latency per call (app → gateway → backend)">Latency p50</th><th>Cost USD</th></tr></thead><tbody>`
+    + whats.map(w => { const l = latStats(w.items); return `<tr><td>${surfChip(w.surface)}</td><td>${w.res}</td><td><span class="status ${statusClass(w.status)}">${w.status}</span></td><td>${w.gov ? `<span class="gov">${escapeHtml(w.gov)}</span> ` : ""}${w.by ? `<span class="src err">${escapeHtml(w.by)}</span>` : w.gov ? "" : "-"}</td><td>${w.calls}</td><td title="${l.n > 1 ? `p95 ${fmtLat(l.p95)} · max ${fmtLat(l.max)}` : ""}">${l.n ? fmtLat(l.p50) : "-"}</td><td>${w.cost ? w.cost.toFixed(6) : "-"}</td></tr>`; }).join("")
     + `</tbody></table>` : "";
   const idxs = run.calls.slice().reverse(), pick = run.calls.includes(selCall) ? selCall : idxs[0];
   const rows = idxs.map(i => callView(session.calls[i], i).row.replace("<tr ", `<tr class="click${i === pick ? " sel" : ""}" `)).join("");
@@ -1956,6 +2487,7 @@ function renderRunDetail(run, s) {
       <div class="kpi bad"><div class="l">Blocked (401/403/429)</div><div class="v">${s.blocked}</div></div>
       <div class="kpi"><div class="l">Tokens</div><div class="v">${s.tokens.toLocaleString()}</div></div>
       <div class="kpi cost"><div class="l">Cost (USD)</div><div class="v">${fmtUsd(s.cost)}</div></div>
+      <div class="kpi lat" title="${s.lat.n ? `End-to-end per call · min ${fmtLat(s.lat.min)} · avg ${fmtLat(s.lat.avg)} · max ${fmtLat(s.lat.max)}` : ""}"><div class="l">Latency p50 · p95</div><div class="v">${latKpi(s.lat)}</div></div>
       <div class="kpi"><div class="l">Sessions</div><div class="v">${s.sessions.size}</div></div>
     </div>
     <div class="grid2">
@@ -1977,6 +2509,7 @@ function loadRequest(q) {
   $("model").value = q.model; $("preset").value = q.preset; $("prompt").value = q.prompt; $("maxTokens").value = q.maxTokens; $("burst").value = q.burst;
   $("tool").value = q.tool; $("toolArgs").value = q.toolArgs; $("agentTask").value = q.task; $("sessionId").value = q.sessionId;
   $("useToken").checked = q.token; $("useTrace").checked = q.trace;
+  cvCtx();
 }
 function rerun(run) {
   if (running) return;
@@ -1988,12 +2521,12 @@ function rerun(run) {
 function toolArgs() {
   try { return JSON.parse($("toolArgs").value || "{}"); } catch { toast("Tool arguments must be valid JSON"); return null; }
 }
-function sendCurrent() {
+function sendCurrent(withHistory = false) {  // only a single Send carries the session's earlier turns; bursts stay single-turn
   if (surface === "tool") { const args = toolArgs(); return args ? callTool(selectedAgent.name, $("tool").value, args) : Promise.resolve(null); }
   if (surface === "agent") return callAgent(selectedAgent.name);
-  return send(selectedAgent.name, $("model").value);
+  return send(selectedAgent.name, $("model").value, withHistory && $("useHistory").checked ? { history: chatHistory($("sessionId").value.trim()) } : {});
 }
-$("btnSend").onclick = async () => { setRunning(true, surface === "agent" ? "Agent is working (it calls tools and a model through the gateway)…" : "Sending…"); await sendCurrent(); setRunning(false); };
+$("btnSend").onclick = async () => { setRunning(true, surface === "agent" ? "Agent is working (it calls tools and a model through the gateway)…" : "Sending…"); await sendCurrent(true); setRunning(false); };
 $("btnList").onclick = async () => { setRunning(true, "Listing tools…"); await listTools(selectedAgent.name); setRunning(false); };
 $("btnCard").onclick = async () => { setRunning(true, "Fetching agent card…"); await agentCard(selectedAgent.name); setRunning(false); };
 $("btnBurst").onclick = async () => {
@@ -2025,7 +2558,9 @@ $("btnStop").onclick = () => { running = false; stopRequested = true; releaseRun
 async function resetBudgets() {
   const r = await (await fetch("/api/reset-budgets", { method: "POST" })).json();
   if (r.error) { toast("Reset failed: " + r.error); return false; }
-  session.costByAgent = {}; renderBudgets(); toast(r.message); return true;
+  session.costByAgent = {}; budgetLive.resetAt = Number(r.epoch) * 1000 || Date.now(); renderBudgets();
+  toast(r.applied === false ? "Budget reset is still applying in Azure; the first calls may hit the old budget." : r.message);
+  setTimeout(() => refreshBudgets(true), 1500); return true;
 }
 $("btnReset").onclick = async () => {
   if (confirm("Reset every agent's $ budget and token quota?")) await resetBudgets();
@@ -2332,6 +2867,9 @@ function step(r, note = "") {
   if (r.surface === "tool") {
     what = `called tool <b>${r.tool || "tools/list"}</b>`;
     detail = r.status === 200 ? ` · ${fmtUsd(usd(r))}` : err;
+  } else if (r.surface === "agent" && r.action === "card") {
+    what = `fetched the agent card of <b>sourcing-agent</b>`;
+    detail = r.status === 200 ? "" : err;
   } else if (r.surface === "agent") {
     what = `sent a task to <b>sourcing-agent</b>`;
     detail = r.status === 200 ? ` · ${(r.steps || []).length} downstream calls · fee ${fmtUsd(hdr(r, "x-gw-agent-fee-usd"))} + agent spend ${fmtUsd(hdr(r, "x-gw-downstream-cost-usd"))} = <b>${fmtUsd(usd(r))}</b>` : err;
@@ -2344,7 +2882,7 @@ function step(r, note = "") {
     detail = r.status === 200 ? ` · ${hdr(r, "x-gw-prompt-tokens")}${cached}+${hdr(r, "x-gw-completion-tokens")} tokens · ${fmtUsd(usd(r))}` : err;
   }
   $("scSteps").insertAdjacentHTML("beforeend", `<li><span class="status ${statusClass(r.status)}">${r.status}</span> ${surfChip(r.surface || "model")}
-    ${r.agent} ${what}${gov}${detail}${note ? ` <span class="muted">· ${note}</span>` : ""}</li>`);
+    ${r.agent} ${what}${gov}${detail}${typeof r.latencyMs === "number" ? ` · <span class="muted">${fmtLat(r.latencyMs)}</span>` : ""}${note ? ` <span class="muted">· ${note}</span>` : ""}</li>`);
 }
 const info = (html) => $("scSteps").insertAdjacentHTML("beforeend", `<li class="muted">${html}</li>`);
 const takeaway = (html) => $("scTakeaway").innerHTML = html;
@@ -2365,7 +2903,7 @@ const dg = {
   chips: (xs) => `<div class="dchips">${xs.map(x => `<span>${x}</span>`).join("<i>›</i>")}</div>`,
   note: (html) => `<div class="dnote">${html}</div>`,
   lane: (label, status, ...nodes) => `<div class="dlane"><div class="dlhead"><b>${label}</b>${status ? dg.code(status) : ""}</div>${dg.row(...nodes.flatMap((node, i) => i ? [dg.arrow("", status === 200 ? "ok" : status >= 400 ? "bad" : ""), node] : [node]))}</div>`,
-  user: (name, sub) => { const a = byName(name); return dg.node(a ? a.displayName : name, sub ?? (a ? `${a.team} · ${a.costCenter}` : "demo user")); },
+  user: (name, sub) => { const a = byName(name); return dg.node(a ? a.displayName : name, sub ?? (a ? `${a.team}<br>${a.costCenter}` : "demo user")); },
 };
 const premiumFor = (tier) => cfg.models.find(m => !tierOf(tierAgent(tier)).allowedModels.includes(m.name))?.name || cfg.models[0].name;
 
@@ -2394,15 +2932,19 @@ const SCENARIOS = [
     preview: () => { const p = premiumFor("silver"), s = tierOf(tierAgent("silver"));
       return dg.row(dg.agent("silver"), dg.arrow(`asks ${p}`), dg.gw("plan check"), dg.arrow("downgrade", "warn"), dg.model(s.fallbackModel), dg.code(200))
         + dg.row(dg.agent("bronze"), dg.arrow(`asks ${p}`), dg.gw("plan check"), dg.arrow("deny", "bad"), dg.node("Foundry", "never called · $0", "dim"), dg.code(403)); },
-    story: () => `Silver and Bronze agents ask for a premium model their tier does not allow. Silver is downgraded to <b>${tierOf(tierAgent("silver")).fallbackModel}</b>, and Bronze is denied before any tokens are spent.`,
+    story: () => `Budgets are reset first. Then Silver and Bronze agents ask for a premium model their tier does not allow. Silver is downgraded to <b>${tierOf(tierAgent("silver")).fallbackModel}</b>, and Bronze is denied before any tokens are spent.`,
     async run() {
       const s = tierAgent("silver"), b = tierAgent("bronze");
       const premium = cfg.models.find(m => !tierOf(s).allowedModels.includes(m.name))?.name || cfg.models[0].name;
-      const r1 = await send(s.name, premium, { prompt: ASK, maxTokens: 120 }); step(r1, "silently downgraded, the app still gets an answer");
+      info("Resetting budgets (budget-epoch named value)…");
+      if (!await resetBudgets()) return;
+      await sleep(8000);
+      const r1 = await send(s.name, premium, { prompt: ASK, maxTokens: 120 }); step(r1, r1.status === 200 ? "silently downgraded, the app still gets an answer" : "");
       if (!running) return;
       const r2 = await send(b.name, premium, { prompt: ASK, maxTokens: 120 }); step(r2, "denied at the gateway, Foundry is never called");
-      const saved = r1.status === 200 ? (Number(hdr(r1, "x-gw-prompt-tokens")) * modelInfo(premium).inputPrice + Number(hdr(r1, "x-gw-completion-tokens")) * modelInfo(premium).outputPrice) / 1e6 : 0;
-      takeaway(`Tiers decide which models an agent may use. The downgraded call cost ${fmtUsd(usd(r1))} instead of ${fmtUsd(saved)} on ${premium}, and the Bronze call cost $0.`);
+      if (r1.status !== 200) { takeaway(`The Silver call returned <b>${r1.status}</b> instead of a downgraded answer (${escapeHtml(r1.error || "see the request card")}). Bronze got <b>${r2.status}</b> and cost $0. Run the scenario again.`); return; }
+      const saved = (Number(hdr(r1, "x-gw-prompt-tokens")) * modelInfo(premium).inputPrice + Number(hdr(r1, "x-gw-completion-tokens")) * modelInfo(premium).outputPrice) / 1e6;
+      takeaway(`Tiers decide which models an agent may use. Silver asked for ${premium} and was served <b>${hdr(r1, "x-gw-model-served") || tierOf(s).fallbackModel}</b>: the call cost ${fmtUsd(usd(r1))} instead of ${fmtUsd(saved)}. The Bronze call got <b>${r2.status}</b> and cost $0.`);
     } },
   { title: "Output cap", cost: "1 call · < $0.0005",
     gist: "The gateway lowers max_tokens to the plan's output cap, so one runaway request has a bounded worst-case cost.",
@@ -2459,7 +3001,8 @@ const SCENARIOS = [
         step(r, r.status === 200 ? `spent ${fmtUsd(spent)} of $${t.budgetUsd}` : r.status === 403 ? "budget exhausted" : "");
         if (r.status === 429) await sleep(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5));
       }
-      takeaway(blocked ? `The agent spent ${fmtUsd(spent)} against its $${t.budgetUsd} budget and the gateway now answers <b>403</b>. Spend stops at the gateway until the budget period renews (or you reset it). The budget is checked before each call, so the last call can go slightly over.`
+      takeaway(blocked && spent === 0 ? `The first call was already blocked with <b>403</b>: the budget reset had not reached the gateway yet. Run the scenario again.`
+             : blocked ? `The agent spent ${fmtUsd(spent)} against its $${t.budgetUsd} budget and the gateway now answers <b>403</b>. Spend stops at the gateway until the budget period renews (or you reset it). The budget is checked before each call, so the last call can go slightly over.`
                        : `Spent ${fmtUsd(spent)} so far without exhausting the budget. Run the scenario again to finish it.`);
     } },
   { title: "MCP tools: priced and entitled per plan", cost: "5 calls · < $0.005",
@@ -2491,8 +3034,9 @@ const SCENARIOS = [
       return dg.row(dg.agent("gold"), dg.arrow("A2A task"), dg.gw("A2A API"), dg.arrow(), dg.node("Sourcing Agent", "Container Apps", "a2a"))
         + dg.row(dg.node("Sourcing Agent", "own identity", "a2a"), dg.arrow("3 tools + 1 model"), dg.gw("MCP + model APIs"), dg.arrow(), dg.node("Tools + Foundry", "", "tool"))
         + dg.row(dg.node("Spend", "fee + downstream calls", "dim"), dg.arrow("billed on behalf of", "dash"), dg.agent("gold"))
-        + dg.note(`Fee $${cfg.a2aAgents[0]?.feeUsd ?? "-"} per task + the agent's spend. ${tierAgent("bronze").displayName} gets <span class="status s403">403</span>: A2A agents are not in the Bronze plan.`); },
-    story: () => `The Gold agent delegates a sourcing task to the <b>Sourcing Agent</b>, an A2A agent published through API Management. The Sourcing Agent calls MCP tools and a Foundry model through the same gateway. Every downstream call is billed back to the agent that sent the task.`,
+        + dg.row(dg.agent("bronze"), dg.arrow("A2A task"), dg.gw("plan check"), dg.arrow("not in plan", "bad"), dg.node("Sourcing Agent", "never called · $0", "dim"), dg.code(403))
+        + dg.note(`Fee $${cfg.a2aAgents[0]?.feeUsd ?? "-"} per task + the agent's spend, billed to Gold. ${tierAgent("bronze").displayName} is denied at the gateway because the Bronze plan does not include A2A agents, so it costs $0.`); },
+    story: () => `The Gold agent delegates a sourcing task to the <b>Sourcing Agent</b>, an A2A agent published through API Management. The Sourcing Agent calls MCP tools and a Foundry model through the same gateway. Every downstream call is billed back to the agent that sent the task. Then the Bronze <b>${tierAgent("bronze").displayName}</b> sends the same kind of task: its plan does not include A2A agents, so the gateway answers 403 and the Sourcing Agent is never called.`,
     async run() {
       const g = tierAgent("gold"), b = tierAgent("bronze");
       const r = await callAgent(g.name, "Source 500 units of SKU-1042 for the Q3 launch and recommend a supplier.");
@@ -2646,16 +3190,19 @@ const SCENARIOS = [
     preview: () => dg.row(dg.agent("silver"), dg.arrow("traced call"), dg.gw("debug credential"), dg.arrow(), dg.model(premiumFor("silver"), "downgraded"))
       + dg.chips(["Entra ID", "model downgrade", "token limit", "$ budget", "backend pool + retry", "cost metric"])
       + dg.row(dg.node("Policy trace", "instant", "mon"), dg.arrow("same x-gw-request-id"), dg.node("Log Analytics", "2-5 min later", "mon"), dg.arrow("KQL"), dg.node("Azure portal", "same query", "mon")),
-    story: () => `Sends one <b>traced</b> call (Silver asks for a premium model) with an APIM debug credential. The <b>Policies &amp; evidence</b> tab shows the gateway's own policy-by-policy trace, then the same request in the Log Analytics tables, found by its <code>x-gw-request-id</code>. Every table links to the same query in the Azure portal.`,
+    story: () => `Budgets are reset first. Then it sends one <b>traced</b> call (Silver asks for a premium model) with an APIM debug credential. The <b>Policies &amp; evidence</b> tab shows the gateway's own policy-by-policy trace, then the same request in the Log Analytics tables, found by its <code>x-gw-request-id</code>. Every table links to the same query in the Azure portal.`,
     async run() {
       const s = tierAgent("silver"), premium = cfg.models.find(m => !tierOf(s).allowedModels.includes(m.name))?.name || cfg.models[0].name;
+      info("Resetting budgets (budget-epoch named value)…");
+      if (!await resetBudgets()) return;
+      await sleep(8000);
       const r = await send(s.name, premium, { prompt: ASK, maxTokens: 80, trace: true, noToken: false });
       step(r, `trace id <code>${escapeHtml(hdr(r, "apim-trace-id") || "-")}</code> · request id <code>${escapeHtml(hdr(r, "x-gw-request-id") || "-")}</code>`);
       showEvidence(session.calls.length - 1);
       policiesLoaded = true; loadPolicies(); loadPolicyEvidence();
       takeaway(`The trace shows each policy as it ran: Entra validation and caller, the plan's model downgrade, token limit and budget checks, the backend pool and retry, and the cost metric. The same request then shows up in <code>ApiManagementGatewayLogs</code> (product, backend, status, failing policy) and <code>ApiManagementGatewayLlmLog</code> (deployment and tokens) about 2-5 minutes later; the panel keeps checking. <b>Open in Azure portal</b> runs each query in Log Analytics.`);
     } },
-  { title: "Blocked before spend: content safety", get cost() { return cfg?.contentSafety?.enabled
+  { title: "Blocked before spend: content safety", get off() { return !cfg?.contentSafety?.enabled; }, get cost() { return cfg?.contentSafety?.enabled
       ? `5 calls · ≈ ${fmtUsd(5 * (cfg.contentSafety.shieldPrompt === false ? 1 : 2) * (cfg.contentSafety.pricePer1KRecordsUsd ?? 0.38) / 1000)} screening + model usage`
       : "off · set contentSafety.enabled to try it"; },
     gist: "Compare a clean request with a jailbreak or sensitive data. The gateway screens model prompts, MCP arguments and A2A tasks before calling their backend.",
@@ -2690,7 +3237,7 @@ const SCENARIOS = [
       takeaway(`<b>${blocked.length} of ${res.length - 1}</b> unsafe calls were stopped at the gateway with 403, before any model, tool or agent was called: <b>${tokens} model tokens, ${fmtUsd(blocked.reduce((x, r) => x + usd(r), 0))}</b> of model spend. The clean prompt went through for ${fmtUsd(usd(ok))}. Screening all ${res.length} calls cost ${fmtUsd(safetyTotal)}, charged to the Gold plan's $ budget as a <b>Safety checks</b> line item, and every block is a <code>content-blocked</code> governance event.`
         + (blocked.length < res.length - 1 ? ` Some calls were not blocked: a new blocklist can take a few minutes to take effect after deployment, so run the scenario again.` : ""));
     } },
-  { title: "Over budget, switched off", get cost() { return cfg?.budgetSuspend?.enabled ? "≤ 14 calls · ≈ $0.01 · 5-12 min, runs on its own" : "off · set budgetSuspend.enabled to try it"; }, slow: true,
+  { title: "Over budget, switched off", get off() { return !cfg?.budgetSuspend?.enabled; }, get cost() { return cfg?.budgetSuspend?.enabled ? "≤ 14 calls · ≈ $0.01 · 5-12 min, runs on its own" : "off · set budgetSuspend.enabled to try it"; }, slow: true,
     gist: "Two stops on different clocks: a gateway budget check rejects requests immediately; an Azure Monitor alert later suspends the watched APIM subscription.",
     policies: ["quota-by-key ($ budget)", "chargeback-record trace", "log search alert", "Logic App + managed identity"],
     preview: () => { const b = byName((cfg.budgetSuspend?.subscriptions || ["user-ben"])[0]) || tierAgent("silver"), t = tierOf(b);
@@ -2764,10 +3311,10 @@ const SCENARIOS = [
           dg.node("Gold caller", "POST /responses"),
           dg.gw("Pick backend; remember the returned response ID"),
           dg.model(escapeHtml(m), "Returns a stored response ID"))
-        + dg.lane("2 · Continue: reuse the backend, not the answer", 200,
+        + dg.lane("2 · Continue: same backend, so its prompt cache is warm", 200,
           dg.node("Gold follow-up", "previous_response_id"),
-          dg.gw("Affinity cache hit"),
-          dg.node("Same backend", "New answer; cached input may cost less", "ok"))
+          dg.gw("Affinity lookup → same backend"),
+          dg.node("Same backend", "Replays the 1,024+ token context: prompt-cache hit", "ok"))
         + dg.lane("3 · Read: no new generation", 200,
           dg.node("Gold caller", "GET /responses/{id}"),
           dg.gw("Route stored read"),
@@ -2776,11 +3323,15 @@ const SCENARIOS = [
           dg.node("Silver caller", "Reads Gold's response ID"),
           dg.gw("Cached owner differs"),
           dg.node("Read rejected", "Backend not called", "x"))
+        + dg.note("<b>Two different caches:</b> the <b>gateway</b> caches only which backend owns a response ID (<code>cache-lookup-value</code>), so the follow-up goes back there. The <b>prompt cache</b> lives in Foundry on that backend: the follow-up starts with the same 1,024+ tokens as the first call, so the model reuses them and reports them as <code>cached_tokens</code>. Neither cache reuses an answer.")
         + (c !== undefined ? dg.note(`<b>${escapeHtml(m)} input / 1M tokens:</b> $${p} standard → $${c} cached. The model reports cache hits; discounts are not guaranteed.`) : dg.note("<b>Pricing:</b> No cached-input discount is configured for this model."))
         + dg.note("<b>Best effort:</b> Affinity and ownership depend on a volatile gateway cache; these checks are not a durable security boundary."); },
-    story: () => `Gold <b>${tierAgent("gold").displayName}</b> starts a <b>Responses API</b> conversation with a long shared context, then sends a follow-up with <code>previous_response_id</code>. On a cache hit, the gateway routes the follow-up to the original backend. Only input tokens the model reports as <b>cached</b> receive the discounted rate. A stored read has no gateway dollar charge. Silver's different subscription is rejected only while the owner mapping is cached: affinity and ownership are <b>best effort, not a durable security boundary</b>.`,
+    story: () => `Budgets are reset first. Gold <b>${tierAgent("gold").displayName}</b> starts a <b>Responses API</b> conversation with a long shared context, then sends a follow-up with <code>previous_response_id</code>. On a cache hit, the gateway routes the follow-up to the original backend. Only input tokens the model reports as <b>cached</b> receive the discounted rate. A stored read has no gateway dollar charge. Silver's different subscription is rejected only while the owner mapping is cached: affinity and ownership are <b>best effort, not a durable security boundary</b>.`,
     async run() {
       const g = tierAgent("gold"), s = tierAgent("silver"), m = respModel();
+      info("Resetting budgets (budget-epoch named value)…");
+      if (!await resetBudgets()) return;
+      await sleep(8000);
       const r1 = await sendResponse(g.name, m, { prompt: RESP_CONTEXT + "\n\nSummarize the policy in one sentence.", maxTokens: 60 });
       step(r1, `affinity <code>${escapeHtml(hdr(r1, "x-gw-affinity") || "-")}</code> · id <code>${escapeHtml(r1.responseId || "-")}</code>`);
       if (!running || r1.status !== 200 || !r1.responseId) { if (r1.status !== 200) takeaway("The first Responses call failed, so the follow-ups were skipped."); return; }
@@ -2792,13 +3343,18 @@ const SCENARIOS = [
       step(r3, `stored read · rule <code>${escapeHtml(hdr(r3, "x-gw-pricing-rule") || "-")}</code>`);
       if (!running) return;
       const r4 = await sendResponse(s.name, m, { responseId: r1.responseId });
-      step(r4, r4.status === 404 ? `blocked by <code>${escapeHtml(hdr(r4, "x-gw-blocked-by") || "?")}</code>` : "ownership unknown to the gateway (cache miss)");
-      const cached = Number(hdr(r2, "x-gw-cached-tokens") || 0), saved = Number(hdr(r2, "x-gw-cached-savings-usd") || 0);
+      const owned = r4.status === 404, r4By = hdr(r4, "x-gw-blocked-by") || "";
+      step(r4, owned ? `blocked by <code>${escapeHtml(r4By || "?")}</code>` : r4.status === 200 ? "ownership unknown to the gateway (cache miss), so the read went through" : `rejected by <code>${escapeHtml(r4By || "another policy")}</code>, not by the ownership check`);
+      const affinity = hdr(r1, "x-gw-affinity") || hdr(r2, "x-gw-affinity");
+      const silverText = owned ? `Silver's attempt to read Gold's response was <b>rejected (404)</b> by the cached ownership check`
+        : r4.status === 200 ? `Silver's attempt to read Gold's response <b>went through (200)</b>: the gateway did not have the owner cached${affinity ? "" : " (this gateway doesn't return <code>x-gw-affinity</code>, so the affinity and ownership policy is probably not deployed)"}`
+        : `Silver's attempt to read Gold's response answered <b>${r4.status}</b> from ${escapeHtml(r4By || "another policy")}, not from the ownership check`;
+      const cached = cacheInfo(r2).cached, saved = Number(hdr(r2, "x-gw-cached-savings-usd") || 0);
       takeaway(`The follow-up reported ${hdr(r2, "x-gw-prompt-tokens") || "-"} input tokens, and ${cached
-        ? `<b>${cached} of them were served from the prompt cache</b>, priced at the cached rate: ${fmtUsd(saved)} less than list price`
-        : "none were served from the prompt cache this time (caching is best effort and needs 1,024+ identical leading tokens; run it again)"}. Its reported affinity was <code>${escapeHtml(hdr(r2, "x-gw-affinity") || "-")}</code>. Reading the stored response cost ${fmtUsd(usd(r3))}, and Silver's attempt to read Gold's response answered <b>${r4.status}</b>. Affinity and ownership rely on a volatile gateway cache; they are not a durable security boundary. Priced generation draws on the same $ budget as chat completions.`);
+        ? `<b>${cached} of them were served from Foundry's prompt cache</b>, because the follow-up replays the first call's long context on the same backend; ${hdr(r2, "x-gw-cached-tokens") === undefined ? "this gateway doesn't deploy the <code>responses-pricing</code> fragment, so they were billed at the full input price" : `they were priced at the cached rate: ${fmtUsd(saved)} less than list price`} (open <b>Details</b> on the answer in the conversation for the breakdown)`
+        : "none were served from the prompt cache this time (caching is best effort and needs 1,024+ identical leading tokens; run it again)"}. Its reported affinity was <code>${escapeHtml(hdr(r2, "x-gw-affinity") || "-")}</code>. Reading the stored response cost ${fmtUsd(usd(r3))}. ${silverText}. Affinity and ownership rely on a volatile gateway cache; they are not a durable security boundary. Priced generation draws on the same $ budget as chat completions.`);
     } },
-  { title: "Images priced per image", get cost() { return cfg?.images?.enabled ? "≤ 5 calls · ≈ $0.02" : "off · set images.enabled to try it"; },
+  { title: "Images priced per image", get off() { return !cfg?.images?.enabled; }, get cost() { return cfg?.images?.enabled ? "≤ 5 calls · ≈ $0.02" : "off · set images.enabled to try it"; },
     gist: "Check plan access and quality before generation. Allowed images are charged by count, quality and size to the same dollar budget as models, tools and agents.",
     policies: ["image-pricing named value", "image entitlement", "rate-limit-by-key (images)", "quota-by-key ($ budget)"],
     preview: () => { const im = cfg.images || {}, name = im.model?.name || "gpt-image-1-mini";
@@ -2849,6 +3405,7 @@ const RESP_CONTEXT = "You are the support assistant for Contoso Outfitters. Foll
     "Loyalty members earn 2 points per dollar and can redeem 500 points for a $10 reward."][i % 5]}`).join("\n");
 
 async function runScenario(s) {
+  $("scenario").dataset.mode = "guided";
   $("scenario").classList.remove("hidden"); $("scSteps").innerHTML = "";
   $("scTitle").textContent = s.title; $("scStory").innerHTML = s.story(); $("scTakeaway").innerHTML = "";
   $("scFlow").innerHTML = "";
@@ -2858,10 +3415,12 @@ async function runScenario(s) {
       $("scFlow").querySelectorAll(".dr").forEach(row => [...row.children].forEach((c, k) => c.style.setProperty("--i", k)));
     }
   } catch (e) { console.warn("scenario mini-flow failed", e); }
+  const buildSession = $("sessionId").value;  // the builder's session is restored afterwards, so build-your-own requests keep aggregating onto it
   $("sessionId").value = newSessionId("demo"); // every scenario runs in its own session, so per-session caps never carry over
   if (curRun) { snapPart(curPart); curPart = { si: SCENARIOS.indexOf(s), title: s.title, calls: [] }; curRun.parts.push(curPart); }
   if (!s.tab && curTab !== "runs") showTab("live");
   try { await s.run(); } catch (e) { info("Scenario failed: " + escapeHtml(e.message)); }
+  finally { $("sessionId").value = buildSession; cvCtx(); }
   snapPart(curPart);
 }
 let previewHideTimer;
@@ -2871,23 +3430,39 @@ function showPreview(btn) {
   if (!s?.preview) return;
   let body;
   try { body = s.preview(); } catch (e) { console.warn("scenario preview failed", e); return; }
+  p.classList.remove("narrow");
   p.innerHTML = `<div class="ph"><span class="n">${i + 1}</span><div><b>${s.title}</b><div class="gist">${s.gist || ""}</div></div></div>
     <div class="dgm">${body}</div>
     <div class="pf">${(s.policies || []).map(x => `<code>${x}</code>`).join("")}<span class="sp"></span><span>${s.cost}</span></div>`;
-  const r = btn.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
-  let left = r.right + 12; // right of the button, else left of it, else clamped to the viewport
+  placePreview(p, btn.getBoundingClientRect());
+}
+function placePreview(p, r) {
+  const w = p.offsetWidth, h = p.offsetHeight;
+  let left = r.right + 12; // right of the element, else left of it, else clamped to the viewport
   if (left + w > innerWidth - 8) left = r.left - w - 12 >= 8 ? r.left - w - 12 : Math.max(8, innerWidth - w - 8);
   p.style.left = left + "px";
   p.style.top = Math.max(8, Math.min(innerHeight - h - 8, r.top + r.height / 2 - h / 2)) + "px";
   p.classList.add("show");
 }
+function showAgentTip(el) {  // the compact agent cards keep their plan details (models, tools, agents, limits, budget) in this hover card
+  clearTimeout(previewHideTimer);
+  const p = $("scPreview"), meta = el.querySelector(".meta");
+  if (!meta) return;
+  p.classList.add("narrow");
+  p.innerHTML = `<div class="ptip"><div class="name">${el.querySelector(".name").innerHTML}</div><div class="meta">${meta.innerHTML}</div>
+    <div class="hint">${el.classList.contains("selected") ? "Selected: requests are sent as this caller." : "Click to send requests as this caller."}</div></div>`;
+  placePreview(p, el.getBoundingClientRect());
+}
 function hidePreview() { clearTimeout(previewHideTimer); $("scPreview").classList.remove("show"); }
 function queueHidePreview() { clearTimeout(previewHideTimer); previewHideTimer = setTimeout(hidePreview, 150); }
 function renderScenarios() {
-  $("scenarios").innerHTML = SCENARIOS.map((s, i) => `<button data-i="${i}"><span class="n">${i + 1}</span><span><span class="t">${s.title}</span><span class="c">${s.cost}</span></span></button>`).join("")
-    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.filter(s => !s.slow).length})</span><span class="c">${cfg.contentSafety?.enabled ? (cfg.images?.enabled ? "≈ 99 calls" : "≈ 94 calls") : (cfg.images?.enabled ? "≈ 94 calls" : "≈ 89 calls")} · demo prices · about 10 minutes</span></span></button>`;
+  $("scenarios").innerHTML = SCENARIOS.map((s, i) => s.off
+      ? `<button data-i="${i}" class="off" disabled aria-disabled="true" title="Not deployed in this sandbox: ${escapeHtml(s.cost.replace(/^off · /, ""))}"><span class="n">${i + 1}</span><span><span class="t">${s.title}</span><span class="c">${s.cost.replace(/^off · /, "Not deployed · ")}</span></span><span class="offtag">OFF</span></button>`
+      : `<button data-i="${i}"><span class="n">${i + 1}</span><span><span class="t">${s.title}</span><span class="c">${s.cost}</span></span></button>`).join("")
+    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.filter(s => !s.slow && !s.off).length})</span><span class="c">${cfg.contentSafety?.enabled ? (cfg.images?.enabled ? "≈ 99 calls" : "≈ 94 calls") : (cfg.images?.enabled ? "≈ 94 calls" : "≈ 89 calls")} · demo prices · about 10 minutes</span></span></button>`;
   document.querySelectorAll(".scenarios button[data-i]").forEach(b => {
     b.onclick = async () => {
+      if (b.classList.contains("off") || running) return;
       const s = SCENARIOS[b.dataset.i];
       hidePreview(); setRunning(true, `Running “${s.title}”…`); await runScenario(s); setRunning(false, "Scenario finished.");
     };
@@ -2908,7 +3483,7 @@ function renderScenarios() {
   window.addEventListener("keydown", (e) => { if (e.key === "Escape") hidePreview(); });
   $("btnAll").onclick = async () => {
     setRunning(true, "Running the full demo…");
-    const quick = SCENARIOS.filter(s => !s.slow); // slow scenarios (minutes of Azure Monitor latency) run on their own
+    const quick = SCENARIOS.filter(s => !s.slow && !s.off); // slow scenarios (minutes of Azure Monitor latency) run on their own; off ones aren't deployed
     for (const [i, s] of quick.entries()) {
       if (!running) break;
       $("runStatus").textContent = `Full demo: scenario ${i + 1}/${quick.length}`;
@@ -2917,6 +3492,7 @@ function renderScenarios() {
     setRunning(false, "Full demo finished.");
   };
 }
+try { if (localStorage.getItem("sbx.mini")) miniLaunch(true); } catch {}
 init();
 </script>
 </body>
