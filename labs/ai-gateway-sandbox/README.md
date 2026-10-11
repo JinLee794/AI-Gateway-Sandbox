@@ -336,6 +336,17 @@ Click a scenario in the UI, or **Run the full demo** to play the quick scenarios
 | 17 | Responses API: cached input & sticky state | Budgets are reset, then Gold starts a Responses API conversation with a long shared context and continues it with `previous_response_id`. The follow-up goes to the backend that stored the response (`x-gw-affinity: sticky:…`), and input tokens served from the prompt cache are priced at the cached rate (`x-gw-cached-tokens`, `x-gw-cached-savings-usd`). Reading the stored response is free (`stored-read`). Silver gets 404 `response-ownership` for Gold's response id. If the gateway was deployed without `responses-policy.xml` or the `responses-pricing` fragment, the takeaway says so instead of claiming the discount or the 404. | 4 |
 | 18 | Images priced per image | Requires `images.enabled`; otherwise it explains how to turn images on and sends no calls. Gold generates a `low` image priced per image (`x-gw-image-spec`, `x-gw-image-unit-usd`). Silver is denied `high` quality (403 `image-quality`) and Bronze has no image entitlement (403 `image-entitlement`). A Silver `medium` image ($0.011) uses up the same $0.01 budget that tokens, tools and agents draw on, so the next image returns 403 from `quota-by-key`. | ≤ 5 |
 
+#### If a scenario doesn't match its description
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| Silver or Bronze gets 403 `quota-by-key` before the scenario's point is made (2, 5, 8, 14, 17) | An earlier run spent the tiny budget | Click **Reset budgets**. A warning toast means the new `budget-epoch` wasn't provisioned within 90 s; wait a moment and reset again. |
+| A model (often `DeepSeek-V3.2`) returns 500 intermittently in scenario 1 | The deployed inference policy predates the `["usage"] as JObject` null guard in [policy.xml](policy.xml) | Redeploy (notebook step 2️⃣ or `azd up`) so the gateway gets the current policies. |
+| Scenario 17 shows no `x-gw-affinity` header, no cached-input pricing, or Silver gets 200 instead of 404 | The gateway was deployed without [responses-policy.xml](responses-policy.xml) or the `responses-pricing` fragment | Redeploy. The takeaway reports this case instead of claiming the result. |
+| The local UI won't start or shows no keys | `src/demo-config.private.config` is missing (for example, after a fresh clone or worktree) | Run notebook step 3️⃣ again. If you use the hosted demo UI, you can also copy the file from the App Service (`site/wwwroot/demo-config.private.config`, for example through Kudu). It holds subscription keys, so keep it git-ignored. |
+
+The scenarios check the gateway's `x-gw-*` headers rather than assuming an outcome. A gateway deployed from an older version of this lab can therefore show a different result than the table above. Redeploying brings its policies and fragments in line with the repo.
+
 ### Suggested demo script (manual)
 
 1. **Reset budgets** in the UI.
