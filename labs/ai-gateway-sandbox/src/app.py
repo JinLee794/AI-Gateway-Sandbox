@@ -377,18 +377,39 @@ def error_message(status, data, text):
     return (text or f"HTTP {status}")[:500]
 
 
+MAX_HISTORY, MAX_HISTORY_CHARS = 20, 24000
+
+
+def chat_history(value):
+    """Earlier turns of a build-your-own conversation, so the model sees the session's context. None when invalid."""
+    if not value:
+        return []
+    if not isinstance(value, list) or len(value) > MAX_HISTORY:
+        return None
+    turns = []
+    for m in value:
+        if not isinstance(m, dict) or m.get("role") not in ("user", "assistant") or not isinstance(m.get("content"), str):
+            return None
+        turns.append({"role": m["role"], "content": m["content"]})
+    return turns if sum(len(m["content"]) for m in turns) <= MAX_HISTORY_CHARS else None
+
+
 def chat(payload):
     agent = agent_by_name(payload.get("agent", ""))
     if not agent:
         return 400, {"error": f"Unknown agent '{payload.get('agent')}'"}
     if limited := demo_limit():
         return 429, {"error": limited}
-    body = {"model": payload.get("model"), "messages": [{"role": "user", "content": payload.get("prompt") or "Hello"}]}
+    history = chat_history(payload.get("history"))
+    if history is None:
+        return 400, {"error": f"history must be at most {MAX_HISTORY} user/assistant messages of text"}
+    body = {"model": payload.get("model"), "messages": history + [{"role": "user", "content": payload.get("prompt") or "Hello"}]}
     if payload.get("maxTokens"):
         body["max_tokens"] = int(payload["maxTokens"])
     status, headers, text, elapsed = http("POST", f"{CONFIG['inferenceBaseUrl']}/chat/completions", body, gateway_auth(agent, payload, "model"))
     result = {"surface": "model", "status": status, "latencyMs": round(elapsed * 1000), "agent": agent["name"], "tier": agent["tier"],
-              "requestedModel": payload.get("model"), "headers": gw_headers(headers), "entraToken": not payload.get("noToken")}
+              "requestedModel": payload.get("model"), "headers": gw_headers(headers), "entraToken": not payload.get("noToken"),
+              "historyMessages": len(history)}
     try:
         data = json.loads(text)
     except ValueError:
@@ -705,6 +726,8 @@ def reset_budgets(_payload):
     status, _, text, _ = http("PATCH", url, {"properties": {"value": epoch}}, {"Authorization": f"Bearer {token}", "If-Match": "*"})
     if status not in (200, 202):
         return 502, {"error": text[:500]}
+    applied = wait_for_named_value(token, url, epoch)
+    _epoch_cache.update(value=epoch, at=time.time())
     # After the new epoch is in place: the budget-breach Logic App ignores breaches of an older epoch, so it can't switch them off again
     reactivated, errors = reactivate_suspended(token)
     message = "Budgets and token quotas reset (named value budget-epoch updated). It can take a few seconds to apply."
@@ -712,7 +735,21 @@ def reset_budgets(_payload):
         message += f" Re-activated suspended subscription(s): {', '.join(reactivated)}."
     if errors:
         message += f" Could not re-activate: {'; '.join(errors)}."
-    return 200, {"epoch": epoch, "reactivated": reactivated, "reactivateErrors": errors, "message": message}
+    return 200, {"epoch": epoch, "applied": applied, "reactivated": reactivated, "reactivateErrors": errors, "message": message}
+
+
+def wait_for_named_value(token, url, value, timeout=90):
+    """The named-value PATCH is asynchronous (202): the gateway keeps using the old budget-epoch until ARM finishes.
+    Wait until ARM reports the new value as provisioned, so scenarios that reset budgets don't race the old counters."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        status, _, text, _ = http("GET", url, None, {"Authorization": f"Bearer {token}"})
+        if status == 200:
+            props = json.loads(text).get("properties", {})
+            if props.get("value") == value and props.get("provisioningState", "Succeeded") == "Succeeded":
+                return True
+        time.sleep(2)
+    return False
 
 
 # ---- Over budget, switched off: an Azure Monitor log alert on the chargeback records calls a Logic App that suspends the
@@ -806,6 +843,54 @@ def budget_suspend(_payload):
                   "alertRule": f"{portal}{config['alertRuleId']}/overview" if config.get("alertRuleId") else None},
         "note": "The alert evaluates every 5 minutes on records that reach Log Analytics 1-3 minutes after the call: expect the suspension 3-10 minutes after the breach.",
     }
+
+
+# ---- $ budget remaining per subscription. The gateway's quota-by-key counters can't be read back (the ARM quota API isn't
+#      available on the v2 tiers), so the spend is summed from the chargeback records that drew on each subscription's own
+#      counter: calls made with its key (via == "direct"), charged in the current budget epoch.
+BUDGET_LEFT = ('AppTraces | where TimeGenerated >= datetime({since}) and tostring(Properties.record) == "chargeback" '
+               '| extend User = tostring(Properties.user), Via = tostring(Properties.via), BudgetEpoch = tostring(Properties.budgetEpoch) '
+               '| where User in ({subs}) and (isempty(Via) or Via == "direct") and (isempty(BudgetEpoch) or BudgetEpoch == "{epoch}") '
+               '| extend ChargedMicroUsd = coalesce(tolong(Properties.chargedMicroUsd), tolong(Properties.costMicroUsd)), RequestId = tostring(Properties.requestId) '
+               '| summarize SpentMicroUsd = sum(ChargedMicroUsd), Calls = count(), LastCall = max(TimeGenerated), '
+               'RecentRequestIds = make_set_if(RequestId, TimeGenerated > ago(30m), 2000) by User')
+_epoch_cache = {"value": None, "at": 0.0}
+
+
+def budget_epoch(fresh=False):
+    if fresh or time.time() - _epoch_cache["at"] > 30:
+        status, _, text, _ = http("GET", f"{ARM}{CONFIG['apimServiceId']}/namedValues/budget-epoch?api-version={APIM_API}", None,
+                                  _arm_auth(az_token(ARM)), timeout=60)
+        value = json.loads(text).get("properties", {}).get("value") if status == 200 else None
+        _epoch_cache.update(value=value if value and re.fullmatch(r"\d{1,12}", value) else None, at=time.time())
+    return _epoch_cache["value"]
+
+
+def budgets(payload):
+    """$ spent and left per subscription (user or agent) since the last budget reset, from the gateway's chargeback records."""
+    tiers = {t["name"]: t for t in CONFIG.get("tiers", [])}
+    period = int(CONFIG.get("budgetPeriodSeconds") or next((t.get("budgetPeriodSeconds") for t in tiers.values() if t.get("budgetPeriodSeconds")), 2592000))
+    epoch = budget_epoch(fresh=bool(payload.get("fresh")))
+    now = time.time()
+    since = max(int(epoch) if epoch else 0, int(now) - period)
+    names = [a["name"] for a in CONFIG.get("agents", [])]
+    query = (BUDGET_LEFT.replace("{since}", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(since)))
+             .replace("{subs}", ", ".join(json.dumps(n) for n in names) or '""').replace("{epoch}", epoch or ""))
+    rows = law_query(query, f"PT{int(now - since) + 600}S")
+    if isinstance(rows, dict):
+        return 502, {"error": rows.get("error"), "query": query}
+    spent = {r["User"]: r for r in rows}
+    users = []
+    for a in CONFIG.get("agents", []):
+        tier = tiers.get(a.get("tier")) or {}
+        limit = tier.get("budgetMicroUsd") or (int(round(tier["budgetUsd"] * 1_000_000)) if tier.get("budgetUsd") is not None else None)
+        row = spent.get(a["name"], {})
+        ids = row.get("RecentRequestIds") or []
+        users.append({"name": a["name"], "tier": a.get("tier"), "limitMicroUsd": limit, "spentMicroUsd": int(row.get("SpentMicroUsd") or 0),
+                      "calls": int(row.get("Calls") or 0), "lastCall": row.get("LastCall"),
+                      "recentRequestIds": json.loads(ids) if isinstance(ids, str) else ids})
+    return 200, {"epoch": epoch, "since": since * 1000, "asOf": int(now * 1000), "periodSeconds": period, "users": users,
+                 "query": query, "portalLink": portal_logs_link(query, "P31D" if now - since > 86400 else "P1D")}
 
 
 # Run history: one append-only JSON Lines log per user. Hosted, the user is the Easy Auth Entra ID object id and the log lives in
@@ -977,7 +1062,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json(500, {"error": scrub(str(error))})
         routes = {"/api/chat": chat, "/api/mcp": mcp, "/api/a2a": a2a, "/api/telemetry": telemetry, "/api/reset-budgets": reset_budgets,
                   "/api/trace": trace, "/api/evidence": evidence, "/api/policy-evidence": policy_evidence, "/api/policies": policies,
-                  "/api/chargeback": chargeback, "/api/budget-suspend": budget_suspend, "/api/responses": responses, "/api/image": image}
+                  "/api/chargeback": chargeback, "/api/budget-suspend": budget_suspend, "/api/budgets": budgets, "/api/responses": responses, "/api/image": image}
         handler = routes.get(self.path)
         if not handler:
             return self.send_json(404, {"error": "not found"})
