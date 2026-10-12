@@ -34,6 +34,14 @@ lab_parameters = {
     "budgetSuspend": {k: v for k, v in config.get("budgetSuspend", {"enabled": False}).items() if not k.startswith("$")},
 }
 
+# Per-end-user $ budgets (x-gw-end-user) -> the end-user-budgets named value, in micro-USD
+end_user_budgets = config.get("endUserBudgets", {})
+if end_user_budgets:
+    lab_parameters["endUserBudgets"] = ";".join(
+        [f"default={end_user_budgets.get('defaultClass', 'standard')}"]
+        + [f"{name}={int(round(usd * 1_000_000))}" for name, usd in end_user_budgets.get("classesUsd", {}).items()]
+        + [f"@{user}={value if isinstance(value, str) else int(round(value * 1_000_000))}" for user, value in end_user_budgets.get("users", {}).items()])
+
 # Blocked before spend: content safety price per text record in micro-USD (USD per 1,000 records / 1,000 * 1e6)
 content_safety = config.get("contentSafety", {})
 lab_parameters["contentSafetyConfig"] = {
@@ -58,6 +66,7 @@ ui_config = {
     "contentSafety": {"enabled": bool(content_safety.get("enabled")), "shieldPrompt": content_safety.get("shieldPrompt", True),
                       "pricePer1KRecordsUsd": content_safety.get("pricePer1KRecordsUsd", 0.38)},
     "cachedInputPrices": responses.get("cachedInputPrices", {}),
+    "endUserBudgets": {k: v for k, v in end_user_budgets.items() if k != "$comment"},
     "images": {k: v for k, v in images.items() if k != "$comment"},
 }
 

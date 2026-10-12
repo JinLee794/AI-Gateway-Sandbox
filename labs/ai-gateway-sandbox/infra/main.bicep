@@ -68,6 +68,7 @@ module sandbox '../main.bicep' = {
     purviewDlpConfig: lab.?purviewDlpConfig ?? {}
     purviewClientSecret: purviewClientSecret
     budgetSuspend: lab.?budgetSuspend ?? { enabled: false }
+    endUserBudgets: lab.?endUserBudgets ?? 'default=standard;standard=5000;power=15000;exec=50000;@raj.iyer=power;@mei.wong=exec;@tom.intern=2000'
   }
 }
 

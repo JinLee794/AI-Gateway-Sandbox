@@ -33,6 +33,9 @@ param agentLocation string = resourceGroup().location
 @description('Value of the budget-epoch named value. Every $ budget and token quota counter key includes it, so a new value starts fresh budgets.')
 param budgetEpoch string = utcNow('yyyyMMddHHmmss')
 
+@description('Per-end-user $ budgets inside one subscription (x-gw-end-user), value of the end-user-budgets named value: "default=<class>;<class>=<micro-USD>;...;@<user>=<class or micro-USD>;...". Built from endUserBudgets in sandbox-config.json.')
+param endUserBudgets string = 'default=standard;standard=5000;power=15000;exec=50000;@raj.iyer=power;@mei.wong=exec;@tom.intern=2000'
+
 @description('Shared secret the gateway sends to the Sourcing Agent backend, so the agent only accepts tasks routed (and billed) through the gateway')
 @secure()
 param agentBackendSecret string = newGuid()
@@ -153,6 +156,16 @@ resource budgetEpochNamedValue 'Microsoft.ApiManagement/service/namedValues@2024
     displayName: 'budget-epoch'
     // A new value on every deployment, so a redeploy never revives budgets and quotas exhausted earlier
     value: budgetEpoch
+    secret: false
+  }
+}
+
+resource endUserBudgetsNamedValue 'Microsoft.ApiManagement/service/namedValues@2024-06-01-preview' = {
+  parent: apim
+  name: 'end-user-budgets'
+  properties: {
+    displayName: 'end-user-budgets'
+    value: endUserBudgets
     secret: false
   }
 }
@@ -720,6 +733,7 @@ resource tierProductPolicy 'Microsoft.ApiManagement/service/products/policies@20
   }
   dependsOn: [
     budgetEpochNamedValue
+    endUserBudgetsNamedValue
     entraIdentityFragment
     blockedBeforeSpendFragment
     safetyLedgerFragment

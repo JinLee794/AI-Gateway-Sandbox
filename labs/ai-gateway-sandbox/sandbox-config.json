@@ -41,6 +41,12 @@
     }
   ],
   "budgetPeriodSeconds": 2592000,
+  "endUserBudgets": {
+    "$comment": "Per-end-user $ budgets inside one subscription: an app sends x-gw-end-user and every user gets their own cap, while the plan budget still caps the app's total. Users get a class (in production: an Entra app role or group) or an individual USD override; unlisted users get defaultClass. Deployed as the end-user-budgets named value, so it can change without a policy redeploy.",
+    "defaultClass": "standard",
+    "classesUsd": { "standard": 0.005, "power": 0.015, "exec": 0.05 },
+    "users": { "raj.iyer": "power", "mei.wong": "exec", "tom.intern": 0.002 }
+  },
   "contentSafety": {
     "$comment": "Blocked before spend (OFF by default; set enabled to true to deploy it): Azure AI Content Safety screens prompts, MCP tool arguments and A2A tasks at the gateway before any spend (plans opt in with contentSafety: true). The check is charged to the plan $ budget at pricePer1KRecordsUsd per 1,000 text records (1 record = up to 1,000 characters; Prompt Shields analyzes the text a second time), about $0.0008 per call, which makes Silver's $0.01 budget run out a call or two sooner.",
     "enabled": false,

@@ -60,6 +60,9 @@
   .agrp span { text-transform:none; letter-spacing:0; font-weight:400; }
   .users { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .users .agent { padding:8px 10px; } .users .agent .meta { line-height:1.45; }
+  .pickhelp { font-size:12px; margin:-4px 0 8px; line-height:1.5; }
+  .callerNote { font-size:12px; line-height:1.5; margin-top:10px; padding:8px 10px; border-left:3px solid var(--accent); background:var(--accent-light); border-radius:4px; }
+  .callerLine { font-size:13px; padding:6px 10px; margin:-4px 0 10px; background:var(--panel2); border:1px solid var(--divider); border-radius:4px; }
   .sessrow { display:flex; gap:8px; align-items:end; margin-top:10px; } .sessrow > div { flex:1; } .sessrow input { font-family:Consolas,monospace; font-size:12px; }
   .sess { font-family:Consolas,monospace; font-size:11px; color:#005a9e; }
   tr.sub td { background:#f3f2f1; font-weight:600; } tr.click { cursor:pointer; } tr.click:hover td { background:var(--accent-light); }
@@ -161,6 +164,9 @@
   .scenarios button.off .n { background:#e1dfdd; color:#8a8886; }
   .scenarios button.off .t { text-decoration:line-through; text-decoration-color:#a19f9d; font-weight:500; }
   .scenarios button.off .c { color:#8a8886; }
+  .scenarios .sctopic { grid-column:1 / -1; font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin:8px 0 -2px; padding-bottom:3px; border-bottom:1px solid var(--divider); }
+  .scenarios .sctopic:first-child { margin-top:0; }
+  .scenarios .sctopic span { text-transform:none; letter-spacing:0; font-weight:400; }
   .scenarios button .offtag { margin-left:auto; align-self:center; flex:0 0 auto; font-size:10px; font-weight:700; letter-spacing:.06em; padding:2px 7px; border-radius:10px; background:#edebe9; color:#605e5c; border:1px solid #c8c6c4; }
   #scenario { margin-bottom:16px; border-left:4px solid var(--accent); }
   #scSteps, .rsteps { margin:12px 0 0; padding-left:22px; line-height:2; font-size:13px; }
@@ -193,6 +199,18 @@
   .facts img { width:14px; height:14px; }
   h2 > img.hico { width:20px; height:20px; vertical-align:-4px; margin-right:8px; }
   .flow .arrow { color:var(--muted); }
+  /* Keep content inside its box: shrinkable grid/flex children, horizontal scroll where content can't wrap */
+  .grid2 > *, .grid3 > *, .card, .kpi { min-width:0; }
+  .kpis { grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
+  .kpi.lat .v, .kpi .v small { white-space:normal; } .kpi .v small { display:inline-block; }
+  .card canvas { max-width:100%; }
+  .card div:has(> table) { overflow-x:auto; }
+  .cvhead { flex-wrap:wrap; } .cvhead select { min-width:0; max-width:100%; }
+  .flow.tight { overflow-x:auto; padding-bottom:4px; } .flow.tight > * { flex:0 0 auto; }
+  .kv { grid-template-columns:minmax(90px,170px) minmax(0,1fr); } .kv > div { min-width:0; overflow-wrap:anywhere; }
+  .facts > span { max-width:100%; flex-wrap:wrap; overflow-wrap:anywhere; }
+  .dgm { overflow-x:auto; min-width:0; }
+  .dseq { flex-wrap:wrap; }
   .steps { margin-top:10px; } .steps td, .steps th { padding:4px 8px; }
   code { background:var(--panel2); border:1px solid var(--divider); border-radius:3px; padding:0 4px; font-size:12px; }
   .toggles { display:flex; gap:16px; margin-top:12px; font-size:13px; } .toggles label { display:flex; align-items:center; gap:6px; margin:0; font-weight:400; }
@@ -293,7 +311,7 @@
   .dn.mon { border-color:#c3b3e0; } .dn.x { border-color:#e8a3a7; background:var(--bad-bg); } .dn.x b { color:var(--bad); }
   .dn.dim { border-style:dashed; color:var(--muted); }
   /* arrow: label above a line that stays level with the middle of the boxes; long labels wrap instead of running over the boxes */
-  .da { --c:#8a8886; flex:1 1 0; min-width:52px; align-self:stretch; display:grid; grid-template-rows:1fr auto 1fr; justify-items:center; font-size:10px; color:var(--muted); padding:0 4px; text-align:center; line-height:1.2; }
+  .da { --c:#8a8886; flex:1 1 0; min-width:40px; align-self:stretch; display:grid; grid-template-rows:1fr auto 1fr; justify-items:center; font-size:10px; color:var(--muted); padding:0 4px; text-align:center; line-height:1.2; }
   .da > span { align-self:end; margin-bottom:3px; max-width:100%; text-wrap:balance; overflow-wrap:break-word; }
   .da i { display:block; width:100%; height:2px; background:var(--c); position:relative; grid-row:2; }
   .dc .da:only-child { grid-template-rows:auto auto; }
@@ -509,6 +527,7 @@
     <a class="cmd" id="lnkLogs" target="_blank"><img src="/icons/log-analytics.svg" alt="">Log Analytics</a>
     <a class="cmd" id="lnkAppInsights" target="_blank"><img src="/icons/app-insights.svg" alt="">Application Insights</a>
     <a class="cmd" id="lnkApim" target="_blank"><img src="/icons/apim.svg" alt="">API Management</a>
+    <button class="cmd" data-pat="basics" title="APIM building blocks and the AI Gateway lab patterns"><svg viewBox="0 0 16 16"><path d="M3 1.5h8.5A1.5 1.5 0 0 1 13 3v11.5H4a1 1 0 0 1-1-1V1.5zm1 1v10.6l.1-.1H12V3a.5.5 0 0 0-.5-.5H4zm1 2h5v1H5v-1zm0 2h5v1H5v-1z"/></svg>References</button>
     <button class="cmd danger" id="btnReset" title="Changes the budget-epoch named value, which resets every $ budget and token quota"><svg viewBox="0 0 16 16"><path d="M8 2a6 6 0 0 0-5.2 3V2h-1v4.5h4.5v-1H3.6A5 5 0 1 1 3 8H2a6 6 0 1 0 6-6z"/></svg>Reset budgets</button>
   </div>
 </div>
@@ -539,11 +558,14 @@
     </div>
     <div class="build hidden" id="mode-build">
     <div>
-      <h2><span class="step">1</span>Pick an agent or a user</h2>
+      <h2><span class="step">1</span>Pick who's calling</h2>
+      <div class="muted pickhelp">Each card is <span class="term" tabindex="0" data-primer><b>one subscription key</b></span>, and the gateway bills whoever's key makes the call. So pick an app <i>or</i> a user: a call is never both.</div>
       <div class="agents" id="agents"></div>
+      <div class="callerNote"><b>A user working through an agent?</b> Pick the user, then the <b>A2A agent</b> tab. The agent makes model and tool calls on the user's behalf, and the gateway bills the user (<code>x-gw-on-behalf-of</code>). Only the agent platform may name someone else to bill, so an ordinary app can't push its cost onto a user.</div>
     </div>
     <div class="form">
       <h2><span class="step">2</span>Send requests through the gateway</h2>
+      <div class="callerLine" id="callerLine">Pick who's calling in step 1.</div>
       <div class="pivot" id="surfacePivot">
         <button class="active" data-surface="model"><img class="ico" src="/icons/foundry-models.svg" alt=""> AI model</button>
         <button data-surface="tool"><img class="ico" src="/icons/mcp.svg" alt=""> MCP tool</button>
@@ -570,16 +592,18 @@
       <div id="pane-agent" class="hidden">
         <label>Task for the <i>Sourcing Agent</i> (A2A)</label>
         <textarea id="agentTask">Source 500 units of SKU-1042 for the Q3 electronics promotion. Recommend a supplier.</textarea>
-        <div class="muted" style="margin-top:6px">The agent calls 3 MCP tools and 1 model through the gateway. Its spend plus a per-task fee is charged to the calling agent.</div>
+        <div class="muted" style="margin-top:6px">The agent calls 3 MCP tools and 1 model through the gateway. Its spend plus a per-task fee is charged to the caller picked in step 1.</div>
       </div>
       <div class="sessrow">
         <div><label title="Sent as the x-session-id header. The gateway caps spend per session and tags every chargeback record with it.">Session id <span class="muted">(x-session-id: per-session $ cap + chargeback key)</span></label><input id="sessionId" /></div>
         <button class="secondary" id="btnNewSession" style="flex:0 0 auto">New session</button>
+        <div><label title="Sent as the x-gw-end-user header: the app names the person it is acting for, and the gateway gives that person their own $ budget inside the app's key (the app's plan budget still caps the total). Leave empty for the app's own calls.">End user <span class="muted">(optional · x-gw-end-user: per-user $ budget inside this key)</span></label><input id="endUser" list="endUserList" placeholder="e.g. raj.iyer" autocomplete="off" /><datalist id="endUserList"></datalist></div>
       </div>
       <div class="toggles">
         <label title="Microsoft Entra ID token from your az login, validated by validate-azure-ad-token"><input type="checkbox" id="useToken" checked /> Send Entra ID token</label>
         <label title="Requests an APIM debug credential so the gateway records a policy-by-policy trace"><input type="checkbox" id="useTrace" /> Trace policies</label>
         <label title="Send sends the earlier prompts and answers of this session with the new prompt, so the model sees the conversation. Bursts always send a single prompt."><input type="checkbox" id="useHistory" checked /> Remember earlier turns</label>
+        <label title="AI model calls only. Sends stream: true. The gateway can't read the usage of a Server-Sent Events stream without buffering it, so it charges the ceiling: estimated prompt tokens + the full max_tokens (x-gw-pricing-rule: stream-ceiling). The UI also asks for stream_options.include_usage to show the backend's real tokens next to the charge."><input type="checkbox" id="useStream" /> Stream (charged at ceiling)</label>
       </div>
       <div class="actions">
         <button id="btnSend">Send</button>
@@ -725,6 +749,36 @@
         .gwlb-tabs { display:flex; gap:6px; flex-wrap:wrap; padding:8px 16px 0; }
         .gwlb-tabs button { height:24px; padding:0 10px; font-size:12px; background:#fff; color:var(--text); border:1px solid var(--border); border-radius:12px; font-weight:400; }
         .gwlb-tabs button.on { border-color:var(--accent); background:var(--accent-light); color:#005a9e; font-weight:600; }
+        .gwlb-html { padding:16px; overflow:auto; max-height:calc(100vh - 230px); }
+        .gwlb-img[hidden], .gwlb-html[hidden] { display:none; }
+        /* APIM building blocks primer: shared by the References lightbox (full) and the hover popout (compact) */
+        .prim { font-size:12px; line-height:1.45; color:var(--text); }
+        .prim small { color:var(--muted); font-size:11px; }
+        .prim code { font-size:10.5px; }
+        .prim-flow { display:flex; align-items:stretch; gap:6px; }
+        .prim-end { flex:0 0 96px; border:1px solid var(--border); border-radius:6px; background:#fff; padding:8px; display:flex; flex-direction:column; justify-content:center; text-align:center; gap:2px; }
+        .prim-arr { flex:0 0 74px; display:flex; flex-direction:column; justify-content:center; text-align:center; font-size:10.5px; color:var(--muted); }
+        .prim-arr::after { content:"⟶"; font-size:20px; line-height:1; color:var(--accent); }
+        .prim-apim { flex:1; min-width:0; border:1.5px dashed #9fc5ea; border-radius:8px; background:#f3f9fd; padding:8px; }
+        .prim-apim > .h { font-weight:600; color:#005a9e; margin-bottom:6px; display:flex; gap:6px; align-items:center; } .prim-apim > .h img { width:16px; height:16px; }
+        .prim-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+        .prim-box { background:#fff; border:1px solid var(--border); border-left:3px solid var(--c, var(--accent)); border-radius:5px; padding:6px 8px; }
+        .prim-box > b:first-child { color:var(--c, var(--accent)); }
+        .prim-box .prim-box { margin-top:6px; }
+        .prim-box.prod { --c:#8a5300; } .prim-box.sub { --c:#ca5010; background:#fff8f0; } .prim-box.api { --c:#005a9e; } .prim-box.op { --c:#605e5c; } .prim-box.pol { --c:#5c2e91; } .prim-box.mini { --c:#8764b8; }
+        .prim-key { display:inline-block; font:600 10px Consolas,monospace; background:#fff4ce; border:1px solid #f2d58a; border-radius:3px; padding:0 4px; }
+        .prim-note { margin-top:8px; font-size:11.5px; color:var(--muted); }
+        .prim table { width:100%; border-collapse:collapse; margin-top:12px; font-size:12px; }
+        .prim th, .prim td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--divider); vertical-align:top; white-space:normal; }
+        .prim td:first-child { white-space:nowrap; }
+        .prim th { color:var(--muted); font-weight:600; }
+        .prim.compact .prim-grid { grid-template-columns:1fr; }
+        .prim.compact .prim-end { flex-basis:76px; padding:6px; } .prim.compact .prim-arr { flex-basis:56px; }
+        .term { border-bottom:1px dotted currentColor; cursor:help; outline:none; } .term:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+        .primer-pop { position:fixed; z-index:90; width:min(640px, calc(100vw - 24px)); background:#fff; border:1px solid var(--border); border-radius:8px; padding:12px 14px;
+          box-shadow:0 6.4px 14.4px rgba(0,0,0,.13),0 1.2px 3.6px rgba(0,0,0,.11); }
+        .primer-pop[hidden] { display:none; }
+        .primer-pop .ph { display:flex; align-items:baseline; gap:8px; margin-bottom:8px; } .primer-pop .ph b { font-size:13px; flex:1; } .primer-pop .ph a { font-size:12px; }
         @media (max-width:1100px) { .gwf-grid { grid-template-columns:1fr; } }
         @media (prefers-reduced-motion: reduce) { #gwfSvg *, .gwf-hdrs > span { transition:none !important; animation:none !important; } }
       </style>
@@ -751,6 +805,7 @@
             <button class="secondary" id="gwLbClose" aria-label="Close">✕</button></div>
           <div class="gwlb-tabs" id="gwLbTabs"></div>
           <div class="gwlb-img"><img id="gwLbImg" alt="" /></div>
+          <div class="gwlb-html" id="gwLbHtml" hidden></div>
           <div class="gwlb-cap"><span id="gwLbCap"></span><a id="gwLbLab" target="_blank" rel="noopener">Open the lab ↗</a></div>
         </div>
       </div>
@@ -762,8 +817,46 @@
         const C = () => (typeof cfg !== "undefined" && cfg) || {};
         const REPO = "https://github.com/Azure-Samples/AI-Gateway/tree/main";
 
+        // ---- APIM building blocks primer (HTML, not a GIF): full in the References lightbox, compact in the hover popout
+        const LEARN = "https://learn.microsoft.com/azure/api-management/";
+        function primer(compact) {
+          const box = (cls, title, body, inner = "") => `<div class="prim-box ${cls}"><b>${title}</b> ${body}${inner}</div>`;
+          let h = `<div class="prim${compact ? " compact" : ""}"><div class="prim-flow">
+            <div class="prim-end"><b>Caller</b><small>app, agent or user</small></div>
+            <div class="prim-arr">sends its<br><span class="prim-key">api-key</span><br>+ Entra ID token</div>
+            <div class="prim-apim"><div class="h"><img src="/icons/apim.svg" alt="">API Management instance <small>(the gateway)</small></div><div class="prim-grid">
+              ${box("prod", "Product", "= a <b>plan</b><br><small>Gold · Silver · Bronze · agent-platform. Bundles APIs with limits: models, TPM, quota, $ budget.</small>",
+                box("sub", "Subscription", "to a product<br><small>One per app or user. Its <span class=\"prim-key\">key</span> says <b>who pays</b> and which plan applies.</small>"))}
+              ${box("api", "APIs", "= the surfaces<br><small>models (<code>inference-api</code>) · MCP tools (<code>commerce-mcp</code>) · A2A agent (<code>sourcing-agent</code>)</small>",
+                box("op", "Operations", "<small>the endpoints, e.g. <code>chat/completions</code>, <code>tools/call</code></small>"))}
+              ${box("pol", "Policies", "= the rules<br><small>An XML pipeline: inbound → backend → outbound → on-error. Set at global › product › API › operation scope.</small>",
+                box("mini", "Fragments", "<small>reusable snippets: <code>chargeback-record</code>, <code>payer-attribution</code></small>")
+                + box("mini", "Named values", "<small>shared config: <code>model-pricing</code>, <code>budget-epoch</code></small>"))}
+            </div></div>
+            <div class="prim-arr">forwards with<br>its own<br>managed identity</div>
+            <div class="prim-end"><b>Backends</b><small>Foundry model pool · MCP server · agent</small></div>
+          </div>
+          <div class="prim-note">The key picks the <b>product</b> → the product decides which <b>APIs</b> you may call → <b>policies</b> on the way enforce limits, price the call and record who pays → the call reaches a <b>backend</b>.</div>`;
+          if (!compact) {
+            const rows = [
+              ["Subscription key", "A secret sent in the <code>api-key</code> header. Each key belongs to one subscription to one product.", "One per demo user and per app, so the gateway knows who pays without extra identity setup. In production, take the user from the Entra ID token instead.", "api-management-subscriptions"],
+              ["Product", "A bundle of APIs offered as a plan, with its own terms and policies.", "The Gold, Silver and Bronze plans, plus <code>agent-platform</code> for the A2A agent.", "api-management-howto-add-products"],
+              ["API / operation", "A published interface and its endpoints. The gateway exposes it and forwards to a backend.", "<code>inference-api</code> (models), <code>commerce-mcp</code> (MCP tools), <code>sourcing-agent</code> (A2A).", "import-and-publish"],
+              ["Policy", "XML statements run on every request and response: authenticate, limit, route, transform, log.", "Identity check, model downgrade, token limit, $ budget, pricing, chargeback record.", "api-management-howto-policies"],
+              ["Policy fragment", "A reusable block of policy XML included by many policies.", "<code>entra-identity</code>, <code>payer-attribution</code>, <code>chargeback-record</code>.", "policy-fragments"],
+              ["Named value", "A key/value (or Key Vault secret) that policies read as <code>{{name}}</code>.", "<code>model-pricing</code>, <code>tool-pricing</code>, <code>budget-epoch</code> (change it to reset budgets).", "api-management-howto-properties"],
+              ["Backend", "A target service, or a pool of them with load balancing and a circuit breaker.", "<code>inference-backend-pool</code> (Foundry regions), the MCP server and the agent app.", "backends"]];
+            h += `<table><thead><tr><th>Term</th><th>What it is</th><th>In this sandbox</th></tr></thead><tbody>${rows.map(([t, w, s, doc]) =>
+              `<tr><td><a href="${LEARN}${doc}" target="_blank" rel="noopener"><b>${t}</b> ↗</a></td><td>${w}</td><td>${s}</td></tr>`).join("")}</tbody></table>`;
+          }
+          return h + `</div>`;
+        }
+
         // ---- AI Gateway lab patterns (GIFs from the repo images/ folder, served by app.py at /images/<name>.gif)
+        // an item with a 5th element renders that HTML instead of a GIF
         const PATTERNS = {
+          basics: { title: "APIM basics", items: [
+            ["apim-basics", "API Management building blocks", "How subscription keys, products, APIs, policies and backends fit together, and where each one shows up in this sandbox.", LEARN + "api-management-key-concepts", () => primer(false)]] },
           overview: { title: "Surfaces", items: [
             ["ai-gateway", "The AI Gateway pattern", "API Management in front of AI models, tools and agents: one place for identity, plans, routing, metering and logs.", REPO],
             ["model-context-protocol", "MCP servers through API Management", "MCP tool servers exposed and governed by the gateway, so tool calls get the same keys, limits and logs as model calls.", REPO + "/labs/model-context-protocol"],
@@ -788,11 +881,14 @@
         document.body.appendChild(el("gwLb"));
         let lb = { key: "overview", i: 0, opener: null };
         function lbShow() {
-          const p = PATTERNS[lb.key], [name, title, cap, lab] = p.items[lb.i], img = el("gwLbImg");
+          const p = PATTERNS[lb.key], [name, title, cap, lab, html] = p.items[lb.i], img = el("gwLbImg");
           el("gwLbTitle").textContent = title; el("gwLbPos").textContent = `· ${p.title} ${lb.i + 1}/${p.items.length}`;
           el("gwLbCap").textContent = cap; el("gwLbLab").href = lab;
+          el("gwLbLab").textContent = lab.startsWith(LEARN) ? "Microsoft Learn ↗" : "Open the lab ↗";
           el("gwLbTabs").innerHTML = PAT_KEYS.map(k => `<button data-k="${k}" class="${k === lb.key ? "on" : ""}">${PATTERNS[k].title}</button>`).join("");
-          img.alt = title + " (animated diagram)"; img.src = `/images/${name}.gif`;
+          img.parentElement.hidden = !!html; el("gwLbHtml").hidden = !html;
+          if (html) { el("gwLbHtml").innerHTML = html(); img.removeAttribute("src"); }
+          else { img.alt = title + " (animated diagram)"; img.src = `/images/${name}.gif`; }
         }
         function pattern(key, start = 0) {
           if (!PATTERNS[key]) key = "overview";
@@ -1212,7 +1308,30 @@
 
         draw(); resetDiagram(); renderDemos(null);
         el("gwfSrc").innerHTML = "· pick an example, or open the evidence of a call";
-        return { fromCall, trace, pattern, shown, play: runDemo };
+        // ---- hover / focus popout for any element with data-primer: the compact building-blocks diagram
+        const pop = document.createElement("div");
+        pop.className = "primer-pop"; pop.hidden = true; pop.setAttribute("role", "tooltip"); pop.id = "primerPop";
+        pop.innerHTML = `<div class="ph"><b>How a subscription key fits into API Management</b><a href="#" data-pat="basics">Open in References ›</a></div>${primer(true)}`;
+        document.body.appendChild(pop);
+        let popTimer = 0;
+        const popShow = (t) => {
+          clearTimeout(popTimer); pop.hidden = false;
+          const r = t.getBoundingClientRect(), w = pop.offsetWidth, hgt = pop.offsetHeight;
+          const left = Math.max(12, Math.min(r.left, innerWidth - w - 12));
+          const top = r.bottom + 8 + hgt <= innerHeight - 8 ? r.bottom + 8 : Math.max(8, r.top - hgt - 8);
+          pop.style.left = left + "px"; pop.style.top = top + "px";
+        };
+        const popHide = (delay = 180) => { clearTimeout(popTimer); popTimer = setTimeout(() => { pop.hidden = true; }, delay); };
+        document.querySelectorAll("[data-primer]").forEach(t => {
+          t.setAttribute("aria-describedby", "primerPop");
+          t.addEventListener("mouseenter", () => popShow(t)); t.addEventListener("focus", () => popShow(t));
+          t.addEventListener("mouseleave", () => popHide()); t.addEventListener("blur", () => popHide());
+        });
+        pop.addEventListener("mouseenter", () => clearTimeout(popTimer)); pop.addEventListener("mouseleave", () => popHide());
+        pop.addEventListener("click", (e) => { if (e.target.closest("[data-pat]")) popHide(0); });
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !pop.hidden) popHide(0); });
+
+        return { fromCall, trace, pattern, shown, play: runDemo, primer };
       })();
       </script>
       </div>
@@ -1493,8 +1612,8 @@ async function init() {
       ${t.tpm.toLocaleString()} TPM · max output ${t.maxOutputTokens} · budget <b>$${t.budgetUsd}</b> across all surfaces${a.team ? ` · ${escapeHtml(a.team)} (${escapeHtml(a.costCenter || "-")})` : ""}</div></div>`;
   };
   const apps = cfg.agents.filter(a => a.kind !== "user"), people = cfg.agents.filter(a => a.kind === "user");
-  $("agents").innerHTML = `<div class="agrp">Apps &amp; agents</div>` + apps.map(card).join("")
-    + (people.length ? `<div class="agrp">Demo users <span>· one subscription key each, no Entra ID user needed</span></div><div class="users">${people.map(card).join("")}</div>` : "");
+  $("agents").innerHTML = `<div class="agrp">Apps &amp; agents <span>· the app's key, billed to the app</span></div>` + apps.map(card).join("")
+    + (people.length ? `<div class="agrp">Demo users <span>· the user's own key, billed to the user (stands in for the user in an Entra ID token, so no Entra users are needed)</span></div><div class="users">${people.map(card).join("")}</div>` : "");
   document.querySelectorAll(".agent").forEach(el => {
     el.onclick = () => selectAgent(el.dataset.agent);
     el.tabIndex = 0;
@@ -1503,6 +1622,7 @@ async function init() {
     el.onmouseleave = queueHidePreview; el.onblur = hidePreview;
   });
   $("sessionId").value = newSessionId("ui");
+  fillEndUsers();
   $("btnNewSession").onclick = () => { $("sessionId").value = newSessionId(selectedAgent?.kind === "user" ? selectedAgent.name.replace(/^user-/, "") : "ui"); toast("New session " + $("sessionId").value); cvCtx(); };
   $("btnChargeback").onclick = () => loadChargeback();
   $("cbWindow").onchange = () => loadChargeback();
@@ -1529,7 +1649,18 @@ function setSurface(s) {
   for (const k of ["model", "tool", "agent"]) $("pane-" + k).classList.toggle("hidden", k !== s);
   $("btnList").classList.toggle("hidden", s !== "tool"); $("btnCard").classList.toggle("hidden", s !== "agent");
   $("btnBurst").classList.toggle("hidden", s === "agent");
+  renderCallerLine();
   cvCtx();
+}
+
+function renderCallerLine() {
+  const a = selectedAgent;
+  if (!a) { $("callerLine").textContent = "Pick who's calling in step 1."; return; }
+  const who = `<b>${escapeHtml(a.displayName)}</b>`, kind = a.kind === "user" ? "user" : "app";
+  const org = a.team ? ` · ${escapeHtml(a.team)}${a.costCenter ? ` (${escapeHtml(a.costCenter)})` : ""}` : "";
+  let html = `Calling as ${who} with the ${kind}'s own key <span class="badge ${a.tier}">${a.tier}</span> → billed to ${who}${org}`;
+  if (surface === "agent") html += `<br><span class="muted">The Sourcing Agent's own model and tool calls are billed to ${who} too, on its behalf.</span>`;
+  $("callerLine").innerHTML = html;
 }
 
 function selectAgent(name) {
@@ -1544,6 +1675,7 @@ function selectAgent(name) {
   if (current) $("model").value = current;
   $("tool").innerHTML = cfg.tools.map(x => `<option value="${x.name}">${x.name}  ($${x.priceUsd} per call)  ${(t.allowedTools || []).includes(x.name) ? "· in plan" : "· not in plan"}</option>`).join("");
   if (currentTool) $("tool").value = currentTool;
+  renderCallerLine();
   cvCtx();
 }
 
@@ -1612,8 +1744,18 @@ function setOutcomes(c, rows) { // rows: [{Agent, resultCode, Calls}]
   c.update();
 }
 
-// opts.noToken / opts.trace / opts.session override the toggles and the session box (used by the scenarios)
-function authOpts(opts = {}) { return { noToken: opts.noToken ?? !$("useToken").checked, trace: opts.trace ?? $("useTrace").checked, session: opts.session ?? $("sessionId").value.trim() }; }
+// opts.noToken / opts.trace / opts.session / opts.endUser override the toggles and the session / end-user boxes (used by the scenarios)
+function authOpts(opts = {}) { return { noToken: opts.noToken ?? !$("useToken").checked, trace: opts.trace ?? $("useTrace").checked, session: opts.session ?? $("sessionId").value.trim(),
+                                        endUser: (opts.endUser ?? $("endUser").value.trim()) || undefined }; }
+// Per-end-user budgets (x-gw-end-user): a class from endUserBudgets, an individual USD override, or the default class
+function endUserBudget(user) {
+  const c = cfg.endUserBudgets || {}, v = (c.users || {})[user] ?? c.defaultClass;
+  return typeof v === "number" ? { cls: "custom", usd: v } : { cls: v || "-", usd: (c.classesUsd || {})[v] };
+}
+function fillEndUsers() {
+  const c = cfg.endUserBudgets || {}, users = [...Object.keys(c.users || {}), "ana.lopez"];
+  $("endUserList").innerHTML = users.map(u => { const b = endUserBudget(u); return `<option value="${escapeHtml(u)}">${escapeHtml(b.cls)} · $${b.usd ?? "?"}</option>`; }).join("");
+}
 function newSessionId(prefix = "s") { return `${prefix}-${new Date().toISOString().slice(5, 16).replace(/[-T:]/g, "")}-${Math.random().toString(36).slice(2, 6)}`; }
 async function post(path, body) {
   const pend = cvPending(path, body);
@@ -1635,7 +1777,7 @@ async function post(path, body) {
   return r;
 }
 function send(agentName, model, opts = {}) {
-  return post("/api/chat", { agent: agentName, model, prompt: opts.prompt ?? $("prompt").value, history: opts.history,
+  return post("/api/chat", { agent: agentName, model, prompt: opts.prompt ?? $("prompt").value, history: opts.history, stream: opts.stream || undefined,
                              maxTokens: opts.maxTokens ?? (Number($("maxTokens").value) || undefined), ...authOpts(opts) });
 }
 function callTool(agentName, tool, args, opts = {}) { return post("/api/mcp", { agent: agentName, action: "call", tool, arguments: args ?? TOOL_ARGS[tool] ?? {}, ...authOpts(opts) }); }
@@ -2010,6 +2152,11 @@ function callKv(r, idx) {
   if (r.surface === "model") kv += `<div>Tokens (prompt / completion)</div><div>${h["x-gw-prompt-tokens"] || "-"} / ${h["x-gw-completion-tokens"] || "-"}</div>
       <div>Remaining TPM</div><div>${h["x-gw-remaining-tpm"] ?? "-"}</div><div>Remaining token quota</div><div>${h["x-gw-remaining-quota-tokens"] ?? "-"}</div>`;
   if (h["x-gw-pricing-rule"]) kv += `<div>Pricing rule</div><div>${escapeHtml(h["x-gw-pricing-rule"])}${Number(h["x-gw-cached-tokens"]) ? ` · ${h["x-gw-cached-tokens"]} cached tokens saved ${fmtUsd(h["x-gw-cached-savings-usd"])}` : ""}</div>`;
+  if (r.stream) {
+    const u = r.usage || {}, actual = u.prompt_tokens !== undefined ? `${u.prompt_tokens} / ${u.completion_tokens}` : "not reported";
+    kv += `<div>Streamed</div><div>${r.streamEvents ?? "-"} SSE events · charged ${h["x-gw-pricing-rule"] === "stream-ceiling" ? "at the ceiling (estimate above)" : `as <b>${escapeHtml(h["x-gw-pricing-rule"] || "nothing")}</b>: is the stream-ceiling policy deployed?`}</div>
+      <div>Backend's real tokens (prompt / completion)</div><div>${actual}</div>`;
+  }
   if (h["x-gw-affinity"]) kv += `<div>Response affinity</div><div>${escapeHtml(h["x-gw-affinity"])}</div>`;
   if (r.surface === "image") kv += `<div>Images</div><div>${h["x-gw-image-count"] ?? "-"} × ${h["x-gw-image-unit-usd"] ? fmtUsd(h["x-gw-image-unit-usd"]) : "-"} (${escapeHtml(h["x-gw-image-spec"] || "-")})</div>
       <div>Remaining images (minute)</div><div>${h["x-gw-remaining-images"] ?? "-"}</div>`;
@@ -2022,6 +2169,7 @@ function callKv(r, idx) {
   if (h["retry-after"]) kv += `<div>Retry-After</div><div>${h["retry-after"]} s</div>`;
   kv += `<div>Caller (Entra ID)</div><div>${h["x-gw-caller"] ? escapeHtml(h["x-gw-caller"]) : r.entraToken === false ? "<i>no token sent</i>" : "-"}</div>`;
   if (h["x-gw-session"]) kv += `<div>Session</div><div><span class="sess">${escapeHtml(h["x-gw-session"])}</span></div>`;
+  if (h["x-gw-end-user"]) kv += `<div>End user (inside this key)</div><div>${escapeHtml(h["x-gw-end-user"])}${h["x-gw-end-user-budget-usd"] ? ` · own $ budget ${fmtUsd(h["x-gw-end-user-budget-usd"])}` : ""}</div>`;
   if (h["x-gw-blocked-by"]) kv += `<div>Blocked by policy</div><div><span class="src err">${escapeHtml(h["x-gw-blocked-by"])}</span></div>`;
   if (h["x-gw-route"]) kv += `<div>Backend route</div><div>${escapeHtml(h["x-gw-route"])}${h["x-gw-route"].includes(" > ") ? ' <span class="gov">failover</span>' : ""}</div>`;
   kv += `<div>Request id</div><div><code>${escapeHtml(h["x-gw-request-id"] || "-")}</code> <a class="ev" onclick="showEvidence(${idx})">${h["apim-trace-id"] ? "trace + logs" : "logs"} ›</a></div>`;
@@ -2258,7 +2406,7 @@ function snapshotRequest(b) {
   return { id: b.id, action: b.id === "btnBurst" ? `Burst ×${Math.min(20, Math.max(1, Number($("burst").value) || 10))}` : b.textContent.trim(),
     who: sim ? "Random agents" : selectedAgent?.displayName || "", agent: selectedAgent?.name, surface: sim ? "mixed" : surface, target,
     model: $("model").value, preset: $("preset").value, prompt: $("prompt").value, maxTokens: $("maxTokens").value, burst: $("burst").value,
-    tool: $("tool").value, toolArgs: $("toolArgs").value, task: $("agentTask").value, sessionId: $("sessionId").value, token: $("useToken").checked, trace: $("useTrace").checked };
+    tool: $("tool").value, toolArgs: $("toolArgs").value, task: $("agentTask").value, sessionId: $("sessionId").value, endUser: $("endUser").value, token: $("useToken").checked, trace: $("useTrace").checked, stream: $("useStream").checked };
 }
 function rememberRun(label) {
   const b = lastBtn; lastBtn = null;
@@ -2453,7 +2601,7 @@ function renderRunDetail(run, s) {
     if (q.surface === "mixed") kv += `<div>Traffic</div><div>30 short requests from random agents: AI models (≈70%) and MCP tools (≈30%), 2 per second</div>`;
     else {
       kv += `<div>Agent / user</div><div>${escapeHtml(q.who)}</div><div>Surface</div><div>${surfChip(q.surface)}</div><div>Target</div><div>${escapeHtml(q.target)}</div>`;
-      if (q.surface === "model") kv += `<div>max_tokens</div><div>${escapeHtml(q.maxTokens)}</div>`;
+      if (q.surface === "model") kv += `<div>max_tokens</div><div>${escapeHtml(q.maxTokens)}</div><div>Stream</div><div>${yes(q.stream)}</div>`;
       kv += `<div>Session id</div><div><span class="sess">${escapeHtml(q.sessionId)}</span></div><div>Entra ID token</div><div>${yes(q.token)}</div><div>Policy trace</div><div>${yes(q.trace)}</div>`;
     }
     const body = q.surface === "model" ? q.prompt : q.surface === "tool" ? (q.id === "btnList" ? "" : q.toolArgs) : q.surface === "agent" ? (q.id === "btnCard" ? "" : q.task) : "";
@@ -2507,8 +2655,8 @@ function loadRequest(q) {
   if (q.agent) selectAgent(q.agent);
   if (q.surface !== "mixed") setSurface(q.surface);
   $("model").value = q.model; $("preset").value = q.preset; $("prompt").value = q.prompt; $("maxTokens").value = q.maxTokens; $("burst").value = q.burst;
-  $("tool").value = q.tool; $("toolArgs").value = q.toolArgs; $("agentTask").value = q.task; $("sessionId").value = q.sessionId;
-  $("useToken").checked = q.token; $("useTrace").checked = q.trace;
+  $("tool").value = q.tool; $("toolArgs").value = q.toolArgs; $("agentTask").value = q.task; $("sessionId").value = q.sessionId; $("endUser").value = q.endUser || "";
+  $("useToken").checked = q.token; $("useTrace").checked = q.trace; $("useStream").checked = !!q.stream;
   cvCtx();
 }
 function rerun(run) {
@@ -2524,7 +2672,7 @@ function toolArgs() {
 function sendCurrent(withHistory = false) {  // only a single Send carries the session's earlier turns; bursts stay single-turn
   if (surface === "tool") { const args = toolArgs(); return args ? callTool(selectedAgent.name, $("tool").value, args) : Promise.resolve(null); }
   if (surface === "agent") return callAgent(selectedAgent.name);
-  return send(selectedAgent.name, $("model").value, withHistory && $("useHistory").checked ? { history: chatHistory($("sessionId").value.trim()) } : {});
+  return send(selectedAgent.name, $("model").value, { stream: $("useStream").checked, ...(withHistory && $("useHistory").checked ? { history: chatHistory($("sessionId").value.trim()) } : {}) });
 }
 $("btnSend").onclick = async () => { setRunning(true, surface === "agent" ? "Agent is working (it calls tools and a model through the gateway)…" : "Sending…"); await sendCurrent(true); setRunning(false); };
 $("btnList").onclick = async () => { setRunning(true, "Listing tools…"); await listTools(selectedAgent.name); setRunning(false); };
@@ -2882,7 +3030,7 @@ function step(r, note = "") {
     detail = r.status === 200 ? ` · ${hdr(r, "x-gw-prompt-tokens")}${cached}+${hdr(r, "x-gw-completion-tokens")} tokens · ${fmtUsd(usd(r))}` : err;
   }
   $("scSteps").insertAdjacentHTML("beforeend", `<li><span class="status ${statusClass(r.status)}">${r.status}</span> ${surfChip(r.surface || "model")}
-    ${r.agent} ${what}${gov}${detail}${typeof r.latencyMs === "number" ? ` · <span class="muted">${fmtLat(r.latencyMs)}</span>` : ""}${note ? ` <span class="muted">· ${note}</span>` : ""}</li>`);
+    ${r.agent}${hdr(r, "x-gw-end-user") ? ` <span class="muted">for</span> <b>${escapeHtml(hdr(r, "x-gw-end-user"))}</b>` : ""} ${what}${gov}${detail}${typeof r.latencyMs === "number" ? ` · <span class="muted">${fmtLat(r.latencyMs)}</span>` : ""}${note ? ` <span class="muted">· ${note}</span>` : ""}</li>`);
 }
 const info = (html) => $("scSteps").insertAdjacentHTML("beforeend", `<li class="muted">${html}</li>`);
 const takeaway = (html) => $("scTakeaway").innerHTML = html;
@@ -2986,8 +3134,13 @@ const SCENARIOS = [
       return dg.row(dg.agent("silver"), dg.arrow("long reports"), dg.gw("prices each call"), dg.arrow("", "ok"), dg.model(t.allowedModels[0]))
         + dg.bar("$ budget", [[24, "#107c10"], [24, "#498205"], [26, "#f7630c"], [26, "#d13438"]], `$${t.budgetUsd} used up`)
         + dg.seq([200, 200, 200, 200, 403], `<span style="margin-left:6px">each call draws down the budget, then 403</span>`)
-        + dg.note("Budgets are reset first. Spend stays blocked until the budget period renews or you reset it."); },
-    story: () => `Budgets are reset first. Then the Silver <b>${tierAgent("silver").displayName}</b> runs long reports until its <b>$${tierOf(tierAgent("silver")).budgetUsd}</b> budget is spent. The gateway prices each call and cuts the agent off with 403.`,
+        + dg.note("<b>How the cap is enforced</b> (one <code>quota-by-key</code> counter in micro-USD, keyed on subscription + budget epoch):")
+        + dg.chips(["① before the call: counter ≥ limit? → 403, Foundry never called", "② call the model", "③ price it: tokens × price table (streams: ceiling)", "④ after a 200: add the cost to the counter"])
+        + dg.note(`<b>Budget layers</b>, all checked on every call: plan $${t.budgetUsd} (this scenario) › per session (scenario 11) › per end user inside one app key (scenario 19). The tightest one wins.`)
+        + dg.note("Soft cap: the check happens before the call and the cost is added after it, and counters sync asynchronously, so the call that crosses the line completes. Budgets are reset first; spend stays blocked until the period renews or you reset it."); },
+    story: () => { const t = tierOf(tierAgent("silver"));
+      return `Budgets are reset first. Then the Silver <b>${tierAgent("silver").displayName}</b> runs long reports until its <b>$${t.budgetUsd}</b> budget is spent.
+        <br><b>How it's enforced:</b> a <code>quota-by-key</code> counter per subscription holds the budget in micro-USD (${(t.budgetUsd * 1e6).toLocaleString()}). Before each call the gateway checks the counter and answers 403 if it's used up, so nothing reaches Foundry. After a successful call, the API policy prices it from the token counts and the model price table (streams are priced at their ceiling) and adds that cost to the counter. The same counter is shared by models, MCP tools, A2A agents and images, and the same mechanism powers the per-session (11) and per-end-user (19) caps.`; },
     async run() {
       const s = tierAgent("silver"), t = tierOf(s), m = t.allowedModels[0];
       info("Resetting budgets (budget-epoch named value)…");
@@ -3394,6 +3547,43 @@ const SCENARIOS = [
       step(r5, r5.status === 200 ? "quota counters sync asynchronously, so one more call got through" : `blocked by <code>${escapeHtml(hdr(r5, "x-gw-blocked-by") || "?")}</code>`);
       takeaway(`Gold's image cost <b>${fmtUsd(usd(r1))}</b> (${escapeHtml(hdr(r1, "x-gw-image-spec") || "-")}), priced per image, not per token. Silver asking for high quality got <b>${r2.status}</b> and Bronze got <b>${r3.status}</b>, both $0 because Foundry is never called. Silver's medium image (${fmtUsd(usd(r4))}) used up its $${tierOf(s).budgetUsd} budget, and the next image answered <b>${r5.status}</b>: one plan and one $ budget cover tokens, tools, agents and images.`);
     } },
+  { title: "One app, many users: per-user $ budgets", cost: "≤ 16 calls · ≈ $0.03",
+    gist: "One app key, one product. The app names the end user in x-gw-end-user and each user gets their own $ budget from a class (or an override). No subscription per user.",
+    policies: ["quota-by-key (end-user budget)", "named value end-user-budgets", "quota-by-key ($ budget)"],
+    preview: () => { const g = tierAgent("gold"), b = (u) => endUserBudget(u), fx = (u) => `${b(u).cls} · $${b(u).usd ?? "?"}`;
+      return dg.row(dg.col(dg.node("ana.lopez", fx("ana.lopez")), dg.node("raj.iyer", fx("raj.iyer")), dg.node("tom.intern", fx("tom.intern"))),
+                    dg.arrow("end user"), dg.agent("gold", "one app key"), dg.arrow(), dg.gw("same product: one counter per user + the plan budget"), dg.arrow(), dg.model("gpt-4.1"))
+        + dg.note("ana (default class)") + dg.seq([200, 200, 200, 200, 403], `<span style="margin-left:6px">soft cap: counters sync asynchronously</span>`) + dg.note("raj (power class)") + dg.seq([200, 200, 200, 200])
+        + dg.note("tom (individual override)") + dg.seq([200, 403]) + dg.note("the app's own call (no end user): only the plan budget applies") + dg.seq([200]); },
+    story: () => { const c = cfg.endUserBudgets || {}, cls = Object.entries(c.classesUsd || {}).map(([k, v]) => `<b>${escapeHtml(k)}</b> $${v}`).join(", ");
+      return `The <b>${escapeHtml(tierAgent("gold")?.displayName || "Gold app")}</b> serves many people through <b>one subscription key</b>. It forwards who it is acting for in <code>x-gw-end-user</code>, and the gateway keeps <b>one $ counter per user</b> inside that key (<code>quota-by-key</code> on subscription + user). Budgets come from the <code>end-user-budgets</code> named value: classes (${cls || "-"}), a default class (<b>${escapeHtml(c.defaultClass || "-")}</b>) for anyone not listed, and per-user overrides. Each call is counted in millionths of the user's own budget, so one policy handles any amount and budgets change without a redeploy. The app's plan budget still caps the total.`; },
+    async run() {
+      const g = tierAgent("gold");
+      if (!cfg.endUserBudgets?.classesUsd) { info("<code>endUserBudgets</code> is missing from the config. Add it to sandbox-config.json and redeploy."); return; }
+      info("Resetting budgets (budget-epoch named value) so every user starts from $0…");
+      if (!await resetBudgets()) return;
+      await sleep(8000);
+      const spentBy = {}, result = {};
+      async function loop(user, max) {  // each user gets a fresh session, so the per-session cap never interferes
+        const sid = newSessionId(user.split(".")[0]); spentBy[user] = 0;
+        for (let i = 0; i < max && running; i++) {
+          const r = await send(g.name, "gpt-4.1", { prompt: LONG, maxTokens: 300, session: sid, endUser: user });
+          if (r.status === 200) spentBy[user] += usd(r);
+          const bu = endUserBudget(user);
+          step(r, r.status === 200 ? `${escapeHtml(user)} spent ${fmtUsd(spentBy[user])} of $${bu.usd} (${escapeHtml(bu.cls)})` : `blocked by <code>${escapeHtml(hdr(r, "x-gw-blocked-by") || "?")}</code>`);
+          if (r.status === 429) { await sleep(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5)); continue; }
+          if (r.status !== 200) { result[user] = r; return; }
+        }
+      }
+      await loop("ana.lopez", 6); if (!running) return;
+      await loop("raj.iyer", 4); if (!running) return;
+      await loop("tom.intern", 4); if (!running) return;
+      const app = await send(g.name, "gpt-4.1-mini", { prompt: ASK, maxTokens: 80, session: newSessionId("app") }); step(app, "the app's own call, no end user");
+      const fmt = (u) => { const b = endUserBudget(u), r = result[u];
+        return `<b>${escapeHtml(u)}</b> (${escapeHtml(b.cls)}, $${b.usd}): spent ${fmtUsd(spentBy[u])}, ${r ? `then <b>${r.status}</b> <code>${escapeHtml(hdr(r, "x-gw-blocked-by") || "")}</code>` : "never blocked"}`; };
+      takeaway(`Same app key, same product, three different $ budgets:<br>${["ana.lopez", "raj.iyer", "tom.intern"].map(fmt).join("<br>")}<br>The app's own call answered <b>${app.status}</b>: without <code>x-gw-end-user</code> only the plan budget applies.
+        <br><b>Why it scales:</b> no subscription or product per user, one policy for any amount, and budgets live in config (here a named value; in production a class from an Entra app role plus overrides from a budget service, cached in the gateway). The header is trusted because the app key is: in production, take the user from the Entra token (<code>oid</code>) instead. Like every quota, the cap is soft: the call that crosses it completes.`);
+    } },
 ];
 const respModel = () => { const al = tierOf(tierAgent("gold")).allowedModels || []; return ["gpt-4.1-mini", "gpt-4.1-nano"].find(m => al.includes(m)) || al[0]; };
 // A long, identical prefix (more than 1,024 tokens) so the follow-up can be served from the model's prompt cache
@@ -3415,12 +3605,13 @@ async function runScenario(s) {
       $("scFlow").querySelectorAll(".dr").forEach(row => [...row.children].forEach((c, k) => c.style.setProperty("--i", k)));
     }
   } catch (e) { console.warn("scenario mini-flow failed", e); }
-  const buildSession = $("sessionId").value;  // the builder's session is restored afterwards, so build-your-own requests keep aggregating onto it
+  const buildSession = $("sessionId").value, buildEndUser = $("endUser").value;  // the builder's session and end user are restored afterwards, so build-your-own requests keep aggregating onto them
   $("sessionId").value = newSessionId("demo"); // every scenario runs in its own session, so per-session caps never carry over
+  $("endUser").value = "";                     // scenarios name their end users explicitly
   if (curRun) { snapPart(curPart); curPart = { si: SCENARIOS.indexOf(s), title: s.title, calls: [] }; curRun.parts.push(curPart); }
   if (!s.tab && curTab !== "runs") showTab("live");
   try { await s.run(); } catch (e) { info("Scenario failed: " + escapeHtml(e.message)); }
-  finally { $("sessionId").value = buildSession; cvCtx(); }
+  finally { $("sessionId").value = buildSession; $("endUser").value = buildEndUser; cvCtx(); }
   snapPart(curPart);
 }
 let previewHideTimer;
@@ -3455,11 +3646,29 @@ function showAgentTip(el) {  // the compact agent cards keep their plan details 
 }
 function hidePreview() { clearTimeout(previewHideTimer); $("scPreview").classList.remove("show"); }
 function queueHidePreview() { clearTimeout(previewHideTimer); previewHideTimer = setTimeout(hidePreview, 150); }
+// Display-only grouping: SCENARIOS keeps its order, so scenario numbers, saved run history and the full demo order don't change.
+const SCENARIO_TOPICS = [
+  ["Budgets & spend caps", "Stop spend in $ per plan, per session, per end user, across surfaces", /\$ budget|per-session \$ cap|Over budget/i],
+  ["Pricing & cost", "What each call costs and how the gateway prices it", /every model|Responses API|Images priced/i],
+  ["Model governance & limits", "Which models, how much output, how fast", /Model governance|Output cap|Tokens-per-minute/i],
+  ["Tools & agents", "MCP tools and A2A agents under the same plan", /^MCP tools|^A2A agent/i],
+  ["Identity & safety", "Who may call, and what never reaches a model", /Zero trust|content safety/i],
+  ["Routing & resilience", "Regions, failover and circuit breaking", /Load balancing/i],
+  ["Chargeback & evidence", "Who pays, and the proof in traces and logs", /Chargeback|Policy trace/i]];
 function renderScenarios() {
-  $("scenarios").innerHTML = SCENARIOS.map((s, i) => s.off
+  const btn = (s, i) => s.off
       ? `<button data-i="${i}" class="off" disabled aria-disabled="true" title="Not deployed in this sandbox: ${escapeHtml(s.cost.replace(/^off · /, ""))}"><span class="n">${i + 1}</span><span><span class="t">${s.title}</span><span class="c">${s.cost.replace(/^off · /, "Not deployed · ")}</span></span><span class="offtag">OFF</span></button>`
-      : `<button data-i="${i}"><span class="n">${i + 1}</span><span><span class="t">${s.title}</span><span class="c">${s.cost}</span></span></button>`).join("")
-    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.filter(s => !s.slow && !s.off).length})</span><span class="c">${cfg.contentSafety?.enabled ? (cfg.images?.enabled ? "≈ 99 calls" : "≈ 94 calls") : (cfg.images?.enabled ? "≈ 94 calls" : "≈ 89 calls")} · demo prices · about 10 minutes</span></span></button>`;
+      : `<button data-i="${i}"><span class="n">${i + 1}</span><span><span class="t">${s.title}</span><span class="c">${s.cost}</span></span></button>`;
+  const placed = new Set(), groups = SCENARIO_TOPICS.map(([name, sub, re]) => {
+    const items = SCENARIOS.map((s, i) => [s, i]).filter(([s, i]) => !placed.has(i) && re.test(s.title));
+    items.forEach(([, i]) => placed.add(i));
+    return [name, sub, items];
+  });
+  const rest = SCENARIOS.map((s, i) => [s, i]).filter(([, i]) => !placed.has(i));
+  if (rest.length) groups.push(["More", "", rest]);
+  $("scenarios").innerHTML = groups.filter(([, , items]) => items.length).map(([name, sub, items]) =>
+      `<div class="sctopic">${name}${sub ? ` <span>· ${sub}</span>` : ""}</div>` + items.map(([s, i]) => btn(s, i)).join("")).join("")
+    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.filter(s => !s.slow && !s.off).length})</span><span class="c">${cfg.contentSafety?.enabled ? (cfg.images?.enabled ? "≈ 109 calls" : "≈ 104 calls") : (cfg.images?.enabled ? "≈ 104 calls" : "≈ 99 calls")} · demo prices · about 10 minutes</span></span></button>`;
   document.querySelectorAll(".scenarios button[data-i]").forEach(b => {
     b.onclick = async () => {
       if (b.classList.contains("off") || running) return;

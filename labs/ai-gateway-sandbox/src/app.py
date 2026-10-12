@@ -35,7 +35,7 @@ GW_HEADERS = ["x-gw-agent", "x-gw-tier", "x-gw-model-requested", "x-gw-model-ser
               "x-gw-billed-to", "x-gw-tool", "x-gw-remaining-tool-calls", "x-gw-remaining-agent-calls",
               "x-gw-agent-fee-usd", "x-gw-downstream-cost-usd", "mcp-session-id", "x-gw-request-id", "x-gw-caller",
               "x-gw-route", "x-gw-backend", "x-gw-blocked-by", "x-ms-region", "apim-trace-id", "x-gw-session",
-              "x-gw-safety-cost-usd",
+              "x-gw-safety-cost-usd", "x-gw-end-user", "x-gw-end-user-budget-usd",
               "x-gw-cached-tokens", "x-gw-cached-savings-usd", "x-gw-pricing-rule", "x-gw-affinity",
               "x-gw-image-count", "x-gw-image-unit-usd", "x-gw-image-spec", "x-gw-remaining-images"]
 GATEWAY_AUDIENCE = "https://cognitiveservices.azure.com"
@@ -313,6 +313,21 @@ def valid_session(session):
     return isinstance(session, str) and re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", session) is not None
 
 
+def valid_end_user(end_user):
+    return isinstance(end_user, str) and re.fullmatch(r"[A-Za-z0-9._@-]{1,64}", end_user) is not None
+
+
+def end_user_budgets_config():
+    """Per-end-user budget classes for the UI. Older deployments lack them in the config, so fall back to the lab's sandbox-config.json."""
+    if CONFIG.get("endUserBudgets"):
+        return CONFIG["endUserBudgets"]
+    try:
+        with open(os.path.join(os.path.dirname(HERE), "sandbox-config.json"), encoding="utf-8") as f:
+            return {k: v for k, v in json.load(f).get("endUserBudgets", {}).items() if k != "$comment"}
+    except (OSError, ValueError):
+        return {}
+
+
 def debug_token(surface):
     """Short-lived APIM debug credential (Apim-Debug-Authorization) that turns on request tracing for one API."""
     cached = _token_cache.get("debug:" + surface)
@@ -334,6 +349,8 @@ def gateway_auth(agent, payload, surface):
     headers = {"api-key": agent["key"]}
     if valid_session(payload.get("session")):
         headers["x-session-id"] = payload["session"]
+    if valid_end_user(payload.get("endUser")):
+        headers["x-gw-end-user"] = payload["endUser"]
     if not payload.get("noToken"):
         headers["Authorization"] = f"Bearer {az_token(GATEWAY_AUDIENCE)}"
     if payload.get("trace"):
@@ -394,6 +411,28 @@ def chat_history(value):
     return turns if sum(len(m["content"]) for m in turns) <= MAX_HISTORY_CHARS else None
 
 
+def sse_chat_completion(text):
+    """Folds a streamed chat completion (Server-Sent Events) into the shape of a non-streamed one."""
+    content, finish, usage, events = [], None, {}, 0
+    for line in text.splitlines():
+        if not line.startswith("data:"):
+            continue
+        data = line[5:].strip()
+        if not data or data == "[DONE]":
+            continue
+        try:
+            event = json.loads(data)
+        except ValueError:
+            continue
+        events += 1
+        if event.get("usage"):
+            usage = event["usage"]
+        for choice in event.get("choices") or []:
+            content.append((choice.get("delta") or {}).get("content") or "")
+            finish = choice.get("finish_reason") or finish
+    return {"choices": [{"message": {"content": "".join(content)}, "finish_reason": finish}], "usage": usage, "streamEvents": events}
+
+
 def chat(payload):
     agent = agent_by_name(payload.get("agent", ""))
     if not agent:
@@ -406,18 +445,28 @@ def chat(payload):
     body = {"model": payload.get("model"), "messages": history + [{"role": "user", "content": payload.get("prompt") or "Hello"}]}
     if payload.get("maxTokens"):
         body["max_tokens"] = int(payload["maxTokens"])
+    stream = bool(payload.get("stream"))
+    if stream:
+        # include_usage: the last event carries the backend's real token counts, shown next to the gateway's ceiling charge
+        body["stream"] = True
+        body["stream_options"] = {"include_usage": True}
     status, headers, text, elapsed = http("POST", f"{CONFIG['inferenceBaseUrl']}/chat/completions", body, gateway_auth(agent, payload, "model"))
     result = {"surface": "model", "status": status, "latencyMs": round(elapsed * 1000), "agent": agent["name"], "tier": agent["tier"],
               "requestedModel": payload.get("model"), "headers": gw_headers(headers), "entraToken": not payload.get("noToken"),
-              "historyMessages": len(history)}
-    try:
-        data = json.loads(text)
-    except ValueError:
-        data = {"raw": text[:500]}
+              "historyMessages": len(history), "stream": stream}
+    if stream and status == 200 and "text/event-stream" in {k.lower(): v for k, v in headers.items()}.get("content-type", ""):
+        data = sse_chat_completion(text)
+    else:
+        try:
+            data = json.loads(text)
+        except ValueError:
+            data = {"raw": text[:500]}
     if status == 200:
         result["usage"] = data.get("usage", {})
         result["content"] = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
         result["finishReason"] = (data.get("choices") or [{}])[0].get("finish_reason")
+        if "streamEvents" in data:
+            result["streamEvents"] = data["streamEvents"]
     else:
         error = data.get("error") if isinstance(data.get("error"), dict) else data
         result["error"] = error.get("message") or error.get("raw") or text[:500]
@@ -993,6 +1042,7 @@ def public_config(user=None):
         "budgetSuspend": {k: v for k, v in budget_suspend_config().items() if k in ("enabled", "subscriptions", "suspendAtPercent", "logicAppName", "alertRuleName")},
         "endpoints": {k: CONFIG.get(k) for k in ("inferenceBaseUrl", "mcpUrl", "a2aUrl", "agentCardUrl", "imagesBaseUrl")},
         "cachedInputPrices": CONFIG.get("cachedInputPrices", {}),
+        "endUserBudgets": end_user_budgets_config(),
         "images": {**(CONFIG.get("images") or {}), "enabled": bool(CONFIG.get("imagesBaseUrl"))},
         "links": {
             "workbook": f"{portal}{CONFIG['workbookId']}/workbook" if CONFIG.get("workbookId") else None,
