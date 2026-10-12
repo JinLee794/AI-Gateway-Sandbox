@@ -460,6 +460,7 @@
   /* Minimized: the launch panel shrinks to a slim rail (side by side only) and the conversation takes the width */
   .rlab { display:none; } #btnMini { padding:0 10px; font-size:16px; }
   @media (min-width:1101px) {
+    #btnToggle { display:none; }  /* side by side, « (minimize to a rail) is the only collapse control */
     .bench:has(.launch.mini) { grid-template-columns:52px minmax(0,1fr); }
     .bench:has(.launch.mini) .cvcol { min-height:max(560px, calc(100vh - 260px)); }
     .launch.mini .lbody, .launch.mini .lsum, .launch.mini #runStatus, .launch.mini #btnToggle, .launch.mini .sp, .launch.mini .mode > span:not(.ic), .launch.mini #btnAgain .lbl { display:none; }
