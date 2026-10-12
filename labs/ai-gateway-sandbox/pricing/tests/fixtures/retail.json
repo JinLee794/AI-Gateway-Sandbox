@@ -1,0 +1,41 @@
+{
+  "Items": [
+    {
+      "currencyCode": "USD",
+      "type": "Consumption",
+      "armRegionName": "swedencentral",
+      "tierMinimumUnits": 0,
+      "effectiveStartDate": "2025-04-01T00:00:00Z",
+      "meterId": "fixture-input",
+      "productName": "Azure OpenAI",
+      "meterName": "gpt 4.1 Inp glbl Tokens",
+      "unitOfMeasure": "1K",
+      "retailPrice": 0.002
+    },
+    {
+      "currencyCode": "USD",
+      "type": "Consumption",
+      "armRegionName": "swedencentral",
+      "tierMinimumUnits": 0,
+      "effectiveStartDate": "2025-04-01T00:00:00Z",
+      "meterId": "fixture-cached",
+      "productName": "Azure OpenAI",
+      "meterName": "gpt 4.1 cached Inp glbl Tokens",
+      "unitOfMeasure": "1K",
+      "retailPrice": 0.0005
+    },
+    {
+      "currencyCode": "USD",
+      "type": "Consumption",
+      "armRegionName": "swedencentral",
+      "tierMinimumUnits": 0,
+      "effectiveStartDate": "2025-04-01T00:00:00Z",
+      "meterId": "fixture-output",
+      "productName": "Azure OpenAI",
+      "meterName": "gpt 4.1 Outp glbl Tokens",
+      "unitOfMeasure": "1K",
+      "retailPrice": 0.008
+    }
+  ],
+  "NextPageLink": null
+}

@@ -64,6 +64,42 @@
                 }" />
             </when>
         </choose>
+        <set-variable name="modelPricing" value="{{model-pricing}}" />
+        <set-variable name="pricingVersion" value="@{
+            foreach (var entry in ((string)context.Variables["modelPricing"]).Split(';')) {
+                var parts = entry.Split('=');
+                if (parts.Length == 2 && parts[0] == "__pricingVersion") { return parts[1]; }
+            }
+            return "legacy-config";
+        }" />
+        <choose>
+            <when condition="@{
+                if (context.Variables.GetValueOrDefault<string>("surface", "") != "model" || (string)context.Variables["pricingVersion"] == "legacy-config" || context.Request.Method != "POST") { return false; }
+                var model = context.Variables.GetValueOrDefault<string>("servedModel", "");
+                foreach (var entry in ((string)context.Variables["modelPricing"]).Split(';')) {
+                    var parts = entry.Split('=');
+                    if (parts.Length == 2 && parts[0].Trim().Equals(model, StringComparison.OrdinalIgnoreCase) && parts[1].Split('/').Length == 3) { return false; }
+                }
+                return true;
+            }">
+                <trace source="pricing" severity="error">
+                    <message>Unpriced model blocked before backend spend; refresh the approved rate card.</message>
+                    <metadata name="record" value="unpriced" />
+                    <metadata name="surface" value="model" />
+                    <metadata name="item" value="@(context.Variables.GetValueOrDefault<string>("servedModel", ""))" />
+                    <metadata name="user" value="@(context.Variables.GetValueOrDefault<string>("payer", context.Subscription?.Id ?? "anonymous"))" />
+                    <metadata name="pricingVersion" value="@((string)context.Variables["pricingVersion"])" />
+                    <metadata name="requestId" value="@(context.RequestId.ToString())" />
+                </trace>
+                <return-response>
+                    <set-status code="409" reason="Model pricing unavailable" />
+                    <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                    <set-header name="x-gw-blocked-by" exists-action="override"><value>model-unpriced</value></set-header>
+                    <set-header name="x-gw-request-id" exists-action="override"><value>@(context.RequestId.ToString())</value></set-header>
+                    <set-body>{"error":"model-unpriced","message":"Refresh the approved model rate card before retrying."}</set-body>
+                </return-response>
+            </when>
+        </choose>
         <set-backend-service backend-id="{backend-id}" />
         <llm-emit-token-metric namespace="ai-gateway-sandbox">
             <dimension name="Agent" value="@((string)context.Variables["payer"])" />
@@ -97,7 +133,6 @@
             <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("servedModel", "unknown"))" />
             <dimension name="Tier" value="@(context.Variables.GetValueOrDefault<string>("payerTier", "none"))" />
         </emit-metric>
-        <set-variable name="modelPricing" value="{{model-pricing}}" />
         <choose>
             <when condition="@(context.Response.StatusCode == 200 && context.Response.Headers.GetValueOrDefault("Content-Type", "").Contains("application/json"))">
                 <set-variable name="usageSource" value="body" />
