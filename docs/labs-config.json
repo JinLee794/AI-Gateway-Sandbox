@@ -238,8 +238,8 @@
       "tracing",
       "log-analytics"
     ],
-    "githubPath": "https://github.com/Azure-Samples/AI-Gateway/tree/main/labs/ai-gateway-sandbox",
-    "lastCommitDate": "2026-10-08T18:04:56.416Z"
+    "githubPath": "https://github.com/JinLee794/AI-Gateway-Sandbox/tree/main/labs/ai-gateway-sandbox",
+    "lastCommitDate": "2026-10-12T23:14:47.265Z"
   },
   {
     "id": "aigw-foundry-models",
