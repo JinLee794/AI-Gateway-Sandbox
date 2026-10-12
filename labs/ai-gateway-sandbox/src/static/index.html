@@ -975,12 +975,14 @@
           const h = r.headers || {}, by = String(h["x-gw-blocked-by"] || "").toLowerCase(), st = Number(r.status);
           if (st === 200 || !st) return null;
           if (st === 401 || /validate|entra|jwt/.test(by)) return "entra";
+          if (/model-unpriced/.test(by)) return "api";
           if (/entitlement|token-limit|rate-limit|quota|content-safety|purview/.test(by)) return "plan";
           if (by || parseRoute(h["x-gw-route"]).length) return "target";
           return [403, 429].includes(st) ? "plan" : "target";
         }
         function blockText(r) {
           const h = r.headers || {}, by = h["x-gw-blocked-by"] || "", tier = h["x-gw-tier"] || r.tier || "this";
+          if (/model-unpriced/.test(by)) return `<code>model-unpriced</code>: <b>${esc(r.requestedModel || "this model")}</b> has no price in the approved rate card (<code>model-pricing</code>), so the API policy refuses it before backend spend and records it as <code>unpriced</code>`;
           if (/model-entitlement/.test(by)) return `<b>${esc(r.requestedModel || "this model")}</b> is not in the <b>${esc(tier)}</b> plan`;
           if (/tool-entitlement/.test(by)) return `tool <b>${esc(r.tool || h["x-gw-tool"] || "")}</b> is not in the <b>${esc(tier)}</b> plan`;
           if (/agent-entitlement/.test(by)) return `the <b>${esc(tier)}</b> plan does not include A2A agents`;
@@ -1039,7 +1041,9 @@
           }
           await wait(300, g);
 
-          await go(tok, ["plan", "api"], g); mark("api", "ok");
+          await go(tok, ["plan", "api"], g);
+          if (blocker === "api") return blocked(r, tok, "api", g);
+          mark("api", "ok");
           await go(tok, ["api", "pool"], g);
           let target, last = "pool";
           if (surf === "model") {
@@ -1107,7 +1111,7 @@
           const d = mk("circle", { r: 5, fill: "#d13438", class: "drop" }, layer.fx); place(d, p); await tween(d, q, g, 1.4); d.remove();
           say(`The blocked call is still logged: <code>ApiManagementGatewayLogs</code> records the status and the policy that failed (<code>LastErrorSource</code>), and the governance event goes to App Insights.`);
           await drops("log", g, "#d13438"); mark("log", "ok");
-          const back = at === "entra" ? ["entra", "client"] : ["plan", "entra", "client"];
+          const back = at === "entra" ? ["entra", "client"] : at === "api" ? ["api", "plan", "entra", "client"] : ["plan", "entra", "client"];
           await go(tok, back, g, { edge: "bad", quiet: true });
           mark("client", "bad"); badge("client", `HTTP ${st}`, "#d13438", true);
           await showHeaders(r, g);

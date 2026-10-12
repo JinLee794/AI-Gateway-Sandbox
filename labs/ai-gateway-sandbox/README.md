@@ -42,7 +42,7 @@ flowchart LR
     subgraph APIM["Azure API Management - AI Gateway"]
         E["Entra ID fragment<br/>validate-azure-ad-token"]
         P1["Plan policy (APIM product)<br/>model allow list · output cap · TPM · token quota<br/>tool / agent entitlement + rate limit<br/>one $ budget · $ cap per session"]
-        M["AI models API<br/>backend pool · retry · price tokens"]
+        M["AI models API<br/>backend pool · retry · price tokens<br/>unpriced model → 409 model-unpriced"]
         T["MCP server<br/>commerce tools · price per call"]
         G["A2A agent API<br/>fee + downstream spend"]
     end
@@ -53,6 +53,7 @@ flowchart LR
     S -->|"managed identity token<br/>on behalf of caller<br/>(agent-platform plan)"| E
     M & T & G -.->|"cost + tokens<br/>(Agent, Tier, Model, Surface, Via)<br/>+ chargeback records (user, team, session)"| AI["Application Insights<br/>+ Sandbox workbook"]
     APIM -.->|"gateway, LLM and MCP logs"| LA["Log Analytics"]
+    RC["Weekly rate card (GitHub Actions)<br/>retail prices + overrides → PR → publish"] -.->|"model-pricing named value<br/>+ pricingVersion"| M
     UI["Demo UI"] --> A1 & A2 & A3 & U
     UI -.->|"KQL + request traces"| AI & LA
 ```
@@ -86,6 +87,16 @@ Each **consumer** has its own APIM subscription, which gives it an identity and 
 Image generation (optional, `images.enabled`): Gold may generate `low`, `medium` and `high` quality images, 5 per minute. Silver may generate `low` and `medium`, 2 per minute. Bronze may not generate images.
 
 Demo price list (the `model-pricing`, `tool-pricing` and `agent-pricing` named values):
+
+**Optional weekly model pricing (phase 1):** the [price-list lifecycle](pricing/README.md)
+discovers deployed token models, resolves exact retail meters or reviewed internal
+overrides/PTU allocations, and opens a weekly price-card PR with a readable diff and
+version history. After review/merge, a separately approval-gated OIDC workflow updates
+only `model-pricing` (including cached rates and `pricingVersion`), with coverage and
+4,096-character checks. Configure the Azure identities/account allow list and provision
+the updated policy files once before enabling publication. Flat tool, agent, image and
+content-safety prices are unchanged; streaming responses remain a known unpriced path.
+Cost Management reconciliation is **phase 2**, not implemented here.
 
 | Resource | Surface | Price |
 |---|---|---|

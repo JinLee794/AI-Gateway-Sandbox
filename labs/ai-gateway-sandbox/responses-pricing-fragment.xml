@@ -48,13 +48,17 @@
                 foreach (var entry in ((string)context.Variables["modelPricing"]).Split(';')) {
                     var parts = entry.Split('=');
                     if (parts.Length == 2 && parts[0].Trim().Equals(model, StringComparison.OrdinalIgnoreCase)) {
-                        inputPrice = double.Parse(parts[1].Split('/')[0].Trim());
+                        var prices = parts[1].Split('/');
+                        inputPrice = double.Parse(prices[0].Trim());
+                        if (prices.Length == 3) { cachedPrice = double.Parse(prices[2].Trim()); }
                     }
                 }
-                foreach (var entry in ((string)context.Variables["cachedInputPricing"]).Split(';')) {
-                    var parts = entry.Split('=');
-                    if (parts.Length == 2 && parts[0].Trim().Equals(model, StringComparison.OrdinalIgnoreCase)) {
-                        cachedPrice = double.Parse(parts[1].Trim());
+                if (cachedPrice < 0) {
+                    foreach (var entry in ((string)context.Variables["cachedInputPricing"]).Split(';')) {
+                        var parts = entry.Split('=');
+                        if (parts.Length == 2 && parts[0].Trim().Equals(model, StringComparison.OrdinalIgnoreCase)) {
+                            cachedPrice = double.Parse(parts[1].Trim());
+                        }
                     }
                 }
                 if (inputPrice < 0 || cachedPrice < 0 || cachedPrice >= inputPrice) { return 0; }

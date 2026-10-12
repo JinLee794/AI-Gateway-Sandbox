@@ -64,6 +64,7 @@
                 <metadata name="caller" value="@(context.Variables.GetValueOrDefault<string>("caller", "unknown"))" />
                 <metadata name="requestId" value="@(context.RequestId.ToString())" />
                 <metadata name="budgetEpoch" value="{{budget-epoch}}" />
+                <metadata name="pricingVersion" value="@(context.Variables.GetValueOrDefault<string>("pricingVersion", "not-model-pricing"))" />
             </trace>
         </when>
     </choose>

@@ -1,0 +1,65 @@
+name: Sandbox publish approved model pricing
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'labs/ai-gateway-sandbox/pricing/rate-card.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sandbox-publish-pricing
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: sandbox-pricing-publish
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main # Always publish the latest approved card, not an older queued push.
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Validate before login
+        run: |
+          python -m unittest discover -s labs/ai-gateway-sandbox/pricing/tests -v
+          python labs/ai-gateway-sandbox/pricing/lifecycle.py check
+      - name: Azure OIDC (publisher identity)
+        uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Check live coverage and publish named value only
+        env:
+          ACCOUNTS: ${{ vars.PRICING_ACCOUNT_IDS }}
+          APIM_ID: ${{ vars.PRICING_APIM_ID }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          Path(os.environ["RUNNER_TEMP"], "pricing-accounts.json").write_text(
+              json.dumps(json.loads(os.environ["ACCOUNTS"])))
+          PY
+          python labs/ai-gateway-sandbox/pricing/lifecycle.py publish \
+            --accounts "$RUNNER_TEMP/pricing-accounts.json" --apim-id "$APIM_ID" --apply
+      - name: Preserve publish baseline and receipt (also on read-back failure)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sandbox-pricing-publish-${{ github.run_id }}
+          path: |
+            labs/ai-gateway-sandbox/pricing/publish-before.json
+            labs/ai-gateway-sandbox/pricing/publish-receipt.json
+          if-no-files-found: ignore
+          retention-days: 30
