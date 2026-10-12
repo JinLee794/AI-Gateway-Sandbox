@@ -29,6 +29,9 @@
                                {session-budget-micro-usd} micro-USD (403, x-gw-blocked-by: quota-by-key (session-budget)).
                                The session comes from x-session-id (or Mcp-Session-Id / the A2A contextId) and is
                                returned in x-gw-session; the chargeback-record fragment logs it with every billable call.
+        - End-user $ budget  - optional third counter per subscription + end user (x-gw-end-user): many users of one
+                               app get their own caps from the {{end-user-budgets}} named value (403, x-gw-blocked-by:
+                               quota-by-key (end-user-budget)); returned in x-gw-end-user and x-gw-end-user-budget-usd.
         - Blocked before spend - blocked-before-spend fragment (last, after the free checks above, only when
                                {content-safety} is "on"): llm-content-safety screens the prompt / tool arguments / task
                                text and returns 403 (x-gw-blocked-by: llm-content-safety) before anything is spent on a
@@ -290,6 +293,59 @@
                     increment-count="@(context.Variables.GetValueOrDefault<int>("costMicroUsd", 0) + context.Variables.GetValueOrDefault<int>("safetyMicroUsd", 0))" />
             </when>
         </choose>
+        <!-- $ budget per end user inside one subscription: many users of the same app (same key, same product) each get
+             their own cap, while the subscription budget above still caps the app's total. The app names its end user in
+             x-gw-end-user (like OpenAI's "user" field); the app's key is the trust boundary. In production, take the user
+             from the Entra ID token's oid claim instead.
+             Budgets come from the {{end-user-budgets}} named value, so they change without redeploying a policy:
+             "default=<class>;<class>=<micro-USD>;...;@<user>=<class or micro-USD>;...". Most users get a class (in
+             production: an Entra app role or group), a few get an individual override, unlisted users get the default.
+             quota-by-key needs a fixed limit, so every user's counter runs from 0 to 1,000,000 parts per million of
+             their OWN budget: one policy and one counter per user, whatever the amounts. -->
+        <set-variable name="endUser" value="@(context.Request.Headers.GetValueOrDefault("x-gw-end-user", "").Trim().ToLowerInvariant())" />
+        <choose>
+            <when condition="@((string)context.Variables["endUser"] != "" && !System.Text.RegularExpressions.Regex.IsMatch((string)context.Variables["endUser"], "^[a-z0-9._@-]{1,64}$"))">
+                <return-response>
+                    <set-status code="400" reason="Bad Request" />
+                    <set-header name="x-gw-blocked-by" exists-action="override"><value>end-user-header</value></set-header>
+                    <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                    <set-body>{"error":{"code":"InvalidEndUser","message":"x-gw-end-user must be 1-64 characters: letters, digits, '.', '_', '@' or '-'."}}</set-body>
+                </return-response>
+            </when>
+            <when condition="@((string)context.Variables["endUser"] != "")">
+                <set-variable name="endUserBudget" value="@{
+                    var user = (string)context.Variables["endUser"];
+                    var classes = new Dictionary<string, long>();
+                    string fallback = "standard", assigned = null;
+                    foreach (var entry in "{{end-user-budgets}}".Split(';')) {
+                        var kv = entry.Split('=');
+                        if (kv.Length != 2) { continue; }
+                        var key = kv[0].Trim().ToLowerInvariant();
+                        var value = kv[1].Trim().ToLowerInvariant();
+                        long amount;
+                        if (key == "default") { fallback = value; }
+                        else if (key.StartsWith("@")) { if (key.Substring(1) == user) { assigned = value; } }
+                        else if (long.TryParse(value, out amount)) { classes[key] = amount; }
+                    }
+                    long budget;
+                    var name = assigned ?? fallback;
+                    if (long.TryParse(name, out budget)) { return "custom|" + budget; }
+                    if (classes.TryGetValue(name, out budget)) { return name + "|" + budget; }
+                    return fallback + "|" + (classes.TryGetValue(fallback, out budget) ? budget : 0);
+                }" />
+                <set-variable name="endUserBudgetMicroUsd" value="@(Math.Max(1L, long.Parse(((string)context.Variables["endUserBudget"]).Split('|')[1])))" />
+                <set-variable name="quotaStage" value="end-user-budget" />
+                <quota-by-key calls="1000000" renewal-period="{budget-period-seconds}"
+                    counter-key="@("enduser-" + context.Subscription?.Id + "-" + (string)context.Variables["endUser"] + "-" + (string)context.Variables["budgetEpoch"])"
+                    increment-condition="@(context.Response.StatusCode == 200 || context.Variables.GetValueOrDefault<int>("safetyMicroUsd", 0) > 0)"
+                    increment-count="@{
+                        long cost = context.Variables.GetValueOrDefault<int>("costMicroUsd", 0) + context.Variables.GetValueOrDefault<int>("safetyMicroUsd", 0);
+                        long budget = (long)context.Variables["endUserBudgetMicroUsd"];
+                        return (int)Math.Min(int.MaxValue, (cost * 1000000L + budget - 1) / budget);
+                    }" />
+            </when>
+        </choose>
+        <set-header name="x-gw-end-user" exists-action="delete" />
         <!-- Blocked before spend: content safety (and optional Purview DLP) after the free checks, before any spend -->
         <set-variable name="contentSafetyPlan" value="{content-safety}" />
         <include-fragment fragment-id="blocked-before-spend" />
@@ -308,6 +364,16 @@
         <set-header name="x-gw-session" exists-action="override">
             <value>@(context.Variables.GetValueOrDefault<string>("session", "no-session"))</value>
         </set-header>
+        <choose>
+            <when condition="@(context.Variables.GetValueOrDefault<string>("endUser", "") != "" && context.Variables.ContainsKey("endUserBudget"))">
+                <set-header name="x-gw-end-user" exists-action="override">
+                    <value>@((string)context.Variables["endUser"] + " (" + ((string)context.Variables["endUserBudget"]).Split('|')[0] + ")")</value>
+                </set-header>
+                <set-header name="x-gw-end-user-budget-usd" exists-action="override">
+                    <value>@(((double)(long)context.Variables["endUserBudgetMicroUsd"] / 1000000.0).ToString("0.000000"))</value>
+                </set-header>
+            </when>
+        </choose>
         <include-fragment fragment-id="safety-ledger" />
     </outbound>
     <on-error>
@@ -332,6 +398,16 @@
         <set-header name="x-gw-session" exists-action="override">
             <value>@(context.Variables.GetValueOrDefault<string>("session", "no-session"))</value>
         </set-header>
+        <choose>
+            <when condition="@(context.Variables.GetValueOrDefault<string>("endUser", "") != "" && context.Variables.ContainsKey("endUserBudget"))">
+                <set-header name="x-gw-end-user" exists-action="override">
+                    <value>@((string)context.Variables["endUser"] + " (" + ((string)context.Variables["endUserBudget"]).Split('|')[0] + ")")</value>
+                </set-header>
+                <set-header name="x-gw-end-user-budget-usd" exists-action="override">
+                    <value>@(((double)(long)context.Variables["endUserBudgetMicroUsd"] / 1000000.0).ToString("0.000000"))</value>
+                </set-header>
+            </when>
+        </choose>
         <include-fragment fragment-id="safety-ledger" />
     </on-error>
 </policies>

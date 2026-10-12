@@ -7,6 +7,10 @@
     - Emits token metrics to Application Insights, split by Agent (payer), Tier, Model, Surface and Via.
     - Prices every call with the {{model-pricing}} named value (USD per 1M tokens), emits the cost as a custom
       metric and returns it to the caller in the x-gw-* response headers.
+    - Streamed calls (stream: true) are charged at their ceiling (x-gw-pricing-rule: stream-ceiling): the gateway
+      can't read the usage block of a Server-Sent Events stream without buffering it, so it charges the estimated
+      prompt tokens (text length / 4, 1,200 tokens per image) plus the full capped max output tokens. Without this,
+      a streamed call would cost $0 against the $ budget. Callers that need the exact price send stream: false.
     - Writes a chargeback record (chargeback-record fragment) with the user, team, cost center and session.
     - The calculated cost (micro-USD) feeds the per-subscription $ budget enforced in product-policy.xml.
     - Load balancing + failover: {backend-id} is a backend POOL of Foundry resources in two regions. The pool sends
@@ -20,6 +24,46 @@
         <set-variable name="surface" value="model" />
         <base />
         <include-fragment fragment-id="payer-attribution" />
+        <!-- Streamed calls: capture the ceiling inputs here, after the tier policy has applied the output cap -->
+        <set-variable name="streamRequested" value="@{
+            if (context.Request.Method != "POST") { return false; }
+            var body = context.Request.Body?.As<JObject>(preserveContent: true);
+            var stream = body?["stream"];
+            return stream != null && stream.Type == JTokenType.Boolean && (bool)stream;
+        }" />
+        <choose>
+            <when condition="@((bool)context.Variables["streamRequested"])">
+                <set-variable name="streamPromptEstimate" value="@{
+                    var body = context.Request.Body.As<JObject>(preserveContent: true);
+                    long chars = 0;
+                    int images = 0;
+                    foreach (var key in new [] { "messages", "input", "instructions", "system", "tools" }) {
+                        var section = body[key];
+                        if (section == null) { continue; }
+                        if (section.Type == JTokenType.String) { chars += ((string)section).Length; continue; }
+                        var container = section as JContainer;
+                        if (container == null) { continue; }
+                        foreach (var token in container.Descendants()) {
+                            if (token.Type != JTokenType.String) { continue; }
+                            var text = (string)token;
+                            var property = token.Parent as JProperty;
+                            var name = property == null ? "" : property.Name;
+                            if (name == "url" || name == "image_url" || name == "file_data" || text.StartsWith("data:")) { images++; }
+                            else { chars += text.Length; }
+                        }
+                    }
+                    return (int)Math.Min(100000000L, (chars + 3) / 4 + images * 1200L);
+                }" />
+                <set-variable name="streamMaxOutputTokens" value="@{
+                    var body = context.Request.Body.As<JObject>(preserveContent: true);
+                    foreach (var key in new [] { "max_completion_tokens", "max_output_tokens", "max_tokens" }) {
+                        var value = body[key];
+                        if (value != null && value.Type == JTokenType.Integer) { return (int)value; }
+                    }
+                    return 4096;
+                }" />
+            </when>
+        </choose>
         <set-backend-service backend-id="{backend-id}" />
         <llm-emit-token-metric namespace="ai-gateway-sandbox">
             <dimension name="Agent" value="@((string)context.Variables["payer"])" />
@@ -56,6 +100,7 @@
         <set-variable name="modelPricing" value="{{model-pricing}}" />
         <choose>
             <when condition="@(context.Response.StatusCode == 200 && context.Response.Headers.GetValueOrDefault("Content-Type", "").Contains("application/json"))">
+                <set-variable name="usageSource" value="body" />
                 <set-variable name="promptTokens" value="@{
                     var usage = context.Response.Body.As<JObject>(preserveContent: true)["usage"] as JObject;
                     if (usage == null) { return 0; }
@@ -68,6 +113,16 @@
                     var tokens = usage["completion_tokens"] ?? usage["output_tokens"];
                     return tokens == null ? 0 : (int)tokens;
                 }" />
+            </when>
+            <!-- stream: true - never read the SSE body (that would buffer the stream); charge the ceiling instead -->
+            <when condition="@(context.Response.StatusCode == 200 && context.Variables.GetValueOrDefault<bool>("streamRequested", false) && context.Response.Headers.GetValueOrDefault("Content-Type", "").Contains("text/event-stream"))">
+                <set-variable name="usageSource" value="stream-ceiling" />
+                <set-variable name="promptTokens" value="@((int)context.Variables["streamPromptEstimate"])" />
+                <set-variable name="completionTokens" value="@((int)context.Variables["streamMaxOutputTokens"])" />
+            </when>
+        </choose>
+        <choose>
+            <when condition="@(context.Variables.GetValueOrDefault<string>("usageSource", "") != "")">
                 <!-- cost in micro-USD = prompt tokens x input price + completion tokens x output price (prices are USD per 1M tokens) -->
                 <set-variable name="costMicroUsd" value="@{
                     var model = context.Variables.GetValueOrDefault<string>("servedModel", "");
@@ -82,8 +137,19 @@
                     }
                     return (int)Math.Ceiling((int)context.Variables["promptTokens"] * inputPrice + (int)context.Variables["completionTokens"] * outputPrice);
                 }" />
-                <!-- cached input tokens at their discounted price; reads of stored responses (non-POST) are free -->
-                <include-fragment fragment-id="responses-pricing" />
+                <!-- cached input tokens at their discounted price; reads of stored responses (non-POST) are free.
+                     A streamed call has no usage block, so it keeps the ceiling price (no cached discount). -->
+                <choose>
+                    <when condition="@((string)context.Variables["usageSource"] == "stream-ceiling")">
+                        <set-variable name="pricingRule" value="stream-ceiling" />
+                        <set-header name="x-gw-pricing-rule" exists-action="override">
+                            <value>stream-ceiling</value>
+                        </set-header>
+                    </when>
+                    <otherwise>
+                        <include-fragment fragment-id="responses-pricing" />
+                    </otherwise>
+                </choose>
                 <emit-metric name="CostMicroUSD" value="@((double)(int)context.Variables["costMicroUsd"])" namespace="ai-gateway-sandbox">
                     <dimension name="Agent" value="@((string)context.Variables["payer"])" />
                     <dimension name="Tier" value="@((string)context.Variables["payerTier"])" />
