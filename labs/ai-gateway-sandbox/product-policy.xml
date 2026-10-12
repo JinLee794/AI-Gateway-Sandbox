@@ -278,7 +278,7 @@
         <!-- $ budget per subscription, shared by every surface: each successful call increments the counter by its
              cost in micro-USD (the costMicroUsd variable is calculated later by the API policy) -->
         <set-variable name="quotaStage" value="subscription-budget" />
-        <quota-by-key calls="{budget-micro-usd}" renewal-period="{budget-period-seconds}"
+        <quota-by-key id="subscription-budget" calls="{budget-micro-usd}" renewal-period="{budget-period-seconds}"
             counter-key="@("budget-" + context.Subscription?.Id + "-" + (string)context.Variables["budgetEpoch"])"
             increment-condition="@(context.Response.StatusCode == 200 || context.Variables.GetValueOrDefault<int>("safetyMicroUsd", 0) > 0)"
             increment-count="@(context.Variables.GetValueOrDefault<int>("costMicroUsd", 0) + context.Variables.GetValueOrDefault<int>("safetyMicroUsd", 0))" />
@@ -287,7 +287,7 @@
         <choose>
             <when condition="@((string)context.Variables["session"] != "no-session")">
                 <set-variable name="quotaStage" value="session-budget" />
-                <quota-by-key calls="{session-budget-micro-usd}" renewal-period="{budget-period-seconds}"
+                <quota-by-key id="session-budget" calls="{session-budget-micro-usd}" renewal-period="{budget-period-seconds}"
                     counter-key="@("session-" + context.Subscription?.Id + "-" + (string)context.Variables["session"] + "-" + (string)context.Variables["budgetEpoch"])"
                     increment-condition="@(context.Response.StatusCode == 200 || context.Variables.GetValueOrDefault<int>("safetyMicroUsd", 0) > 0)"
                     increment-count="@(context.Variables.GetValueOrDefault<int>("costMicroUsd", 0) + context.Variables.GetValueOrDefault<int>("safetyMicroUsd", 0))" />
@@ -386,7 +386,10 @@
         <set-header name="x-gw-blocked-by" exists-action="override">
             <value>@{
                 var source = context.LastError?.Source ?? "";
-                return source == "quota-by-key" ? source + " (" + context.Variables.GetValueOrDefault<string>("quotaStage", "subscription-budget") + ")" : source;
+                var policy = context.LastError?.PolicyId ?? "";
+                return policy == "subscription-budget" || policy == "session-budget"
+                    ? "quota-by-key (" + policy + ")"
+                    : source == "quota-by-key" ? source + " (" + context.Variables.GetValueOrDefault<string>("quotaStage", "subscription-budget") + ")" : source;
             }</value>
         </set-header>
         <set-header name="x-gw-block-reason" exists-action="override">
@@ -409,5 +412,6 @@
             </when>
         </choose>
         <include-fragment fragment-id="safety-ledger" />
+        {budget-suspend-policy}
     </on-error>
 </policies>

@@ -1442,7 +1442,7 @@
           {
             "type": 1,
             "content": {
-              "json": "### ⛔ Over budget, switched off\nThe operations loop behind the gateway's real-time `quota-by-key` stop. A **log search alert** (every 5 minutes) adds up each watched subscription's chargeback records per **budget epoch**; at the threshold its action group calls a **Logic App** that **suspends the APIM subscription** with its managed identity and writes a `BudgetBreach` audit event. Expect 3-10 minutes from the breach to the suspension. **Reset budgets** starts a new epoch and re-activates the subscription. Empty unless `budgetSuspend.enabled` is `true` in `sandbox-config.json`."
+              "json": "### ⛔ Over budget, switched off\nThe first watched subscription-budget `quota-by-key` rejection directly notifies a **Logic App** that checks the **budget epoch**, **suspends the APIM subscription** with its managed identity and writes a `BudgetBreach` audit event. Session caps do not trigger suspension. No scheduled spend scans or ingestion delay are involved in triggering it; suspension propagates asynchronously and audit logs arrive later. **Reset budgets** starts a new epoch and reactivates watched subscriptions. Empty unless `budgetSuspend.enabled` is `true` in `sandbox-config.json`."
             },
             "name": "budget-suspend-intro"
           },
@@ -1450,7 +1450,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "customEvents\n| where name == \"BudgetBreach\"\n| extend Action = tostring(customDimensions.action), Subscription = tostring(customDimensions.subscription),\n         BudgetEpoch = tostring(customDimensions.budgetEpoch), PreviousState = tostring(customDimensions.previousState),\n         Reason = tostring(customDimensions.reason), Alert = tostring(customDimensions.alertRule), Run = tostring(customDimensions.logicAppRun)\n| where \"*\" in ({Consumer}) or Subscription in ({Consumer})\n| project timestamp, Action, Subscription, BudgetEpoch, PreviousState, Reason, Alert, Run\n| order by timestamp desc",
+              "query": "customEvents\n| where name == \"BudgetBreach\"\n| extend Action = tostring(customDimensions.action), Subscription = tostring(customDimensions.subscription),\n         BudgetEpoch = tostring(customDimensions.budgetEpoch), PreviousState = tostring(customDimensions.previousState),\n         Reason = tostring(customDimensions.reason), Source = tostring(customDimensions.source), RequestId = tostring(customDimensions.requestId), Run = tostring(customDimensions.logicAppRun)\n| where \"*\" in ({Consumer}) or Subscription in ({Consumer})\n| project timestamp, Action, Subscription, BudgetEpoch, PreviousState, Reason, Source, RequestId, Run\n| order by timestamp desc",
               "size": 0,
               "title": "Budget breach audit trail (BudgetBreach events from the Logic App)",
               "noDataMessage": "No budget breach yet. Run the 'Over budget, switched off' scenario.",
@@ -1499,7 +1499,7 @@
               "version": "KqlItem/1.0",
               "query": "let budgets = datatable(Agent:string, AgentName:string, Tier:string, BudgetMicroUsd:long)[{budget-rows}];\ntraces\n| where tostring(customDimensions.record) == \"chargeback\"\n| extend Subscription = tostring(customDimensions.user), BudgetEpoch = tostring(customDimensions.budgetEpoch)\n| where isnotempty(BudgetEpoch) and (\"*\" in ({Consumer}) or Subscription in ({Consumer}))\n| summarize SpentMicroUsd = sum(tolong(customDimensions.costMicroUsd)), Calls = count(), LastCall = max(timestamp) by Subscription, BudgetEpoch\n| join kind=inner budgets on $left.Subscription == $right.Agent\n| project LastCall, Name = AgentName, Subscription, Plan = Tier, BudgetEpoch, Calls, SpentUSD = SpentMicroUsd / 1e6, BudgetUSD = BudgetMicroUsd / 1e6, UsedPercent = round(100.0 * SpentMicroUsd / BudgetMicroUsd, 1)\n| order by LastCall desc",
               "size": 0,
-              "title": "Spend per budget epoch (what the alert evaluates)",
+              "title": "Spend per budget epoch (reporting only; suspension is gateway-triggered)",
               "timeContextFromParameter": "TimeRange",
               "queryType": 0,
               "visualization": "table",

@@ -13,7 +13,7 @@
           because trace metadata can't be empty), imageCount, tier, via, caller,
           endUser (x-gw-end-user within the paying app's subscription; none when the app didn't name one),
           requestId, budgetEpoch
-          (the budget-epoch the call was charged in: the budget-breach alert sums spend per subscription and epoch)
+          (the budget-epoch the call was charged in: reporting groups spend per subscription and epoch)
 
         Why a trace record and not a metric dimension: emit-metric accepts at most 5 custom dimensions per policy
         and 100 unique values per dimension, and values over the limits are silently dropped. Sessions are

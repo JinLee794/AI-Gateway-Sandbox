@@ -141,6 +141,15 @@
   .bl-b { flex:1; height:3px; background:#edebe9; border-radius:2px; overflow:hidden; } .bl-f { height:100%; background:#107c10; transition:width .3s; }
   .bl-t { white-space:nowrap; } .bl-t.out { color:var(--bad); font-weight:600; }
   .cv-ctx .bchip { white-space:nowrap; } .cv-ctx .bchip.out { color:var(--bad); font-weight:600; }
+  .cv-meter { margin-top:10px; padding:8px 10px; border:1px solid var(--divider); border-radius:6px; background:#faf9f8; font-size:12px; }
+  .cv-meter .mrow { display:flex; justify-content:space-between; align-items:center; gap:4px 10px; flex-wrap:wrap; }
+  .cv-meter .mrow + .bar, .cv-meter .bar + .mrow { margin-top:5px; }
+  .cv-meter .bar { display:flex; height:8px; background:#edebe9; border-radius:4px; overflow:hidden; }
+  .cv-meter .bar.thin { height:4px; } .cv-meter .fill { height:100%; transition:width .4s; }
+  .cv-meter .fill.pend { background:repeating-linear-gradient(45deg, #8a8886 0 4px, #c8c6c4 4px 8px); }
+  .cv-meter .ico { width:14px; height:14px; vertical-align:-2px; } .cv-meter .status { font-size:10px; padding:0 5px; }
+  .cv-meter .delta { color:var(--muted); white-space:nowrap; } .cv-meter.bump .delta { animation:cvbump 1.2s ease-out; }
+  @keyframes cvbump { 0% { color:var(--bad); font-weight:600; } 100% { color:var(--muted); } }
   table { width:100%; border-collapse:collapse; font-size:13px; }
   th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--divider); white-space:nowrap; }
   th { color:var(--muted); font-weight:600; font-size:12px; position:sticky; top:0; background:#fff; border-bottom:1px solid var(--border); }
@@ -624,6 +633,7 @@
         <select id="cvFilter" aria-label="Show the conversation of"></select>
       </div>
       <div class="convo" id="convo" aria-live="polite"></div>
+      <div class="cv-meter hidden" id="cvMeter" aria-live="polite"></div>
       <div class="cv-compose">
         <textarea id="cvInput" placeholder="Message the model…" aria-label="Message"></textarea>
         <button id="cvSend">Send</button>
@@ -1629,6 +1639,7 @@ async function init() {
   $("sessionId").value = newSessionId("ui");
   fillEndUsers();
   $("btnNewSession").onclick = () => { $("sessionId").value = newSessionId(selectedAgent?.kind === "user" ? selectedAgent.name.replace(/^user-/, "") : "ui"); toast("New session " + $("sessionId").value); cvCtx(); };
+  $("endUser").addEventListener("input", () => cvCtx()); $("sessionId").addEventListener("input", () => cvCtx());
   $("btnChargeback").onclick = () => loadChargeback();
   $("cbWindow").onchange = () => loadChargeback();
   $("preset").innerHTML = Object.keys(PRESETS).map(p => `<option>${p}</option>`).join("");
@@ -2009,10 +2020,40 @@ function cvCtx() {
   const sid = $("sessionId").value.trim(), mem = $("useHistory").checked, turns = surface === "model" && mem ? chatHistory(sid).length / 2 : 0;
   const to = surface === "tool" ? `MCP tool <b>${escapeHtml($("tool").value)}</b>` : surface === "agent" ? "the <b>Sourcing Agent</b> (A2A)" : `<b>${escapeHtml($("model").value)}</b>`;
   const memo = surface === "model" ? (mem ? ` · the model sees ${turns} earlier turn${turns === 1 ? "" : "s"}` : " · single turn") : surface === "agent" ? " · the agent keeps the session's context" : "";
-  const b = budgetState(a), bchip = ` · <span class="bchip${b.exhausted ? " out" : ""}" title="${escapeHtml(budgetTip(a, b))}">${b.exhausted ? "$ budget spent" : `${usdShort(b.left)} of $${b.limit} left`}</span>`;
-  $("cvCtx").innerHTML = `As <b>${escapeHtml(a.displayName)}</b> <span class="badge ${a.tier}">${a.tier}</span>${bchip} → ${to} · session <span class="sess">${escapeHtml(sid || "none")}</span>${memo} · <a onclick="cvChange()">change</a> · <a onclick="cvNewSession()">new session</a>`;
+  cvMeter(a, sid);
+  $("cvCtx").innerHTML = `As <b>${escapeHtml(a.displayName)}</b> <span class="badge ${a.tier}">${a.tier}</span> → ${to} · session <span class="sess">${escapeHtml(sid || "none")}</span>${memo} · <a onclick="cvChange()">change</a> · <a onclick="cvNewSession()">new session</a>`;
   $("cvInput").placeholder = surface === "tool" ? `JSON arguments for ${$("tool").value}, e.g. ${$("toolArgs").value || "{}"} (empty: use the builder's)`
     : surface === "agent" ? "Give the Sourcing Agent a task…  (Enter to send, Shift+Enter for a new line)" : "Message the model…  (Enter to send, Shift+Enter for a new line)";
+}
+// Live $ meter above the composer for the selected sender: plan budget (logs + this page's newer calls, striped),
+// this session's cap, and the end user's own budget when x-gw-end-user is set. Redrawn after every call.
+const cvMeterSeen = {};
+function cvMeter(a, sid) {
+  const el = $("cvMeter"), b = budgetState(a), t = tierOf(a), cap = Number(t.sessionBudgetUsd ?? t.budgetUsd ?? 0);
+  const mine = session.calls.filter(r => !r.past && r.agent === a.name), last = mine[mine.length - 1];
+  const s = sid ? sessionTotals(sid) : null, sPct = s && cap ? Math.min(100, 100 * s.cost / cap) : 0;
+  const eu = $("endUser").value.trim(), euB = eu ? endUserBudget(eu) : null;
+  const euSpent = eu ? mine.filter(r => (r.headers || {})["x-gw-end-user"] === eu).reduce((x, r) => x + callCost(r), 0) : 0;
+  const euPct = euB?.usd ? Math.min(100, 100 * euSpent / euB.usd) : 0;
+  const logged = b.limit ? Math.min(100, 100 * b.logged / b.limit) : 0, pend = b.limit ? Math.min(100 - logged, 100 * b.pending / b.limit) : 0;
+  const pctTxt = (p) => p > 0 && p < 0.1 ? "<0.1" : p.toFixed(p > 0 && p < 1 ? 1 : 0);
+  const col = (p, out) => out ? "#d13438" : p >= 75 ? "#f7630c" : "#107c10";
+  const lastCost = last ? callCost(last) : 0;
+  el.innerHTML = `<div class="mrow"><span>${ico(a.kind === "user" ? "users" : "foundry-agent-service")} <b>${escapeHtml(a.displayName)}</b> <span class="badge ${a.tier}">${a.tier}</span> plan budget
+        ${b.blocked ? `<span class="status s403">403</span>` : ""}</span>
+      <span><b class="${b.exhausted ? "bout" : ""}">${b.exhausted ? "budget spent" : `${usdShort(b.left)} left`}</b> of $${b.limit} · ${pctTxt(b.pct)}% used</span></div>
+    <div class="bar" title="${escapeHtml(budgetTip(a, b))}"><div class="fill" style="width:${logged}%;background:${budgetColor(b)}"></div><div class="fill pend" style="width:${pend}%"></div></div>
+    ${s ? `<div class="mrow"><span class="muted">Session <span class="sess">${escapeHtml(sid)}</span> · ${s.calls} call${s.calls === 1 ? "" : "s"}</span>
+      <span class="${sPct >= 100 ? "bout" : "muted"}">${fmtUsd(s.cost)} of $${cap} cap</span></div>
+    <div class="bar thin"><div class="fill" style="width:${sPct}%;background:${col(sPct, sPct >= 100)}"></div></div>` : ""}
+    ${euB ? `<div class="mrow"><span class="muted">End user <b>${escapeHtml(eu)}</b> · ${escapeHtml(euB.cls)}</span>
+      <span class="${euPct >= 100 ? "bout" : "muted"}">${fmtUsd(euSpent)} of ${euB.usd != null ? "$" + euB.usd : "?"} (this page)</span></div>
+    <div class="bar thin"><div class="fill" style="width:${euPct}%;background:${col(euPct, euPct >= 100)}"></div></div>` : ""}
+    <div class="mrow"><span class="delta">${last ? `Last call: ${lastCost ? "−" + fmtUsd(lastCost) : "no charge"} · ${last.status}` : "No calls yet from this page"}</span>
+      <span class="muted">${budgetLive.loading ? `<span class="bspin"></span> syncing logs` : b.pending ? "striped = not in the logs yet" : ""}</span></div>`;
+  el.classList.remove("hidden");
+  if (mine.length > (cvMeterSeen[a.name] ?? mine.length)) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
+  cvMeterSeen[a.name] = mine.length;
 }
 function cvChange() { setMode("build"); collapseLaunch(false); $("launch").scrollIntoView({ block: "start", behavior: "smooth" }); }
 function cvNewSession() { $("btnNewSession").click(); }
@@ -3395,23 +3436,23 @@ const SCENARIOS = [
       takeaway(`<b>${blocked.length} of ${res.length - 1}</b> unsafe calls were stopped at the gateway with 403, before any model, tool or agent was called: <b>${tokens} model tokens, ${fmtUsd(blocked.reduce((x, r) => x + usd(r), 0))}</b> of model spend. The clean prompt went through for ${fmtUsd(usd(ok))}. Screening all ${res.length} calls cost ${fmtUsd(safetyTotal)}, charged to the Gold plan's $ budget as a <b>Safety checks</b> line item, and every block is a <code>content-blocked</code> governance event.`
         + (blocked.length < res.length - 1 ? ` Some calls were not blocked: a new blocklist can take a few minutes to take effect after deployment, so run the scenario again.` : ""));
     } },
-  { title: "Over budget, switched off", get off() { return !cfg?.budgetSuspend?.enabled; }, get cost() { return cfg?.budgetSuspend?.enabled ? "≤ 14 calls · ≈ $0.01 · 5-12 min, runs on its own" : "off · set budgetSuspend.enabled to try it"; }, slow: true,
-    gist: "Two stops on different clocks: a gateway budget check rejects requests immediately; an Azure Monitor alert later suspends the watched APIM subscription.",
-    policies: ["quota-by-key ($ budget)", "chargeback-record trace", "log search alert", "Logic App + managed identity"],
+  { title: "Over budget, switched off", get off() { return !cfg?.budgetSuspend?.enabled; }, get cost() { return cfg?.budgetSuspend?.enabled ? "≤ 14 calls · ≈ $0.01 · gateway-triggered, runs on its own" : "off · set budgetSuspend.enabled to try it"; }, slow: true,
+    gist: "The gateway rejects an over-budget request and directly notifies a Logic App to suspend the watched APIM subscription. No scheduled spend scans.",
+    policies: ["quota-by-key ($ budget)", "send-request (gateway notification)", "Logic App + managed identity"],
     preview: () => { const b = byName((cfg.budgetSuspend?.subscriptions || ["user-ben"])[0]) || tierAgent("silver"), t = tierOf(b);
       return dg.lane("1 · Immediate: the next over-budget request", 403,
           dg.node(escapeHtml(b.displayName), `Plan budget: $${t.budgetUsd}`),
           dg.gw("Per-call budget check"),
           dg.node("Request blocked", "Subscription still active", "x"))
-        + dg.lane("2 · Minutes later: disable the subscription key", 401,
-          dg.node("Azure Monitor", `Spend records → alert at ${cfg.budgetSuspend?.suspendAtPercent ?? 100}%`, "mon"),
-          dg.node("Logic App", "Action group → managed identity", "gw"),
+        + dg.lane("2 · Asynchronously: disable the subscription key", 401,
+          dg.node("Gateway on-error", "Subscription budget exhausted", "gw"),
+          dg.node("Logic App", "Direct callback → managed identity", "gw"),
           dg.node("Key rejected", "APIM subscription suspended", "x"))
-        + dg.note("<b>Timing:</b> Log ingestion + alert evaluation every 5 minutes; the scenario waits up to 12 minutes. Suspension stops the same key on models, MCP and A2A.")
+        + dg.note("<b>Timing:</b> The first blocked request queues the workflow immediately; suspension and gateway propagation are asynchronous. The scenario waits up to 3 minutes. Audit events arrive later.")
         + dg.note("<b>Recovery:</b> Reset budgets starts a new budget epoch and reactivates watched subscriptions.")
         + (!cfg.budgetSuspend?.enabled ? dg.note("<b>Off in this deployment.</b> Enable <code>budgetSuspend.enabled</code> and redeploy.") : ""); },
     story: () => { const b = byName((cfg.budgetSuspend?.subscriptions || ["user-ben"])[0]) || tierAgent("silver"), t = tierOf(b);
-      return `Budgets are reset first. <b>${b.displayName}</b> (${t.displayName}, <b>$${t.budgetUsd}</b> budget) then runs long reports until the gateway's <code>quota-by-key</code> answers 403: that is the real-time, per-call stop. Separately, an <b>Azure Monitor log search alert</b> adds up his chargeback records per budget epoch every 5 minutes. When they reach ${cfg.budgetSuspend?.suspendAtPercent ?? 100}% of the budget, its action group calls a <b>Logic App</b> that suspends his APIM subscription with its managed identity and writes a <code>BudgetBreach</code> audit event. After suspension, the same key receives <b>401</b> on every API. Notifications are optional; <b>Reset budgets</b> reactivates the watched subscription.`; },
+      return `Budgets are reset first. <b>${b.displayName}</b> (${t.displayName}, <b>$${t.budgetUsd}</b> budget) then runs long reports until <code>quota-by-key</code> answers 403. The gateway's <b>on-error policy</b> directly queues a <b>Logic App</b> that checks the budget epoch, suspends the APIM subscription with its managed identity and writes a <code>BudgetBreach</code> audit event. Session caps and token quotas never trigger suspension. After the state reaches the gateway, the key receives <b>401</b> on every API. <b>Reset budgets</b> reactivates the watched subscription.`; },
     async run() {
       const bs = cfg.budgetSuspend || {};
       if (!bs.enabled) { info("Not deployed (off by default): set <code>budgetSuspend.enabled</code> to <code>true</code> in <code>sandbox-config.json</code> (or <code>budget_suspend_config</code> in the notebook) and redeploy (notebook or <code>azd up</code>)."); return; }
@@ -3425,32 +3466,40 @@ const SCENARIOS = [
       for (let i = 0; i < 12 && running && !blocked; i++) { // a new session per call, so the plan budget (not the session cap) is what runs out
         const r = await send(b.name, m, { prompt: LONG, maxTokens: t.maxOutputTokens, session: newSessionId("ben") });
         spent += callCost(r);
-        if (r.status === 403) blocked = r;
-        step(r, r.status === 200 ? `spent ${fmtUsd(spent)} of $${t.budgetUsd}` : r.status === 403 ? `blocked in real time by <code>${escapeHtml(hdr(r, "x-gw-blocked-by") || "quota-by-key")}</code>` : "");
+        if (r.status === 403 && hdr(r, "x-gw-blocked-by") === "quota-by-key (subscription-budget)") blocked = r;
+        step(r, r.status === 200 ? `spent ${fmtUsd(spent)} of $${t.budgetUsd}` : r.status === 403 ? `blocked by <code>${escapeHtml(hdr(r, "x-gw-blocked-by") || "unknown policy")}</code> · suspension notification: ${escapeHtml(hdr(r, "x-gw-suspension-status") || "not triggered")}` : "");
         if (r.status === 429) await sleep(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5));
       }
       if (!running) return;
       if (!blocked) { takeaway(`Spent ${fmtUsd(spent)} without exhausting the $${t.budgetUsd} budget. Run the scenario again.`); return; }
-      info("Now the operations loop: chargeback records reach Log Analytics (1-3 min), the alert evaluates every 5 minutes, then the action group calls the Logic App. Checking every 30 seconds for up to 12 minutes…");
+      if (hdr(blocked, "x-gw-suspension-status") === "failed") {
+        takeaway("The gateway blocked spend, but the suspension notification failed. Check the budget-suspend error trace and Logic App trigger. Another blocked request can retry; no notification was cached.");
+        return;
+      }
+      if (!hdr(blocked, "x-gw-suspension-status")) {
+        takeaway("The budget was blocked, but this gateway has no suspension notification header. Redeploy the updated product policy and Logic App before running this scenario.");
+        return;
+      }
+      info("The gateway notified the Logic App directly. Checking subscription state every 5 seconds for up to 3 minutes; no Log Analytics queries are used while waiting…");
       $("scSteps").insertAdjacentHTML("beforeend", `<li class="muted" id="bsWait"></li>`);
       const started = Date.now();
       let st = {}, sub;
-      while (running && Date.now() - started < 12 * 60000) {
-        await sleep(30000);
+      while (running && Date.now() - started < 3 * 60000) {
+        await sleep(5000);
         if (!running) return;
-        try { st = await (await fetch("/api/budget-suspend", { method: "POST" })).json(); } catch (e) { st = { error: e.message }; }
+        try { st = await (await fetch("/api/budget-suspend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ evidence: false }) })).json(); } catch (e) { st = { error: e.message }; }
         sub = (st.subscriptions || []).find(x => x.name === b.name);
-        const row = (Array.isArray(st.spend?.rows) ? st.spend.rows : []).find(x => x.Subscription === b.name && x.BudgetEpoch === st.budgetEpoch);
-        $("bsWait").innerHTML = `${Math.round((Date.now() - started) / 60000)} min · subscription <b>${escapeHtml(sub?.state || st.error || "?")}</b> · `
-          + `spend Azure Monitor sees this epoch: ${row ? `${fmtUsd(row.SpendMicroUsd / 1e6)} (${row.Calls} records)` : "no records yet (ingestion)"} · Logic App runs: ${(st.runs || []).length}`;
+        $("bsWait").innerHTML = `${Math.round((Date.now() - started) / 1000)} s · subscription <b>${escapeHtml(sub?.state || sub?.error || st.error || "?")}</b> · Logic App runs: ${(st.runs || []).length}${st.runsError ? ` · ${escapeHtml(st.runsError)}` : ""}`;
         if (sub?.state === "suspended") break;
       }
       if (!running) return;
       if (sub?.state !== "suspended") {
-        takeaway(`The gateway blocked ${b.displayName} in real time, but the subscription is still <b>${escapeHtml(sub?.state || "unknown")}</b> after 12 minutes. Check the alert rule and the Logic App run history${st.links?.logicApp ? ` (<a href="${st.links.logicApp}" target="_blank">Logic App ↗</a>)` : ""}; the Azure Monitor workbook's Governance tab shows the same data.`);
+        takeaway(`The gateway blocked ${b.displayName}, but the subscription is still <b>${escapeHtml(sub?.state || "unknown")}</b> after 3 minutes. Check the callback configuration and Logic App run history${st.links?.logicApp ? ` (<a href="${st.links.logicApp}" target="_blank">Logic App ↗</a>)` : ""}. A later blocked request can retry after the 30-second notification cache expires.`);
         return;
       }
       info(`Subscription <b>${escapeHtml(b.name)}</b> is <b>suspended</b>${sub.stateComment ? `: ${escapeHtml(sub.stateComment)}` : " by the Logic App"}.`);
+      try { st = await (await fetch("/api/budget-suspend", { method: "POST" })).json(); }
+      catch (e) { info(`Could not load audit evidence: ${escapeHtml(e.message)}`); }
       const r1 = await send(b.name, m, { prompt: ASK, maxTokens: 60, session: newSessionId("ben") });
       step(r1, "the key is switched off: rejected before any plan policy runs");
       if (!running) return;
@@ -3459,7 +3508,7 @@ const SCENARIOS = [
       const runs = (st.runs || []).slice(0, 3).map(x => ({ Run: x.name, Status: x.status, Started: x.startTime, Ended: x.endTime }));
       info(`Logic App runs ${st.links?.logicApp ? `· <a href="${st.links.logicApp}" target="_blank">open ↗</a>` : ""}${table(runs)}`);
       info(`<code>BudgetBreach</code> audit events (Application Insights) · <a href="${st.events?.portalLink || "#"}" target="_blank">query ↗</a>${table(st.events?.rows)}`);
-      takeaway(`Two controls, two jobs. <code>quota-by-key</code> stopped ${b.displayName} <b>on the next call</b> (403) inside the gateway. The alert + Logic App loop took <b>${Math.round((Date.now() - started) / 60000) || 1}+ minutes</b>, then <b>suspended the APIM subscription</b> with a least-privilege managed identity: his key now fails on every API (HTTP ${r1.status} / ${r2.status}), the action group can notify people, and the <code>BudgetBreach</code> event is the audit trail. Use it for thresholds the gateway counters don't see, like monthly spend across epochs. <b>Reset budgets</b> re-activates the subscription.`);
+      takeaway(`Two controls, two jobs. <code>quota-by-key</code> stopped ${b.displayName} on the next call (403), then directly triggered the Logic App to suspend the subscription. Model / MCP verification returned <b>HTTP ${r1.status} / ${r2.status}</b>${r1.status === 401 && r2.status === 401 ? ": the key is rejected on both APIs" : ": suspension has not propagated to both APIs yet"}. No periodic spend scan is needed. <code>BudgetBreach</code> is the audit trail (it may still be ingesting); <b>Reset budgets</b> reactivates the subscription.`);
     } },
   { title: "Responses API: cached input & sticky state", cost: "4 calls · < $0.003",
     gist: "Create a response, continue on its original backend, then read it without a gateway dollar charge. Only input tokens reported as cached get the discounted rate.",

@@ -61,7 +61,7 @@ param purviewDlpConfig object = {}
 @description('Client secret of the Purview DLP app registration (only used when purviewDlpConfig.enabled is true)')
 @secure()
 param purviewClientSecret string = ''
-@description('Over budget, switched off: an Azure Monitor alert on the chargeback spend triggers a Logic App that suspends the APIM subscription. { enabled, subscriptions, suspendAtPercent, useCustomRole, notifyEmails }. See budget-suspend.bicep.')
+@description('Over budget, switched off: a subscription-budget quota error triggers a Logic App that suspends watched APIM subscriptions. { enabled, subscriptions, useCustomRole }. See budget-suspend.bicep.')
 param budgetSuspend object = { enabled: false }
 @description('Cached input token price list (Responses API and Chat Completions prompt cache). Format: "<deployment>=<USD per 1M cached input tokens>;...". Models not listed pay the full input price.')
 param cachedInputPricing string = ''
@@ -729,6 +729,7 @@ resource tierProductPolicy 'Microsoft.ApiManagement/service/products/policies@20
       '{allowed-image-models}': join(imagesConfig.?tiers[?tier.name].?allowedImageModels ?? [], ',')
       '{allowed-image-qualities}': join(imagesConfig.?tiers[?tier.name].?allowedImageQualities ?? [], ',')
       '{images-per-minute}': string(imagesConfig.?tiers[?tier.name].?imagesPerMinute ?? 1)
+      '{budget-suspend-policy}': budgetSuspendEnabled ? replace(loadTextContent('budget-suspend-policy.xml'), '{watched-subscriptions}', join(budgetSuspend.?subscriptions ?? [], ',')) : ''
     }), productPolicyTemplate, (xml, placeholder) => replace(xml, placeholder.key, placeholder.value))
   }
   dependsOn: [
@@ -737,6 +738,7 @@ resource tierProductPolicy 'Microsoft.ApiManagement/service/products/policies@20
     entraIdentityFragment
     blockedBeforeSpendFragment
     safetyLedgerFragment
+    budgetSuspendModule
     tierProductApiLink
     tierProductMcpLink
     tierProductAgentLink
@@ -812,7 +814,7 @@ module demoUi 'demo-ui.bicep' = if (hostDemoUi) {
   }
 }
 
-// 13. Optional: over budget, switched off (alert on the chargeback spend -> Logic App suspends the APIM subscription)
+// 13. Optional: over budget, switched off (gateway quota error -> Logic App suspends the APIM subscription)
 var budgetSuspendEnabled = budgetSuspend.?enabled ?? false
 module budgetSuspendModule 'budget-suspend.bicep' = if (budgetSuspendEnabled) {
   name: 'budgetSuspendModule'
@@ -831,7 +833,6 @@ module budgetSuspendModule 'budget-suspend.bicep' = if (budgetSuspendEnabled) {
     readerPrincipalId: hostDemoUi ? uiIdentity!.properties.principalId : ''
   }
   dependsOn: [
-    agentSubscription
     budgetEpochNamedValue
   ]
 }
@@ -876,12 +877,9 @@ output purviewDlpEnabled bool = purviewDlpEnabled
 output budgetSuspend object = budgetSuspendEnabled ? {
   enabled: true
   subscriptions: budgetSuspend.?subscriptions ?? []
-  suspendAtPercent: budgetSuspend.?suspendAtPercent ?? 100
+  trigger: 'gateway'
   logicAppName: budgetSuspendModule!.outputs.logicAppName
   logicAppId: budgetSuspendModule!.outputs.logicAppId
-  alertRuleName: budgetSuspendModule!.outputs.alertRuleName
-  alertRuleId: budgetSuspendModule!.outputs.alertRuleId
-  actionGroupId: budgetSuspendModule!.outputs.actionGroupId
   roleDefinitionId: budgetSuspendModule!.outputs.roleDefinitionId
   customRole: budgetSuspendModule!.outputs.customRole
 } : { enabled: false }

@@ -35,7 +35,7 @@ GW_HEADERS = ["x-gw-agent", "x-gw-tier", "x-gw-model-requested", "x-gw-model-ser
               "x-gw-billed-to", "x-gw-tool", "x-gw-remaining-tool-calls", "x-gw-remaining-agent-calls",
               "x-gw-agent-fee-usd", "x-gw-downstream-cost-usd", "mcp-session-id", "x-gw-request-id", "x-gw-caller",
               "x-gw-route", "x-gw-backend", "x-gw-blocked-by", "x-ms-region", "apim-trace-id", "x-gw-session",
-              "x-gw-safety-cost-usd", "x-gw-end-user", "x-gw-end-user-budget-usd",
+              "x-gw-safety-cost-usd", "x-gw-end-user", "x-gw-end-user-budget-usd", "x-gw-suspension-status",
               "x-gw-cached-tokens", "x-gw-cached-savings-usd", "x-gw-pricing-rule", "x-gw-affinity",
               "x-gw-image-count", "x-gw-image-unit-usd", "x-gw-image-spec", "x-gw-remaining-images"]
 GATEWAY_AUDIENCE = "https://cognitiveservices.azure.com"
@@ -777,7 +777,7 @@ def reset_budgets(_payload):
         return 502, {"error": text[:500]}
     applied = wait_for_named_value(token, url, epoch)
     _epoch_cache.update(value=epoch, at=time.time())
-    # After the new epoch is in place: the budget-breach Logic App ignores breaches of an older epoch, so it can't switch them off again
+    # Queued gateway notifications from older epochs are ignored by the Logic App.
     reactivated, errors = reactivate_suspended(token)
     message = "Budgets and token quotas reset (named value budget-epoch updated). It can take a few seconds to apply."
     if reactivated:
@@ -801,14 +801,14 @@ def wait_for_named_value(token, url, value, timeout=90):
     return False
 
 
-# ---- Over budget, switched off: an Azure Monitor log alert on the chargeback records calls a Logic App that suspends the
+# ---- Over budget, switched off: a gateway subscription-budget quota error calls a Logic App that suspends the
 #      APIM subscription (budget-suspend.bicep). Reset budgets re-activates the watched subscriptions.
 APIM_API = "2024-06-01-preview"
 BUDGET_BREACH_EVENTS = ('AppEvents | where Name == "BudgetBreach" '
                         '| project TimeGenerated, Action = tostring(Properties.action), Reason = tostring(Properties.reason), '
                         'Subscription = tostring(Properties.subscription), BudgetEpoch = tostring(Properties.budgetEpoch), '
                         'CurrentEpoch = tostring(Properties.currentEpoch), PreviousState = tostring(Properties.previousState), '
-                        'AlertFired = tostring(Properties.firedDateTime), MonitorCondition = tostring(Properties.monitorCondition), '
+                        'Source = tostring(Properties.source), RequestId = tostring(Properties.requestId), '
                         'LogicAppRun = tostring(Properties.logicAppRun) | order by TimeGenerated desc | take 20')
 BUDGET_SPEND = ('AppTraces | where tostring(Properties.record) == "chargeback" '
                 '| extend Subscription = tostring(Properties.user), BudgetEpoch = tostring(Properties.budgetEpoch) '
@@ -852,11 +852,11 @@ def reactivate_suspended(token):
     return reactivated, errors
 
 
-def budget_suspend(_payload):
+def budget_suspend(payload):
     """State of the over-budget loop: watched subscriptions, the Logic App runs, the BudgetBreach audit events and the spend per epoch."""
     config = budget_suspend_config()
     if not config.get("enabled"):
-        return 200, {"enabled": False, "reason": "budgetSuspend.enabled is false in sandbox-config.json (no alert or Logic App deployed)."}
+        return 200, {"enabled": False, "reason": "budgetSuspend.enabled is false in sandbox-config.json (gateway suspension is not configured)."}
     token = az_token(ARM)
     status, _, text, _ = http("GET", f"{ARM}{CONFIG['apimServiceId']}/namedValues/budget-epoch?api-version={APIM_API}", None, _arm_auth(token), timeout=60)
     epoch = json.loads(text).get("properties", {}).get("value") if status == 200 else None
@@ -880,18 +880,23 @@ def budget_suspend(_payload):
 
     limits = {a["name"]: tier_limit(a.get("tier")) for a in CONFIG.get("agents", [])}
     portal = "https://portal.azure.com/#@/resource"
-    return 200, {
+    result = {
         "enabled": True,
-        "suspendAtPercent": config.get("suspendAtPercent", 100),
+        "trigger": config.get("trigger", "gateway"),
         "budgetEpoch": epoch,
         "subscriptions": [dict(subscription_state(n, token), limitMicroUsd=limits.get(n)) for n in config.get("subscriptions", [])],
         "runs": runs, "runsError": runs_error,
-        "events": {"query": BUDGET_BREACH_EVENTS, "portalLink": portal_logs_link(BUDGET_BREACH_EVENTS, "P2D"), "rows": law_query(BUDGET_BREACH_EVENTS, "P2D")},
-        "spend": {"query": spend_query, "portalLink": portal_logs_link(spend_query, "P2D"), "rows": law_query(spend_query, "P2D")},
-        "links": {"logicApp": f"{portal}{config['logicAppId']}/logicApp" if config.get("logicAppId") else None,
-                  "alertRule": f"{portal}{config['alertRuleId']}/overview" if config.get("alertRuleId") else None},
-        "note": "The alert evaluates every 5 minutes on records that reach Log Analytics 1-3 minutes after the call: expect the suspension 3-10 minutes after the breach.",
+        "links": {"logicApp": f"{portal}{config['logicAppId']}/logicApp" if config.get("logicAppId") else None},
+        "note": "The first blocked subscription-budget call notifies the Logic App directly. Suspension is asynchronous; audit records arrive later in Log Analytics.",
     }
+    if payload.get("evidence", True):
+        result["events"] = {"query": BUDGET_BREACH_EVENTS, "portalLink": portal_logs_link(BUDGET_BREACH_EVENTS, "P2D"),
+                            "rows": law_query(BUDGET_BREACH_EVENTS, "P2D")}
+        period = int(CONFIG.get("budgetPeriodSeconds") or 2592000)
+        timespan = f"PT{period}S"
+        result["spend"] = {"query": spend_query, "portalLink": portal_logs_link(spend_query, timespan),
+                           "rows": law_query(spend_query, timespan)}
+    return 200, result
 
 
 # ---- $ budget remaining per subscription. The gateway's quota-by-key counters can't be read back (the ARM quota API isn't
@@ -1039,7 +1044,7 @@ def public_config(user=None):
         "a2aAgents": CONFIG.get("a2aAgents", []),
         "foundryBackends": CONFIG.get("foundryBackends", []),
         "contentSafety": CONFIG.get("contentSafety", {"enabled": False}),
-        "budgetSuspend": {k: v for k, v in budget_suspend_config().items() if k in ("enabled", "subscriptions", "suspendAtPercent", "logicAppName", "alertRuleName")},
+        "budgetSuspend": {k: v for k, v in budget_suspend_config().items() if k in ("enabled", "subscriptions", "trigger", "logicAppName")},
         "endpoints": {k: CONFIG.get(k) for k in ("inferenceBaseUrl", "mcpUrl", "a2aUrl", "agentCardUrl", "imagesBaseUrl")},
         "cachedInputPrices": CONFIG.get("cachedInputPrices", {}),
         "endUserBudgets": end_user_budgets_config(),

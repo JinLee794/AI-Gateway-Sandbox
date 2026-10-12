@@ -1,0 +1,45 @@
+<choose>
+    <when condition="@(context.LastError?.PolicyId == "subscription-budget" && context.LastError?.Reason == "QuotaExceeded" && context.Variables.GetValueOrDefault<string>("quotaStage", "") == "subscription-budget" && (",{watched-subscriptions},").Contains("," + context.Subscription?.Id + ","))">
+        <cache-lookup-value key="@("suspend-" + context.Subscription.Id + "-" + (string)context.Variables["budgetEpoch"])" variable-name="suspensionQueued" caching-type="internal" />
+        <choose>
+            <when condition="@(!context.Variables.GetValueOrDefault<bool>("suspensionQueued", false))">
+                <send-request mode="new" response-variable-name="suspensionResponse" timeout="5" ignore-error="true">
+                    <set-url>{{budget-suspend-callback}}</set-url>
+                    <set-method>POST</set-method>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@(new JObject(
+                        new JProperty("subscription", context.Subscription.Id),
+                        new JProperty("epoch", (string)context.Variables["budgetEpoch"]),
+                        new JProperty("requestId", context.RequestId.ToString()),
+                        new JProperty("source", "quota-by-key"),
+                        new JProperty("reason", "QuotaExceeded"),
+                        new JProperty("stage", "subscription-budget")).ToString())</set-body>
+                </send-request>
+                <choose>
+                    <when condition="@(context.Variables.GetValueOrDefault<IResponse>("suspensionResponse")?.StatusCode == 202)">
+                        <!-- Short TTL permits a later blocked call to retry a failed workflow; this is not a lock. -->
+                        <cache-store-value key="@("suspend-" + context.Subscription.Id + "-" + (string)context.Variables["budgetEpoch"])" value="@(true)" duration="30" caching-type="internal" />
+                        <set-header name="x-gw-suspension-status" exists-action="override">
+                            <value>accepted</value>
+                        </set-header>
+                    </when>
+                    <otherwise>
+                        <trace source="budget-suspend" severity="error">
+                            <message>@("Budget suspension notification failed for " + context.Subscription.Id + "; HTTP " + (context.Variables.GetValueOrDefault<IResponse>("suspensionResponse")?.StatusCode.ToString() ?? "timeout or transport error"))</message>
+                        </trace>
+                        <set-header name="x-gw-suspension-status" exists-action="override">
+                            <value>failed</value>
+                        </set-header>
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                <set-header name="x-gw-suspension-status" exists-action="override">
+                    <value>recently-accepted</value>
+                </set-header>
+            </otherwise>
+        </choose>
+    </when>
+</choose>

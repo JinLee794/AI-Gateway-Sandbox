@@ -1,19 +1,12 @@
 // AI Gateway Sandbox - "Over budget, switched off" (the FinOps operations loop of labs/finops-framework).
 //
-// An Azure Monitor log search alert adds up the chargeback records the gateway writes (AppTraces, one per billable call)
-// per subscription and budget epoch. When a watched subscription reaches suspendAtPercent of its plan budget, the
-// alert calls a Logic App through an action group. The Logic App suspends the APIM subscription (its key stops working
-// on every API until someone re-activates it), and writes a "BudgetBreach" audit event to Application Insights.
-// The action group can also email people.
-//
-// This complements the in-gateway quota-by-key $ budget, it doesn't replace it:
-//   - quota-by-key blocks the next call in real time (per call, per counter key).
-//   - alert + suspend is an operations workflow that takes MINUTES (ingestion 1-3 min + evaluation frequency +
-//     action group). It notifies, revokes the key everywhere, leaves an audit trail and catches spend the gateway
-//     counters don't see.
+// The first blocked subscription-budget request notifies this Logic App directly. No log ingestion or scheduled
+// spend scan is needed. quota-by-key still blocks spend; suspension revokes the key across all APIs.
+// The callback URL is stored only in a secret APIM named value, never in deployment outputs or the demo UI.
 //
 // Reset budgets (UI / notebook) writes a new budget-epoch and re-activates suspended subscriptions. The Logic App only
-// suspends when the breach belongs to the current epoch, so spend from before a reset never switches a user off again.
+// skips old-epoch notifications. Epoch and subscription updates are separate ARM operations; concurrent resets
+// and already executing suspensions are not atomic (see the README).
 
 param location string = resourceGroup().location
 param resourceSuffix string
@@ -21,26 +14,27 @@ param apimName string
 param logAnalyticsId string
 param appInsightsName string
 
-@description('Watched subscriptions: [{ name, limitMicroUsd }] (limitMicroUsd = the plan $ budget in micro-USD)')
+@description('Watched subscriptions: [{ name, limitMicroUsd }]. Only these subscriptions may be suspended.')
+@minLength(1)
 param watchedSubscriptions array
 
-@description('Suspend when the spend of the current budget epoch reaches this percentage of the plan budget')
+@description('Legacy compatibility only: gateway-triggered suspension supports exhaustion (100%) only.')
+@allowed([100])
 param suspendAtPercent int = 100
 
 @description('true: custom least-privilege role (needs Owner or User Access Administrator). false: built-in API Management Service Contributor')
 param useCustomRole bool = true
 
-@description('Optional email addresses notified by the action group')
+@description('Legacy compatibility only: email notifications need a separate workflow integration.')
+@allowed([[]])
+#disable-next-line no-unused-params
 param notifyEmails array = []
-
-@description('How often the alert runs. 5 minutes is the shortest frequency the aggregation query supports reliably.')
-param evaluationFrequency string = 'PT5M'
 
 @description('Optional principal (the hosted demo UI identity) that may read the Logic App run history')
 param readerPrincipalId string = ''
 
 var apimApiVersion = '2024-06-01-preview'
-var triggerName = 'When_a_budget_alert_fires'
+var triggerName = 'When_a_budget_is_exhausted'
 var roles = {
   apimServiceContributor: '312a565d-c81f-4fd8-895a-4e21e48d571c'
   monitoringReader: '43d0d8ad-25c7-4714-9337-8ba259a9fe05'
@@ -88,8 +82,6 @@ var roleDefinitionId = useCustomRole
 
 // 2. Logic App: suspend the subscription that went over budget, then write the audit event
 var apimArm = uri(environment().resourceManager, apim.id)
-var dims = 'triggerBody()?[\'data\']?[\'alertContext\']?[\'condition\']?[\'allOf\']?[0]?[\'dimensions\']'
-var essentials = 'triggerBody()?[\'data\']?[\'essentials\']'
 
 resource workflow 'Microsoft.Logic/workflows@2019-05-01' = {
   name: 'la-budget-suspend-${resourceSuffix}'
@@ -106,45 +98,64 @@ resource workflow 'Microsoft.Logic/workflows@2019-05-01' = {
         '${triggerName}': {
           type: 'Request'
           kind: 'Http'
+          // Rejects (400) any body that doesn't match the schema, e.g. a subscription that isn't watched
+          operationOptions: 'EnableSchemaValidation'
+          runtimeConfiguration: {
+            concurrency: {
+              runs: 1
+            }
+          }
           inputs: {
-            schema: {}
+            schema: {
+              type: 'object'
+              required: [
+                'subscription'
+                'epoch'
+                'requestId'
+                'source'
+                'reason'
+                'stage'
+              ]
+              properties: {
+                subscription: {
+                  type: 'string'
+                  enum: map(watchedSubscriptions, s => s.name)
+                }
+                epoch: {
+                  type: 'string'
+                  minLength: 1
+                }
+                requestId: {
+                  type: 'string'
+                  minLength: 1
+                }
+                source: {
+                  type: 'string'
+                  enum: ['quota-by-key']
+                }
+                reason: {
+                  type: 'string'
+                  enum: ['QuotaExceeded']
+                }
+                stage: {
+                  type: 'string'
+                  enum: ['subscription-budget']
+                }
+              }
+            }
           }
         }
       }
       actions: {
-        Filter_subscription_dimension: {
-          runAfter: {}
-          type: 'Query'
-          inputs: {
-            from: '@coalesce(${dims}, json(\'[]\'))'
-            where: '@equals(item()?[\'name\'], \'Subscription\')'
-          }
-        }
-        Filter_epoch_dimension: {
-          runAfter: {}
-          type: 'Query'
-          inputs: {
-            from: '@coalesce(${dims}, json(\'[]\'))'
-            where: '@equals(item()?[\'name\'], \'BudgetEpoch\')'
-          }
-        }
         Breach_subscription: {
-          runAfter: {
-            Filter_subscription_dimension: [
-              'Succeeded'
-            ]
-          }
+          runAfter: {}
           type: 'Compose'
-          inputs: '@coalesce(first(body(\'Filter_subscription_dimension\'))?[\'value\'], \'\')'
+          inputs: '@triggerBody()[\'subscription\']'
         }
         Breach_epoch: {
-          runAfter: {
-            Filter_epoch_dimension: [
-              'Succeeded'
-            ]
-          }
+          runAfter: {}
           type: 'Compose'
-          inputs: '@coalesce(first(body(\'Filter_epoch_dimension\'))?[\'value\'], \'\')'
+          inputs: '@triggerBody()[\'epoch\']'
         }
         Get_current_epoch: {
           runAfter: {}
@@ -191,7 +202,7 @@ resource workflow 'Microsoft.Logic/workflows@2019-05-01' = {
             ]
           }
           type: 'Compose'
-          inputs: '@if(not(equals(${essentials}?[\'monitorCondition\'], \'Fired\')), \'skipped: the alert was resolved\', if(not(equals(actions(\'Get_subscription\')?[\'status\'], \'Succeeded\')), concat(\'failed: could not read subscription \', outputs(\'Breach_subscription\')), if(not(equals(actions(\'Get_current_epoch\')?[\'status\'], \'Succeeded\')), \'failed: could not read the budget-epoch named value\', if(not(equals(string(outputs(\'Breach_epoch\')), string(body(\'Get_current_epoch\')?[\'properties\']?[\'value\']))), \'skipped: the budgets were reset after this breach (budget-epoch changed)\', if(not(equals(body(\'Get_subscription\')?[\'properties\']?[\'state\'], \'active\')), concat(\'skipped: the subscription is already \', body(\'Get_subscription\')?[\'properties\']?[\'state\']), \'suspend\')))))'
+          inputs: '@if(not(equals(actions(\'Get_subscription\')?[\'status\'], \'Succeeded\')), concat(\'failed: could not read subscription \', outputs(\'Breach_subscription\')), if(not(equals(actions(\'Get_current_epoch\')?[\'status\'], \'Succeeded\')), \'failed: could not read the budget-epoch named value\', if(not(equals(string(outputs(\'Breach_epoch\')), string(body(\'Get_current_epoch\')?[\'properties\']?[\'value\']))), \'skipped: the budgets were reset after this breach (budget-epoch changed)\', if(not(equals(body(\'Get_subscription\')?[\'properties\']?[\'state\'], \'active\')), concat(\'skipped: the subscription is already \', body(\'Get_subscription\')?[\'properties\']?[\'state\']), \'suspend\'))))'
         }
         Suspend_if_over_budget: {
           runAfter: {
@@ -219,12 +230,12 @@ resource workflow 'Microsoft.Logic/workflows@2019-05-01' = {
                 uri: '${apimArm}/subscriptions/@{encodeUriComponent(outputs(\'Breach_subscription\'))}?api-version=${apimApiVersion}'
                 headers: {
                   'Content-Type': 'application/json'
-                  'If-Match': '*'
+                  'If-Match': '@coalesce(outputs(\'Get_subscription\')?[\'headers\']?[\'ETag\'], body(\'Get_subscription\')?[\'etag\'])'
                 }
                 body: {
                   properties: {
                     state: 'suspended'
-                    stateComment: 'Over budget: suspended by the budget-breach alert at @{utcNow()} (budget epoch @{outputs(\'Breach_epoch\')}, Logic App run @{workflow()?[\'run\']?[\'name\']}). Reset budgets re-activates it.'
+                    stateComment: 'Over budget: suspended after gateway quota exhaustion at @{utcNow()} (budget epoch @{outputs(\'Breach_epoch\')}, Logic App run @{workflow()?[\'run\']?[\'name\']}). Reset budgets re-activates it.'
                   }
                 }
                 authentication: {
@@ -238,11 +249,37 @@ resource workflow 'Microsoft.Logic/workflows@2019-05-01' = {
             actions: {}
           }
         }
+        Mark_failed_run: {
+          runAfter: {
+            Write_audit_event: [
+              'Succeeded'
+            ]
+          }
+          type: 'If'
+          expression: '@or(startsWith(outputs(\'Decision\'), \'failed\'), not(equals(actions(\'Suspend_if_over_budget\')?[\'status\'], \'Succeeded\')))'
+          actions: {
+            Fail_suspension: {
+              runAfter: {}
+              type: 'Terminate'
+              inputs: {
+                runStatus: 'Failed'
+                runError: {
+                  code: 'BudgetSuspensionFailed'
+                  message: 'Budget suspension failed. Inspect the ARM action results and the BudgetBreach audit event.'
+                }
+              }
+            }
+          }
+          else: {
+            actions: {}
+          }
+        }
         Write_audit_event: {
           runAfter: {
             Suspend_if_over_budget: [
               'Succeeded'
               'Failed'
+              'TimedOut'
             ]
           }
           type: 'Http'
@@ -269,10 +306,9 @@ resource workflow 'Microsoft.Logic/workflows@2019-05-01' = {
                     currentEpoch: '@{body(\'Get_current_epoch\')?[\'properties\']?[\'value\']}'
                     previousState: '@{body(\'Get_subscription\')?[\'properties\']?[\'state\']}'
                     thresholdPercent: string(suspendAtPercent)
-                    monitorCondition: '@{${essentials}?[\'monitorCondition\']}'
-                    alertRule: '@{${essentials}?[\'alertRule\']}'
-                    alertId: '@{${essentials}?[\'alertId\']}'
-                    firedDateTime: '@{${essentials}?[\'firedDateTime\']}'
+                    source: 'gateway'
+                    requestId: '@{triggerBody()[\'requestId\']}'
+                    quotaStage: '@{triggerBody()[\'stage\']}'
                     logicAppRun: '@{workflow()?[\'run\']?[\'name\']}'
                   }
                 }
@@ -294,8 +330,22 @@ resource workflowRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
     principalId: workflow.identity.principalId
     principalType: 'ServicePrincipal'
   }
+
   dependsOn: [
     suspenderRole
+  ]
+}
+
+resource callbackNamedValue 'Microsoft.ApiManagement/service/namedValues@2024-06-01-preview' = {
+  parent: apim
+  name: 'budget-suspend-callback'
+  properties: {
+    displayName: 'budget-suspend-callback'
+    secret: true
+    value: listCallbackUrl('${workflow.id}/triggers/${triggerName}', '2019-05-01').value
+  }
+  dependsOn: [
+    workflowRole
   ]
 }
 
@@ -325,45 +375,30 @@ resource workflowDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-p
   }
 }
 
-// 3. Action group: the Logic App plus optional email receivers
+// Migration tombstones: incremental deployments do not delete removed resources.
+// Keep the legacy alert and action group disabled so an upgrade stops scans and callbacks immediately.
 resource actionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
   name: 'ag-budget-suspend-${resourceSuffix}'
   location: 'Global'
   properties: {
     groupShortName: 'BudgetStop'
-    enabled: true
-    logicAppReceivers: [
-      {
-        name: 'suspend-subscription'
-        resourceId: workflow.id
-        callbackUrl: listCallbackUrl('${workflow.id}/triggers/${triggerName}', '2019-05-01').value
-        useCommonAlertSchema: true
-      }
-    ]
-    emailReceivers: [for (email, i) in notifyEmails: {
-      name: 'email-${i}'
-      emailAddress: email
-      useCommonAlertSchema: true
-    }]
+    enabled: false
+    logicAppReceivers: []
+    emailReceivers: []
   }
 }
-
-// 4. Log search alert: spend of the current budget epoch per watched subscription, against its plan budget
-var limitRows = join(map(watchedSubscriptions, s => '\'${s.name}\', ${s.limitMicroUsd}'), ', ')
-var breachQuery = 'let limits = datatable(Subscription: string, LimitMicroUsd: long) [${limitRows}];\nAppTraces\n| where tostring(Properties.record) == "chargeback"\n| extend Subscription = tostring(Properties.user), BudgetEpoch = tostring(Properties.budgetEpoch), CostMicroUsd = tolong(Properties.costMicroUsd)\n| where isnotempty(BudgetEpoch)\n| summarize SpendMicroUsd = sum(CostMicroUsd) by Subscription, BudgetEpoch\n| join kind=inner limits on Subscription\n| extend PercentOfLimit = round(100.0 * SpendMicroUsd / LimitMicroUsd, 1)\n| where PercentOfLimit >= ${suspendAtPercent}\n| project Subscription, BudgetEpoch, SpendMicroUsd, LimitMicroUsd, PercentOfLimit'
 
 resource breachAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
   name: 'alert-budget-breach-${resourceSuffix}'
   location: location
   kind: 'LogAlert'
   properties: {
-    displayName: 'AI Gateway Sandbox: over budget, switch off'
-    description: 'Fires once per subscription and budget epoch when its gateway spend reaches ${suspendAtPercent}% of the plan budget. The action group calls the Logic App that suspends the APIM subscription.'
+    displayName: 'AI Gateway Sandbox: legacy budget alert (disabled)'
+    description: 'Disabled migration resource. Suspension is triggered directly by gateway subscription-budget exhaustion.'
     severity: 2
-    enabled: true
-    evaluationFrequency: evaluationFrequency
-    windowSize: evaluationFrequency
-    overrideQueryTimeRange: 'P2D'
+    enabled: false
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT5M'
     scopes: [
       logAnalyticsId
     ]
@@ -374,24 +409,8 @@ resource breachAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
     criteria: {
       allOf: [
         {
-          query: breachQuery
+          query: 'AppTraces | where false'
           timeAggregation: 'Count'
-          dimensions: [
-            {
-              name: 'Subscription'
-              operator: 'Include'
-              values: [
-                '*'
-              ]
-            }
-            {
-              name: 'BudgetEpoch'
-              operator: 'Include'
-              values: [
-                '*'
-              ]
-            }
-          ]
           operator: 'GreaterThan'
           threshold: 0
           failingPeriods: {
@@ -401,21 +420,14 @@ resource breachAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
         }
       ]
     }
-    // Stateful: fires once per subscription + epoch, not on every evaluation
     autoMitigate: true
     actions: {
-      actionGroups: [
-        actionGroup.id
-      ]
+      actionGroups: []
     }
   }
 }
 
 output logicAppName string = workflow.name
 output logicAppId string = workflow.id
-output alertRuleId string = breachAlert.id
-output alertRuleName string = breachAlert.name
-output actionGroupId string = actionGroup.id
 output roleDefinitionId string = roleDefinitionId
 output customRole bool = useCustomRole
-output breachQuery string = breachQuery
