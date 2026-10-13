@@ -346,6 +346,7 @@ def debug_token(surface):
 
 def gateway_auth(agent, payload, surface):
     """Subscription key (which plan pays) + Entra ID token (who is calling) + session id + optional request tracing."""
+    _budget_unused.update(epoch=None)  # any gateway call may spend budget or tokens, so the next scenario must reset
     headers = {"api-key": agent["key"]}
     if valid_session(payload.get("session")):
         headers["x-session-id"] = payload["session"]
@@ -768,7 +769,16 @@ def policies(_payload):
     return 200, {"policies": result, "backends": backends}
 
 
-def reset_budgets(_payload):
+_budget_unused = {"epoch": None, "at": 0.0}  # the epoch this app reset to, while no gateway call has gone out since
+
+
+def reset_budgets(payload):
+    """Starts a new budget epoch. Scenarios pass ifUsed: when nothing has called the gateway through this app since the
+    last reset (and it was under 30 minutes ago), the budgets are still full and the ~10 s ARM round trip is skipped."""
+    unused = _budget_unused["epoch"]
+    if (payload or {}).get("ifUsed") and unused and time.time() - _budget_unused["at"] < 1800:
+        return 200, {"epoch": unused, "applied": True, "skipped": True, "reactivated": [], "reactivateErrors": [],
+                     "message": "Budgets are already fresh: no calls since the last reset, so no reset was needed."}
     token = az_token("https://management.azure.com")
     epoch = str(int(time.time()))
     url = f"https://management.azure.com{CONFIG['apimServiceId']}/namedValues/budget-epoch?api-version=2024-05-01"
@@ -779,6 +789,8 @@ def reset_budgets(_payload):
     _epoch_cache.update(value=epoch, at=time.time())
     # Queued gateway notifications from older epochs are ignored by the Logic App.
     reactivated, errors = reactivate_suspended(token)
+    if applied and not errors:
+        _budget_unused.update(epoch=epoch, at=time.time())
     message = "Budgets and token quotas reset (named value budget-epoch updated). It can take a few seconds to apply."
     if reactivated:
         message += f" Re-activated suspended subscription(s): {', '.join(reactivated)}."
@@ -797,7 +809,7 @@ def wait_for_named_value(token, url, value, timeout=90):
             props = json.loads(text).get("properties", {})
             if props.get("value") == value and props.get("provisioningState", "Succeeded") == "Succeeded":
                 return True
-        time.sleep(2)
+        time.sleep(1)
     return False
 
 

@@ -85,6 +85,10 @@
   /* Conversation: every prompt / tool call / task and what came back, as one chat transcript with details on demand */
   .cvhead { display:flex; align-items:center; gap:10px; margin-bottom:8px; } .cvhead h2 { margin:0; flex:1; }
   .cvhead select { width:auto; min-width:220px; font-size:12px; min-height:28px; padding:2px 6px; }
+  .cvhead #cvFullBtn { min-height:28px; height:28px; padding:0 10px; font-size:12px; white-space:nowrap; }
+  #cvCard.full { position:fixed !important; inset:16px !important; z-index:150; margin:0; display:flex; flex-direction:column; box-shadow:0 25.6px 57.6px rgba(0,0,0,.22),0 4.8px 14.4px rgba(0,0,0,.18); }
+  #cvCard.full .convo { flex:1 1 0 !important; min-height:0 !important; max-height:none !important; }
+  body:has(#cvCard.full)::before { content:""; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:149; }
   .convo { display:flex; flex-direction:column; gap:10px; max-height:560px; overflow:auto; padding:2px 4px 6px; scroll-behavior:smooth; }
   .convo:empty::before { content:"Run a scenario or send a request: the prompts, tool calls and answers appear here as a conversation."; color:var(--muted); font-size:13px; }
   .cv-div { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin:8px 0 0; }
@@ -482,7 +486,13 @@
   @media (min-width:1101px) {
     #btnToggle { display:none; }  /* side by side, « (minimize to a rail) is the only collapse control */
     .bench:has(.launch.mini) { grid-template-columns:52px minmax(0,1fr); }
-    .bench:has(.launch.mini) .cvcol { min-height:max(560px, calc(100vh - 260px)); }
+    .bench:has(.launch.mini) .cvcol { min-height:0; }
+    /* Side by side, the bench fits the screen: the scenario list / request builder scrolls inside its panel and the
+       conversation matches that height (about half of the old full-list height); ⤢ Expand opens it full screen */
+    .bench:not(:has(.launch.collapsed)) { height:clamp(440px, calc(100vh - 210px), 620px); }
+    .bench .launch:not(.collapsed):not(.mini) { display:flex; flex-direction:column; min-height:0; }
+    .bench .launch:not(.collapsed):not(.mini) .lbody { flex:1 1 0; min-height:0; overflow:auto; overscroll-behavior:contain; }
+    .bench:has(.launch.collapsed) .cvcol { min-height:clamp(440px, calc(100vh - 210px), 620px); }
     .launch.mini .lbody, .launch.mini .lsum, .launch.mini #runStatus, .launch.mini #btnToggle, .launch.mini .sp, .launch.mini .mode > span:not(.ic), .launch.mini #btnAgain .lbl { display:none; }
     .launch.mini .lbar { flex-direction:column; flex-wrap:nowrap; height:100%; padding:8px 0; gap:8px; border-bottom:0; }
     .launch.mini #btnMini { order:-1; }
@@ -642,6 +652,7 @@
       <div class="cvhead">
         <h2>Conversation <span class="info" tabindex="0" data-tip="Every prompt, tool call and agent task sent from this page, and what came back through the gateway. Expand Details for the gateway's decision, tool arguments, agent steps and errors.">i</span></h2>
         <select id="cvFilter" aria-label="Show the conversation of"></select>
+        <button class="secondary" id="cvFullBtn" onclick="cvFull()" title="Show the conversation full screen (Esc to close)" aria-pressed="false">⤢ Expand</button>
       </div>
       <div class="convo" id="convo" aria-live="polite"></div>
       <div class="cv-meter hidden" id="cvMeter" aria-live="polite" onclick="cvMeterToggle(event)" title="Click to show or hide every subscription&#39;s budget"></div>
@@ -2101,6 +2112,12 @@ function cvMeter() {
   if (calls.length > cvMeterSeen) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
   cvMeterSeen = calls.length;
 }
+function cvFull(on) {
+  const c = $("cvCard"), b = $("cvFullBtn"); on = on ?? !c.classList.contains("full");
+  c.classList.toggle("full", on); b.textContent = on ? "⤡ Exit full screen" : "⤢ Expand"; b.setAttribute("aria-pressed", on);
+  const cv = $("convo"); cv.scrollTop = cv.scrollHeight;
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("cvCard").classList.contains("full")) cvFull(false); });
 function cvChange() { setMode("build"); collapseLaunch(false); $("launch").scrollIntoView({ block: "start", behavior: "smooth" }); }
 function cvNewSession() { $("btnNewSession").click(); }
 function cvSend() {
@@ -2795,15 +2812,18 @@ $("btnSim").onclick = async () => {
   setRunning(false, `Simulation finished after ${i} requests.`);
 };
 $("btnStop").onclick = () => { running = false; stopRequested = true; releaseRunBusy(); };
-async function resetBudgets() {
-  const r = await (await fetch("/api/reset-budgets", { method: "POST" })).json();
+let resetSkipped = false;
+async function resetBudgets(force = false) {  // scenarios skip the reset when nothing was spent since the last one; the Reset button forces it
+  const r = await (await fetch("/api/reset-budgets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ifUsed: !force }) })).json();
   if (r.error) { toast("Reset failed: " + r.error); return false; }
+  resetSkipped = !!r.skipped;
+  if (r.skipped) { info(escapeHtml(r.message)); return true; }
   session.costByAgent = {}; budgetLive.resetAt = Number(r.epoch) * 1000 || Date.now(); renderBudgets();
   toast(r.applied === false ? "Budget reset is still applying in Azure; the first calls may hit the old budget." : r.message);
   setTimeout(() => refreshBudgets(true), 1500); return true;
 }
 $("btnReset").onclick = async () => {
-  if (confirm("Reset every agent's $ budget and token quota?")) await resetBudgets();
+  if (confirm("Reset every agent's $ budget and token quota?")) await resetBudgets(true);
 };
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
 function showTab(tab) {
@@ -3178,7 +3198,7 @@ const SCENARIOS = [
       const premium = cfg.models.find(m => !tierOf(s).allowedModels.includes(m.name))?.name || cfg.models[0].name;
       info("Resetting budgets (budget-epoch named value)…");
       if (!await resetBudgets()) return;
-      await sleep(8000);
+      await resetSettle();
       const r1 = await send(s.name, premium, { prompt: ASK, maxTokens: 120 }); step(r1, r1.status === 200 ? "silently downgraded, the app still gets an answer" : "");
       if (!running) return;
       const r2 = await send(b.name, premium, { prompt: ASK, maxTokens: 120 }); step(r2, "denied at the gateway, Foundry is never called");
@@ -3237,7 +3257,7 @@ const SCENARIOS = [
       const s = tierAgent("silver"), t = tierOf(s), m = t.allowedModels[0];
       info("Resetting budgets (budget-epoch named value)…");
       if (!await resetBudgets()) return;
-      await sleep(8000);
+      await resetSettle();
       let spent = 0, blocked = null;
       for (let i = 0; i < 12 && running && !blocked; i++) {
         const r = await send(s.name, m, { prompt: LONG, maxTokens: t.maxOutputTokens });
@@ -3263,7 +3283,7 @@ const SCENARIOS = [
       const g = tierAgent("gold"), s = tierAgent("silver"), b = tierAgent("bronze");
       info("Resetting budgets (budget-epoch named value)…");
       if (!await resetBudgets()) return;
-      await sleep(8000);
+      await resetSettle();
       const r0 = await listTools(s.name); step(r0, `the MCP server advertises ${(r0.tools || []).length} tools`);
       const calls = [[g, "get-supplier-quote", "premium tool, included in Gold"], [s, "get-supplier-quote", "not in the Silver plan"],
                      [s, "check-inventory", "included in Silver"], [b, "search-products", "the only tool in Bronze"]];
@@ -3305,7 +3325,7 @@ const SCENARIOS = [
       const s = tierAgent("silver"), t = tierOf(s), m = t.allowedModels[0], tool = (t.allowedTools || [])[0] || "search-products";
       info("Resetting budgets (budget-epoch named value)…");
       if (!await resetBudgets()) return;
-      await sleep(8000);
+      await resetSettle();
       let spent = 0, blocked = null;
       const track = (r, note) => { if (r.status === 200) spent += usd(r); if (r.status === 403 && !blocked) blocked = r; step(r, r.status === 200 ? `spent ${fmtUsd(spent)} of $${t.budgetUsd}` : note); };
       track(await callAgent(s.name, "Source 200 units of SKU-1042 and recommend a supplier."), "");
@@ -3440,7 +3460,7 @@ const SCENARIOS = [
       const s = tierAgent("silver"), premium = cfg.models.find(m => !tierOf(s).allowedModels.includes(m.name))?.name || cfg.models[0].name;
       info("Resetting budgets (budget-epoch named value)…");
       if (!await resetBudgets()) return;
-      await sleep(8000);
+      await resetSettle();
       const r = await send(s.name, premium, { prompt: ASK, maxTokens: 80, trace: true, noToken: false });
       step(r, `trace id <code>${escapeHtml(hdr(r, "apim-trace-id") || "-")}</code> · request id <code>${escapeHtml(hdr(r, "x-gw-request-id") || "-")}</code>`);
       showEvidence(session.calls.length - 1);
@@ -3507,7 +3527,7 @@ const SCENARIOS = [
       const t = tierOf(b), m = t.allowedModels.includes("gpt-4.1-mini") ? "gpt-4.1-mini" : t.allowedModels[0];
       info("Resetting budgets (new budget-epoch, re-activates suspended subscriptions)…");
       if (!await resetBudgets()) return;
-      await sleep(8000);
+      await resetSettle();
       let spent = 0, blocked = null;
       for (let i = 0; i < 12 && running && !blocked; i++) { // a new session per call, so the plan budget (not the session cap) is what runs out
         const r = await send(b.name, m, { prompt: LONG, maxTokens: t.maxOutputTokens, session: newSessionId("ben") });
@@ -3584,7 +3604,7 @@ const SCENARIOS = [
       const g = tierAgent("gold"), s = tierAgent("silver"), m = respModel();
       info("Resetting budgets (budget-epoch named value)…");
       if (!await resetBudgets()) return;
-      await sleep(8000);
+      await resetSettle();
       const r1 = await sendResponse(g.name, m, { prompt: RESP_CONTEXT + "\n\nSummarize the policy in one sentence.", maxTokens: 60 });
       step(r1, `affinity <code>${escapeHtml(hdr(r1, "x-gw-affinity") || "-")}</code> · id <code>${escapeHtml(r1.responseId || "-")}</code>`);
       if (!running || r1.status !== 200 || !r1.responseId) { if (r1.status !== 200) takeaway("The first Responses call failed, so the follow-ups were skipped."); return; }
@@ -3633,7 +3653,7 @@ const SCENARIOS = [
       const g = tierAgent("gold"), s = tierAgent("silver"), b = tierAgent("bronze"), P = "A minimalist line drawing of a paper airplane";
       info("Resetting budgets (budget-epoch named value)…");
       if (!await resetBudgets()) return;
-      await sleep(8000);
+      await resetSettle();
       const r1 = await genImage(g.name, { prompt: P, quality: "low", size: "1024x1024" }); step(r1);
       if (!running) return;
       const r2 = await genImage(s.name, { prompt: P, quality: "high", size: "1024x1024" }); step(r2, `blocked by <code>${escapeHtml(hdr(r2, "x-gw-blocked-by") || "?")}</code>`);
@@ -3662,7 +3682,7 @@ const SCENARIOS = [
       if (!cfg.endUserBudgets?.classesUsd) { info("<code>endUserBudgets</code> is missing from the config. Add it to sandbox-config.json and redeploy."); return; }
       info("Resetting budgets (budget-epoch named value) so every user starts from $0…");
       if (!await resetBudgets()) return;
-      await sleep(8000);
+      await resetSettle();
       const spentBy = {}, result = {};
       async function loop(user, max) {  // each user gets a fresh session, so the per-session cap never interferes
         const sid = newSessionId(user.split(".")[0]); spentBy[user] = 0;
@@ -3694,6 +3714,8 @@ const RESP_CONTEXT = "You are the support assistant for Contoso Outfitters. Foll
     "Damaged items must be reported with a photo within 7 days of delivery to qualify for a replacement.",
     "Loyalty members earn 2 points per dollar and can redeem 500 points for a $10 reward."][i % 5]}`).join("\n");
 
+// app.py already waits until ARM reports the new budget-epoch; a short pause covers the gateway picking it up
+const resetSettle = () => resetSkipped ? Promise.resolve() : sleep(2000);
 async function runScenario(s) {
   $("scenario").dataset.mode = "guided";
   $("scenario").classList.remove("hidden"); $("scSteps").innerHTML = "";
