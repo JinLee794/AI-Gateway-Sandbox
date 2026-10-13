@@ -2009,6 +2009,8 @@ function cvAnswer(r, idx) {
 }
 function cvPending(path, body) {
   const sent = cvSentOf(path, body), grp = cvGroup(sent), p = { sent, key: grp.key, label: grp.label, el: null };
+  // a build-your-own Send must stay visible even when the filter is on another session
+  if (!cvShows(sent.session) && curRun?.kind === "custom") { $("cvFilter").value = ""; cvRender(); }
   if (!cvShows(sent.session)) return p;
   const box = $("convo"), stick = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
   cvDivider(box, grp.key, grp.label, sent.session);
