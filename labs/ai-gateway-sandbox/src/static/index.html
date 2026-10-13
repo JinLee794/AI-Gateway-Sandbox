@@ -86,7 +86,7 @@
   .cvhead { display:flex; align-items:center; gap:10px; margin-bottom:8px; } .cvhead h2 { margin:0; flex:1; }
   .cvhead select { width:auto; min-width:220px; font-size:12px; min-height:28px; padding:2px 6px; }
   .cvhead #cvFullBtn { min-height:28px; height:28px; padding:0 10px; font-size:12px; white-space:nowrap; }
-  #cvCard.full { position:fixed !important; inset:16px !important; z-index:150; margin:0; display:flex; flex-direction:column; box-shadow:0 25.6px 57.6px rgba(0,0,0,.22),0 4.8px 14.4px rgba(0,0,0,.18); }
+  #cvCard.full { position:fixed !important; inset:auto !important; top:50% !important; left:50% !important; transform:translate(-50%,-50%); width:min(1120px, calc(100vw - 48px)); height:min(880px, calc(100vh - 48px)); z-index:150; margin:0; display:flex; flex-direction:column; box-shadow:0 25.6px 57.6px rgba(0,0,0,.22),0 4.8px 14.4px rgba(0,0,0,.18); }
   #cvCard.full .convo { flex:1 1 0 !important; min-height:0 !important; max-height:none !important; }
   body:has(#cvCard.full)::before { content:""; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:149; }
   .convo { display:flex; flex-direction:column; gap:10px; max-height:560px; overflow:auto; padding:2px 4px 6px; scroll-behavior:smooth; }
@@ -652,7 +652,7 @@
       <div class="cvhead">
         <h2>Conversation <span class="info" tabindex="0" data-tip="Every prompt, tool call and agent task sent from this page, and what came back through the gateway. Expand Details for the gateway's decision, tool arguments, agent steps and errors.">i</span></h2>
         <select id="cvFilter" aria-label="Show the conversation of"></select>
-        <button class="secondary" id="cvFullBtn" onclick="cvFull()" title="Show the conversation full screen (Esc to close)" aria-pressed="false">⤢ Expand</button>
+        <button class="secondary" id="cvFullBtn" onclick="cvFull()" title="Show the conversation in a larger view (Esc or click outside to close)" aria-pressed="false">⤢ Expand</button>
       </div>
       <div class="convo" id="convo" aria-live="polite"></div>
       <div class="cv-meter hidden" id="cvMeter" aria-live="polite" onclick="cvMeterToggle(event)" title="Click to show or hide every subscription&#39;s budget"></div>
@@ -2114,10 +2114,11 @@ function cvMeter() {
 }
 function cvFull(on) {
   const c = $("cvCard"), b = $("cvFullBtn"); on = on ?? !c.classList.contains("full");
-  c.classList.toggle("full", on); b.textContent = on ? "⤡ Exit full screen" : "⤢ Expand"; b.setAttribute("aria-pressed", on);
+  c.classList.toggle("full", on); b.textContent = on ? "⤡ Collapse" : "⤢ Expand"; b.setAttribute("aria-pressed", on);
   const cv = $("convo"); cv.scrollTop = cv.scrollHeight;
 }
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("cvCard").classList.contains("full")) cvFull(false); });
+document.addEventListener("mousedown", (e) => { const c = $("cvCard"); if (c.classList.contains("full") && !c.contains(e.target) && !e.target.closest?.("#scPreview, .toast")) cvFull(false); });
 function cvChange() { setMode("build"); collapseLaunch(false); $("launch").scrollIntoView({ block: "start", behavior: "smooth" }); }
 function cvNewSession() { $("btnNewSession").click(); }
 function cvSend() {
