@@ -1,9 +1,710 @@
 {
   "schemaVersion": 1,
-  "version": "unpublished",
-  "effectiveFrom": null,
+  "version": "2026-10-13-82e0457106333b1a",
+  "effectiveFrom": "2026-10-13T21:37:23+00:00",
   "currency": "USD",
   "unit": "1M tokens",
-  "sourceHash": null,
-  "entries": {}
+  "sourceHash": "82e0457106333b1a607a117f36a285805715795fec864bfc92ed335c7646f4b1",
+  "entries": {
+    "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry1-kvbzltfe4fmyy|DeepSeek-V3.2|DeepSeek-V3.2|1|GlobalStandard|swedencentral": {
+      "account": "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry1-kvbzltfe4fmyy",
+      "deployment": "DeepSeek-V3.2",
+      "model": "DeepSeek-V3.2",
+      "version": "1",
+      "sku": "GlobalStandard",
+      "region": "swedencentral",
+      "usdPerMillion": {
+        "input": "0.58",
+        "cachedInput": "0.58",
+        "output": "1.68"
+      },
+      "source": "override",
+      "sourceHash": "47547e40c94cf4a414d79ce6db6dfa27d436a13333cdba0c4de36e8c1a40a437",
+      "evidence": {
+        "match": {
+          "model": "DeepSeek-V3.2",
+          "version": "1",
+          "sku": "GlobalStandard",
+          "region": "*"
+        },
+        "usdPerMillion": {
+          "input": "0.58",
+          "cachedInput": "0.58",
+          "output": "1.68"
+        },
+        "reason": "Internal demo price from sandbox-config.json, not a verified retail quote. Explicitly no cached discount. Review or replace with exact retail meters before using commercially."
+      }
+    },
+    "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry1-kvbzltfe4fmyy|gpt-4.1-mini|gpt-4.1-mini|2025-04-14|GlobalStandard|swedencentral": {
+      "account": "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry1-kvbzltfe4fmyy",
+      "deployment": "gpt-4.1-mini",
+      "model": "gpt-4.1-mini",
+      "version": "2025-04-14",
+      "sku": "GlobalStandard",
+      "region": "swedencentral",
+      "usdPerMillion": {
+        "input": "0.4000",
+        "cachedInput": "0.1000",
+        "output": "1.6000"
+      },
+      "source": "retail",
+      "sourceHash": "7137dd74a56e226bd860f3b82a23366f7d74c519a7524c06642c79b7d4d99c45",
+      "evidence": {
+        "mapping": {
+          "match": {
+            "model": "gpt-4.1-mini",
+            "version": "2025-04-14",
+            "sku": "GlobalStandard",
+            "region": "*"
+          },
+          "meters": {
+            "input": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 mini Inp glbl Tokens"
+            },
+            "cachedInput": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 mini cached Inp glbl Tokens"
+            },
+            "output": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 mini Outp glbl Tokens"
+            }
+          }
+        },
+        "meters": {
+          "input": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.0004,
+            "unitPrice": 0.0004,
+            "armRegionName": "swedencentral",
+            "location": "SE Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "6ee3bd5d-85f1-543b-b478-ec44c7825072",
+            "meterName": "gpt 4.1 mini Inp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1P6G",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 mini Inp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 mini Inp glbl"
+          },
+          "cachedInput": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.0001,
+            "unitPrice": 0.0001,
+            "armRegionName": "swedencentral",
+            "location": "SE Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "08e3ffd8-ddc6-5e6e-995a-ffd248d32fa1",
+            "meterName": "gpt 4.1 mini cached Inp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1P79",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 mini cached Inp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 mini cached Inp glbl"
+          },
+          "output": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.0016,
+            "unitPrice": 0.0016,
+            "armRegionName": "swedencentral",
+            "location": "SE Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "b988c77d-78c1-5d70-8dfa-4e841f490ff8",
+            "meterName": "gpt 4.1 mini Outp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1P75",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 mini Outp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 mini Outp glbl"
+          }
+        }
+      }
+    },
+    "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry1-kvbzltfe4fmyy|gpt-4.1-nano|gpt-4.1-nano|2025-04-14|GlobalStandard|swedencentral": {
+      "account": "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry1-kvbzltfe4fmyy",
+      "deployment": "gpt-4.1-nano",
+      "model": "gpt-4.1-nano",
+      "version": "2025-04-14",
+      "sku": "GlobalStandard",
+      "region": "swedencentral",
+      "usdPerMillion": {
+        "input": "0.1000",
+        "cachedInput": "0.025000",
+        "output": "0.4000"
+      },
+      "source": "retail",
+      "sourceHash": "65cf0ac0cea843a638c3b22f2230b46b8d0125c163c0ee900978e2f7c0fca857",
+      "evidence": {
+        "mapping": {
+          "match": {
+            "model": "gpt-4.1-nano",
+            "version": "2025-04-14",
+            "sku": "GlobalStandard",
+            "region": "*"
+          },
+          "meters": {
+            "input": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 nano Inp glbl Tokens"
+            },
+            "cachedInput": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 nano cached Inp glbl Tokens"
+            },
+            "output": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 nano Outp glbl Tokens"
+            }
+          }
+        },
+        "meters": {
+          "input": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.0001,
+            "unitPrice": 0.0001,
+            "armRegionName": "swedencentral",
+            "location": "SE Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "33c1eb2a-3f0d-5c6d-9c91-e9151762ec4c",
+            "meterName": "gpt 4.1 nano Inp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1P7M",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 nano Inp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 nano Inp glbl"
+          },
+          "cachedInput": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 2.5e-05,
+            "unitPrice": 2.5e-05,
+            "armRegionName": "swedencentral",
+            "location": "SE Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "007c9325-09db-5746-bd51-566b166fef91",
+            "meterName": "gpt 4.1 nano cached Inp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1P5L",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 nano cached Inp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 nano cached Inp glbl"
+          },
+          "output": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.0004,
+            "unitPrice": 0.0004,
+            "armRegionName": "swedencentral",
+            "location": "SE Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "af892694-8095-5b02-9a6b-ee2e2b64266b",
+            "meterName": "gpt 4.1 nano Outp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1P5M",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 nano Outp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 nano Outp glbl"
+          }
+        }
+      }
+    },
+    "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry1-kvbzltfe4fmyy|gpt-4.1|gpt-4.1|2025-04-14|GlobalStandard|swedencentral": {
+      "account": "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry1-kvbzltfe4fmyy",
+      "deployment": "gpt-4.1",
+      "model": "gpt-4.1",
+      "version": "2025-04-14",
+      "sku": "GlobalStandard",
+      "region": "swedencentral",
+      "usdPerMillion": {
+        "input": "2.000",
+        "cachedInput": "0.5000",
+        "output": "8.000"
+      },
+      "source": "retail",
+      "sourceHash": "332f82363e19f389e8d948dbe6a258b9fec2c3521327311873455f2a9ac19923",
+      "evidence": {
+        "mapping": {
+          "match": {
+            "model": "gpt-4.1",
+            "version": "2025-04-14",
+            "sku": "GlobalStandard",
+            "region": "*"
+          },
+          "meters": {
+            "input": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 Inp glbl Tokens"
+            },
+            "cachedInput": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 cached Inp glbl Tokens"
+            },
+            "output": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 Outp glbl Tokens"
+            }
+          }
+        },
+        "meters": {
+          "input": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.002,
+            "unitPrice": 0.002,
+            "armRegionName": "swedencentral",
+            "location": "SE Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "41e1f0ab-c2cb-55a5-8a46-0132c5380ed0",
+            "meterName": "gpt 4.1 Inp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1K5Z",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 Inp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 Inp glbl"
+          },
+          "cachedInput": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.0005,
+            "unitPrice": 0.0005,
+            "armRegionName": "swedencentral",
+            "location": "SE Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "df8e42f1-a881-5636-a4c6-688c47ffbb50",
+            "meterName": "gpt 4.1 cached Inp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1K5T",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 cached Inp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 cached Inp glbl"
+          },
+          "output": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.008,
+            "unitPrice": 0.008,
+            "armRegionName": "swedencentral",
+            "location": "SE Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "63fb56c4-2e3f-51ab-979f-27bf9b83a977",
+            "meterName": "gpt 4.1 Outp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1K62",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 Outp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 Outp glbl"
+          }
+        }
+      }
+    },
+    "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry2-kvbzltfe4fmyy|DeepSeek-V3.2|DeepSeek-V3.2|1|GlobalStandard|francecentral": {
+      "account": "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry2-kvbzltfe4fmyy",
+      "deployment": "DeepSeek-V3.2",
+      "model": "DeepSeek-V3.2",
+      "version": "1",
+      "sku": "GlobalStandard",
+      "region": "francecentral",
+      "usdPerMillion": {
+        "input": "0.58",
+        "cachedInput": "0.58",
+        "output": "1.68"
+      },
+      "source": "override",
+      "sourceHash": "47547e40c94cf4a414d79ce6db6dfa27d436a13333cdba0c4de36e8c1a40a437",
+      "evidence": {
+        "match": {
+          "model": "DeepSeek-V3.2",
+          "version": "1",
+          "sku": "GlobalStandard",
+          "region": "*"
+        },
+        "usdPerMillion": {
+          "input": "0.58",
+          "cachedInput": "0.58",
+          "output": "1.68"
+        },
+        "reason": "Internal demo price from sandbox-config.json, not a verified retail quote. Explicitly no cached discount. Review or replace with exact retail meters before using commercially."
+      }
+    },
+    "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry2-kvbzltfe4fmyy|gpt-4.1-mini|gpt-4.1-mini|2025-04-14|GlobalStandard|francecentral": {
+      "account": "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry2-kvbzltfe4fmyy",
+      "deployment": "gpt-4.1-mini",
+      "model": "gpt-4.1-mini",
+      "version": "2025-04-14",
+      "sku": "GlobalStandard",
+      "region": "francecentral",
+      "usdPerMillion": {
+        "input": "0.4000",
+        "cachedInput": "0.1000",
+        "output": "1.6000"
+      },
+      "source": "retail",
+      "sourceHash": "9073186db078e3e31709fcf7289037e2e90ae6fe2ae30e15c4f6c5726fb7e0c0",
+      "evidence": {
+        "mapping": {
+          "match": {
+            "model": "gpt-4.1-mini",
+            "version": "2025-04-14",
+            "sku": "GlobalStandard",
+            "region": "*"
+          },
+          "meters": {
+            "input": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 mini Inp glbl Tokens"
+            },
+            "cachedInput": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 mini cached Inp glbl Tokens"
+            },
+            "output": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 mini Outp glbl Tokens"
+            }
+          }
+        },
+        "meters": {
+          "input": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.0004,
+            "unitPrice": 0.0004,
+            "armRegionName": "francecentral",
+            "location": "FR Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "21c38f86-5b1b-5001-8d45-fd8994d82083",
+            "meterName": "gpt 4.1 mini Inp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1PNF",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 mini Inp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 mini Inp glbl"
+          },
+          "cachedInput": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.0001,
+            "unitPrice": 0.0001,
+            "armRegionName": "francecentral",
+            "location": "FR Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "fdd17a08-a794-5ba2-9155-79e3a314eba5",
+            "meterName": "gpt 4.1 mini cached Inp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1PN7",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 mini cached Inp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 mini cached Inp glbl"
+          },
+          "output": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.0016,
+            "unitPrice": 0.0016,
+            "armRegionName": "francecentral",
+            "location": "FR Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "0fe19da4-bf69-532f-8c8c-a8bcd501bb61",
+            "meterName": "gpt 4.1 mini Outp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1PNH",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 mini Outp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 mini Outp glbl"
+          }
+        }
+      }
+    },
+    "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry2-kvbzltfe4fmyy|gpt-4.1-nano|gpt-4.1-nano|2025-04-14|GlobalStandard|francecentral": {
+      "account": "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry2-kvbzltfe4fmyy",
+      "deployment": "gpt-4.1-nano",
+      "model": "gpt-4.1-nano",
+      "version": "2025-04-14",
+      "sku": "GlobalStandard",
+      "region": "francecentral",
+      "usdPerMillion": {
+        "input": "0.1000",
+        "cachedInput": "0.025000",
+        "output": "0.4000"
+      },
+      "source": "retail",
+      "sourceHash": "ed32e4664089fced9e44585965535dee5e36bd46cc0b884ff22b15a78286eaa8",
+      "evidence": {
+        "mapping": {
+          "match": {
+            "model": "gpt-4.1-nano",
+            "version": "2025-04-14",
+            "sku": "GlobalStandard",
+            "region": "*"
+          },
+          "meters": {
+            "input": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 nano Inp glbl Tokens"
+            },
+            "cachedInput": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 nano cached Inp glbl Tokens"
+            },
+            "output": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 nano Outp glbl Tokens"
+            }
+          }
+        },
+        "meters": {
+          "input": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.0001,
+            "unitPrice": 0.0001,
+            "armRegionName": "francecentral",
+            "location": "FR Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "b816b9c5-0c91-563a-b50d-ca62e7fc6bd4",
+            "meterName": "gpt 4.1 nano Inp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1PPK",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 nano Inp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 nano Inp glbl"
+          },
+          "cachedInput": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 2.5e-05,
+            "unitPrice": 2.5e-05,
+            "armRegionName": "francecentral",
+            "location": "FR Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "abc6e087-ebf6-5f18-b621-d52457c0ee01",
+            "meterName": "gpt 4.1 nano cached Inp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1PMF",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 nano cached Inp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 nano cached Inp glbl"
+          },
+          "output": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.0004,
+            "unitPrice": 0.0004,
+            "armRegionName": "francecentral",
+            "location": "FR Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "edb9fd61-2bc7-56fc-b4b8-0370d8782ade",
+            "meterName": "gpt 4.1 nano Outp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1PPS",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 nano Outp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 nano Outp glbl"
+          }
+        }
+      }
+    },
+    "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry2-kvbzltfe4fmyy|gpt-4.1|gpt-4.1|2025-04-14|GlobalStandard|francecentral": {
+      "account": "/subscriptions/46c8d580-4e4e-43b3-b3db-4a2daea037b1/resourceGroups/rg-sbx-azd/providers/Microsoft.CognitiveServices/accounts/foundry2-kvbzltfe4fmyy",
+      "deployment": "gpt-4.1",
+      "model": "gpt-4.1",
+      "version": "2025-04-14",
+      "sku": "GlobalStandard",
+      "region": "francecentral",
+      "usdPerMillion": {
+        "input": "2.000",
+        "cachedInput": "0.5000",
+        "output": "8.000"
+      },
+      "source": "retail",
+      "sourceHash": "9d0e346192dc16153be7892c0991faa975f4682477e42862601b0c09d4eadf11",
+      "evidence": {
+        "mapping": {
+          "match": {
+            "model": "gpt-4.1",
+            "version": "2025-04-14",
+            "sku": "GlobalStandard",
+            "region": "*"
+          },
+          "meters": {
+            "input": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 Inp glbl Tokens"
+            },
+            "cachedInput": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 cached Inp glbl Tokens"
+            },
+            "output": {
+              "productName": "Azure OpenAI",
+              "meterName": "gpt 4.1 Outp glbl Tokens"
+            }
+          }
+        },
+        "meters": {
+          "input": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.002,
+            "unitPrice": 0.002,
+            "armRegionName": "francecentral",
+            "location": "FR Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "64c6aa70-ddb7-5731-b7c2-da4e81d80206",
+            "meterName": "gpt 4.1 Inp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1KC1",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 Inp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 Inp glbl"
+          },
+          "cachedInput": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.0005,
+            "unitPrice": 0.0005,
+            "armRegionName": "francecentral",
+            "location": "FR Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "077d858d-2abd-5411-ac38-6259c65a75f6",
+            "meterName": "gpt 4.1 cached Inp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1KCC",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 cached Inp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 cached Inp glbl"
+          },
+          "output": {
+            "currencyCode": "USD",
+            "tierMinimumUnits": 0.0,
+            "retailPrice": 0.008,
+            "unitPrice": 0.008,
+            "armRegionName": "francecentral",
+            "location": "FR Central",
+            "effectiveStartDate": "2025-04-01T00:00:00Z",
+            "meterId": "57da8b5b-c1d4-5dc7-a659-2d47ce9b7f6d",
+            "meterName": "gpt 4.1 Outp glbl Tokens",
+            "productId": "DZH318Z0HHG7",
+            "skuId": "DZH318Z0HHG7/1KC4",
+            "productName": "Azure OpenAI",
+            "skuName": "gpt 4.1 Outp glbl",
+            "serviceName": "Foundry Models",
+            "serviceId": "DZH31600VF1F",
+            "serviceFamily": "AI + Machine Learning",
+            "unitOfMeasure": "1K",
+            "type": "Consumption",
+            "isPrimaryMeterRegion": true,
+            "armSkuName": "gpt 4.1 Outp glbl"
+          }
+        }
+      }
+    }
+  }
 }
