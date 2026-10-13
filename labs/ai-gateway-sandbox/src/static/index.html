@@ -148,6 +148,17 @@
   .cv-meter .bar.thin { height:4px; } .cv-meter .fill { height:100%; transition:width .4s; }
   .cv-meter .fill.pend { background:repeating-linear-gradient(45deg, #8a8886 0 4px, #c8c6c4 4px 8px); }
   .cv-meter .ico { width:14px; height:14px; vertical-align:-2px; } .cv-meter .status { font-size:10px; padding:0 5px; }
+  .cv-meter .mhead { padding-bottom:5px; margin-bottom:5px; border-bottom:1px solid var(--divider); }
+  .cv-meter { cursor:pointer; } .cv-meter:hover { border-color:#c8c6c4; } .cv-meter .mtog { color:#0f6cbd; white-space:nowrap; }
+  .cv-meter .mall { max-height:320px; overflow:auto; cursor:auto; } .cv-meter .mhint { font-size:11px; margin:-2px 0 6px; }
+  .cv-meter .mtier + .mtier { margin-top:10px; padding-top:8px; border-top:1px solid var(--divider); }
+  .cv-meter .mkey { margin:6px 0 0 6px; padding-left:8px; border-left:3px solid #c7e0f4; }
+  .cv-meter .mkid { position:relative; margin:5px 0 0 14px; padding-left:10px; border-left:1px solid #c8c6c4; font-size:11px; }
+  .cv-meter .mkid.end { border-left-color:transparent; } .cv-meter .mkid::before { content:""; position:absolute; left:-1px; top:0; width:8px; height:8px; border-left:1px solid #c8c6c4; border-bottom:1px solid #c8c6c4; }
+  .cv-meter .bk { display:inline-block; font-size:9.5px; text-transform:uppercase; letter-spacing:.3px; padding:0 5px; border-radius:3px; border:1px solid; }
+  .cv-meter .bk-key { color:#0f6cbd; border-color:#a6c8ec; background:#eff6fc; } .cv-meter .bk-ses { color:#5c2e91; border-color:#c9b5e0; background:#f6f1fb; }
+  .cv-meter .bk-eu { color:#8a3707; border-color:#f0c4a3; background:#fdf3ec; }
+  .cv-meter .bfirst { font-size:10px; color:#a4262c; border:1px solid #f1bbbc; background:#fdf3f4; border-radius:3px; padding:0 4px; } .cv-meter .mfoot { margin-top:8px; font-size:11px; }
   .cv-meter .delta { color:var(--muted); white-space:nowrap; } .cv-meter.bump .delta { animation:cvbump 1.2s ease-out; }
   @keyframes cvbump { 0% { color:var(--bad); font-weight:600; } 100% { color:var(--muted); } }
   table { width:100%; border-collapse:collapse; font-size:13px; }
@@ -633,7 +644,7 @@
         <select id="cvFilter" aria-label="Show the conversation of"></select>
       </div>
       <div class="convo" id="convo" aria-live="polite"></div>
-      <div class="cv-meter hidden" id="cvMeter" aria-live="polite"></div>
+      <div class="cv-meter hidden" id="cvMeter" aria-live="polite" onclick="cvMeterToggle(event)" title="Click to show or hide every subscription&#39;s budget"></div>
       <div class="cv-compose">
         <textarea id="cvInput" placeholder="Message the model…" aria-label="Message"></textarea>
         <button id="cvSend">Send</button>
@@ -2020,40 +2031,75 @@ function cvCtx() {
   const sid = $("sessionId").value.trim(), mem = $("useHistory").checked, turns = surface === "model" && mem ? chatHistory(sid).length / 2 : 0;
   const to = surface === "tool" ? `MCP tool <b>${escapeHtml($("tool").value)}</b>` : surface === "agent" ? "the <b>Sourcing Agent</b> (A2A)" : `<b>${escapeHtml($("model").value)}</b>`;
   const memo = surface === "model" ? (mem ? ` · the model sees ${turns} earlier turn${turns === 1 ? "" : "s"}` : " · single turn") : surface === "agent" ? " · the agent keeps the session's context" : "";
-  cvMeter(a, sid);
+  cvMeter();
   $("cvCtx").innerHTML = `As <b>${escapeHtml(a.displayName)}</b> <span class="badge ${a.tier}">${a.tier}</span> → ${to} · session <span class="sess">${escapeHtml(sid || "none")}</span>${memo} · <a onclick="cvChange()">change</a> · <a onclick="cvNewSession()">new session</a>`;
   $("cvInput").placeholder = surface === "tool" ? `JSON arguments for ${$("tool").value}, e.g. ${$("toolArgs").value || "{}"} (empty: use the builder's)`
     : surface === "agent" ? "Give the Sourcing Agent a task…  (Enter to send, Shift+Enter for a new line)" : "Message the model…  (Enter to send, Shift+Enter for a new line)";
 }
-// Live $ meter above the composer for the selected sender: plan budget (logs + this page's newer calls, striped),
-// this session's cap, and the end user's own budget when x-gw-end-user is set. Redrawn after every call.
-const cvMeterSeen = {};
-function cvMeter(a, sid) {
-  const el = $("cvMeter"), b = budgetState(a), t = tierOf(a), cap = Number(t.sessionBudgetUsd ?? t.budgetUsd ?? 0);
-  const mine = session.calls.filter(r => !r.past && r.agent === a.name), last = mine[mine.length - 1];
-  const s = sid ? sessionTotals(sid) : null, sPct = s && cap ? Math.min(100, 100 * s.cost / cap) : 0;
-  const eu = $("endUser").value.trim(), euB = eu ? endUserBudget(eu) : null;
-  const euSpent = eu ? mine.filter(r => (r.headers || {})["x-gw-end-user"] === eu).reduce((x, r) => x + callCost(r), 0) : 0;
-  const euPct = euB?.usd ? Math.min(100, 100 * euSpent / euB.usd) : 0;
-  const logged = b.limit ? Math.min(100, 100 * b.logged / b.limit) : 0, pend = b.limit ? Math.min(100 - logged, 100 * b.pending / b.limit) : 0;
+// Live $ meter above the composer, cumulative for this page session. It shows the nested $ buckets a call is charged to,
+// all at once: the tier sets the sizes; each subscription key has a plan budget, and inside it every session has a cap
+// and every end user (x-gw-end-user) has their own budget. The first bucket to run out returns 403. Collapsed: the
+// buckets of the latest call (or the selected sender). Click to expand to every tier and subscription key.
+let cvMeterSeen = 0, cvMeterOpen = false;
+function cvMeterToggle(ev) { if (ev.target.closest("a, button, input, .mall")) return; cvMeterOpen = !cvMeterOpen; cvMeter(); }
+function cvBuckets(a, calls) {
+  const t = tierOf(a), cap = Number(t.sessionBudgetUsd ?? t.budgetUsd ?? 0), mine = calls.filter(r => r.agent === a.name);
+  const ses = new Map(), eus = new Map();
+  for (const r of mine) { const h = r.headers || {}, c = callCost(r);
+    if (h["x-gw-session"]) ses.set(h["x-gw-session"], (ses.get(h["x-gw-session"]) || 0) + c);
+    if (h["x-gw-end-user"]) eus.set(h["x-gw-end-user"], (eus.get(h["x-gw-end-user"]) || 0) + c); }
+  return { t, cap, mine, ses: [...ses].map(([k, v]) => ({ k, used: v, limit: cap })),
+           eus: [...eus].map(([k, v]) => { const e = endUserBudget(k); return { k, used: v, limit: e.usd, cls: e.cls }; }) };
+}
+function cvMeter() {
+  const el = $("cvMeter"); if (!cfg) return;
+  const calls = session.calls.filter(r => r && !r.past), last = calls[calls.length - 1];
+  const a = (last && byName(last.agent)) || selectedAgent;
+  if (!a) { el.classList.add("hidden"); return; }
+  const subs = new Set(calls.map(r => r.agent)), total = calls.reduce((x, r) => x + callCost(r), 0);
   const pctTxt = (p) => p > 0 && p < 0.1 ? "<0.1" : p.toFixed(p > 0 && p < 1 ? 1 : 0);
-  const col = (p, out) => out ? "#d13438" : p >= 75 ? "#f7630c" : "#107c10";
-  const lastCost = last ? callCost(last) : 0;
-  el.innerHTML = `<div class="mrow"><span>${ico(a.kind === "user" ? "users" : "foundry-agent-service")} <b>${escapeHtml(a.displayName)}</b> <span class="badge ${a.tier}">${a.tier}</span> plan budget
-        ${b.blocked ? `<span class="status s403">403</span>` : ""}</span>
-      <span><b class="${b.exhausted ? "bout" : ""}">${b.exhausted ? "budget spent" : `${usdShort(b.left)} left`}</b> of $${b.limit} · ${pctTxt(b.pct)}% used</span></div>
-    <div class="bar" title="${escapeHtml(budgetTip(a, b))}"><div class="fill" style="width:${logged}%;background:${budgetColor(b)}"></div><div class="fill pend" style="width:${pend}%"></div></div>
-    ${s ? `<div class="mrow"><span class="muted">Session <span class="sess">${escapeHtml(sid)}</span> · ${s.calls} call${s.calls === 1 ? "" : "s"}</span>
-      <span class="${sPct >= 100 ? "bout" : "muted"}">${fmtUsd(s.cost)} of $${cap} cap</span></div>
-    <div class="bar thin"><div class="fill" style="width:${sPct}%;background:${col(sPct, sPct >= 100)}"></div></div>` : ""}
-    ${euB ? `<div class="mrow"><span class="muted">End user <b>${escapeHtml(eu)}</b> · ${escapeHtml(euB.cls)}</span>
-      <span class="${euPct >= 100 ? "bout" : "muted"}">${fmtUsd(euSpent)} of ${euB.usd != null ? "$" + euB.usd : "?"} (this page)</span></div>
-    <div class="bar thin"><div class="fill" style="width:${euPct}%;background:${col(euPct, euPct >= 100)}"></div></div>` : ""}
-    <div class="mrow"><span class="delta">${last ? `Last call: ${lastCost ? "−" + fmtUsd(lastCost) : "no charge"} · ${last.status}` : "No calls yet from this page"}</span>
-      <span class="muted">${budgetLive.loading ? `<span class="bspin"></span> syncing logs` : b.pending ? "striped = not in the logs yet" : ""}</span></div>`;
+  const col = (p) => p >= 100 ? "#d13438" : p >= 75 ? "#f7630c" : "#107c10";
+  const tag = (k) => `<span class="bk bk-${k}">${{ key: "subscription key", ses: "session", eu: "end user" }[k]}</span>`;
+  const child = (k, name, used, limit, extra, first, lastKid) => { const p = limit ? Math.min(100, 100 * used / limit) : 0, left = limit != null ? limit - used : null;
+    return `<div class="mkid${lastKid ? " end" : ""}"><div class="mrow"><span>${tag(k)} <b>${escapeHtml(name)}</b>${extra ? ` <span class="muted">${extra}</span>` : ""}${first ? ` <span class="bfirst">runs out first</span>` : ""}</span>
+      <span class="${p >= 100 ? "bout" : ""}">${fmtUsd(used)} of ${limit != null ? "$" + limit : "?"}${left != null ? ` · ${left <= 0 ? "spent" : usdShort(left) + " left"}` : ""}</span></div>
+      <div class="bar thin"><div class="fill" style="width:${p}%;background:${col(p)}"></div></div></div>`; };
+  // One subscription key with its sessions and end users nested underneath; `only` limits children to the latest call's
+  const tree = (s, only) => {
+    const b = budgetState(s), k = cvBuckets(s, calls), h = (only || {}).headers || {};
+    let ses = k.ses, eus = k.eus;
+    if (only) { ses = ses.filter(x => x.k === h["x-gw-session"]); eus = eus.filter(x => x.k === h["x-gw-end-user"]); }
+    const kids = [...ses.map(x => ({ ...x, kind: "ses" })), ...eus.map(x => ({ ...x, kind: "eu" }))];
+    const all = [{ kind: "key", left: b.left }, ...kids.map(x => ({ kind: x.kind, k: x.k, left: x.limit != null ? x.limit - x.used : Infinity }))];
+    const first = kids.length ? all.reduce((m, x) => x.left < m.left ? x : m) : null;
+    const logged = b.limit ? Math.min(100, 100 * b.logged / b.limit) : 0, pend = b.limit ? Math.min(100 - logged, 100 * b.pending / b.limit) : 0;
+    const more = only ? 0 : Math.max(0, kids.length - 6);
+    return `<div class="mkey"><div class="mrow"><span>${tag("key")} ${ico(s.kind === "user" ? "users" : "foundry-agent-service")} <b>${escapeHtml(s.displayName)}</b> <span class="badge ${s.tier}">${s.tier}</span>
+          ${b.blocked ? `<span class="status s403">403</span>` : ""}${first && first.kind === "key" ? ` <span class="bfirst">runs out first</span>` : ""}</span>
+        <span><b class="${b.exhausted ? "bout" : ""}">${b.exhausted ? "budget spent" : `${usdShort(b.left)} left`}</b> of $${b.limit} · ${pctTxt(b.pct)}% used</span></div>
+      <div class="bar" title="${escapeHtml(budgetTip(s, b))}"><div class="fill" style="width:${logged}%;background:${budgetColor(b)}"></div><div class="fill pend" style="width:${pend}%"></div></div>
+      ${kids.slice(0, only ? kids.length : 6).map((x, i, arr) => child(x.kind, x.k, x.used, x.limit, x.kind === "eu" ? `· ${escapeHtml(x.cls)} class` : "· per-session cap",
+          first && first.kind === x.kind && first.k === x.k, i === arr.length - 1 && !more)).join("")}
+      ${more ? `<div class="mkid end muted">+${more} more sessions / end users</div>` : ""}</div>`;
+  };
+  const tierLine = (t) => `<span class="badge ${t.name}">${t.name}</span> <b>${escapeHtml(t.displayName || t.name)} plan</b> <span class="muted">sizes the buckets: $${t.budgetUsd} per subscription key · $${t.sessionBudgetUsd ?? t.budgetUsd} per session · end users by class</span>`;
+  let body;
+  if (cvMeterOpen) {
+    body = `<div class="mall">${cfg.tiers.filter(t => cfg.agents.some(x => x.tier === t.name)).map(t => {
+      const ss = cfg.agents.filter(x => x.tier === t.name), left = ss.reduce((v, x) => v + budgetState(x).left, 0);
+      return `<div class="mtier"><div class="mrow"><span>${tierLine(t)}</span><span class="muted">${fmtUsd(left)} left across ${ss.length} key${ss.length === 1 ? "" : "s"}</span></div>${ss.map(x => tree(x)).join("")}</div>`; }).join("")}
+      <div class="muted mfoot">Subscription keys come from the chargeback logs plus this page's newer calls (striped). Sessions and end users are counted from this page's calls; the gateway keeps their counters but can't report them. <a onclick="refreshBudgets(true)">↻ refresh</a></div></div>`;
+  } else {
+    body = `<div class="mtier"><div class="mrow"><span>${tierLine(tierOf(a))}</span></div>${tree(a, last && last.agent === a.name ? last : { headers: {} })}</div>
+    <div class="mrow"><span class="delta">${last ? `Last call: ${escapeHtml(byName(last.agent)?.displayName || last.agent)} · ${callCost(last) ? "−" + fmtUsd(callCost(last)) + " from each bucket above" : "no charge"} · ${last.status}` : "No calls yet this session"}</span>
+      <span class="muted">${budgetLive.loading ? `<span class="bspin"></span> syncing logs` : budgetState(a).pending ? "striped = not in the logs yet" : ""}</span></div>`;
+  }
+  el.innerHTML = `<div class="mrow mhead"><span><b>This session</b> <span class="muted">· ${calls.length} call${calls.length === 1 ? "" : "s"} · ${subs.size} subscription key${subs.size === 1 ? "" : "s"} · −${fmtUsd(total)}</span></span>
+      <span class="mtog">${cvMeterOpen ? "▾ show the latest call only" : "▸ all tiers and keys"}</span></div>
+    <div class="mhint muted">One call is charged to every bucket in its branch at once; the first to run out answers 403.</div>${body}`;
   el.classList.remove("hidden");
-  if (mine.length > (cvMeterSeen[a.name] ?? mine.length)) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
-  cvMeterSeen[a.name] = mine.length;
+  if (calls.length > cvMeterSeen) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
+  cvMeterSeen = calls.length;
 }
 function cvChange() { setMode("build"); collapseLaunch(false); $("launch").scrollIntoView({ block: "start", behavior: "smooth" }); }
 function cvNewSession() { $("btnNewSession").click(); }
@@ -2360,7 +2406,7 @@ function renderBudgets() {
   }).join("")
     + `<div class="muted bfoot">${status} · <a onclick="refreshBudgets(true)">↻ refresh</a>${d?.portalLink ? ` · <a href="${d.portalLink}" target="_blank" rel="noopener">query</a>` : ""}<br>`
     + `Spend is summed from the gateway's chargeback records for each subscription's own calls (they land about 20 s after a call). This page's newer calls are added right away (striped). When a subscription's $ budget is spent the gateway answers <b>403</b> until the budget period renews or budgets are reset.</div>`;
-  if (selectedAgent) cvCtx();
+  if (selectedAgent) cvCtx(); else cvMeter();
 }
 
 function renderLedger() {
