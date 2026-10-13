@@ -11,6 +11,9 @@
     "principalId": {
       "value": "${AZURE_PRINCIPAL_ID}"
     },
+    "uiAllowAllTenantUsers": {
+      "value": "${UI_ALLOW_ALL_TENANT_USERS=false}"
+    },
     "uiImageName": {
       "value": "${SERVICE_UI_IMAGE_NAME=}"
     },

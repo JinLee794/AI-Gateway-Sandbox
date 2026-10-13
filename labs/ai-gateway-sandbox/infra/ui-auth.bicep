@@ -11,6 +11,9 @@ param environmentName string
 @description('Object ID of the user allowed to sign in (empty: any user of the tenant)')
 param principalId string = ''
 
+@description('Let any user of the tenant sign in, instead of only users assigned to the enterprise application')
+param allowAllTenantUsers bool = false
+
 param serviceManagementReference string = ''
 
 var resourceSuffix = uniqueString(subscription().id, resourceGroup().id)
@@ -45,8 +48,8 @@ resource appRegistration 'Microsoft.Graph/applications@v1.0' = {
 
 resource servicePrincipal 'Microsoft.Graph/servicePrincipals@v1.0' = {
   appId: appRegistration.appId
-  // Only users assigned to the enterprise application can sign in
-  appRoleAssignmentRequired: !empty(principalId)
+  // Only users assigned to the enterprise application can sign in, unless the whole tenant is allowed
+  appRoleAssignmentRequired: !empty(principalId) && !allowAllTenantUsers
 }
 
 resource userAssignment 'Microsoft.Graph/appRoleAssignedTo@v1.0' = if (!empty(principalId)) {
@@ -61,7 +64,9 @@ resource microsoftGraph 'Microsoft.Graph/servicePrincipals@v1.0' existing = {
 
 // Consent on behalf of the deployer only: tenants that restrict user consent (e.g. to members, while the deployer is a
 // guest) would otherwise ask for admin approval at sign-in. Other users still consent themselves when allowed.
-resource userConsent 'Microsoft.Graph/oauth2PermissionGrants@v1.0' = if (!empty(principalId)) {
+// Skipped when the whole tenant may sign in: once other users have consented, Graph matches their grant and the
+// redeployment fails with "Property cannot be updated: principalId".
+resource userConsent 'Microsoft.Graph/oauth2PermissionGrants@v1.0' = if (!empty(principalId) && !allowAllTenantUsers) {
   clientId: servicePrincipal.id
   consentType: 'Principal'
   principalId: principalId

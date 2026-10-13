@@ -11,8 +11,11 @@ param environmentName string
 @description('Region of the resource group, API Management, monitoring and the container registry')
 param location string
 
-@description('Object ID of the user running azd: the only user allowed to sign in to the demo UI (add more in Entra ID > Enterprise applications)')
+@description('Object ID of the user running azd: the only user allowed to sign in to the demo UI unless uiAllowAllTenantUsers is true (add more in Entra ID > Enterprise applications)')
 param principalId string = ''
+
+@description('Let any user of the tenant sign in to the demo UI (azd env set UI_ALLOW_ALL_TENANT_USERS true)')
+param uiAllowAllTenantUsers bool = false
 
 @description('Image of the demo UI, set by azd deploy. Empty on the first provision (a placeholder image is used).')
 param uiImageName string = ''
@@ -118,6 +121,7 @@ module uiAuth 'ui-auth.bicep' = {
     issuer: issuer
     environmentName: environmentName
     principalId: principalId
+    allowAllTenantUsers: uiAllowAllTenantUsers
     serviceManagementReference: serviceManagementReference
   }
 }
