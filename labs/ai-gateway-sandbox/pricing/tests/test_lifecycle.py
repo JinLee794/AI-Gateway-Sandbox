@@ -231,15 +231,32 @@ class LifecycleTests(unittest.TestCase):
                 with self.assertRaises(pricing.PricingError):
                     pricing.publish(card, self.deployments, APIM, tmp, apply=True)
                 self.assertEqual(cli.call_count, 1)
+        stale = [{"properties": {"value": "wrong"}}] * pricing.READBACK_ATTEMPTS
         with tempfile.TemporaryDirectory() as tmp, \
                 patch.object(pricing, "az", return_value={"accessToken": "fixture"}), \
+                patch.object(pricing.time, "sleep") as sleep, \
                 patch.object(pricing, "arm_request", side_effect=[
             {"etag": "one", "properties": {"value": "old", "secret": False}},
-            {}, {"properties": {"value": "wrong"}}
+            {}, *stale
         ]):
             with self.assertRaisesRegex(pricing.PricingError, "read-back"):
                 pricing.publish(card, self.deployments, APIM, tmp, apply=True)
             self.assertFalse((Path(tmp) / "publish-receipt.json").exists())
+            self.assertEqual(sleep.call_count, pricing.READBACK_ATTEMPTS - 1)
+
+    def test_publish_waits_for_async_named_value_update(self):
+        card = self.card()
+        value = pricing.named_value(card)
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(pricing, "az", return_value={"accessToken": "fixture"}), \
+                patch.object(pricing.time, "sleep") as sleep, \
+                patch.object(pricing, "arm_request", side_effect=[
+            {"etag": "one", "properties": {"value": "old", "secret": False}},
+            {}, {"properties": {"value": "old"}}, {"properties": {"value": value}}
+        ]):
+            pricing.publish(card, self.deployments, APIM, tmp, apply=True)
+            self.assertEqual(sleep.call_count, 1)
+            self.assertTrue(pricing.load(Path(tmp) / "publish-receipt.json")["verified"])
 
     def test_arm_response_etag_header_and_nonsecret_list_value(self):
         from unittest.mock import MagicMock

@@ -381,6 +381,10 @@ def get_named_value(url, token):
     return result
 
 
+READBACK_ATTEMPTS = 12
+READBACK_DELAY_SECONDS = 5
+
+
 def publish(card, deployments, apim_id, directory, apply=False):
     value = named_value(card)
     coverage(card, deployments)
@@ -405,8 +409,14 @@ def publish(card, deployments, apim_id, directory, apply=False):
     directory.mkdir(parents=True, exist_ok=True)
     write(directory / "publish-before.json", before)
     arm_request("PUT", url, token, {"properties": body}, etag)
-    after = get_named_value(url, token)
-    if after["properties"]["value"] != value:
+    # APIM applies named-value PUTs asynchronously (202), so poll briefly before declaring a mismatch.
+    for attempt in range(READBACK_ATTEMPTS):
+        after = get_named_value(url, token)
+        if after["properties"]["value"] == value:
+            break
+        if attempt < READBACK_ATTEMPTS - 1:
+            time.sleep(READBACK_DELAY_SECONDS)
+    else:
         raise PricingError("APIM read-back does not match the approved card")
     write(directory / "publish-receipt.json", {"version": card["version"],
           "sourceHash": card["sourceHash"], "publishedAt": datetime.now(timezone.utc).isoformat(),
