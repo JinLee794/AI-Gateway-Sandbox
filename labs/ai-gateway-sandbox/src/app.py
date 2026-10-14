@@ -16,6 +16,7 @@ so it is git-ignored (*.private.config). With 'azd up', the config comes from th
 (a Container App secret) instead.
 """
 import argparse, base64, collections, gzip, json, os, re, shutil, subprocess, sys, threading, time, urllib.error, urllib.parse, urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -849,6 +850,43 @@ def policies(_payload):
 
 _budget_unused = {"epoch": None, "at": 0.0}  # the epoch this app reset to, while no gateway call has gone out since
 
+# The gateway flow's policy lens: the deployed XML of every document a call passes through, and the non-secret named
+# values those documents read ({{name}}), so the page can show the exact line a policy decision comes from.
+FLOW_NAMED_VALUES = ("budget-epoch", "model-pricing", "end-user-budgets", "chargeback-directory", "entra-gateway-groups",
+                     "entra-gateway-members", "tool-pricing")
+_flow_cache = {"value": None, "at": 0.0}
+
+
+def flow_policies(payload):
+    if not (payload or {}).get("fresh") and _flow_cache["value"] and time.time() - _flow_cache["at"] < 120:
+        return 200, _flow_cache["value"]
+    apim = f"{ARM}{CONFIG['apimServiceId']}"
+    auth = _arm_auth(az_token(ARM))
+    docs = {f"product:{t['name']}": f"{apim}/products/{t['name']}/policies/policy" for t in CONFIG.get("tiers", [])}
+    docs.update({"api:inference-api": f"{apim}/apis/inference-api/policies/policy",
+                 "fragment:entra-identity": f"{apim}/policyFragments/entra-identity",
+                 "fragment:chargeback-record": f"{apim}/policyFragments/chargeback-record"})
+    if entra_mode_config():
+        docs.update({"api:inference-entra": f"{apim}/apis/inference-entra/policies/policy",
+                     "fragment:entra-plan-inbound": f"{apim}/policyFragments/entra-plan-inbound"})
+
+    def read(item):
+        key, url = item
+        status, _, text, _ = http("GET", f"{url}?api-version={APIM_API}&format=rawxml", None, auth, timeout=60)
+        return key, json.loads(text).get("properties", {}).get("value", "") if status == 200 else None
+
+    def named(name):
+        status, _, text, _ = http("GET", f"{apim}/namedValues/{name}?api-version={APIM_API}", None, auth, timeout=60)
+        props = json.loads(text).get("properties", {}) if status == 200 else {}
+        return name, None if props.get("secret") or props.get("keyVault") else props.get("value")
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        xml = {k: v for k, v in pool.map(read, docs.items()) if v}
+        values = {k: v for k, v in pool.map(named, FLOW_NAMED_VALUES) if v is not None}
+    result = {"docs": xml, "namedValues": values, "asOf": int(time.time() * 1000)}
+    _flow_cache.update(value=result, at=time.time())
+    return 200, result
+
 
 def reset_budgets(payload):
     """Starts a new budget epoch. Scenarios pass ifUsed: when nothing has called the gateway through this app since the
@@ -1017,7 +1055,10 @@ def budgets(payload):
     epoch = budget_epoch(fresh=bool(payload.get("fresh")))
     now = time.time()
     since = max(int(epoch) if epoch else 0, int(now) - period)
-    names = [a["name"] for a in CONFIG.get("agents", [])]
+    entra = entra_mode_config()
+    groups = {g["name"]: g for g in (entra or {}).get("groups", [])}
+    personas = (entra or {}).get("personas", [])
+    names = [a["name"] for a in CONFIG.get("agents", [])] + [p["name"] for p in personas]
     query = (BUDGET_LEFT.replace("{since}", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(since)))
              .replace("{subs}", ", ".join(json.dumps(n) for n in names) or '""').replace("{epoch}", epoch or ""))
     rows = law_query(query, f"PT{int(now - since) + 600}S")
@@ -1033,7 +1074,25 @@ def budgets(payload):
         users.append({"name": a["name"], "tier": a.get("tier"), "limitMicroUsd": limit, "spentMicroUsd": int(row.get("SpentMicroUsd") or 0),
                       "calls": int(row.get("Calls") or 0), "lastCall": row.get("LastCall"),
                       "recentRequestIds": json.loads(ids) if isinstance(ids, str) else ids})
+    # Entra-only mode: every call draws on two counters at once, the caller's member cap and the group's shared team budget.
+    # Personas are chargeback users like subscriptions; a group's spend is the sum of its members' records.
+    entra_groups = {name: {"name": name, "displayName": g.get("displayName", name), "tier": g.get("tier"),
+                           "limitMicroUsd": g.get("poolMicroUsd"), "spentMicroUsd": 0, "calls": 0, "members": []} for name, g in groups.items()}
+    for p in personas:
+        group = groups.get(p.get("group") or "")
+        row = spent.get(p["name"], {})
+        ids = row.get("RecentRequestIds") or []
+        member = {"name": p["name"], "entra": True, "group": p.get("group") or "", "tier": p.get("tier") or "",
+                  "limitMicroUsd": group.get("memberMicroUsd") if group else None, "spentMicroUsd": int(row.get("SpentMicroUsd") or 0),
+                  "calls": int(row.get("Calls") or 0), "lastCall": row.get("LastCall"),
+                  "recentRequestIds": json.loads(ids) if isinstance(ids, str) else ids}
+        users.append(member)
+        if group:
+            entra_groups[p["group"]]["spentMicroUsd"] += member["spentMicroUsd"]
+            entra_groups[p["group"]]["calls"] += member["calls"]
+            entra_groups[p["group"]]["members"].append(p["name"])
     return 200, {"epoch": epoch, "since": since * 1000, "asOf": int(now * 1000), "periodSeconds": period, "users": users,
+                 "entraGroups": list(entra_groups.values()),
                  "query": query, "portalLink": portal_logs_link(query, "P31D" if now - since > 86400 else "P1D")}
 
 
@@ -1160,7 +1219,7 @@ How to answer
 - Be concise: answer in one short paragraph (at most 2 sentences), then at most 5 short bullets with the supporting facts; never repeat a fact in both. Use **bold** for key values and `code` for policy, header, table and subscription names. No preamble. Never end with a question or an offer, and don't narrate the UI actions you took: the user sees them happen.
 - Ground every fact in a tool result or the page state below. Never invent configuration, prices, limits or log rows. Use get_gateway_config or get_policy before describing configuration. Gateway logs reach Log Analytics 2-5 minutes after a call and chargeback records 1-3 minutes after: say so when rows are missing.
 - Refer to the page's calls as #n (their request-log number); they become links.
-- Show, don't just tell: every answer about something the sandbox displays must call ui_highlight (1-3 targets in reading order, on the same view when possible, each with a short caption; it navigates there first), for example plan:silver for the Silver plan, stage:plan for plan enforcement, policy:quota-by-key for a policy element, flow:pool for routing. To explain what a policy or a call goes through, also call ui_show_policy_flow with the ordered steps. To show what happened to one of the page's calls, call ui_open_request (it switches to Policies › Investigate); any highlights with it should stay on that view: evidence-panel, request-log or flow:<node>. To illustrate a gateway behaviour in general, call ui_play_flow. To let the user try something, call ui_prepare_request (it fills the request builder; the user presses Send). Make all your UI calls together in one turn after your lookups: the turn after it is your answer.
+- Show, don't just tell: every answer about something the sandbox displays must call ui_highlight (1-3 targets in reading order, on the same view when possible, each with a short caption; it navigates there first), for example plan:silver for the Silver plan, stage:plan for plan enforcement, policy:quota-by-key for a policy element, flow:pool for routing. To explain what a policy or a call goes through, also call ui_show_policy_flow with the ordered steps. To show what happened to one of the page's calls, call ui_open_request (it opens Evidence & monitoring › Investigate with the call's trace and log rows, and replays the call in the flow on Live session); highlights with it: evidence-panel or request-log, or flow:<node> to show the replay. To illustrate a gateway behaviour in general, call ui_play_flow. To let the user try something, call ui_prepare_request (it fills the request builder; the user presses Send). Make all your UI calls together in one turn after your lookups: the turn after it is your answer.
 - You are read-only: you cannot change configuration, reset budgets or send gateway requests for the user. Point them to the control instead (for example the reset-budgets target).
 - Your own model calls go through this gateway too: subscription `sandbox-copilot` on the internal `agent-platform` plan, session `copilot-<their session>`. Mention it only if asked.
 
@@ -1184,15 +1243,14 @@ Log Analytics tables (get_chargeback to rank users and sessions by cost, get_ses
 UI targets for ui_highlight
 - Launch panel: scenarios, scenario:<number>, builder, callers, caller:<subscription e.g. user-ben>, surface-picker, model-select, prompt, session-id, end-user, trace-toggle, token-toggle, send-button
 - Conversation: conversation, budget-meter
-- Live session: kpis, signals, last-response, budgets, budget-burn, outcomes-chart, cost-chart, latency-chart, live-request-log
-- Run history: run-history
-- Chargeback: chargeback-flow, chargeback-ledger, chargeback-monitor, session:<session id> (its row in the Azure Monitor chargeback table)
-- Products & plans: plans-matrix, plan:<gold|silver|bronze>, price-list, endpoints
-- Policies › Investigate: request-log, flow-diagram, flow:<client|entra|plan|api|pool|mi|log|r0|r1|mcp|a2a|la|ai>, evidence-panel
-- Policies › Pipeline: pipeline, stage:<client|identity|plan|routing|metering>, policy:<policy element, e.g. llm-token-limit or quota-by-key>, backend-pool
-- Policies › Logs & telemetry: evidence-sinks, sink:<table, e.g. ApiManagementGatewayLlmLog>, policy-evidence
-- Policies › Deployed: deployed-policies, deployed:<scope name, e.g. Silver or entra-identity>
-- Azure Monitor: monitor-cost, monitor-outcomes, monitor-cost-time, monitor-chargeback, monitor-resources, monitor-tokens, monitor-governance
+- Live session: kpis, signals, last-response, flow-diagram, flow:<client|entra|plan|api|pool|mi|log|r0|r1|mcp|a2a|la|ai> (the gateway flow follows the page's calls as they land), budgets, budget-burn, outcomes-chart, cost-chart, latency-chart, live-request-log, run-history (view runs)
+- Plans, policies & chargeback › Chargeback (view chargeback): chargeback-flow, chargeback-ledger, chargeback-monitor, session:<session id> (its row in the Azure Monitor chargeback table)
+- Plans, policies & chargeback › Products & plans (view plans): plans-matrix, plan:<gold|silver|bronze>, price-list, endpoints
+- Evidence & monitoring › Investigate (view policies.investigate): request-log, evidence-panel
+- Plans, policies & chargeback › Policy pipeline (view policies.pipeline): pipeline, stage:<client|identity|plan|routing|metering>, policy:<policy element, e.g. llm-token-limit or quota-by-key>, backend-pool
+- Evidence & monitoring › Logs & telemetry (view policies.telemetry): evidence-sinks, sink:<table, e.g. ApiManagementGatewayLlmLog>, policy-evidence
+- Plans, policies & chargeback › Deployed policies (view policies.deployed): deployed-policies, deployed:<scope name, e.g. Silver or entra-identity>
+- Evidence & monitoring › Azure Monitor (view monitor): monitor-cost, monitor-outcomes, monitor-cost-time, monitor-chargeback, monitor-resources, monitor-tokens, monitor-governance
 - Header: portal-links, reset-budgets, references"""
 
 
@@ -1849,7 +1907,7 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception as error:
                 return self.send_json(500, {"error": scrub(str(error))})
         routes = {"/api/chat": chat, "/api/mcp": mcp, "/api/a2a": a2a, "/api/telemetry": telemetry, "/api/reset-budgets": reset_budgets,
-                  "/api/trace": trace, "/api/evidence": evidence, "/api/policy-evidence": policy_evidence, "/api/policies": policies,
+                  "/api/trace": trace, "/api/evidence": evidence, "/api/policy-evidence": policy_evidence, "/api/policies": policies, "/api/flow-policies": flow_policies,
                   "/api/chargeback": chargeback, "/api/budget-suspend": budget_suspend, "/api/budgets": budgets, "/api/responses": responses, "/api/image": image}
         handler = routes.get(self.path)
         if not handler:

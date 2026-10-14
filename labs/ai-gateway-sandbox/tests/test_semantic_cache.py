@@ -59,6 +59,7 @@ class SemanticCacheConfigTests(unittest.TestCase):
         self.assertEqual(lab["embeddingsModel"]["name"], "text-embedding-3-small")
         self.assertEqual(lab["defaultScope"], "session")
         self.assertEqual(lab["allowedScopes"], ["session", "user", "plan"])
+        self.assertEqual(lab["location"], self.config["semanticCache"]["redisLocation"])
         self.assertNotIn("$comment", generated["uiConfig"]["semanticCache"])
         self.assertEqual(generated["uiConfig"]["semanticCache"]["tiers"], ["gold", "silver"])
 
@@ -70,6 +71,9 @@ class SemanticCacheConfigTests(unittest.TestCase):
                 build_config(config)
 
     def test_disabled_config_deploys_nothing(self):
+        without_location = json.loads(json.dumps(self.config))
+        del without_location["semanticCache"]["redisLocation"]
+        self.assertNotIn("location", build_config(without_location)["labParameters"]["semanticCacheConfig"], "no redisLocation: Bicep uses the resource group region")
         self.config["semanticCache"]["enabled"] = False
         self.assertEqual(build_config(self.config)["labParameters"]["semanticCacheConfig"], {"enabled": False})
         del self.config["semanticCache"]
@@ -118,6 +122,9 @@ class SemanticCachePolicyTests(unittest.TestCase):
         self.assertIn('<vary-by>@((string)context.Variables["semanticCachePartition"])</vary-by>', inbound)
         self.assertLess(inbound.index('name="semanticCachePartition"'), inbound.index("<llm-semantic-cache-lookup"))
         self.assertIn('<set-header name="x-gw-cache-scope" exists-action="delete" />', inbound, "the scope header must not reach the backend")
+        self.assertIn("context.Request.OriginalUrl.Path.EndsWith", inbound, "llm-content-safety rewrites context.Request.Url before the lookup")
+        cache_block = inbound[inbound.index('name="semanticCacheEligible"'):inbound.index("<llm-semantic-cache-lookup")]
+        self.assertNotIn("context.Request.Url.Path", cache_block)
         self.assertIn('score-threshold="0.15"', inbound)
         self.assertIn('duration="600"', outbound)
 

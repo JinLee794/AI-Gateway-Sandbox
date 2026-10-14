@@ -55,9 +55,11 @@ class EntraModeConfigTests(unittest.TestCase):
         self.config = json.loads((LAB / "sandbox-config.json").read_text(encoding="utf-8"))
         self.config["entraMode"]["enabled"] = True
 
-    def test_disabled_by_default(self):
+    def test_enabled_for_azd_up_and_can_be_turned_off(self):
         config = json.loads((LAB / "sandbox-config.json").read_text(encoding="utf-8"))
-        self.assertFalse(config["entraMode"]["enabled"])
+        self.assertTrue(config["entraMode"]["enabled"], "azd up deploys Entra-only mode, so the demo UI's Entra only toggle works")
+        self.assertTrue(build_config(config)["labParameters"]["entraModeConfig"]["enabled"])
+        config["entraMode"]["enabled"] = False
         self.assertEqual(build_config(config)["labParameters"]["entraModeConfig"], {"enabled": False})
 
     def test_budgets_become_micro_usd(self):
@@ -101,15 +103,15 @@ class EntraModePolicyTests(unittest.TestCase):
         bicep = (LAB / "main.bicep").read_text(encoding="utf-8")
         for hook in PLAN_HOOKS:
             self.assertGreaterEqual(bicep.count(f"'{hook}'"), 2, hook)
-        for placeholder in set(re.findall(r"\{[a-z-]+\}", (LAB / "entra-plan-inbound-fragment.xml").read_text(encoding="utf-8"))):
-            self.assertIn(f"'{placeholder}':", bicep, placeholder)
-        for placeholder in set(re.findall(r"\{[a-z-]+\}", (LAB / "entra-plan-tier.xml").read_text(encoding="utf-8"))):
-            self.assertIn(f"'{placeholder}':", bicep, placeholder)
+        for placeholder in set(re.findall(r"(?<!\{)\{[a-z-]+\}(?!\})", (LAB / "entra-plan-inbound-fragment.xml").read_text(encoding="utf-8"))):
+            self.assertTrue(f"'{placeholder}':" in bicep, placeholder)
+        for placeholder in set(re.findall(r"(?<!\{)\{[a-z-]+\}(?!\})", (LAB / "entra-plan-tier.xml").read_text(encoding="utf-8"))):
+            self.assertTrue(f"'{placeholder}':" in bicep, placeholder)
 
     def test_rendered_fragment_has_a_branch_per_customer_tier(self):
         tiers = json.loads((LAB / "sandbox-config.json").read_text(encoding="utf-8"))["tiers"]
         xml = render_entra_inbound(tiers)
-        self.assertNotRegex(xml, r"\{[a-z-]+\}")
+        self.assertIsNone(re.search(r"(?<!\{)\{[a-z-]+\}(?!\})", xml))
         customer = [t["name"] for t in tiers if not t.get("internal")]
         self.assertEqual(len(re.findall(r'context\.Variables\["entraTier"\] == "', xml)), len(customer))
         self.assertEqual(xml.count("<llm-token-limit"), len(customer))
@@ -118,6 +120,14 @@ class EntraModePolicyTests(unittest.TestCase):
         self.assertIn("<value>Gateway.Invoke</value>", xml)
         self.assertNotIn("api-key", xml)
         self.assertEqual(xml.count("<!--"), xml.count("-->"))
+
+    def test_operation_guard_reads_the_frontend_url(self):
+        # The key-less API has no service URL, so context.Request.Url.Path is "chat/completions" (no leading slash)
+        # and an EndsWith("/chat/completions") check on it rejected every valid call with 404 entra-mode-operation
+        xml = (LAB / "entra-plan-inbound-fragment.xml").read_text(encoding="utf-8")
+        guard = xml[xml.index("<choose>", xml.index("covers chat completions only")):xml.index("entra-mode-operation")]
+        self.assertIn('context.Request.OriginalUrl.Path.TrimEnd(\'/\').EndsWith("/chat/completions"', guard)
+        self.assertNotIn("context.Request.Url.Path", guard)
 
     def test_attribution_prefers_entra_payer_but_keeps_keyed_fallback(self):
         xml = (LAB / "attribution-fragment.xml").read_text(encoding="utf-8")
@@ -212,6 +222,54 @@ class EntraModeAppTests(unittest.TestCase):
     def test_group_headers_reach_the_ui(self):
         for header in ("x-gw-group", "x-gw-group-budget-usd", "x-gw-member-budget-usd"):
             self.assertIn(header, app.GW_HEADERS)
+
+    def test_budgets_report_member_caps_and_team_budgets(self):
+        rows = [{"User": "user-alice", "SpentMicroUsd": 100, "Calls": 1, "RecentRequestIds": []},
+                {"User": "entra-ana", "SpentMicroUsd": 12000, "Calls": 3, "RecentRequestIds": '["r1"]'},
+                {"User": "entra-you", "SpentMicroUsd": 5000, "Calls": 1, "RecentRequestIds": []}]
+        with patch.object(app, "budget_epoch", return_value="42"), patch.object(app, "law_query", return_value=rows) as law:
+            status, result = app.budgets({})
+        self.assertEqual(status, 200)
+        query = law.call_args.args[0]
+        self.assertIn('"entra-ana"', query)
+        self.assertIn('"user-alice"', query)
+        ana = next(u for u in result["users"] if u["name"] == "entra-ana")
+        self.assertEqual((ana["entra"], ana["group"], ana["limitMicroUsd"], ana["spentMicroUsd"], ana["recentRequestIds"]),
+                         (True, "customer-care", 20000, 12000, ["r1"]))
+        self.assertNotIn("entra", next(u for u in result["users"] if u["name"] == "user-alice"))
+        [care] = result["entraGroups"]
+        self.assertEqual((care["limitMicroUsd"], care["spentMicroUsd"], care["calls"], care["members"]),
+                         (30000, 17000, 4, ["entra-ana", "entra-you"]), "the team budget is the sum of its members")
+
+    def test_budgets_without_entra_mode(self):
+        self.config.pop("entraModeResource")
+        with patch.object(app, "budget_epoch", return_value=None), patch.object(app, "law_query", return_value=[]):
+            status, result = app.budgets({})
+        self.assertEqual((status, result["entraGroups"], [u["name"] for u in result["users"]]), (200, [], ["user-alice"]))
+
+    def test_flow_policies_reads_docs_and_only_plain_named_values(self):
+        self.config.update(apimServiceId="/subscriptions/s/resourceGroups/rg/providers/Microsoft.ApiManagement/service/apim",
+                           tiers=[{"name": "gold"}])
+
+        def fake_http(method, url, body, headers, timeout=None):
+            if "/namedValues/" in url:
+                name = url.split("/namedValues/")[1].split("?")[0]
+                props = {"model-pricing": {"value": "gpt-4.1=2/8/0"}, "budget-epoch": {"value": "42"},
+                         "chargeback-directory": {"secret": True, "value": "hidden"}, "tool-pricing": {"keyVault": {"secretIdentifier": "x"}}}.get(name)
+                return (200, {}, json.dumps({"properties": props}), 0.1) if props else (404, {}, "{}", 0.1)
+            return 200, {}, json.dumps({"properties": {"value": f"<policies><!-- {url.split('/service/apim/')[1].split('?')[0]} --></policies>"}}), 0.1
+
+        with patch.object(app, "_flow_cache", {"value": None, "at": 0.0}), patch.object(app, "az_token", return_value="t"), \
+             patch.object(app, "http", side_effect=fake_http) as http:
+            status, result = app.flow_policies({})
+            calls = http.call_count
+            app.flow_policies({})
+            self.assertEqual(http.call_count, calls, "cached for the next play")
+        self.assertEqual(status, 200)
+        self.assertEqual(set(result["docs"]), {"product:gold", "api:inference-api", "api:inference-entra", "fragment:entra-identity",
+                                               "fragment:chargeback-record", "fragment:entra-plan-inbound"})
+        self.assertIn("policyFragments/entra-plan-inbound", result["docs"]["fragment:entra-plan-inbound"])
+        self.assertEqual(result["namedValues"], {"model-pricing": "gpt-4.1=2/8/0", "budget-epoch": "42"}, "secret and Key Vault values never reach the page")
 
 
 if __name__ == "__main__":

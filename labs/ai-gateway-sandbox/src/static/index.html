@@ -138,7 +138,7 @@
   .budget .fill { height:100%; background:var(--ok); transition:width .3s; }
   .budget .fill.pend { background:repeating-linear-gradient(45deg, #8a8886 0 4px, #c8c6c4 4px 8px); }
   .budget .lbl { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px; } .budget .lbl .status { font-size:10px; min-width:0; padding:0 5px; }
-  .budget .lbl .ico { width:14px; height:14px; vertical-align:-2px; }
+  .budget .lbl .ico { width:14px; height:14px; vertical-align:-2px; } .budget.bsub { margin-left:18px; font-size:12px; } .budget.bsub .lbl { font-size:12px; } .budget.bsub .bar { height:5px; }
   .btier { border-top:1px solid var(--divider); padding-top:8px; margin-top:8px; } .btier:first-child { border-top:0; margin-top:0; padding-top:0; }
   .bth { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px 8px; font-size:13px; }
   .bout { color:var(--bad); } .bfoot { margin-top:10px; line-height:1.5; } .bfoot a { cursor:pointer; }
@@ -169,6 +169,9 @@
   .cv-meter .bk { display:inline-block; font-size:9.5px; text-transform:uppercase; letter-spacing:.3px; padding:0 5px; border-radius:3px; border:1px solid; }
   .cv-meter .bk-key { color:#0f6cbd; border-color:#a6c8ec; background:#eff6fc; } .cv-meter .bk-ses { color:#5c2e91; border-color:#c9b5e0; background:#f6f1fb; }
   .cv-meter .bk-eu { color:#8a3707; border-color:#f0c4a3; background:#fdf3ec; }
+  .cv-meter .bk-team { color:#0b6a0b; border-color:#9fd89f; background:#f1faf1; } .cv-meter .bk-mem { color:#5c2e91; border-color:#c9b5e0; background:#f6f1fb; }
+  .cv-meter .mteam { border-left-color:#9fd89f; } .cv-meter .mkid.me > .mrow b { color:var(--accent); }
+  .cv-meter .mcan { margin:6px 0 0 6px; font-size:11.5px; } .cv-meter .mnote { margin:4px 0 0 6px; font-size:11px; }
   .cv-meter .bfirst { font-size:10px; color:#a4262c; border:1px solid #f1bbbc; background:#fdf3f4; border-radius:3px; padding:0 4px; } .cv-meter .mfoot { margin-top:8px; font-size:11px; }
   .cv-meter .delta { color:var(--muted); white-space:nowrap; } .cv-meter.bump .delta { animation:cvbump 1.2s ease-out; }
   @keyframes cvbump { 0% { color:var(--bad); font-weight:600; } 100% { color:var(--muted); } }
@@ -448,7 +451,7 @@
   .build .agents { grid-template-columns:repeat(3,minmax(0,1fr)); } .build .agrp, .build .users { grid-column:1 / -1; }
   .build .users { grid-template-columns:repeat(4,minmax(0,1fr)); }
   .build .form { border-left:1px solid var(--divider); padding-left:24px; }
-  #sessionArea.idle #tab-live > :not(.idlehint):not(.bdetails) { opacity:.45; filter:grayscale(.5); }
+  #sessionArea.idle #tab-live > :not(.idlehint):not(.bdetails):not(#gwFlowSection) { opacity:.45; filter:grayscale(.5); }
   .sigs { display:grid; grid-template-columns:1fr 1fr; gap:4px 14px; }
   .sigs h3 { grid-column:1 / -1; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin:8px 0 2px; }
   .sigs h3:first-child { margin-top:0; }
@@ -728,40 +731,30 @@
     </div>
     <div class="tabs">
       <button class="active" data-tab="live">Live session</button>
-      <button data-tab="runs">Run history <span class="pill" id="runCount">0</span></button>
-      <button data-tab="chargeback">Chargeback: users &amp; sessions</button>
-      <button data-tab="plans">Products &amp; plans</button>
-      <button data-tab="policies">Policies &amp; evidence</button>
-      <button data-tab="monitor">Azure Monitor (App Insights)</button>
+      <button data-tab="evidence">Evidence &amp; monitoring</button>
+      <button data-tab="plans">Plans, policies &amp; chargeback</button>
     </div>
 
-    <div id="tab-runs" class="hidden">
-      <div class="runs">
-        <div class="card rlist"><h2>Runs <span class="muted" id="runScope">(this page session, newest first)</span> <button class="secondary hidden" id="btnClearHist" onclick="clearHistory()" title="Delete the run history saved for you" style="float:right;padding:2px 10px;font-size:12px">Clear</button></h2><div id="runList"></div></div>
-        <div id="runDetail"></div>
+    <div id="tab-live">
+      <div class="idlehint">Results show up here. Run a guided scenario, <i>or</i> build your own request and press <b>Send</b>, <i>or</i> just type a message in the conversation.</div>
+      <div class="kpis">
+        <div class="kpi"><div class="l">Requests</div><div class="v" id="kCalls">0</div></div>
+        <div class="kpi ok"><div class="l">Allowed (200)</div><div class="v" id="kOk">0</div></div>
+        <div class="kpi bad"><div class="l">Blocked (401/403/429)</div><div class="v" id="kBlocked">0</div></div>
+        <div class="kpi"><div class="l">Tokens</div><div class="v" id="kTokens">0</div></div>
+        <div class="kpi cost"><div class="l">Cost (USD)</div><div class="v" id="kCost">$0.000000</div></div>
+        <div class="kpi lat" title="End-to-end latency per call as measured by the demo app: app → APIM gateway (policies) → backend and back"><div class="l">Latency p50 · p95</div><div class="v" id="kLat">-</div></div>
       </div>
-    </div>
-
-    <div id="tab-policies" class="hidden">
-      <div class="psub" role="tablist" aria-label="Policies and evidence views">
-        <button class="on" data-psec="investigate" role="tab"><img class="ico" src="/icons/trace.svg" alt=""><span><b>Investigate a request</b><small>log · flow · trace · logs</small></span></button>
-        <button data-psec="pipeline" role="tab"><img class="ico" src="/icons/policy.svg" alt=""><span><b>Policy pipeline</b><small>what runs, in what order</small></span></button>
-        <button data-psec="telemetry" role="tab"><img class="ico" src="/icons/log-analytics.svg" alt=""><span><b>Logs &amp; telemetry</b><small>where evidence lands · live KQL</small></span></button>
-        <button data-psec="deployed" role="tab"><img class="ico" src="/icons/apim.svg" alt=""><span><b>Deployed policies</b><small>read back from ARM</small></span></button>
-      </div>
-      <div class="psec" data-psec="investigate">
-      <div class="card" id="evLogCard">
-        <div class="evlbar">
-          <h2>Request log <span class="muted" id="evLogCount"></span> <span class="info" tabindex="0" data-tip="Every call from this page session, newest first. Click a request (or use ↑ / ↓) to replay it in the flow below and load its policy trace and Log Analytics rows, without leaving this tab.">i</span></h2>
-          <select id="evRunFilter" aria-label="Show requests from"></select>
-          <label class="evlchk"><input type="checkbox" id="evBlockedOnly"/> Blocked only</label>
-          <button class="secondary" id="evPrev" title="Previous request (↑)">↑ Previous</button>
-          <button class="secondary" id="evNext" title="Next request (↓)">Next ↓</button>
+      <div class="grid2">
+        <div class="card">
+          <h2>Gateway signals <span class="info" tabindex="0" data-tip="What the gateway did to this page's calls, one tile per behaviour the scenarios demonstrate. Counts come from the x-gw-* response headers (blocked-by, governance, route, pricing rule, suspension status). Click a tile to filter the request log to those calls.">i</span>
+            <a class="sigclr hidden" id="sigClr" onclick="sigFilter(null)">✕ clear filter</a></h2>
+          <div id="sigs" class="sigs"></div>
         </div>
-        <div class="scroll" id="evLogWrap" tabindex="0" aria-label="Request log: use the up and down arrow keys to step through the requests"><table>
-          <thead><tr><th>#</th><th>Time · run</th><th>Agent / user</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Gateway decision</th><th>Backend</th><th>Tokens</th><th>Cost USD</th><th>Latency</th><th>Evidence</th></tr></thead>
-          <tbody id="evLog"></tbody>
-        </table></div>
+        <div class="card">
+          <h2>Last response</h2>
+          <div id="last" class="muted">Send a request to see what the gateway did.</div>
+        </div>
       </div>
       <!-- ================= Gateway flow animation + "See the pattern" lightbox (self-contained: style, markup, script) =================
            window.gwFlow.fromCall(r, i)        replays one recorded call from its x-gw-* response headers (called by showEvidence)
@@ -818,6 +811,36 @@
         .gwf-trace { margin-top:10px; font-size:12px; }
         .gwf-trace .cat { display:inline-flex; gap:4px; align-items:center; margin:0 10px 4px 0; }
         .gwf-trace .cat b { font-weight:600; }
+        .gwf-bud { margin-top:12px; border-top:1px solid var(--divider); padding-top:8px; }
+        .gwf-lt { display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--muted); margin-right:6px; cursor:pointer; white-space:nowrap; }
+        .gwf-lt input { width:14px; height:14px; margin:0; flex:0 0 auto; }
+        .gwf-lens { margin-top:6px; border:1px solid var(--divider); border-left:4px solid #0078d4; border-radius:6px; background:#fbfcfe; padding:8px 10px; font-size:12px; animation:gwfIn .25s both; }
+        .gwf-lens[hidden] { display:none; }
+        .gwf-lens.ok { border-left-color:#107c10; } .gwf-lens.bad { border-left-color:#d13438; } .gwf-lens.warn { border-left-color:#ca5010; }
+        .gwf-lens .lh { display:flex; gap:8px; align-items:baseline; margin-bottom:6px; } .gwf-lens .lh b { font-size:12.5px; }
+        .gwf-lens .dot { width:8px; height:8px; border-radius:50%; background:currentColor; flex:0 0 8px; align-self:center; color:#0078d4; }
+        .gwf-lens.ok .dot { color:#107c10; } .gwf-lens.bad .dot { color:#d13438; } .gwf-lens.warn .dot { color:#ca5010; }
+        .gwf-lens .code { font:11.5px/1.55 Consolas,monospace; background:#fff; border:1px solid var(--divider); border-radius:4px; max-height:230px; overflow:auto; padding:2px 0; }
+        .gwf-lens .ln { display:flex; opacity:0; transform:translateX(-6px); transition:opacity .18s, transform .18s, background .15s; white-space:pre; }
+        .gwf-lens .ln.in { opacity:1; transform:none; }
+        .gwf-lens .ln .no { flex:0 0 40px; text-align:right; padding-right:10px; color:#a19f9d; user-select:none; }
+        .gwf-lens .ln .tx { flex:1; min-width:0; white-space:pre-wrap; word-break:break-all; }
+        .gwf-lens .ln .mk { flex:0 0 auto; padding:0 10px; font:600 11.5px "Segoe UI",sans-serif; }
+        .gwf-lens .ln.scan { background:#eff6fc; }
+        .gwf-lens .ln.hit { animation:lensHit .7s both; }
+        .gwf-lens.ok .ln.hit { background:#dff6dd; } .gwf-lens.ok .ln.hit .mk { color:#107c10; }
+        .gwf-lens.bad .ln.hit { background:#fde7e9; } .gwf-lens.bad .ln.hit .mk { color:#a4262c; }
+        .gwf-lens.warn .ln.hit { background:#fff4ce; } .gwf-lens.warn .ln.hit .mk { color:#8a3707; }
+        @keyframes lensHit { 0% { box-shadow:inset 0 0 0 2px rgba(0,120,212,.6); } 100% { box-shadow:inset 3px 0 0 0 rgba(0,0,0,.25); } }
+        .gwf-lens .nvref, .gwf-bud .nvref { font:600 11px Consolas,monospace; background:#f4effa; color:#5c2e91; border:1px solid #d9c7ee; border-radius:3px; padding:0 3px; }
+        .gwf-lens .nvrow { margin-top:6px; } .gwf-lens .nvents { display:flex; flex-wrap:wrap; gap:4px; margin-top:3px; }
+        .gwf-lens .nvents code { font-size:10.5px; background:#fff; border:1px solid var(--divider); border-radius:3px; padding:0 5px; transition:background .3s, border-color .3s; }
+        .gwf-lens .nvents code.m { background:#fff4ce; border-color:#e0b000; font-weight:600; animation:lensHit .7s both; }
+        .gwf-lens .lnote { margin-top:5px; color:var(--muted); }
+        .gwf-bud > summary { cursor:pointer; font-size:13px; font-weight:600; color:var(--text); }
+        .gwf-bud .lead { font-size:12.5px; line-height:1.5; margin:8px 0 0; }
+        .gwf-bud .lead ol { margin:4px 0 0; padding-left:20px; }
+        .gwf-bud table td:first-child { font-weight:600; }
         @keyframes gwfIn { from { opacity:0; transform:translateY(4px); } }
         .pipe .stage .pat { margin-top:6px; }
         a.pat, .pipe .stage .pat a { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; cursor:pointer; }
@@ -873,16 +896,20 @@
         <div class="gwf-bar">
           <div class="gwf-chips" id="gwfDemos" role="group" aria-label="Example flows"></div>
           <span class="sp"></span>
+          <label class="gwf-lt" title="Replay each call of the running scenario (or your own requests) as it lands; while one plays, the newest call waits its turn"><input type="checkbox" id="gwfFollow" checked> Follow calls</label>
+          <label class="gwf-lt" title="While the request sits on a step, show the deployed policy lines that decide it and the named values they read"><input type="checkbox" id="gwfLensOn" checked> Policy lines</label>
           <button class="secondary" id="gwfPlayAll" title="Cycle through every example">▶ Play all</button>
           <button class="secondary" id="gwfReplay" title="Play the current flow again">↻ Replay</button>
           <button class="secondary" id="gwfStop" disabled>■ Stop</button>
         </div>
         <svg id="gwfSvg" viewBox="0 0 1100 384" role="img" aria-label="Request flow through Azure API Management"></svg>
+        <div class="gwf-lens" id="gwfLens" hidden aria-live="polite"></div>
         <div class="gwf-now" id="gwfNow" aria-live="polite"></div>
         <div class="gwf-grid">
           <ol class="gwf-steps" id="gwfSteps"></ol>
           <div><div class="gwf-hdrs" id="gwfHdrs"></div><div class="gwf-trace" id="gwfTrace"></div></div>
         </div>
+        <details class="gwf-bud" id="gwfBud" open><summary>How the $ budgets are calculated: <b>API key</b> vs <b>Entra only</b></summary><div id="gwfBudBody"></div></details>
       </div>
       <div class="gwlb" id="gwLb" hidden role="dialog" aria-modal="true" aria-labelledby="gwLbTitle">
         <div class="gwlb-box">
@@ -1089,9 +1116,10 @@
           const b = backends();
           setText("r0", `Foundry · ${b[0]?.location || "region 1"}`, `${b[0]?.name || "foundry1"} · priority ${b[0]?.priority ?? 1}`);
           setText("r1", `Foundry · ${b[1]?.location || "region 2"}`, `${b[1]?.name || "foundry2"} · priority ${b[1]?.priority ?? 2}`);
-          setText("client", "Client", "agent / app"); setText("plan", null, "entitlement · limits · $"); setText("pool", null, "circuit breaker");
+          setText("client", "Client", "agent / app"); setText("entra", "entra-identity", "fragment · Entra ID"); setText("plan", "Product policy", "entitlement · limits · $"); setText("pool", null, "circuit breaker");
           layer.scope.textContent = "PRODUCT (PLAN) SCOPE";
           el("gwfSteps").innerHTML = ""; el("gwfHdrs").innerHTML = ""; el("gwfTrace").innerHTML = ""; el("gwfNow").innerHTML = "";
+          el("gwfLens").hidden = true; el("gwfLens").innerHTML = "";
         }
         const backends = () => (C().foundryBackends || []).slice().sort((a, b) => (a.priority ?? 1) - (b.priority ?? 1));
 
@@ -1156,6 +1184,7 @@
         function blockerOf(r) {
           const h = r.headers || {}, by = String(h["x-gw-blocked-by"] || "").toLowerCase(), st = Number(r.status);
           if (st === 200 || !st) return null;
+          if (/^entra-(group|mode)/.test(by)) return "plan";  // valid token; Entra-only mode found no gateway group (or a non-chat operation)
           if (st === 401 || /validate|entra|jwt/.test(by)) return "entra";
           if (/model-unpriced/.test(by)) return "api";
           if (/entitlement|token-limit|rate-limit|quota|content-safety|purview/.test(by)) return "plan";
@@ -1169,16 +1198,68 @@
           if (/tool-entitlement/.test(by)) return `tool <b>${esc(r.tool || h["x-gw-tool"] || "")}</b> is not in the <b>${esc(tier)}</b> plan`;
           if (/agent-entitlement/.test(by)) return `the <b>${esc(tier)}</b> plan does not include A2A agents`;
           if (/llm-token-limit/.test(by)) return Number(r.status) === 429 ? `<code>llm-token-limit</code>: the plan's tokens per minute are used up${h["retry-after"] ? `, retry after ${esc(h["retry-after"])} s` : ""}` : `<code>llm-token-limit</code>: the plan's token quota is used up`;
-          if (/session-budget/.test(by)) return `<code>quota-by-key</code>: this session's $ budget is spent`;
-          if (/quota-by-key/.test(by)) return `<code>quota-by-key</code>: the subscription's $ budget is spent`;
+          if (/session-budget/.test(by)) return `<code>quota-by-key (session-budget)</code>: this session's $ cap${bucketUsd(r, "session")} is spent. The subscription key's budget may still have room, so a new session can go on`;
+          if (/group-budget/.test(by)) return `<code>quota-by-key (group-budget)</code>: the <b>${esc(entraGrp(r)?.displayName || h["x-gw-group"] || "group")}</b> team budget${bucketUsd(r, "team")} is spent. It is one counter shared by every member, so every member is refused now, even those still under their own cap`;
+          if (/member-budget/.test(by)) return `<code>quota-by-key (member-budget)</code>: <b>${esc(personaName(r))}</b>'s member cap${bucketUsd(r, "member")} is spent. Teammates can still use what is left of the team budget`;
+          if (/end-user-budget/.test(by)) return `<code>quota-by-key (end-user-budget)</code>: end user <b>${esc(h["x-gw-end-user"] || "")}</b> has spent their $ budget. Other users of the same app key go on`;
+          if (/^entra-group-overage/.test(by)) return `<code>entra-group-overage</code>: the token is valid but has no <code>groups</code> claim (the caller is in too many groups), so no plan or budget applies`;
+          if (/^entra-group/.test(by)) return `<code>entra-group</code>: the token is valid and has the app role, but none of its <code>groups</code> is a gateway group, so no plan and no budget apply`;
+          if (/^entra-mode-operation/.test(by)) return `<code>entra-mode-operation</code>: the key-less Entra-only API serves <code>POST /chat/completions</code> only`;
+          if (/quota-by-key/.test(by)) return `<code>quota-by-key (subscription-budget)</code>: the subscription key's $ budget${bucketUsd(r, "key")} is spent, for every session and end user on that key`;
           if (/rate-limit/.test(by)) return `<code>rate-limit-by-key</code>: calls per minute for this plan are used up`;
           if (/llm-content-safety/.test(by)) return `<code>llm-content-safety</code>: Azure AI Content Safety flagged the ${r.surface === "tool" ? "tool arguments" : r.surface === "agent" ? "task" : "prompt"} (harm category, jailbreak or sensitive-data blocklist). Nothing was sent on: $0 spent${h["x-gw-safety-cost-usd"] ? `, safety check $${esc(h["x-gw-safety-cost-usd"])}` : ""}`;
           if (/purview-dlp/.test(by)) return `<code>purview-dlp</code>: a Microsoft Purview DLP policy blocked this content. Nothing was sent on: $0 spent`;
           if (Number(r.status) === 401) return `<code>validate-azure-ad-token</code>: no valid Microsoft Entra ID token`;
           return by ? `<code>${esc(by)}</code>` : `HTTP ${esc(r.status)}`;
         }
+        // ---- $ budgets: which buckets (quota-by-key counters) a call is charged to, and how its price is computed
+        const isEntra = (r) => r?.mode === "entra" || !!(r?.headers || {})["x-gw-group"] || /^entra-/.test((r?.headers || {})["x-gw-blocked-by"] || "");
+        const usd = (v) => "$" + +Number(v || 0).toFixed(6);
+        const personaName = (r) => (C().entraMode?.personas || []).find(p => p.name === r.agent)?.displayName || r.agent || "the caller";
+        function entraGrp(r) {
+          const c = C(), h = r.headers || {}, p = (c.entraMode?.personas || []).find(x => x.name === r.agent);
+          return (c.entraMode?.groups || []).find(g => g.name === (h["x-gw-group"] || p?.group)) || null;
+        }
+        function buckets(r) {
+          const c = C(), h = r.headers || {};
+          if (isEntra(r)) {
+            const g = entraGrp(r); if (!g) return [];
+            return [{ k: "team", label: `team budget <b>${esc(g.displayName)}</b>`, usd: g.poolMicroUsd / 1e6, by: "the group's object id, shared by its members" },
+                    { k: "member", label: `member cap of <b>${esc(personaName(r))}</b>`, usd: g.memberMicroUsd / 1e6, by: "the caller's <code>oid</code>" }];
+          }
+          const t = (c.tiers || []).find(x => x.name === (h["x-gw-tier"] || r.tier)) || {}, a = (c.agents || []).find(x => x.name === r.agent);
+          const out = [{ k: "key", label: `subscription key <b>${esc(a?.displayName || r.agent || "")}</b>`, usd: t.budgetUsd, by: "the subscription" }];
+          const s = h["x-gw-session"];
+          if (s && s !== "no-session") out.push({ k: "session", label: `session <code>${esc(s)}</code>`, usd: t.sessionBudgetUsd ?? t.budgetUsd, by: "subscription + <code>x-session-id</code>" });
+          if (h["x-gw-end-user"]) out.push({ k: "eu", label: `end user <b>${esc(h["x-gw-end-user"])}</b>`, usd: h["x-gw-end-user-budget-usd"] != null ? Number(h["x-gw-end-user-budget-usd"]) : null, by: "subscription + <code>x-gw-end-user</code>" });
+          return out;
+        }
+        const bucketList = (bs) => bs.map(b => `${b.label}${b.usd != null ? ` (${usd(b.usd)})` : ""}`).join(" <b>+</b> ");
+        const bucketUsd = (r, k) => { const b = buckets(r).find(x => x.k === k); return b?.usd != null ? ` (${usd(b.usd)})` : ""; };
+        function budgetIn(r) {
+          const bs = buckets(r);
+          if (!bs.length) return "";
+          const g = isEntra(r) ? entraGrp(r) : null;
+          return (g ? `The token's <code>groups</code> claim → <b>${esc(g.displayName)}</b> → <b>${esc(g.tier)}</b> plan (<code>entra-gateway-groups</code>). ` : "")
+            + `$ budgets, checked now: ${bucketList(bs)}. Each is one <code>quota-by-key</code> counter (keyed by ${bs.map(b => b.by).join(" · ")}). All still have room, so the call goes on. Its price isn't known yet: it is charged on the way back.`;
+        }
+        function priceText(r) {
+          const h = r.headers || {}, cost = Number(h["x-gw-cost-usd"] || 0), surf = r.surface || "model";
+          if (!cost) return "";
+          let how = `<b>${usd(cost)}</b>`;
+          if (surf === "model") {
+            const m = (C().models || []).find(x => x.name === h["x-gw-model-served"]), pt = Number(h["x-gw-prompt-tokens"]), ct = Number(h["x-gw-completion-tokens"]);
+            const calc = m && Number.isFinite(pt) && Number.isFinite(ct) ? (pt * m.inputPrice + ct * m.outputPrice) / 1e6 : null;
+            how = calc != null && Math.abs(calc - cost) < 2e-6
+              ? `${pt} prompt × $${m.inputPrice}/1M + ${ct} completion × $${m.outputPrice}/1M = <b>${usd(cost)}</b> (<code>model-pricing</code>)`
+              : `<b>${usd(cost)}</b> from <code>model-pricing</code>${h["x-gw-pricing-rule"] ? ` (rule <code>${esc(h["x-gw-pricing-rule"])}</code>)` : " (cached input tokens are priced lower)"}`;
+          } else if (surf === "tool") how = `<b>${usd(cost)}</b>, a flat price per call (<code>tool-pricing</code>)`;
+          else if (surf === "agent") return `Price: <b>${usd(cost)}</b> = agent fee ${usd(h["x-gw-agent-fee-usd"])} + what the agent spent downstream ${usd(h["x-gw-downstream-cost-usd"])}, all billed to the caller.`;
+          const bs = buckets(r);
+          return `Price: ${how}. <code>quota-by-key</code> adds it to ${bs.length > 1 ? "<b>every</b> bucket at once" : "the bucket"}: ${bucketList(bs)}${isEntra(r) ? " (each counts the price as a share of its own budget)" : ""}. The first bucket to fill up refuses the next call with 403.`;
+        }
         const label = (r) => r.surface === "tool" ? (r.tool || (r.action === "list" ? "tools/list" : "tool")) : r.surface === "agent" ? (r.action === "card" ? "agent card" : "task") : (r.requestedModel || "model");
-        const HDR_ORDER = ["x-gw-tier", "x-gw-caller", "x-gw-billed-to", "x-gw-session", "x-gw-model-requested", "x-gw-model-served", "x-gw-governance", "x-gw-tool", "x-gw-prompt-tokens", "x-gw-completion-tokens",
+        const HDR_ORDER = ["x-gw-tier", "x-gw-group", "x-gw-group-budget-usd", "x-gw-member-budget-usd", "x-gw-caller", "x-gw-billed-to", "x-gw-session", "x-gw-end-user", "x-gw-model-requested", "x-gw-model-served", "x-gw-governance", "x-gw-tool", "x-gw-prompt-tokens", "x-gw-completion-tokens",
           "x-gw-cost-usd", "x-gw-agent-fee-usd", "x-gw-downstream-cost-usd", "x-gw-safety-cost-usd", "x-gw-remaining-tpm", "x-gw-remaining-quota-tokens", "x-gw-remaining-tool-calls", "x-gw-remaining-agent-calls",
           "x-gw-route", "x-gw-blocked-by", "x-gw-block-reason", "retry-after", "x-gw-request-id", "apim-trace-id"];
         async function showHeaders(r, g) {
@@ -1191,25 +1272,131 @@
           }
         }
 
+        // ---- policy lens: while the token sits on a node, show the deployed policy lines that decide it (real line numbers,
+        //      read back from ARM by /api/flow-policies), scan to the line that applies, stamp it, and open the named values
+        //      ({{name}}) it reads with the entry used for this call highlighted.
+        let flowDocs = null, flowDocsP = null;
+        function loadDocs() {
+          if (!flowDocsP) flowDocsP = fetch("/api/flow-policies", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+            .then(x => x.json()).then(d => { if (d && d.docs) flowDocs = d; else flowDocsP = null; return flowDocs; })
+            .catch(() => { flowDocsP = null; return null; });
+          return flowDocsP;
+        }
+        const lensOn = () => el("gwfLensOn")?.checked !== false;
+        const DOC_LABEL = (id) => { const [k, n] = id.split(":"); return k === "product" ? `product policy · ${n}` : k === "api" ? `API policy · ${n}` : `fragment · ${n}`; };
+        function snippet(spec) {
+          const xml = flowDocs?.docs?.[spec.doc]; if (!xml) return null;
+          const lines = xml.split(/\r?\n/), start = lines.findIndex(l => spec.anchor.test(l));
+          if (start < 0) return null;
+          let end = start;
+          if (spec.end) { while (end < lines.length - 1 && end - start < (spec.max || 14) && !spec.end.test(lines[end])) end++; }
+          else end = Math.min(lines.length - 1, start + (spec.lines || 1) - 1);
+          return { start, lines: lines.slice(start, end + 1) };
+        }
+        const nvChip = (s) => s.replace(/\{\{([a-z0-9-]+)\}\}/gi, `<span class="nvref">{{$1}}</span>`);
+        async function lens(spec, g) {
+          if (!lensOn() || !flowDocs) return;
+          const s = snippet(spec), box = el("gwfLens");
+          if (!s) return;
+          const ind = Math.min(...s.lines.filter(l => l.trim()).map(l => l.match(/^\s*/)[0].length));
+          const verdict = spec.verdict || "ok";
+          box.hidden = false;
+          box.className = `gwf-lens ${verdict}`;
+          box.innerHTML = `<div class="lh"><span class="dot"></span><b>${esc(spec.title)}</b><span class="muted">${esc(DOC_LABEL(spec.doc))} · line ${s.start + 1}${s.lines.length > 1 ? "–" + (s.start + s.lines.length) : ""}</span></div>
+            <div class="code">${s.lines.map((l, i) => `<div class="ln" title="${esc(l.trim())}"><span class="no">${s.start + i + 1}</span><span class="tx">${nvChip(esc(l.slice(ind)))}</span><span class="mk"></span></div>`).join("")}</div>
+            <div class="nvs"></div>${spec.note ? `<div class="lnote">${spec.note}</div>` : ""}`;
+          const rows = [...box.querySelectorAll(".ln")];
+          for (const row of rows) { row.classList.add("in"); await wait(28, g); }
+          const hits = rows.filter((_, i) => spec.hit.test(s.lines[i]));
+          for (const row of rows) { row.classList.add("scan"); await wait(70, g); row.classList.remove("scan"); if (hits.includes(row)) break; }
+          for (const row of (hits.length ? hits : rows.slice(0, 1))) {
+            row.classList.add("hit");
+            row.querySelector(".mk").textContent = (verdict === "bad" ? "✗ " : verdict === "warn" ? "↷ " : "✓ ") + (spec.mark || (verdict === "bad" ? "stops here" : "passes"));
+          }
+          for (const nv of spec.nv || []) {
+            const v = flowDocs.namedValues?.[nv.name]; if (v == null) continue;
+            const entries = String(v).split(";").map(e => e.trim()).filter(Boolean), m = entries.filter(nv.match || (() => entries.length === 1));
+            const shown = [...m, ...entries.filter(e => !m.includes(e))].slice(0, 6);
+            box.querySelector(".nvs").insertAdjacentHTML("beforeend", `<div class="nvrow"><span class="nvref">{{${esc(nv.name)}}}</span> <span class="muted">named value${nv.why ? ` · ${nv.why}` : ""}</span>
+              <div class="nvents">${shown.map(e => `<code data-m="${m.includes(e) ? 1 : 0}">${esc(e.length > 96 ? e.slice(0, 96) + "…" : e)}</code>`).join("")}${entries.length > shown.length ? `<span class="muted">+${entries.length - shown.length} more</span>` : ""}</div></div>`);
+            await wait(250, g);
+            box.querySelectorAll('.nvrow:last-child code[data-m="1"]').forEach(c => c.classList.add("m"));
+          }
+          await wait(verdict === "bad" ? 1500 : 950, g);
+        }
+        // the plan stage: each decision the plan makes, in policy order, stopping at the one that refused the call
+        async function planLens(r, g) {
+          const h = r.headers || {}, st = Number(r.status), failAt = st && st !== 200 ? String(h["x-gw-blocked-by"] || "") : "", surf = r.surface || "model";
+          const served = h["x-gw-model-served"], asked = h["x-gw-model-requested"] || r.requestedModel, down = !!(served && asked && served !== asked);
+          const epoch = { name: "budget-epoch", why: "in every counter key; <b>Reset budgets</b> changes it" };
+          const later = "Checked now against what is already spent; the price is added after the response.";
+          const steps = [];
+          if (isEntra(r)) {
+            const grp = entraGrp(r), doc = "fragment:entra-plan-inbound";
+            steps.push({ title: "Which gateway group is the caller in?", doc, anchor: /<set-variable name="entraGroup" value=/, end: /\}" \/>/, max: 16, hit: /entra-gateway-groups/, fail: /^entra-group/,
+              mark: grp ? `${grp.displayName} → ${grp.tier} plan` : "no gateway group",
+              nv: [{ name: "entra-gateway-groups", match: (e) => !!grp && (e.split("=")[1] || "").startsWith(grp.name + "|"), why: "&lt;group object id&gt;=&lt;name&gt;|&lt;tier&gt;|&lt;rank&gt;|&lt;team µ$&gt;|&lt;member µ$&gt;; matched against the token's <code>groups</code> claim" }] });
+            if (grp) {
+              steps.push({ title: `The ${grp.tier} plan: models, output cap, tokens per minute per member`, doc, anchor: new RegExp(`entraTier"\\] == "${grp.tier}"`), end: /<\/when>/, hit: /tokens-per-minute/, fail: /llm-token-limit/ });
+              if (surf === "model") steps.push({ title: "Is the model in the group's plan?", doc, anchor: /entraAllowedModels"\] \+ ","\)\.Contains/, lines: 1, hit: /Contains/, fail: /model-entitlement/, warn: down });
+              steps.push({ title: `Team $ budget: ${grp.displayName}, shared by every member`, doc, anchor: /<quota-by-key id="group-budget"/, end: /\}" \/>/, hit: /counter-key/, fail: /group-budget/, mark: "room left", note: later, nv: [epoch] });
+              steps.push({ title: `Member $ cap: ${personaName(r)}`, doc, anchor: /<quota-by-key id="member-budget"/, end: /\}" \/>/, hit: /counter-key/, fail: /member-budget/, mark: "room left", note: later, nv: [epoch] });
+            }
+          } else {
+            const doc = `product:${h["x-gw-tier"] || r.tier}`;
+            if (surf === "model") {
+              steps.push({ title: "Is the model in the plan?", doc, anchor: /<!-- 1\. Model governance -->/, lines: 5, hit: /Contains\("," \+ model/, fail: /model-entitlement/, warn: down });
+              steps.push({ title: "Tokens per minute and token quota", doc, anchor: /<llm-token-limit counter-key="@\("tokens-/, end: /\/>\s*$/, max: 8, hit: /tokens-per-minute/, fail: /llm-token-limit/ });
+            }
+            steps.push({ title: "Subscription key $ budget", doc, anchor: /<quota-by-key id="subscription-budget"/, end: /\/>\s*$/, max: 6, hit: /counter-key/, fail: /subscription-budget|^quota-by-key$/, mark: "room left", note: later, nv: [epoch] });
+            if (h["x-gw-session"] && h["x-gw-session"] !== "no-session") steps.push({ title: `Session $ cap: ${h["x-gw-session"]}`, doc, anchor: /<quota-by-key id="session-budget"/, end: /\/>\s*$/, max: 6, hit: /counter-key/, fail: /session-budget/, mark: "room left", note: later });
+            if (h["x-gw-end-user"]) steps.push({ title: `End-user $ budget: ${h["x-gw-end-user"]}`, doc, anchor: /foreach \(var entry in "\{\{end-user-budgets\}\}"/, lines: 1, hit: /end-user-budgets/, fail: /end-user-budget/,
+              nv: [{ name: "end-user-budgets", match: (e) => e.startsWith("@" + h["x-gw-end-user"] + "=") || e.startsWith("default=") }] });
+          }
+          for (const s of steps) {
+            const failing = !!failAt && s.fail.test(failAt);
+            await lens({ ...s, verdict: failing ? "bad" : s.warn ? "warn" : "ok", mark: failing ? `${st} · ${failAt}` : s.warn ? `not in plan → ${served}` : s.mark }, g);
+            if (failing) return;
+          }
+        }
+        const apiDoc = (r) => isEntra(r) ? "api:inference-entra" : "api:inference-api";
+        const priceNv = (h) => ({ name: "model-pricing", match: (e) => (e.split("=")[0] || "").toLowerCase() === String(h["x-gw-model-served"] || "").toLowerCase(), why: "&lt;model&gt;=&lt;input $/1M&gt;/&lt;output $/1M&gt;/…" });
+
         async function play(r, g) {
           const h = r.headers || {}, surf = r.surface || "model", st = Number(r.status) || 0, color = SURF[surf] || SURF.model;
-          const tier = h["x-gw-tier"] || r.tier || "", blocker = blockerOf(r);
-          setText("client", r.agent || "Client", tier ? `plan: ${tier}` : "agent / app");
-          if (tier) { layer.scope.textContent = `PRODUCT (PLAN) SCOPE · ${tier.toUpperCase()}`; setText("plan", `${tier[0].toUpperCase()}${tier.slice(1)} plan policy`); }
+          const tier = h["x-gw-tier"] || r.tier || "", blocker = blockerOf(r), entra = isEntra(r), grp = entra ? entraGrp(r) : null;
+          if (entra) {
+            setText("client", personaName(r), "Entra token · no key");
+            setText("entra", "Entra-only token", "gateway app · Gateway.Invoke");
+            layer.scope.textContent = `ENTRA GROUP → PLAN${grp ? " · " + grp.tier.toUpperCase() : ""}`;
+            setText("plan", grp ? `${grp.displayName} → ${grp.tier}` : "Group → plan", "group · team $ · member $");
+          } else {
+            setText("client", r.agent || "Client", tier ? `plan: ${tier}` : "agent / app");
+            if (tier) { layer.scope.textContent = `PRODUCT (PLAN) SCOPE · ${tier.toUpperCase()}`; setText("plan", `${tier[0].toUpperCase()}${tier.slice(1)} plan policy`); }
+          }
           for (const k of ["mi", "r0", "r1", "mcp", "a2a"]) mark(k, "dim");
           if (surf === "model") { mark("mi", null); mark("r0", null); mark("r1", null); } else mark(surf === "tool" ? "mcp" : "a2a", null);
           const tok = token(color, label(r), P("client"));
           mark("client", "on");
           const what = surf === "tool" ? `an MCP <code>tools/call</code> for <b>${esc(label(r))}</b>` : surf === "agent" ? `an A2A task to <b>sourcing-agent</b>` : `a chat completion for <b>${esc(label(r))}</b>`;
-          say(`<b>${esc(r.agent || "The client")}</b> sends ${what} with an <code>api-key</code> (which plan pays) and an Entra ID token (who calls).`);
+          say(entra
+            ? `<b>${esc(personaName(r))}</b> sends ${what} to the key-less <code>entra/inference</code> API with <b>no <code>api-key</code></b>: its own Entra ID token is the only credential. It says who calls <b>and</b>, through the caller's security group, which plan and budgets apply.`
+            : `<b>${esc(r.agent || "The client")}</b> sends ${what} with an <code>api-key</code> (which plan pays) and an Entra ID token (who calls).`);
           await wait(500, g);
 
           await go(tok, ["client", "entra"], g);
+          await lens({ title: entra ? "Is the token for this gateway, with the app role?" : "Is the Entra ID token valid, from an approved app?",
+            doc: entra ? "fragment:entra-plan-inbound" : "fragment:entra-identity", anchor: /<validate-azure-ad-token/, end: /<\/validate-azure-ad-token>/, max: 20,
+            hit: entra ? /<audience>|<value>Gateway\.Invoke/ : /<audience>/, verdict: blocker === "entra" ? "bad" : "ok", mark: blocker === "entra" ? `${st} · no valid token` : "valid" }, g);
           if (blocker === "entra") return blocked(r, tok, "entra", g);
-          mark("entra", "ok"); say(`<code>entra-identity</code> fragment: <code>validate-azure-ad-token</code> accepts the token${h["x-gw-caller"] ? ` → caller <b>${esc(h["x-gw-caller"])}</b>` : ""}.`, "ok");
+          mark("entra", "ok");
+          say(entra
+            ? `<code>entra-plan-inbound</code>: <code>validate-azure-ad-token</code> accepts the token (audience = the gateway app registration, app role <code>Gateway.Invoke</code>)${h["x-gw-caller"] ? ` → caller <b>${esc(h["x-gw-caller"])}</b>` : ""}.`
+            : `<code>entra-identity</code> fragment: <code>validate-azure-ad-token</code> accepts the token${h["x-gw-caller"] ? ` → caller <b>${esc(h["x-gw-caller"])}</b>` : ""}.`, "ok");
           await wait(350, g);
 
           await go(tok, ["entra", "plan"], g);
+          await planLens(r, g);
           if (blocker === "plan") return blocked(r, tok, "plan", g);
           const gov = String(h["x-gw-governance"] || ""), served = h["x-gw-model-served"], asked = h["x-gw-model-requested"] || r.requestedModel;
           if (surf === "model" && served && asked && served !== asked) {
@@ -1219,13 +1406,16 @@
           } else {
             mark("plan", "ok");
             const left = h["x-gw-remaining-tpm"] ? ` · ${esc(h["x-gw-remaining-tpm"])} tokens/min left` : h["x-gw-remaining-tool-calls"] ? ` · ${esc(h["x-gw-remaining-tool-calls"])} tool calls/min left` : h["x-gw-remaining-agent-calls"] ? ` · ${esc(h["x-gw-remaining-agent-calls"])} agent calls/min left` : "";
-            say(`Plan policy${tier ? ` (<b>${esc(tier)}</b>)` : ""}: entitlement ✓ · ${surf === "model" ? "<code>llm-token-limit</code>" : "<code>rate-limit-by-key</code>"} ✓ · <code>quota-by-key</code> $ budget ✓${left}.`, "ok");
+            say(`${entra ? `Plan of the caller's group${grp ? ` <b>${esc(grp.displayName)}</b>` : ""}` : "Plan policy"}${tier ? ` (<b>${esc(tier)}</b>)` : ""}: entitlement ✓ · ${surf === "model" ? "<code>llm-token-limit</code>" : "<code>rate-limit-by-key</code>"} ✓ · <code>quota-by-key</code> $ budget ✓${left}.`, "ok");
           }
+          const bin = budgetIn(r); if (bin) say(bin);
           await wait(300, g);
 
           await go(tok, ["plan", "api"], g);
           if (blocker === "api") return blocked(r, tok, "api", g);
           mark("api", "ok");
+          if (surf === "model") await lens({ title: "Read the price list for the served model", doc: apiDoc(r), anchor: /<set-variable name="modelPricing" value=/, lines: 1, hit: /model-pricing/,
+            mark: served ? `${served}` : "read", nv: [priceNv(h)] }, g);
           await go(tok, ["api", "pool"], g);
           let target, last = "pool";
           if (surf === "model") {
@@ -1264,6 +1454,11 @@
           mark("api", "ok");
           const costTxt = h["x-gw-cost-usd"] ? ` · cost <b>$${esc(h["x-gw-cost-usd"])}</b>` : "";
           say(`Outbound: ${surf === "model" ? "<code>llm-emit-token-metric</code> + " : ""}<code>emit-metric</code> meter the call${costTxt}${h["x-gw-billed-to"] ? ` billed to <b>${esc(h["x-gw-billed-to"])}</b>` : ""}; a chargeback <code>trace</code> record and the gateway logs flow to Azure Monitor.`, "ok");
+          const price = priceText(r); if (price) say(price, "ok");
+          if (surf === "model" && h["x-gw-cost-usd"]) await lens({ title: "Price the call from the tokens the model used", doc: apiDoc(r), anchor: /<set-variable name="costMicroUsd" value=/, end: /\}" \/>/, max: 14,
+            hit: /Math\.Ceiling/, mark: `$${Number(h["x-gw-cost-usd"]).toFixed(6)}`, nv: [priceNv(h)], note: "This variable is the <code>increment-count</code> of every <code>quota-by-key</code> bucket checked on the way in." }, g);
+          if (h["x-gw-billed-to"]) await lens({ title: "Who pays: the chargeback record", doc: "fragment:chargeback-record", anchor: /<set-variable name="chargebackDirectory" value=/, lines: 1, hit: /chargeback-directory/,
+            mark: h["x-gw-billed-to"], nv: [{ name: "chargeback-directory", match: (e) => e.startsWith(h["x-gw-billed-to"] + "="), why: "&lt;payer&gt;=&lt;display name&gt;|&lt;team&gt;|&lt;cost center&gt;|&lt;kind&gt;" }] }, g);
           mark("log", "on"); edge("api", "log", "on");
           await drops("log", g); mark("log", "ok");
           await go(tok, ["api", "plan", "entra", "client"], g, { edge: okResp ? "ok" : "bad", quiet: true });
@@ -1330,6 +1525,23 @@
                 headers: H({ "x-gw-tier": "gold", "x-gw-caller": "you@contoso.com", "x-gw-agent-fee-usd": "0.005000", "x-gw-downstream-cost-usd": "0.002410", "x-gw-cost-usd": "0.007410", "x-gw-remaining-agent-calls": "9", "x-gw-billed-to": ag("gold") }) } },
             { id: "noauth", label: "401 no token", code: 401, r: { status: 401, surface: "model", agent: ag("gold"), tier: "gold", requestedModel: small,
                 headers: H({ "x-gw-blocked-by": "validate-azure-ad-token", "x-gw-block-reason": "Microsoft Entra ID token missing or invalid." }) } },
+            ...entraDemos(c, H, ok, small),
+          ];
+        }
+        // Entra-only mode examples: no key; the caller's security group picks the plan and the two $ buckets
+        function entraDemos(c, H, ok, small) {
+          const groups = c.entraMode?.groups || [], personas = c.entraMode?.personas || [];
+          const g = groups[0] || { name: "customer-care", displayName: "Customer Care", tier: "gold", poolMicroUsd: 30000, memberMicroUsd: 20000 };
+          const p = personas.find(x => x.group === g.name)?.name || "entra-ana", nobody = personas.find(x => !x.group)?.name || "entra-contractor";
+          const who = (n) => `${n} (managed identity, Entra only)`;
+          const grp = { "x-gw-group": g.name, "x-gw-tier": g.tier, "x-gw-group-budget-usd": (g.poolMicroUsd / 1e6).toFixed(6), "x-gw-member-budget-usd": (g.memberMicroUsd / 1e6).toFixed(6) };
+          return [
+            { id: "entra", label: "Entra only: plan from group", code: 200, r: { status: 200, surface: "model", mode: "entra", agent: p, tier: g.tier, requestedModel: small,
+                headers: H({ ...ok(g.tier, small), ...grp, "x-gw-caller": who(p), "x-gw-billed-to": p }) } },
+            { id: "entra-team", label: "Entra only: 403 team budget", code: 403, r: { status: 403, surface: "model", mode: "entra", agent: p, tier: g.tier, requestedModel: small,
+                headers: H({ ...grp, "x-gw-caller": who(p), "x-gw-session": "demo-session", "x-gw-agent": p, "x-gw-blocked-by": "quota-by-key (group-budget)", "x-gw-block-reason": "Quota exceeded." }) } },
+            { id: "entra-nogroup", label: "Entra only: 403 no group", code: 403, r: { status: 403, surface: "model", mode: "entra", agent: nobody, tier: "", requestedModel: small,
+                headers: H({ "x-gw-caller": who(nobody), "x-gw-blocked-by": "entra-group" }) } },
           ];
         }
         const CODE_BG = { 200: "#dff6dd;color:#107c10", 401: "#fde7e9;color:#a4262c", 403: "#fde7e9;color:#a4262c", 429: "#fff4ce;color:#8a3707" };
@@ -1341,10 +1553,16 @@
         let current = null, looping = false, played = false;
         function setBusy(on) { el("gwfStop").disabled = !on; }
         async function run(item) {
-          resetDiagram(); const g = gen; current = item; played = true; setBusy(true);
+          resetDiagram(); budgetPrimer(); const g = gen; current = item; played = true; setBusy(true);
           renderDemos(item.demo || null);
-          el("gwfSrc").innerHTML = item.demo ? `· example: <b>${esc(item.title)}</b> (illustrative values)` : `· replaying <b>${esc(item.title)}</b> from its <code>x-gw-*</code> response headers`;
+          el("gwfSrc").innerHTML = item.demo ? `· example: <b>${esc(item.title)}</b> (illustrative values)`
+            : item.follow ? `· following <b>${esc(item.follow)}</b> · ${esc(item.title)}` : `· replaying <b>${esc(item.title)}</b> from its <code>x-gw-*</code> response headers`;
           item.done = false;
+          if (lensOn() && !flowDocs) {  // first play: wait briefly for the deployed policies; the flow runs without them if they're slow
+            el("gwfNow").innerHTML = `<span class="muted">Reading the deployed policies and named values…</span>`;
+            await Promise.race([loadDocs(), new Promise(res => setTimeout(res, 6000))]);
+            if (g !== gen) return false;
+          }
           try { await play(item.r, g); item.done = true; layer.fx.querySelectorAll(".tok").forEach(t => t.remove()); if (item.trace) renderTrace(item.trace.rows); }
           catch (e) { if (e !== CANCEL) { console.error(e); el("gwfNow").textContent = "Animation failed: " + e.message; } return false; }
           finally { if (g === gen && !looping) setBusy(false); }
@@ -1389,12 +1607,56 @@
         }
         function fromCall(r, i) {
           if (!r || !r.status) return;
+          following = null;  // an explicit replay takes over; follow resumes with the next call
           const h = r.headers || {};
           const tid = h["apim-trace-id"] || null;
-          run({ title: `call #${i + 1} · ${r.agent} · ${r.surface || "model"} · HTTP ${r.status}`, r, traceId: tid, trace: tid && current?.traceId === tid ? current.trace : null });
+          return run({ title: `call #${i + 1} · ${r.agent} · ${r.surface || "model"} · HTTP ${r.status}`, r, traceId: tid, trace: tid && current?.traceId === tid ? current.trace : null });
+        }
+        // Follow mode: replay the page's calls as they land. A replay plays to the end; calls that land meanwhile collapse
+        // into the newest one, so a fast scenario shows its latest decision instead of a growing backlog.
+        let following = null, followBusy = false;
+        const followOn = () => el("gwfFollow")?.checked !== false;
+        async function follow(r, i) {
+          if (!followOn() || !r || !r.status || looping) return;
+          following = { r, i };
+          if (followBusy) return;
+          followBusy = true;
+          try {
+            while (following && followOn()) {
+              const f = following; following = null;
+              const tid = (f.r.headers || {})["apim-trace-id"] || null;
+              const ok = await run({ title: `call #${f.i + 1} · ${f.r.agent} · ${f.r.surface || "model"} · HTTP ${f.r.status}`, r: f.r, traceId: tid,
+                                     follow: f.r.cvLabel || "this session's requests" });
+              if (!ok) break;
+              if (following) await wait(700, gen, true).catch(() => {});
+            }
+          } finally { followBusy = false; }
         }
         // deferred so a fromCall() made in the same tick (opening evidence) wins over the intro example
-        function shown() { setTimeout(() => { if (!played) runDemo("happy"); }, 0); }
+        // ---- the always-visible explainer under the diagram: how a call's $ buckets are found, checked and charged, per gateway mode
+        function budgetPrimer() {
+          const c = C(); if (!c.tiers) return;
+          const tiers = c.tiers.filter(t => !t.internal), groups = c.entraMode?.groups || [], on = !!c.entraMode?.enabled;
+          const tierAmts = tiers.map(t => `<span class="badge ${t.name}">${t.name}</span> ${usd(t.budgetUsd)} per key · ${usd(t.sessionBudgetUsd ?? t.budgetUsd)} per session`).join("<br>");
+          const groupAmts = groups.length ? groups.map(g => `<span class="badge ${g.tier}">${g.tier}</span> ${esc(g.displayName)}: ${usd(g.poolMicroUsd / 1e6)} team · ${usd(g.memberMicroUsd / 1e6)} per member`).join("<br>")
+            : `<span class="muted">not deployed (<code>entraMode.enabled</code>)</span>`;
+          const row = (k, a, b) => `<tr><td>${k}</td><td>${a}</td><td>${b}</td></tr>`;
+          el("gwfBudBody").innerHTML = `<div class="prim"><div class="lead">Every priced call is charged to <b>several $ buckets at once</b>; each bucket is one <code>quota-by-key</code> counter.
+            <ol><li><b>Inbound, before any spend:</b> if any bucket in the call's branch is already full, the gateway answers <b>403</b> and <code>x-gw-blocked-by</code> names the bucket. Nothing reaches a backend.</li>
+            <li><b>Outbound, once the response says what was used:</b> the API policy prices the call and <code>quota-by-key</code> adds that price to <b>every</b> bucket in the branch. A call is only priced after it ran, so the last call can take a bucket slightly over its limit; the next one is refused.</li></ol>
+            Tokens per minute and the token quota (<code>llm-token-limit</code>, 429 / 403) are separate token counters, not $ buckets.</div>
+            <table><thead><tr><th></th><th>API key + Entra ID (default)</th><th>Entra only${on ? "" : " (off)"}</th></tr></thead><tbody>
+            ${row("Credential", "<code>api-key</code> (which plan pays) + an Entra ID token (who calls)", "the Entra ID token only: audience = the gateway app, app role <code>Gateway.Invoke</code>")}
+            ${row("Plan comes from", "the product (Gold, Silver, Bronze) the key is subscribed to", "the caller's security group: the token's <code>groups</code> claim → <code>entra-gateway-groups</code> (best plan wins)")}
+            ${row("$ buckets per call", "<b>subscription key</b> budget + <b>session</b> cap (<code>x-session-id</code>) + <b>end user</b> budget by class (<code>x-gw-end-user</code>, when sent)", "<b>team</b> budget (one per group, shared by every member) + <b>member</b> cap (one per caller)")}
+            ${row("Counter keyed by", "subscription · subscription + session · subscription + end user", "group object id · caller <code>oid</code>")}
+            ${row("Amounts here", tierAmts, groupAmts)}
+            ${row("Billed to (chargeback)", "the subscription, or the caller an A2A agent works for (<code>on-behalf-of</code>)", "the persona; team = its group")}
+            ${row("Price", "models: prompt tokens × input $/1M + completion tokens × output $/1M (<code>model-pricing</code>; cached input and streams have their own rules) · MCP tools: flat per call · A2A: agent fee + its downstream calls · content safety: per check, even when it blocks", "the same model pricing (chat completions only)")}
+            ${row("Reset", "<b>Reset budgets</b> changes <code>budget-epoch</code>, which is part of every counter key, so every bucket starts again at $0", "the same: both counters include <code>budget-epoch</code>")}
+            </tbody></table></div>`;
+        }
+        function shown() { budgetPrimer(); loadDocs(); setTimeout(() => { if (!played) runDemo("happy"); }, 0); }
 
         draw(); resetDiagram(); renderDemos(null);
         el("gwfSrc").innerHTML = "· pick an example, or open the evidence of a call";
@@ -1421,11 +1683,58 @@
         pop.addEventListener("click", (e) => { if (e.target.closest("[data-pat]")) popHide(0); });
         document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !pop.hidden) popHide(0); });
 
-        return { fromCall, trace, pattern, shown, play: runDemo, primer };
+        return { fromCall, follow, trace, pattern, shown, play: runDemo, primer };
       })();
       </script>
       </div>
       <!-- ================= end of gateway flow section ================= -->
+      <details class="card bdetails" id="bDetails" style="margin-top:16px">
+        <summary><h2>$ budget left by tier and subscription <span class="muted" style="font-weight:400;font-size:12px">· also live in the chat's budget meter</span> <span class="info" tabindex="0" data-tip="Each user and agent has its own subscription key on a Gold, Silver or Bronze plan, and the gateway's quota-by-key counts every call's cost against that subscription's $ budget. API Management can't read that counter back, so this sums the chargeback records the gateway writes for each subscription's own calls since the last reset, and adds this page's newer calls until their records land.">i</span></h2></summary>
+          <div id="budgets"></div>
+      </details>
+      <div class="card" style="margin-top:16px"><h2>Budget burn: % of each key's $ budget, call by call <span class="info" tabindex="0" data-tip="Cumulative cost of this page's calls since the last budget reset, as a share of each subscription key's $ budget (the plan sizes it, so Gold and Bronze compare fairly). ✕ marks a call the gateway stopped: red for a $ budget 403, orange for 429, grey for other blocks. The dashed line is the budget.">i</span></h2>
+        <div style="position:relative;height:240px"><canvas id="cBurn"></canvas></div></div>
+      <div class="grid3" style="margin-top:16px">
+        <div class="card"><h2>What the gateway did, by subscription key <span class="info" tabindex="0" data-tip="Every call by the reason it was allowed, changed or stopped, from x-gw-blocked-by and x-gw-governance. Governed = allowed but the plan changed it: model downgraded, output capped, failover or a stream charged at its ceiling.">i</span></h2><canvas id="cOutcomes"></canvas></div>
+        <div class="card"><h2>Who paid for what (USD) <span class="info" tabindex="0" data-tip="Each subscription key's spend from this page, split by what it bought: model tokens, MCP tool calls, A2A agent fees, images and content safety checks. This is the chargeback view.">i</span></h2><canvas id="cCostAgent"></canvas></div>
+        <div class="card"><h2>Latency by backend <span class="info" tabindex="0" data-tip="End-to-end latency of each call measured by app.py, coloured by the backend (x-gw-backend) that answered. Triangles went through failover (x-gw-route a > b); grey calls were stopped at the gateway before any backend.">i</span></h2><canvas id="cLatency"></canvas></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2>Request log <span class="muted" id="logFilter" style="font-weight:400;font-size:12px"></span></h2>
+        <div class="scroll"><table>
+          <thead><tr><th>Time</th><th>Agent / user</th><th>Session</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Signals</th><th>Tokens</th><th>Cost USD</th><th>Billed to</th><th>Backend</th><th>Latency</th><th>Detail</th><th>Evidence</th></tr></thead>
+          <tbody id="log"></tbody>
+        </table></div>
+      </div>
+      <details class="card bdetails runsbox" id="tab-runs" style="margin-top:16px">
+        <summary><h2>Run history <span class="pill" id="runCount">0</span> <span class="muted" style="font-weight:400;font-size:12px">· every scenario, full demo and request you sent: its calls, cost and gateway decisions</span></h2></summary>
+      <div class="runs">
+        <div class="card rlist"><h2>Runs <span class="muted" id="runScope">(this page session, newest first)</span> <button class="secondary hidden" id="btnClearHist" onclick="clearHistory()" title="Delete the run history saved for you" style="float:right;padding:2px 10px;font-size:12px">Clear</button></h2><div id="runList"></div></div>
+        <div id="runDetail"></div>
+      </div>
+      </details>
+    </div>
+
+    <div id="tab-evidence" class="hidden">
+      <div class="psub" role="tablist" aria-label="Evidence and monitoring views" style="grid-template-columns:repeat(3,1fr)">
+        <button class="on" data-psec="investigate" role="tab"><img class="ico" src="/icons/trace.svg" alt=""><span><b>Investigate a request</b><small>log · flow · trace · logs</small></span></button>
+        <button data-psec="telemetry" role="tab"><img class="ico" src="/icons/log-analytics.svg" alt=""><span><b>Logs &amp; telemetry</b><small>where evidence lands · live KQL</small></span></button>
+        <button data-psec="monitor" role="tab"><img class="ico" src="/icons/app-insights.svg" alt=""><span><b>Azure Monitor</b><small>App Insights cost, outcomes, tokens</small></span></button>
+      </div>
+      <div class="psec" data-psec="investigate">
+      <div class="card" id="evLogCard">
+        <div class="evlbar">
+          <h2>Request log <span class="muted" id="evLogCount"></span> <span class="info" tabindex="0" data-tip="Every call from this page session, newest first. Click a request (or use ↑ / ↓) to replay it in the flow below and load its policy trace and Log Analytics rows, without leaving this tab.">i</span></h2>
+          <select id="evRunFilter" aria-label="Show requests from"></select>
+          <label class="evlchk"><input type="checkbox" id="evBlockedOnly"/> Blocked only</label>
+          <button class="secondary" id="evPrev" title="Previous request (↑)">↑ Previous</button>
+          <button class="secondary" id="evNext" title="Next request (↓)">Next ↓</button>
+        </div>
+        <div class="scroll" id="evLogWrap" tabindex="0" aria-label="Request log: use the up and down arrow keys to step through the requests"><table>
+          <thead><tr><th>#</th><th>Time · run</th><th>Agent / user</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Gateway decision</th><th>Backend</th><th>Tokens</th><th>Cost USD</th><th>Latency</th><th>Evidence</th></tr></thead>
+          <tbody id="evLog"></tbody>
+        </table></div>
+      </div>
       <div class="card hidden" id="evPanel">
         <h2>Evidence for one request <span class="muted" id="evTitle"></span>
           <span class="evnav"><span class="muted" id="evPos"></span><button class="secondary" id="evPrev2" title="Previous request in the log">↑ Previous</button><button class="secondary" id="evNext2" title="Next request in the log">Next ↓</button></span></h2>
@@ -1435,19 +1744,6 @@
         </div>
       </div>
       </div><!-- /psec investigate -->
-
-      <div class="psec hidden" data-psec="pipeline">
-      <div class="card">
-        <h2>Request pipeline <span class="info" tabindex="0" data-tip="Policies run in scopes: the product (plan) policy wraps the API policy. A call is rejected by the first policy that fails, before it costs anything. Every response carries x-gw-request-id, the key that finds the same call in the trace and in every Log Analytics table.">i</span>
-          <span class="legend"><span class="out o401">401</span> identity <span class="out o403">403</span> entitlement / $ budget <span class="out o429">429</span> token limit <span class="out dg">↓</span> downgrade</span></h2>
-        <div class="pscopes"><span class="c1">Client</span><span class="c2">Product (plan) scope · inbound</span><span class="c3">API scope · inbound + backend</span><span class="c4">Outbound</span></div>
-        <div class="pipe" id="pipe"></div>
-      </div>
-      <div class="card" style="margin-top:16px">
-        <h2><img class="ico lg" src="/icons/backend-pool.svg" alt=""> Backend pool <span class="muted">priority routing · circuit breakers · managed identity</span></h2>
-        <div id="backendsKv" class="bkpool"><div class="muted">Loading…</div></div>
-      </div>
-      </div><!-- /psec pipeline -->
 
       <div class="psec hidden" data-psec="telemetry">
       <div class="card">
@@ -1465,15 +1761,85 @@
       </div>
       </div><!-- /psec telemetry -->
 
+      <div class="psec hidden" data-psec="monitor" id="tab-monitor">
+      <div class="card">
+        <div class="row" style="align-items:end">
+          <div style="flex:0 0 200px"><label>Time range</label>
+            <select id="timespan"><option value="PT15M">Last 15 minutes</option><option value="PT1H" selected>Last hour</option><option value="PT4H">Last 4 hours</option><option value="P1D">Last 24 hours</option><option value="P7D">Last 7 days</option></select></div>
+          <div style="flex:0 0 auto"><button id="btnRefresh"><img src="/icons/app-insights.svg" alt="" style="width:16px;height:16px;vertical-align:-3px;margin-right:6px">Refresh from App Insights</button></div>
+          <div class="muted" id="monStatus">Telemetry is queried live from Application Insights (expect 1-3 minutes of ingestion delay).</div>
+        </div>
+      </div>
+      <div class="grid3" style="margin-top:16px">
+        <div class="card"><h2><img class="hico" src="/icons/cost-management.svg" alt="">Cost by agent (USD)</h2><canvas id="mCostAgent"></canvas></div>
+        <div class="card"><h2><img class="hico" src="/icons/cost-management.svg" alt="">Cost by surface (USD)</h2><canvas id="mCostModel"></canvas></div>
+        <div class="card"><h2><img class="hico" src="/icons/policy.svg" alt="">Gateway outcomes by agent</h2><canvas id="mOutcomes"></canvas></div>
+      </div>
+      <div class="card" style="margin-top:16px"><h2><img class="hico" src="/icons/metrics.svg" alt="">Cost over time by agent (USD / minute)</h2><canvas id="mCostTime"></canvas></div>
+      <div class="grid2" style="margin-top:16px">
+        <div class="card"><h2><img class="hico" src="/icons/users.svg" alt="">Chargeback: who pays, for what, via which path</h2><div class="scroll" id="mChargeback"></div></div>
+        <div class="card"><h2><img class="hico" src="/icons/foundry-models.svg" alt="">Cost by model, tool and agent</h2><div class="scroll" id="mResources"></div></div>
+      </div>
+      <div class="grid2" style="margin-top:16px">
+        <div class="card"><h2><img class="hico" src="/icons/metrics.svg" alt="">Tokens by agent and model</h2><div class="scroll" id="mTokens"></div></div>
+        <div class="card"><h2><img class="hico" src="/icons/policy.svg" alt="">Governance actions</h2><div class="scroll" id="mGov"></div></div>
+      </div>
+      </div><!-- /psec monitor -->
+    </div>
+
+    <div id="tab-plans" class="hidden">
+      <div class="psub" role="tablist" aria-label="Plans, policies and chargeback views">
+        <button class="on" data-psec="plans" role="tab"><img class="ico" src="/icons/plan.svg" alt=""><span><b>Products &amp; plans</b><small>models, tools, agents, prices</small></span></button>
+        <button data-psec="pipeline" role="tab"><img class="ico" src="/icons/policy.svg" alt=""><span><b>Policy pipeline</b><small>what runs, in what order</small></span></button>
+        <button data-psec="deployed" role="tab"><img class="ico" src="/icons/apim.svg" alt=""><span><b>Deployed policies</b><small>read back from ARM</small></span></button>
+        <button data-psec="chargeback" role="tab"><img class="ico" src="/icons/cost-management.svg" alt=""><span><b>Chargeback</b><small>users, teams &amp; sessions</small></span></button>
+      </div>
+      <div class="psec" data-psec="plans">
+      <div class="card">
+        <h2><img class="hico" src="/icons/plan.svg" alt="">One product per plan: AI models, MCP tools and A2A agents under one contract <span class="info" tabindex="0" data-tip="Each plan is an API Management product that bundles the AI model API, the MCP server and the A2A agent API. A single product policy enforces the plan: which models, tools and agents a subscriber may use, rate and token limits, and one $ budget shared across all three. Agents subscribe to a plan, and the gateway prices every call from the price list below.">i</span></h2>
+        <div class="flow"><span class="node"><img src="/icons/subscriptions.svg" alt=""><span>Subscription<br/><span class="muted">one key per agent or user</span></span></span><span class="arrow">→</span>
+          <span class="node gw"><img src="/icons/plan.svg" alt=""><span>Product = plan<br/><span class="muted">one product policy</span></span></span><span class="arrow">→</span>
+          <span class="node"><img src="/icons/foundry-models.svg" alt=""><span>AI model API<br/><span class="muted">Microsoft Foundry</span></span></span>
+          <span class="node"><img src="/icons/mcp.svg" alt=""><span>MCP server<br/><span class="muted">Commerce Tools</span></span></span>
+          <span class="node"><img src="/icons/a2a.svg" alt=""><span>A2A agent API<br/><span class="muted">Sourcing Agent</span></span></span><span class="arrow">→</span>
+          <span class="node gw"><img src="/icons/cost-budgets.svg" alt=""><span>One $ budget<br/><span class="muted">shared across all three</span></span></span></div>
+        <div class="scroll" style="max-height:none;margin-top:12px" id="plansMatrix"></div>
+      </div>
+      <div class="grid2" style="margin-top:16px">
+        <div class="card"><h2><img class="hico" src="/icons/cost-management.svg" alt="">Price list (set in the gateway) <span class="info" tabindex="0" data-tip="Prices live in API Management named values (model-pricing, tool-pricing, agent-pricing), so FinOps can change them without redeploying any app. Model calls are metered from the token usage Foundry returns, tool calls per MCP tools/call, agent tasks per A2A message/send.">i</span></h2><div id="priceList"></div></div>
+        <div class="card">
+          <h2><img class="hico" src="/icons/a2a.svg" alt="">Agent-to-agent chargeback <span class="info" tabindex="0" data-tip="When an agent calls the Sourcing Agent, the agent's own model and tool calls go back through the gateway with its platform identity. The gateway tags them on behalf of the caller, so the caller pays the per-task fee plus everything the agent consumed.">i</span></h2>
+          <div class="flow tight"><span class="node"><img src="/icons/foundry-agent-service.svg" alt=""><span>Calling agent<br/><span class="muted">e.g. Gold plan</span></span></span><span class="arrow">→</span>
+            <span class="node gw"><img src="/icons/ai-gateway.svg" alt=""><span>AI Gateway<br/><span class="muted">A2A API · fee</span></span></span><span class="arrow">→</span>
+            <span class="node"><img src="/icons/container-apps-env.svg" alt=""><span>Sourcing Agent<br/><span class="muted">Container Apps</span></span></span><span class="arrow">→</span>
+            <span class="node gw"><img src="/icons/foundry-models.svg" alt=""><span>Models + MCP tools<br/><span class="muted">billed to caller</span></span></span></div>
+          <h2 style="margin-top:16px"><img class="hico" src="/icons/apim.svg" alt="">Gateway endpoints</h2>
+          <div class="kv" id="endpoints"></div>
+        </div>
+      </div>
+      </div><!-- /psec plans -->
+
+      <div class="psec hidden" data-psec="pipeline">
+      <div class="card">
+        <h2>Request pipeline <span class="info" tabindex="0" data-tip="Policies run in scopes: the product (plan) policy wraps the API policy. A call is rejected by the first policy that fails, before it costs anything. Every response carries x-gw-request-id, the key that finds the same call in the trace and in every Log Analytics table.">i</span>
+          <span class="legend"><span class="out o401">401</span> identity <span class="out o403">403</span> entitlement / $ budget <span class="out o429">429</span> token limit <span class="out dg">↓</span> downgrade</span></h2>
+        <div class="pscopes"><span class="c1">Client</span><span class="c2">Product (plan) scope · inbound</span><span class="c3">API scope · inbound + backend</span><span class="c4">Outbound</span></div>
+        <div class="pipe" id="pipe"></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2><img class="ico lg" src="/icons/backend-pool.svg" alt=""> Backend pool <span class="muted">priority routing · circuit breakers · managed identity</span></h2>
+        <div id="backendsKv" class="bkpool"><div class="muted">Loading…</div></div>
+      </div>
+      </div><!-- /psec pipeline -->
+
       <div class="psec hidden" data-psec="deployed">
       <div class="card">
         <h2>Deployed policies <span class="muted">read back from Azure Resource Manager</span> <span class="info" tabindex="0" data-tip="In the portal: API Management › APIs › (API) › All operations › Inbound processing › Policy code editor; Products › (plan) › Policies; APIs › Policy fragments; Backends.">i</span></h2>
         <div id="deployedPolicies" class="muted" style="margin-top:8px">Loading…</div>
       </div>
       </div><!-- /psec deployed -->
-    </div>
 
-    <div id="tab-chargeback" class="hidden">
+      <div class="psec hidden" data-psec="chargeback" id="tab-chargeback">
       <div class="card">
         <h2><img class="hico" src="/icons/cost-management.svg" alt="">Chargeback by team, user and session <span class="info" tabindex="0" data-tip="Each demo user has its own subscription key on a plan, so the gateway knows who pays without any extra identity setup. The client sends an x-session-id header (or the gateway falls back to the MCP Mcp-Session-Id or the A2A contextId). The plan meters a $ cap per session, and the chargeback-record policy fragment writes one record per billable call with user, team, cost center, session, surface, item, tokens and cost. When an A2A agent works for a user, its model and tool calls are recorded under the user's session.">i</span></h2>
         <div class="flow"><span class="node"><img src="/icons/users.svg" alt=""><span>Demo user<br/><span class="muted">subscription key + <code>x-session-id</code></span></span></span><span class="arrow">→</span>
@@ -1497,97 +1863,7 @@
         <div class="muted" id="cbStatus" style="margin-top:6px">Live KQL over <code>AppTraces</code> where <code>Properties.record == "chargeback"</code>. Records arrive 1-3 minutes after a call. Click a session to see every call in it.</div>
         <div id="cbMonitor"></div>
       </div>
-    </div>
-
-    <div id="tab-plans" class="hidden">
-      <div class="card">
-        <h2><img class="hico" src="/icons/plan.svg" alt="">One product per plan: AI models, MCP tools and A2A agents under one contract <span class="info" tabindex="0" data-tip="Each plan is an API Management product that bundles the AI model API, the MCP server and the A2A agent API. A single product policy enforces the plan: which models, tools and agents a subscriber may use, rate and token limits, and one $ budget shared across all three. Agents subscribe to a plan, and the gateway prices every call from the price list below.">i</span></h2>
-        <div class="flow"><span class="node"><img src="/icons/subscriptions.svg" alt=""><span>Subscription<br/><span class="muted">one key per agent or user</span></span></span><span class="arrow">→</span>
-          <span class="node gw"><img src="/icons/plan.svg" alt=""><span>Product = plan<br/><span class="muted">one product policy</span></span></span><span class="arrow">→</span>
-          <span class="node"><img src="/icons/foundry-models.svg" alt=""><span>AI model API<br/><span class="muted">Microsoft Foundry</span></span></span>
-          <span class="node"><img src="/icons/mcp.svg" alt=""><span>MCP server<br/><span class="muted">Commerce Tools</span></span></span>
-          <span class="node"><img src="/icons/a2a.svg" alt=""><span>A2A agent API<br/><span class="muted">Sourcing Agent</span></span></span><span class="arrow">→</span>
-          <span class="node gw"><img src="/icons/cost-budgets.svg" alt=""><span>One $ budget<br/><span class="muted">shared across all three</span></span></span></div>
-        <div class="scroll" style="max-height:none;margin-top:12px" id="plansMatrix"></div>
-      </div>
-      <div class="grid2" style="margin-top:16px">
-        <div class="card"><h2><img class="hico" src="/icons/cost-management.svg" alt="">Price list (set in the gateway) <span class="info" tabindex="0" data-tip="Prices live in API Management named values (model-pricing, tool-pricing, agent-pricing), so FinOps can change them without redeploying any app. Model calls are metered from the token usage Foundry returns, tool calls per MCP tools/call, agent tasks per A2A message/send.">i</span></h2><div id="priceList"></div></div>
-        <div class="card">
-          <h2><img class="hico" src="/icons/a2a.svg" alt="">Agent-to-agent chargeback <span class="info" tabindex="0" data-tip="When an agent calls the Sourcing Agent, the agent's own model and tool calls go back through the gateway with its platform identity. The gateway tags them on behalf of the caller, so the caller pays the per-task fee plus everything the agent consumed.">i</span></h2>
-          <div class="flow tight"><span class="node"><img src="/icons/foundry-agent-service.svg" alt=""><span>Calling agent<br/><span class="muted">e.g. Gold plan</span></span></span><span class="arrow">→</span>
-            <span class="node gw"><img src="/icons/ai-gateway.svg" alt=""><span>AI Gateway<br/><span class="muted">A2A API · fee</span></span></span><span class="arrow">→</span>
-            <span class="node"><img src="/icons/container-apps-env.svg" alt=""><span>Sourcing Agent<br/><span class="muted">Container Apps</span></span></span><span class="arrow">→</span>
-            <span class="node gw"><img src="/icons/foundry-models.svg" alt=""><span>Models + MCP tools<br/><span class="muted">billed to caller</span></span></span></div>
-          <h2 style="margin-top:16px"><img class="hico" src="/icons/apim.svg" alt="">Gateway endpoints</h2>
-          <div class="kv" id="endpoints"></div>
-        </div>
-      </div>
-    </div>
-
-    <div id="tab-live">
-      <div class="idlehint">Results show up here. Run a guided scenario, <i>or</i> build your own request and press <b>Send</b>, <i>or</i> just type a message in the conversation.</div>
-      <div class="kpis">
-        <div class="kpi"><div class="l">Requests</div><div class="v" id="kCalls">0</div></div>
-        <div class="kpi ok"><div class="l">Allowed (200)</div><div class="v" id="kOk">0</div></div>
-        <div class="kpi bad"><div class="l">Blocked (401/403/429)</div><div class="v" id="kBlocked">0</div></div>
-        <div class="kpi"><div class="l">Tokens</div><div class="v" id="kTokens">0</div></div>
-        <div class="kpi cost"><div class="l">Cost (USD)</div><div class="v" id="kCost">$0.000000</div></div>
-        <div class="kpi lat" title="End-to-end latency per call as measured by the demo app: app → APIM gateway (policies) → backend and back"><div class="l">Latency p50 · p95</div><div class="v" id="kLat">-</div></div>
-      </div>
-      <div class="grid2">
-        <div class="card">
-          <h2>Gateway signals <span class="info" tabindex="0" data-tip="What the gateway did to this page's calls, one tile per behaviour the scenarios demonstrate. Counts come from the x-gw-* response headers (blocked-by, governance, route, pricing rule, suspension status). Click a tile to filter the request log to those calls.">i</span>
-            <a class="sigclr hidden" id="sigClr" onclick="sigFilter(null)">✕ clear filter</a></h2>
-          <div id="sigs" class="sigs"></div>
-        </div>
-        <div class="card">
-          <h2>Last response</h2>
-          <div id="last" class="muted">Send a request to see what the gateway did.</div>
-        </div>
-      </div>
-      <details class="card bdetails" id="bDetails" style="margin-top:16px">
-        <summary><h2>$ budget left by tier and subscription <span class="muted" style="font-weight:400;font-size:12px">· also live in the chat's budget meter</span> <span class="info" tabindex="0" data-tip="Each user and agent has its own subscription key on a Gold, Silver or Bronze plan, and the gateway's quota-by-key counts every call's cost against that subscription's $ budget. API Management can't read that counter back, so this sums the chargeback records the gateway writes for each subscription's own calls since the last reset, and adds this page's newer calls until their records land.">i</span></h2></summary>
-          <div id="budgets"></div>
-      </details>
-      <div class="card" style="margin-top:16px"><h2>Budget burn: % of each key's $ budget, call by call <span class="info" tabindex="0" data-tip="Cumulative cost of this page's calls since the last budget reset, as a share of each subscription key's $ budget (the plan sizes it, so Gold and Bronze compare fairly). ✕ marks a call the gateway stopped: red for a $ budget 403, orange for 429, grey for other blocks. The dashed line is the budget.">i</span></h2>
-        <div style="position:relative;height:240px"><canvas id="cBurn"></canvas></div></div>
-      <div class="grid3" style="margin-top:16px">
-        <div class="card"><h2>What the gateway did, by subscription key <span class="info" tabindex="0" data-tip="Every call by the reason it was allowed, changed or stopped, from x-gw-blocked-by and x-gw-governance. Governed = allowed but the plan changed it: model downgraded, output capped, failover or a stream charged at its ceiling.">i</span></h2><canvas id="cOutcomes"></canvas></div>
-        <div class="card"><h2>Who paid for what (USD) <span class="info" tabindex="0" data-tip="Each subscription key's spend from this page, split by what it bought: model tokens, MCP tool calls, A2A agent fees, images and content safety checks. This is the chargeback view.">i</span></h2><canvas id="cCostAgent"></canvas></div>
-        <div class="card"><h2>Latency by backend <span class="info" tabindex="0" data-tip="End-to-end latency of each call measured by app.py, coloured by the backend (x-gw-backend) that answered. Triangles went through failover (x-gw-route a > b); grey calls were stopped at the gateway before any backend.">i</span></h2><canvas id="cLatency"></canvas></div>
-      </div>
-      <div class="card" style="margin-top:16px">
-        <h2>Request log <span class="muted" id="logFilter" style="font-weight:400;font-size:12px"></span></h2>
-        <div class="scroll"><table>
-          <thead><tr><th>Time</th><th>Agent / user</th><th>Session</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Signals</th><th>Tokens</th><th>Cost USD</th><th>Billed to</th><th>Backend</th><th>Latency</th><th>Detail</th><th>Evidence</th></tr></thead>
-          <tbody id="log"></tbody>
-        </table></div>
-      </div>
-    </div>
-
-    <div id="tab-monitor" class="hidden">
-      <div class="card">
-        <div class="row" style="align-items:end">
-          <div style="flex:0 0 200px"><label>Time range</label>
-            <select id="timespan"><option value="PT15M">Last 15 minutes</option><option value="PT1H" selected>Last hour</option><option value="PT4H">Last 4 hours</option><option value="P1D">Last 24 hours</option><option value="P7D">Last 7 days</option></select></div>
-          <div style="flex:0 0 auto"><button id="btnRefresh"><img src="/icons/app-insights.svg" alt="" style="width:16px;height:16px;vertical-align:-3px;margin-right:6px">Refresh from App Insights</button></div>
-          <div class="muted" id="monStatus">Telemetry is queried live from Application Insights (expect 1-3 minutes of ingestion delay).</div>
-        </div>
-      </div>
-      <div class="grid3" style="margin-top:16px">
-        <div class="card"><h2><img class="hico" src="/icons/cost-management.svg" alt="">Cost by agent (USD)</h2><canvas id="mCostAgent"></canvas></div>
-        <div class="card"><h2><img class="hico" src="/icons/cost-management.svg" alt="">Cost by surface (USD)</h2><canvas id="mCostModel"></canvas></div>
-        <div class="card"><h2><img class="hico" src="/icons/policy.svg" alt="">Gateway outcomes by agent</h2><canvas id="mOutcomes"></canvas></div>
-      </div>
-      <div class="card" style="margin-top:16px"><h2><img class="hico" src="/icons/metrics.svg" alt="">Cost over time by agent (USD / minute)</h2><canvas id="mCostTime"></canvas></div>
-      <div class="grid2" style="margin-top:16px">
-        <div class="card"><h2><img class="hico" src="/icons/users.svg" alt="">Chargeback: who pays, for what, via which path</h2><div class="scroll" id="mChargeback"></div></div>
-        <div class="card"><h2><img class="hico" src="/icons/foundry-models.svg" alt="">Cost by model, tool and agent</h2><div class="scroll" id="mResources"></div></div>
-      </div>
-      <div class="grid2" style="margin-top:16px">
-        <div class="card"><h2><img class="hico" src="/icons/metrics.svg" alt="">Tokens by agent and model</h2><div class="scroll" id="mTokens"></div></div>
-        <div class="card"><h2><img class="hico" src="/icons/policy.svg" alt="">Governance actions</h2><div class="scroll" id="mGov"></div></div>
-      </div>
+      </div><!-- /psec chargeback -->
     </div>
   </section>
 </main>
@@ -1743,6 +2019,7 @@ async function init() {
   renderPlans();
   renderScenarios();
   initGwMode();
+  window.gwFlow?.shown();  // the flow lives on the Live session tab: intro example now, then it follows the page's calls
 }
 
 function setSurface(s) {
@@ -2144,7 +2421,7 @@ function semDetails(r) {
     + `<li><b>Not the prompt cache:</b> Foundry's prompt cache discounts repeated input tokens but still runs the model. The semantic cache skips the model and reuses a whole answer, so only use it where a similar question deserves the same answer.</li></ol>${cmp}</div>`;
 }
 function cvUser(s, agentName) {
-  const a = byName(agentName), who = a ? `<b>${escapeHtml(a.displayName)}</b> <span class="badge ${a.tier}">${a.tier}</span>` : `<b>${escapeHtml(agentName || "")}</b>`;
+  const a = byName(agentName) || personaOf(agentName), who = a ? `<b>${escapeHtml(a.displayName)}</b>${a.tier ? ` <span class="badge ${a.tier}">${a.tier}</span>` : ""}` : `<b>${escapeHtml(agentName || "")}</b>`;
   let to, body;
   if (s.path === "/api/mcp") {
     to = surfChip("tool");
@@ -2208,7 +2485,7 @@ function cvAnswer(r, idx) {
   if (r.surface === "tool" && r.sent?.args) det += sec("Arguments") + `<pre class="cv-pre">${escapeHtml(JSON.stringify(r.sent.args, null, 2))}</pre>`;
   if (r.steps?.length) det += sec("What the agent did through the gateway") + `<ul class="cv-steps">${r.steps.map(s => `<li><span class="status ${statusClass(s.status)}">${s.status}</span> ${surfChip(s.type)} ${escapeHtml(s.name || "")} · ${fmtUsd((s.costMicroUsd || 0) / 1e6)}${s.billedTo ? ` · billed to ${escapeHtml(s.billedTo)}` : ""}</li>`).join("")}</ul>`;
   if (ci) det += cacheDetails(r, ci);
-  if (sem) det += semDetails(r);
+  if (sem === "hit" || sem === "miss") det += semDetails(r);
   if (idx >= 0) {
     det += sec("What the gateway decided") + `<div class="kv">${callKv(r, idx)}</div>`;
     if ((r.invocations || []).length) det += `<div class="cv-meta"><a class="ev" onclick="openInspector(${idx})">Inspect the HTTP calls ›</a></div>`;
@@ -2254,7 +2531,9 @@ function cvCtx() {
   const to = surface === "tool" ? `MCP tool <b>${escapeHtml($("tool").value)}</b>` : surface === "agent" ? "the <b>Sourcing Agent</b> (A2A)" : `<b>${escapeHtml($("model").value)}</b>`;
   const memo = surface === "model" ? (mem ? ` · the model sees ${turns} earlier turn${turns === 1 ? "" : "s"}` : " · single turn") : surface === "agent" ? " · the agent keeps the session's context" : "";
   cvMeter();
-  $("cvCtx").innerHTML = `As <b>${escapeHtml(a.displayName)}</b> <span class="badge ${a.tier}">${a.tier}</span> → ${to} · session <span class="sess">${escapeHtml(sid || "none")}</span>${memo} · <a onclick="cvChange()">change</a> · <a onclick="cvNewSession()">new session</a>`;
+  const as = gwMode === "entra" ? (selectedPersona ? `<b>${escapeHtml(selectedPersona.displayName)}</b>${selectedPersona.tier ? ` <span class="badge ${selectedPersona.tier}">${selectedPersona.tier}</span>` : ""} <span class="muted">(Entra only, no key)</span>` : "<i>no persona</i>")
+    : `<b>${escapeHtml(a.displayName)}</b> <span class="badge ${a.tier}">${a.tier}</span>`;
+  $("cvCtx").innerHTML = `As ${as} → ${to} · session <span class="sess">${escapeHtml(sid || "none")}</span>${memo} · <a onclick="cvChange()">change</a> · <a onclick="cvNewSession()">new session</a>`;
   $("cvInput").placeholder = surface === "tool" ? `JSON arguments for ${$("tool").value}, e.g. ${$("toolArgs").value || "{}"} (empty: use the builder's)`
     : surface === "agent" ? "Give the Sourcing Agent a task…  (Enter to send, Shift+Enter for a new line)" : "Message the model…  (Enter to send, Shift+Enter for a new line)";
 }
@@ -2280,7 +2559,8 @@ function cvBuckets(a, calls) {
 }
 function cvMeter() {
   const el = $("cvMeter"); if (!cfg) return;
-  const calls = session.calls.filter(r => r && !r.past), last = calls[calls.length - 1];
+  if (gwMode === "entra") return cvMeterEntra(el);
+  const calls = session.calls.filter(r => r && !r.past && !personaOf(r.agent)), last = calls[calls.length - 1];
   const a = (last && byName(last.agent)) || selectedAgent;
   if (!a) { el.classList.add("hidden"); return; }
   const subs = new Set(calls.map(r => r.agent)), total = calls.reduce((x, r) => x + callCost(r), 0);
@@ -2327,6 +2607,60 @@ function cvMeter() {
         <button class="mmin" onclick="cvMeterHide(true)" title="Hide the budget view (click the bar to bring it back)" aria-label="Hide the budget view">✕</button>`}</span></div>
     ${cvMeterMin ? "" : `<div class="mhint muted">One call is charged to every bucket in its branch at once; the first to run out answers 403.
       <span class="mid" title="${escapeHtml(BUCKET_ID_TIP)}">🔑 Demo picks buckets by key + headers · Entra ID-ready</span></div>${body}`}`;
+  el.classList.toggle("min", cvMeterMin);
+  el.classList.remove("hidden");
+  if (calls.length > cvMeterSeen) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
+  cvMeterSeen = calls.length;
+}
+// Entra-only mode: no key and no session/end-user buckets. The token's groups claim picks the group, the group picks the
+// plan, and every call is charged to two buckets at once: the group's TEAM budget (one counter shared by every member)
+// and the caller's own MEMBER cap. Whichever has less left decides when the caller gets 403.
+function cvMeterEntra(el) {
+  const calls = session.calls.filter(r => r && !r.past && personaOf(r.agent)), last = calls[calls.length - 1];
+  const p = (last && personaOf(last.agent)) || selectedPersona;
+  if (!p) { el.classList.add("hidden"); return; }
+  const total = calls.reduce((x, r) => x + callCost(r), 0), who = new Set(calls.map(r => r.agent));
+  const pctTxt = (v) => v > 0 && v < 0.1 ? "<0.1" : v.toFixed(v > 0 && v < 1 ? 1 : 0);
+  const col = (b) => b.exhausted ? "#d13438" : b.pct >= 75 ? "#f7630c" : "#107c10";
+  const tag = (k) => `<span class="bk bk-${k}">${{ team: "team budget", mem: "member cap" }[k]}</span>`;
+  const bar = (b, thin) => { const lg = b.limit ? Math.min(100, 100 * b.logged / b.limit) : 0, pd = b.limit ? Math.min(100 - lg, 100 * b.pending / b.limit) : 0;
+    return `<div class="bar${thin ? " thin" : ""}"><div class="fill" style="width:${lg}%;background:${col(b)}"></div><div class="fill pend" style="width:${pd}%"></div></div>`; };
+  const amt = (b) => `<b class="${b.exhausted ? "bout" : ""}">${b.exhausted ? "spent" : usdShort(b.left) + " left"}</b> of $${+b.limit.toFixed(6)} · ${pctTxt(b.pct)}% used`;
+  const group = (g, focus) => {
+    const gs = entraGroupState(g), n = gs.members.length, caps = gs.members.reduce((x, m) => x + m.b.limit, 0);
+    const fm = focus && gs.members.find(m => m.p.name === focus.name);
+    const binding = fm ? (gs.left <= fm.b.left ? "team" : "mem") : null;
+    const head = `<div class="mrow"><span><span class="badge ${g.tier}">${g.tier}</span> <b>${escapeHtml(g.displayName)}</b> <span class="muted">· group → ${escapeHtml(g.tier)} plan · $${microUsd(g.poolMicroUsd)} team budget shared by ${n} member${n === 1 ? "" : "s"} · $${microUsd(g.memberMicroUsd)} cap each</span></span></div>`;
+    const team = `<div class="mkey mteam"><div class="mrow"><span>${tag("team")} ${ico("entra-id")} <b>${escapeHtml(g.displayName)}</b> <span class="muted">· every member's calls</span>
+        ${gs.blocked ? `<span class="status s403">403</span>` : ""}${binding === "team" ? ` <span class="bfirst">runs out first</span>` : ""}</span><span>${amt(gs)}</span></div>${bar(gs)}
+      ${gs.members.map((m, i) => `<div class="mkid${i === n - 1 ? " end" : ""}${focus && m.p.name === focus.name ? " me" : ""}"><div class="mrow"><span>${tag("mem")} <b>${escapeHtml(m.p.displayName)}</b>
+          ${m.b.blocked ? `<span class="status s403">403</span>` : ""}${binding === "mem" && m.p.name === focus.name ? ` <span class="bfirst">runs out first</span>` : ""}</span><span>${amt(m.b)}</span></div>${bar(m.b, true)}</div>`).join("")}</div>`;
+    const why = caps > gs.limit + 1e-9 ? `<div class="muted mnote">Member caps add up to $${+caps.toFixed(6)}, more than the $${+gs.limit.toFixed(6)} team budget, so the team can run out before any one member reaches their cap.</div>` : "";
+    const room = fm ? Math.min(gs.left, fm.b.left) : 0;
+    const can = !fm ? "" : room > 0 ? `<div class="mrow mcan"><span>${escapeHtml(fm.p.displayName)} can spend <b>${usdShort(room)}</b> more: the smaller of the team's ${usdShort(gs.left)} and their own ${usdShort(fm.b.left)}.</span></div>`
+      : `<div class="mrow mcan"><span class="bout">${escapeHtml(fm.p.displayName)} gets 403 now: ${binding === "team" ? "the team budget is spent, for every member" : "their member cap is spent (teammates can still use the team budget)"}.</span></div>`;
+    return `<div class="mtier">${head}${team}${can}${why}</div>`;
+  };
+  const g = entraGroup(p.group), groups = cfg.entraMode?.groups || [];
+  let body;
+  if (cvMeterOpen) {
+    body = `<div class="mall">${groups.map(x => group(x, x.name === p.group ? p : null)).join("")}
+      <div class="muted mfoot"><b>How a call finds its buckets:</b> no subscription key. <code>validate-azure-ad-token</code> checks the token, its <code>groups</code> claim is matched against <code>entra-gateway-groups</code> to pick the group (and its plan), then <code>quota-by-key id="group-budget"</code> (one counter per group) and <code>id="member-budget"</code> (one counter per <code>oid</code>) are both charged the call's cost. The first to run out answers 403. <b>Reset budgets</b> resets both.</div>
+      <div class="muted mfoot">Spend comes from the chargeback logs (billed to the persona, team = the group) plus this page's newer calls (striped). <a onclick="refreshBudgets(true)">↻ refresh</a></div></div>`;
+  } else {
+    const lastTxt = !last ? "No Entra-only calls yet this session"
+      : last.status === 403 && /quota-by-key/.test(blockedByOf(last)) ? `Last call: ${escapeHtml(personaOf(last.agent).displayName)} · <b>403</b> ${escapeHtml(blockedByOf(last))}: ${blockedByOf(last).includes("group-budget") ? "the team budget ran out" : "their member cap ran out"}`
+      : last.status === 403 && /entra-group/.test(blockedByOf(last)) ? `Last call: ${escapeHtml(personaOf(last.agent).displayName)} · <b>403</b> ${escapeHtml(blockedByOf(last))}: no gateway group, so no budget applies`
+      : `Last call: ${escapeHtml(personaOf(last.agent).displayName)} · ${callCost(last) ? `−${fmtUsd(callCost(last))} from the team budget <b>and</b> from their member cap` : "no charge"} · ${last.status}`;
+    body = (g ? group(g, p) : `<div class="mtier"><div class="mrow"><span><b>${escapeHtml(p.displayName)}</b> <span class="muted">· in no gateway group: every call is refused with 403 <code>entra-group</code> before any budget is touched</span></span></div></div>`)
+      + `<div class="mrow"><span class="delta">${lastTxt}</span><span class="muted">${budgetLive.loading ? `<span class="bspin"></span> syncing logs` : calls.some(r => entraMemberState(personaOf(r.agent)).pending) ? "striped = not in the logs yet" : ""}</span></div>`;
+  }
+  const chain = g ? `🎫 token → <code>groups</code> → ${escapeHtml(g.displayName)} → <span class="badge ${g.tier}">${g.tier}</span> plan → team + member buckets` : "🎫 token → no gateway group → 403";
+  el.innerHTML = `<div class="mrow mhead"><span><b>This session · Entra only</b> <span class="muted">· ${calls.length} call${calls.length === 1 ? "" : "s"} · ${who.size} persona${who.size === 1 ? "" : "s"} · no keys · −${fmtUsd(total)}</span></span>
+      <span>${cvMeterMin ? `<span class="mtog">▸ show budgets</span>` : `<span class="mtog">${cvMeterOpen ? "▾ show the caller's group only" : "▸ all groups"}</span>
+        <button class="mmin" onclick="cvMeterHide(true)" title="Hide the budget view (click the bar to bring it back)" aria-label="Hide the budget view">✕</button>`}</span></div>
+    ${cvMeterMin ? "" : `<div class="mhint muted">One call is charged to the team budget <b>and</b> the caller's member cap at once; whichever runs out first answers 403.
+      <span class="mid" title="The plan and both budgets come from the caller's Entra security group (the token's groups claim), not from a subscription key. Moving someone to another plan or budget is a group membership change.">${chain}</span></div>${body}`}`;
   el.classList.toggle("min", cvMeterMin);
   el.classList.remove("hidden");
   if (calls.length > cvMeterSeen) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
@@ -2482,7 +2816,8 @@ function callKv(r, idx) {
   if (r.surface === "model") kv += `<div>Tokens (prompt / completion)</div><div>${h["x-gw-prompt-tokens"] || "-"} / ${h["x-gw-completion-tokens"] || "-"}</div>
       <div>Remaining TPM</div><div>${h["x-gw-remaining-tpm"] ?? "-"}</div><div>Remaining token quota</div><div>${h["x-gw-remaining-quota-tokens"] ?? "-"}</div>`;
   if (h["x-gw-pricing-rule"]) kv += `<div>Pricing rule</div><div>${escapeHtml(h["x-gw-pricing-rule"])}${Number(h["x-gw-cached-tokens"]) ? ` · ${h["x-gw-cached-tokens"]} cached tokens saved ${fmtUsd(h["x-gw-cached-savings-usd"])}` : ""}</div>`;
-  if (h["x-gw-semantic-cache"]) kv += `<div>Semantic cache</div><div>${h["x-gw-semantic-cache"] === "hit"
+  if (h["x-gw-semantic-cache"] === "bypass") kv += `<div>Semantic cache</div><div>bypass: not eligible (multi-turn, stream, Responses API or a plan without the cache), the model answered and nothing was stored</div>`;
+  else if (h["x-gw-semantic-cache"]) kv += `<div>Semantic cache</div><div>${h["x-gw-semantic-cache"] === "hit"
     ? `<b>hit</b>: answered from Azure Managed Redis · saved ${fmtUsd(h["x-gw-cache-saved-usd"])} (${h["x-gw-cache-saved-tokens"] || "-"} tokens)`
     : `${escapeHtml(h["x-gw-semantic-cache"])}: the model answered, the answer was stored`} · lookup ${fmtUsd(h["x-gw-cache-lookup-usd"])}</div>
     <div>Cache scope / partition</div><div><code>${escapeHtml(h["x-gw-cache-scope"] || "-")}</code> · <code>${escapeHtml(h["x-gw-cache-partition"] || "-")}</code></div>`;
@@ -2531,7 +2866,7 @@ function callView(r, idx) {
     <td>${tok}</td><td>${cost ? cost.toFixed(6) : "-"}</td><td>${billed}</td>
     <td title="${escapeHtml(h["x-gw-route"] || "")}">${escapeHtml(h["x-gw-backend"] || "-")}${(h["x-gw-route"] || "").includes(" > ") ? " ⤳" : ""}</td>
     <td>${r.latencyMs ?? "-"} ms</td><td title="${escapeHtml(detail)}">${escapeHtml(detail.slice(0, 60))}</td>
-    <td>${h["x-gw-request-id"] ? `<a class="ev" onclick="showEvidence(${idx})">${h["apim-trace-id"] ? "trace + logs" : "logs"}</a>` : "-"}${(r.invocations || []).length ? ` · <a class="ev" title="The HTTP calls app.py made for this result (secrets masked)" onclick="openInspector(${idx})">inspect</a>` : ""}</td></tr>`;
+    <td><a class="ev" title="Replay this call in the gateway flow" onclick="flowCall(${idx})">flow</a>${h["x-gw-request-id"] ? ` · <a class="ev" onclick="showEvidence(${idx})">${h["apim-trace-id"] ? "trace + logs" : "logs"}</a>` : ""}${(r.invocations || []).length ? ` · <a class="ev" title="The HTTP calls app.py made for this result (secrets masked)" onclick="openInspector(${idx})">inspect</a>` : ""}</td></tr>`;
   return { last, row };
 }
 
@@ -2678,8 +3013,9 @@ function record(r) {
   $("kLat").innerHTML = latKpi(latStats(live));
 
   const v = callView(r, idx); $("last").innerHTML = v.last; $("log").insertAdjacentHTML("afterbegin", v.row);
+  window.gwFlow?.follow(r, idx);
   renderSignals(); sigApply();
-  if (curTab === "runs") renderRuns();
+  if (curTab === "live") renderRuns();
   renderEvLog();
 
   const agents = [...new Set(Object.keys(session.costByAgentSurface).map(k => k.split("|")[0]))];
@@ -2696,23 +3032,46 @@ function record(r) {
 const budgetLive = { data: null, err: null, at: 0, resetAt: 0, timer: null, loading: false };
 const budgetDrawn = (r) => callCost(r);
 const isBudgetBlock = (r) => r.status === 403 && /quota-by-key(?! \(session)/.test((r.headers || {})["x-gw-blocked-by"] || "");
-function budgetState(a) {
-  const t = tierOf(a), d = budgetLive.data, u = d?.users?.find(x => x.name === a.name);
-  const limit = u?.limitMicroUsd != null ? u.limitMicroUsd / 1e6 : Number(t.budgetUsd || 0);
-  const since = Math.max(d?.since || 0, budgetLive.resetAt), seen = new Set(u?.recentRequestIds || []);
+function spendOf(name, u) {  // spend of one chargeback user: its records in the logs + this page's newer calls
+  const d = budgetLive.data, since = Math.max(d?.since || 0, budgetLive.resetAt), seen = new Set(u?.recentRequestIds || []);
   let pending = 0, pendingCalls = 0, last = null;
   for (const r of session.calls) {
-    if (r.past || r.agent !== a.name || (r.at || 0) < since) continue;
+    if (r.past || r.agent !== name || (r.at || 0) < since) continue;
     last = r;
     const draw = budgetDrawn(r), id = (r.headers || {})["x-gw-request-id"];
     // not in the logs yet: newer than the last read, or its record hasn't been ingested (the set covers the last 30 min)
     if (draw && (!d || (!seen.has(id) && r.at > Date.now() - 25 * 60000))) { pending += draw; pendingCalls++; }
   }
-  const logged = u && d.since >= budgetLive.resetAt ? u.spentMicroUsd / 1e6 : 0, spent = logged + pending;
-  const blocked = !!last && isBudgetBlock(last), left = Math.max(0, limit - spent);
-  return { limit, logged, pending, pendingCalls, spent, left, blocked, exhausted: blocked || (limit > 0 && spent >= limit),
-           pct: limit ? Math.min(100, 100 * spent / limit) : 0, calls: (u?.calls || 0) + pendingCalls,
-           tokensLeft: last && (last.headers || {})["x-gw-remaining-quota-tokens"] };
+  const logged = u && d.since >= budgetLive.resetAt ? u.spentMicroUsd / 1e6 : 0;
+  return { logged, pending, pendingCalls, last };
+}
+function bucketOf(limit, s, blocked) {
+  // a bucket that already refused a call has nothing left, whatever the (slightly lagging) chargeback sum says
+  const spent = s.logged + s.pending, left = blocked ? 0 : Math.max(0, limit - spent);
+  return { limit, logged: s.logged, pending: s.pending, pendingCalls: s.pendingCalls, spent, left, blocked, last: s.last,
+           exhausted: blocked || (limit > 0 && spent >= limit), pct: limit ? Math.min(100, 100 * spent / limit) : 0 };
+}
+function budgetState(a) {
+  const t = tierOf(a), u = budgetLive.data?.users?.find(x => x.name === a.name && !x.entra);
+  const limit = u?.limitMicroUsd != null ? u.limitMicroUsd / 1e6 : Number(t.budgetUsd || 0), s = spendOf(a.name, u);
+  return { ...bucketOf(limit, s, !!s.last && isBudgetBlock(s.last)), calls: (u?.calls || 0) + s.pendingCalls,
+           tokensLeft: s.last && (s.last.headers || {})["x-gw-remaining-quota-tokens"] };
+}
+// Entra-only mode: each call draws on two quota-by-key counters at once, the caller's member cap (keyed by oid) and the
+// group's shared team budget (keyed by the group). The page knows the personas, so it sums the team from its members.
+const blockedByOf = (r) => (r?.headers || {})["x-gw-blocked-by"] || "";
+const personaOf = (name) => (cfg?.entraMode?.personas || []).find(p => p.name === name);
+function entraMemberState(p) {
+  const g = entraGroup(p.group), u = budgetLive.data?.users?.find(x => x.entra && x.name === p.name), s = spendOf(p.name, u);
+  return bucketOf(g ? Number(g.memberMicroUsd) / 1e6 : 0, s, !!s.last && s.last.status === 403 && blockedByOf(s.last) === "quota-by-key (member-budget)");
+}
+function entraGroupState(g) {
+  const members = (cfg.entraMode?.personas || []).filter(p => p.group === g.name).map(p => ({ p, b: entraMemberState(p) }));
+  const s = { logged: 0, pending: 0, pendingCalls: 0, last: null };
+  for (const { b } of members) { s.logged += b.logged; s.pending += b.pending; s.pendingCalls += b.pendingCalls; if (b.last && (!s.last || b.last.at > s.last.at)) s.last = b.last; }
+  // the team counter is shared: once one member's call is refused by group-budget, every member is
+  const blocked = !!s.last && s.last.status === 403 && blockedByOf(s.last) === "quota-by-key (group-budget)";
+  return { ...bucketOf(Number(g.poolMicroUsd) / 1e6, s, blocked), members };
 }
 const usdShort = (v) => "$" + (v >= 1 ? v.toFixed(2) : v >= 0.01 ? v.toFixed(3) : v > 0 ? v.toFixed(4) : "0");
 const budgetColor = (b) => b.exhausted ? "#d13438" : b.pct >= 75 ? "#f7630c" : "#107c10";
@@ -2728,7 +3087,7 @@ async function refreshBudgets(fresh = false) {
   } catch (e) { budgetLive.err = String(e); }
   budgetLive.loading = false; budgetLive.at = Date.now(); renderBudgets();
   // calls not in the logs yet: check again shortly instead of waiting for the 60 s poll
-  if (budgetLive.data && cfg.agents.some(a => budgetState(a).pendingCalls)) queueBudgetRefresh(20000);
+  if (budgetLive.data && (cfg.agents.some(a => budgetState(a).pendingCalls) || (cfg.entraMode?.personas || []).some(p => entraMemberState(p).pendingCalls))) queueBudgetRefresh(20000);
 }
 // after calls, re-read the logs once their records have landed (at most every 25 s while a scenario keeps calling)
 function queueBudgetRefresh(ms = 25000) { if (!budgetLive.timer) budgetLive.timer = setTimeout(() => refreshBudgets(), ms); }
@@ -2761,6 +3120,13 @@ function renderBudgets() {
           <div class="bar"><div class="fill" style="width:${b.limit ? Math.min(100, 100 * b.logged / b.limit) : 0}%;background:${budgetColor(b)}"></div><div class="fill pend" style="width:${b.limit ? Math.min(100 - Math.min(100, 100 * b.logged / b.limit), 100 * b.pending / b.limit) : 0}%"></div></div></div>`; }).join("")
       + `</div>`;
   }).join("")
+    + (cfg.entraMode?.enabled ? `<div class="btier"><div class="bth"><span><b>Entra only</b> <span class="muted">· no keys: the caller's security group picks the plan; each call draws on the team budget and the member's cap at once</span></span></div>`
+      + (cfg.entraMode.groups || []).map(g => { const gs = entraGroupState(g);
+        const row = (label, b, sub) => `<div class="budget${sub ? " bsub" : ""}"><div class="lbl"><span>${label}${b.blocked ? ` <span class="status s403">403</span>` : ""}</span>
+          <span><b class="${b.exhausted ? "bout" : ""}">${fmtUsd(b.left)}</b> left of $${+b.limit.toFixed(6)} · ${b.pct > 0 && b.pct < 0.1 ? "<0.1" : b.pct.toFixed(b.pct > 0 && b.pct < 1 ? 1 : 0)}% used</span></div>
+          <div class="bar"><div class="fill" style="width:${b.limit ? Math.min(100, 100 * b.logged / b.limit) : 0}%;background:${budgetColor(b)}"></div><div class="fill pend" style="width:${b.limit ? Math.min(100 - Math.min(100, 100 * b.logged / b.limit), 100 * b.pending / b.limit) : 0}%"></div></div></div>`;
+        return row(`${ico("entra-id")} <span class="badge ${g.tier}">${g.tier}</span> <b>${escapeHtml(g.displayName)}</b> <span class="muted">team budget, shared by ${gs.members.length}</span>`, gs)
+          + gs.members.map(m => row(`↳ ${escapeHtml(m.p.displayName)} <span class="muted">member cap</span>`, m.b, true)).join(""); }).join("") + `</div>` : "")
     + `<div class="muted bfoot">${status} · <a onclick="refreshBudgets(true)">↻ refresh</a>${d?.portalLink ? ` · <a href="${d.portalLink}" target="_blank" rel="noopener">query</a>` : ""}<br>`
     + `Spend is summed from the gateway's chargeback records for each subscription's own calls (they land about 20 s after a call). This page's newer calls are added right away (striped). When a subscription's $ budget is spent the gateway answers <b>403</b> until the budget period renews or budgets are reset.</div>`;
   if (selectedAgent) cvCtx(); else cvMeter();
@@ -2934,7 +3300,7 @@ function showRequestCard(run) {
       dg.arrow(q.surface === "mixed" ? "models + tools" : SURFACES[q.surface] || q.surface), dg.gw(sid ? escapeHtml(sid) : "no session"), dg.arrow(), dg.node(escapeHtml(q.target), "", "model"))}</div>`;
     $("scFlow").querySelectorAll(".dr").forEach(row => [...row.children].forEach((c, k) => c.style.setProperty("--i", k)));
   } catch (e) { $("scFlow").innerHTML = ""; }
-  if (curTab !== "runs") showTab("live");
+  if (curTab !== "live") showTab("live");
 }
 function requestTakeaway(run) {
   const sid = run.req.sessionId.trim(), s = runStats(run);
@@ -2995,6 +3361,14 @@ async function clearHistory() {
   selRun = null; $("btnClearHist").classList.add("hidden"); renderRuns(); toast("Saved run history cleared.");
 }
 function openRun(n) { selRun = n; selCall = null; showTab("runs"); $("tab-runs").scrollIntoView({ block: "start" }); scrollBy(0, -80); }
+// Replays one recorded call in the gateway flow on the Live session tab
+function flowCall(i) {
+  const r = session.calls[i]; if (!r) return;
+  showTab("live"); window.gwFlow?.fromCall(r, i);
+  if (r.headers?.["apim-trace-id"]) loadTrace(r.headers["apim-trace-id"]).catch(() => {});  // adds the APIM trace summary under the flow
+  $("gwFlow").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+$("tab-runs").addEventListener("toggle", () => { if ($("tab-runs").open) renderRuns(); });
 const fmtDur = (ms) => { const s = Math.round(ms / 1000); return s < 60 ? `${s} s` : `${Math.floor(s / 60)} m ${String(s % 60).padStart(2, "0")} s`; };
 const isBlocked = (r) => [401, 403, 429].includes(r.status);
 // Latency is end to end per call, as measured by app.py (app → APIM policies → backend → back), so it includes the gateway's overhead
@@ -3026,7 +3400,7 @@ function runStats(run) {
 function renderRuns() {
   $("runCount").textContent = runs.length;
   renderEvLog();
-  if (curTab !== "runs") return;
+  if (curTab !== "live" || !$("tab-runs").open) return;
   if (!runs.length) {
     $("runList").innerHTML = `<div class="muted" style="padding:8px">No runs yet.</div>`;
     $("runDetail").innerHTML = `<div class="card runempty">Every guided scenario, full demo or custom request you send becomes a run here.<br>Pick one at the top, then come back to analyze it: what ran, every call, what it cost and what the gateway decided.</div>`;
@@ -3170,15 +3544,19 @@ $("btnReset").onclick = async () => {
   if (confirm("Reset every agent's $ budget and token quota?")) await resetBudgets(true);
 };
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
+// Three tabs. The earlier tab names still work (scenarios, the copilot and deep links use them) and map to a tab + section.
+const TAB_OF = { live: ["live"], runs: ["live"], evidence: ["evidence"], policies: ["evidence", "investigate"], monitor: ["evidence", "monitor"],
+                 plans: ["plans", "plans"], chargeback: ["plans", "chargeback"] };
+const PSEC_TAB = { investigate: "evidence", telemetry: "evidence", monitor: "evidence", plans: "plans", pipeline: "plans", deployed: "plans", chargeback: "plans" };
+window.topTabOf = (name) => (TAB_OF[name] || [PSEC_TAB[name] || "live"])[0];
 function showTab(tab) {
-  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("active", x.dataset.tab === tab));
-  curTab = tab;
-  for (const t of ["live", "runs", "chargeback", "plans", "policies", "monitor"]) $("tab-" + t).classList.toggle("hidden", tab !== t);
-  if (tab === "runs") renderRuns();
-  if (tab === "chargeback" && !cbLoaded) { cbLoaded = true; loadChargeback(); }
-  if (tab === "monitor" && !charts._loaded) { charts._loaded = true; refreshMonitor(); }
-  if (tab === "policies" && !policiesLoaded) { policiesLoaded = true; loadPolicies(); loadPolicyEvidence(); }
-  if (tab === "policies") { renderEvLog(); window.gwFlow?.shown(); }
+  const [top, sec] = TAB_OF[tab] || ["live"];
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("active", x.dataset.tab === top));
+  curTab = top;
+  for (const t of ["live", "evidence", "plans"]) $("tab-" + t).classList.toggle("hidden", top !== t);
+  if (top === "live") { window.gwFlow?.shown(); if (tab === "runs") { $("tab-runs").open = true; renderRuns(); } }
+  if ((top === "evidence" || top === "plans") && !policiesLoaded) { policiesLoaded = true; loadPolicies(); loadPolicyEvidence(); }
+  if (sec) showPsec(sec); else showPsec(document.querySelector(`#tab-${top} .psub button.on`)?.dataset.psec || "");
 }
 
 // ---------- Policies & evidence: deployed policies (ARM), request traces (APIM tracing) and Log Analytics evidence ----------
@@ -3191,13 +3569,18 @@ function cbText(rules) {
     return `trips after ${f.count ?? f.percentage + "%"} × ${codes || "error"} within ${f.interval}, opens for ${c.tripDuration}${c.acceptRetryAfter ? " (honours Retry-After)" : ""}`;
   }).join("; ");
 }
-// Sub-views of the Policies & evidence tab
+// Sections of the Evidence and Plans tabs: each tab keeps its own selected section
 let psec = "investigate";
 function showPsec(name) {
+  const top = PSEC_TAB[name]; if (!top) return;
+  if (curTab !== top) showTab(top);
   psec = name;
-  document.querySelectorAll(".psub button").forEach(b => { b.classList.toggle("on", b.dataset.psec === name); b.setAttribute("aria-selected", b.dataset.psec === name); });
-  document.querySelectorAll("div.psec").forEach(x => x.classList.toggle("hidden", x.dataset.psec !== name));
-  if (name === "investigate") window.gwFlow?.shown();
+  const root = $("tab-" + top);
+  root.querySelectorAll(".psub button").forEach(b => { b.classList.toggle("on", b.dataset.psec === name); b.setAttribute("aria-selected", b.dataset.psec === name); });
+  root.querySelectorAll("div.psec").forEach(x => x.classList.toggle("hidden", x.dataset.psec !== name));
+  if (name === "investigate") renderEvLog();
+  if (name === "chargeback" && !cbLoaded) { cbLoaded = true; loadChargeback(); }
+  if (name === "monitor" && !charts._loaded) { charts._loaded = true; refreshMonitor(); }
 }
 document.querySelectorAll(".psub button").forEach(b => b.onclick = () => showPsec(b.dataset.psec));
 const pill = (o) => `<span class="out ${o === "dg" ? "dg" : "o" + o}">${o === "dg" ? "↓ downgrade" : o}</span>`;
@@ -3359,7 +3742,7 @@ function evLogRow(r, i) {
     <td>${h["apim-trace-id"] ? "trace + logs" : h["x-gw-request-id"] ? "logs" : "-"}${(r.invocations || []).length ? ` · <a class="ev" title="The HTTP calls app.py made for this result (secrets masked)" onclick="openInspector(${i})">inspect</a>` : ""}</td></tr>`;
 }
 function renderEvLog() {
-  if (curTab !== "policies") return;
+  if (curTab !== "evidence") return;
   const sel = $("evRunFilter");
   if (evFilterRun !== "all" && !runs.some(r => String(r.n) === evFilterRun)) evFilterRun = "all";
   sel.innerHTML = `<option value="all">All runs</option>` + runs.slice().reverse().map(r => `<option value="${r.n}">Run #${r.n} · ${escapeHtml(r.title)}</option>`).join("");
@@ -3403,11 +3786,11 @@ async function showEvidence(i, attempt = 0, opts = {}) {
   if (!attempt) {
     if (!evLogIdxs().includes(i)) { evFilterRun = "all"; evBlockedOnly = false; } // opened from another tab: make sure the call is visible in the log
     showTab("policies"); showPsec("investigate"); $("evPanel").classList.remove("hidden");
-    $("evTitle").textContent = `· #${i + 1} · ${r.agent} · ${r.surface} · HTTP ${r.status}`;
+    $("evTitle").innerHTML = `· #${i + 1} · ${escapeHtml(r.agent)} · ${escapeHtml(r.surface)} · HTTP ${r.status} · <a class="ev" onclick="flowCall(${i})" title="Replay this call in the gateway flow on the Live session tab">▶ replay in the flow</a>`;
     $("evTrace").innerHTML = h["apim-trace-id"] ? `<div class="muted">Fetching the trace…</div>`
       : `<div class="muted">This call was not traced. Tick <b>Trace policies</b> before sending to record a policy-by-policy trace.</div>`;
     $("evLogs").innerHTML = `<div class="muted">Querying Log Analytics for request <code>${escapeHtml(h["x-gw-request-id"] || "-")}</code>…</div>`;
-    window.gwFlow?.fromCall(r, i); if (opts.scroll !== false) $("evLogCard").scrollIntoView({ behavior: "smooth" });
+    if (opts.scroll !== false) $("evLogCard").scrollIntoView({ behavior: "smooth" });
     if (h["apim-trace-id"]) { const done = busy($("evTrace").parentElement, "Fetching the policy trace…", "APIM request tracing");
       loadTrace(h["apim-trace-id"]).then(html => { if (run === evRun) $("evTrace").innerHTML = html; }).finally(done); }
   }
@@ -4115,6 +4498,7 @@ const SCENARIOS = [
         if (rows.filter(x => x.r).length === 1) {  // the first call tells whether the cache is deployed and cold
           if (r.status !== 200) { takeaway(`The first call returned <b>${r.status}</b> (${escapeHtml(r.error || hdr(r, "x-gw-blocked-by") || "see the request card")}), so nothing was cached. Run the scenario again.`); return; }
           if (!sem(r)) { takeaway("The gateway returned no <code>x-gw-semantic-cache</code> header, so the semantic cache policies aren't deployed on it (or Gold isn't in <code>semanticCache.tiers</code>). Redeploy with <code>semanticCache.enabled</code> set to <code>true</code>."); return; }
+          if (sem(r) === "bypass") { takeaway("The semantic cache is deployed, but the gateway <b>bypassed</b> the lookup for this single-turn Gold call (<code>x-gw-semantic-cache: bypass</code>): its eligibility check didn't match. Tick <b>Trace policies</b>, send one Gold call and look at the <code>semanticCacheEligible</code> step, or redeploy the current <code>semantic-cache-lookup-policy.xml</code>."); return; }
           if (sem(r) === "hit") { takeaway("The very first question was already a <b>hit</b>: this cache partition still holds an answer from an earlier run (the budget reset was skipped because nothing had been spent). Click <b>Reset budgets</b> and run the scenario again for a cold start."); return; }
           if (!hdr(r, "x-gw-cache-partition")) { takeaway("The gateway returned no <code>x-gw-cache-partition</code> header: it runs an older semantic cache policy without cache scopes. Redeploy, then run the scenario again."); return; }
         }
@@ -4252,8 +4636,10 @@ function entraModel(p) {  // the most expensive model the persona's plan allows,
   return [...(cfg?.models || [])].filter(m => allowed.includes(m.name)).sort((x, y) => y.outputPrice - x.outputPrice)[0]?.name || allowed[0];
 }
 const microUsd = (v) => v === undefined ? "?" : +(Number(v) / 1e6).toFixed(6);
-// Semantic cache scenario: one FAQ question, the same question in other words, and an unrelated question
-const SEM_Q = ["How do I return an item that arrived damaged?", "My order arrived damaged. How do I return it?", "What time does the store open on Sundays?"];
+// Semantic cache scenario: one FAQ question, the same question in other words, and an unrelated question. Measured with
+// text-embedding-3-small: the paraphrase is ~0.05 from the question (well inside scoreThreshold 0.15), the unrelated one ~0.9.
+// "My order arrived damaged. How do I return it?" (~0.14 on raw text) missed on the live gateway: too close to the threshold.
+const SEM_Q = ["How do I return an item that arrived damaged?", "How do I send back an item that arrived damaged?", "What time does the store open on Sundays?"];
 const semCfg = () => { const sc = cfg.semanticCache || {};
   return { threshold: sc.scoreThreshold ?? 0.15, ttl: sc.ttlSeconds ?? 600, tiers: sc.tiers || [], sku: cfg.semanticCacheResource?.redisSku || sc.redisSku || "Balanced_B0",
            embeddings: sc.embeddingsModel?.name || "text-embedding-3-small", price: sc.embeddingPricePer1MTokensUsd ?? 0.02,
@@ -4288,7 +4674,7 @@ async function runScenario(s) {
   $("endUser").value = "";                     // scenarios name their end users explicitly
   $("cacheScope").value = "";                  // ...and their cache scopes
   if (curRun) { snapPart(curPart); curPart = { si: SCENARIOS.indexOf(s), title: s.title, calls: [] }; curRun.parts.push(curPart); }
-  if (!s.tab && curTab !== "runs") showTab("live");
+  if (!s.tab && curTab !== "live") showTab("live");
   try { await s.run(); } catch (e) { info("Scenario failed: " + escapeHtml(e.message)); }
   finally { $("sessionId").value = buildSession; $("endUser").value = buildEndUser; $("cacheScope").value = buildScope; cvCtx(); }
   snapPart(curPart);

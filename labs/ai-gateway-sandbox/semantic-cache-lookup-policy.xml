@@ -31,8 +31,10 @@
             return requested != "" && (",{semantic-cache-allowed-scopes},").Contains("," + requested + ",") ? requested : "{semantic-cache-default-scope}";
         }" />
         <set-header name="x-gw-cache-scope" exists-action="delete" />
+        <!-- OriginalUrl, not Url: llm-content-safety (blocked-before-spend, in the plan policy) rewrites context.Request.Url
+             to the Content Safety endpoint before this runs -->
         <set-variable name="semanticCacheEligible" value="@{
-            if (context.Request.Method != "POST" || !context.Request.Url.Path.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase)) { return false; }
+            if (context.Request.Method != "POST" || !context.Request.OriginalUrl.Path.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase)) { return false; }
             if (context.Variables.GetValueOrDefault<bool>("streamRequested", false)) { return false; }
             if (!(",{semantic-cache-tiers},").Contains("," + (context.Product?.Id ?? "") + ",")) { return false; }
             var messages = context.Request.Body?.As<JObject>(preserveContent: true)?["messages"] as JArray;

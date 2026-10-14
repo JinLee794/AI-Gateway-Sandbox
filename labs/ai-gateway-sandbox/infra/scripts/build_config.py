@@ -73,6 +73,7 @@ lab_parameters["semanticCacheConfig"] = {
     "redisSku": semantic_cache.get("redisSku", "Balanced_B0"),
     "embeddingsModel": semantic_cache["embeddingsModel"],
     "embeddingPrice": f"{float(semantic_cache.get('embeddingPricePer1MTokensUsd', 0.02)):.4f}",
+    **({"location": semantic_cache["redisLocation"]} if semantic_cache.get("redisLocation") else {}),
 } if semantic_cache.get("enabled") else {"enabled": False}
 
 # Entra-only mode: plans and $ budgets from Entra security groups (micro-USD, like the tier budgets)

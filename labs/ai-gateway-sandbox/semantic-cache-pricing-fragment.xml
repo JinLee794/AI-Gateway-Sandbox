@@ -12,6 +12,8 @@
         - Both: x-gw-semantic-cache (hit | miss), x-gw-cache-scope (session | user | plan), x-gw-cache-partition (who can
           reuse this answer: "<scope>:<subscription>[/<end user>][/<session>]/sys:<instructions hash>"),
           x-gw-cache-lookup-usd and one SemanticCacheLookups metric per lookup (by Result and Scope).
+        - Bypass: the semantic cache is deployed (semanticCacheScope is set) but this request wasn't eligible (multi-turn,
+          stream, Responses API, or a plan outside the semantic cache tiers): x-gw-semantic-cache: bypass, no charge.
 
         The $ budgets, the chargeback record and the CostMicroUSD metric all use the adjusted costMicroUsd.
     -->
@@ -72,6 +74,11 @@
             </set-header>
             <set-header name="x-gw-cache-lookup-usd" exists-action="override">
                 <value>@(((int)context.Variables["semanticCacheLookupMicroUsd"] / 1000000.0).ToString("0.000000"))</value>
+            </set-header>
+        </when>
+        <when condition="@(context.Variables.ContainsKey("semanticCacheScope"))">
+            <set-header name="x-gw-semantic-cache" exists-action="override">
+                <value>bypass</value>
             </set-header>
         </when>
     </choose>

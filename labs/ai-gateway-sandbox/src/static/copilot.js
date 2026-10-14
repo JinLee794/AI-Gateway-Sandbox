@@ -70,13 +70,13 @@
   }
 
   // ---------- What the copilot can see: the user's view, session and the calls this page sent ----------
-  const TAB_NAMES = { live: "Live session", runs: "Run history", chargeback: "Chargeback: users & sessions", plans: "Products & plans",
-    policies: "Policies & evidence", monitor: "Azure Monitor (App Insights)" };
-  const PSEC_NAMES = { investigate: "Investigate a request", pipeline: "Policy pipeline", telemetry: "Logs & telemetry", deployed: "Deployed policies" };
+  const TAB_NAMES = { live: "Live session", evidence: "Evidence & monitoring", plans: "Plans, policies & chargeback" };
+  const PSEC_NAMES = { investigate: "Investigate a request", telemetry: "Logs & telemetry", monitor: "Azure Monitor", plans: "Products & plans",
+    pipeline: "Policy pipeline", deployed: "Deployed policies", chargeback: "Chargeback" };
   function viewLabel() {
     const tab = typeof curTab !== "undefined" ? curTab : "live", sub = typeof psec !== "undefined" ? psec : "";
     let s = TAB_NAMES[tab] || tab;
-    if (tab === "policies") {
+    if (tab !== "live" && sub) {
       s += ` › ${PSEC_NAMES[sub] || sub}`;
       if (sub === "investigate" && typeof evIndex !== "undefined" && evIndex >= 0 && !byId("evPanel")?.classList.contains("hidden")) s += ` (evidence of call #${evIndex + 1} open)`;
     }
@@ -218,17 +218,20 @@
   }
 
   // ---------- UI actions streamed by the agent ----------
-  const VIEW_NAMES = { scenarios: "Guided scenarios", builder: "Request builder", conversation: "Conversation", live: "Live session", runs: "Run history",
-    chargeback: "Chargeback", plans: "Products & plans", "policies.investigate": "Policies › Investigate", "policies.pipeline": "Policies › Pipeline",
-    "policies.telemetry": "Policies › Logs & telemetry", "policies.deployed": "Policies › Deployed", monitor: "Azure Monitor" };
+  const VIEW_NAMES = { scenarios: "Guided scenarios", builder: "Request builder", conversation: "Conversation", live: "Live session", runs: "Live session › Run history",
+    chargeback: "Plans › Chargeback", plans: "Plans › Products & plans", "policies.investigate": "Evidence › Investigate", "policies.pipeline": "Plans › Policy pipeline",
+    "policies.telemetry": "Evidence › Logs & telemetry", "policies.deployed": "Plans › Deployed policies", monitor: "Evidence › Azure Monitor" };
   function flash(el) { if (!el) return; el.classList.remove("cop-flash"); void el.offsetWidth; el.classList.add("cop-flash"); setTimeout(() => el.classList.remove("cop-flash"), 1500); }
   function goView(view) {
     if (!view) return null;
     if (view === "scenarios" || view === "builder") { page("setMode")(view === "builder" ? "build" : "guided"); page("collapseLaunch")(false); return byId("launch"); }
     if (view === "conversation") return byId("cvCard");
+    // view names predate the three tabs; showTab / showPsec map them (runs -> Live, chargeback -> Plans, monitor -> Evidence, ...)
     const [tab, sub] = view.split(".");
     page("showTab")(tab); if (sub) page("showPsec")(sub);
-    flash(q(`.tabs button[data-tab="${tab}"]`)); if (sub) flash(q(`.psub button[data-psec="${sub}"]`));
+    if (tab === "runs" && byId("tab-runs")) byId("tab-runs").open = true;
+    const top = typeof window.topTabOf === "function" ? window.topTabOf(sub || tab) : tab;
+    flash(q(`.tabs button[data-tab="${top}"]`)); if (sub) flash(q(`.psub button[data-psec="${sub}"]`));
     return sub ? q(`div.psec[data-psec="${sub}"]`) : byId("tab-" + tab);
   }
   // Highlight targets: name -> [view, finder]. The names are listed in app.py's COPILOT_PROMPT; keep both in sync.
@@ -248,7 +251,7 @@
     "chargeback-flow": ["chargeback", () => q("#tab-chargeback > .card")], "chargeback-ledger": ["chargeback", () => cardOf(byId("cbLedger"))],
     "chargeback-monitor": ["chargeback", () => cardOf(byId("cbMonitor"))],
     "plans-matrix": ["plans", () => cardOf(byId("plansMatrix"))], "price-list": ["plans", () => cardOf(byId("priceList"))], endpoints: ["plans", () => cardOf(byId("endpoints"))],
-    "request-log": ["policies.investigate", () => byId("evLogCard")], "flow-diagram": ["policies.investigate", () => byId("gwFlow")],
+    "request-log": ["policies.investigate", () => byId("evLogCard")], "flow-diagram": ["live", () => byId("gwFlow")],
     "evidence-panel": ["policies.investigate", () => { const p = byId("evPanel"); return p && !p.classList.contains("hidden") ? p : byId("evLogCard"); }],
     pipeline: ["policies.pipeline", () => cardOf(byId("pipe"))], "backend-pool": ["policies.pipeline", () => cardOf(byId("backendsKv"))],
     "evidence-sinks": ["policies.telemetry", () => cardOf(byId("sinks"))], "policy-evidence": ["policies.telemetry", () => byId("policyEvidenceCard")],
@@ -278,7 +281,7 @@
       case "scenario": return { view: "scenarios", find: () => q(`.scenarios button[data-i="${(parseInt(arg, 10) || 0) - 1}"]`) };
       case "caller": return { view: "builder", find: () => all(".agent[data-agent]").find((e) => e.dataset.agent === arg) };
       case "plan": return { view: "plans", find: () => planColumn(arg)?.th, rect: () => planColumn(arg)?.rect(), prep: () => planColumn(arg)?.tint() };
-      case "flow": return { view: "policies.investigate", find: () => q(`#gwfSvg g[data-node="${CSS.escape(arg)}"]`) };
+      case "flow": return { view: "live", find: () => q(`#gwfSvg g[data-node="${CSS.escape(arg)}"]`) };
       case "stage": return { view: "policies.pipeline", find: () => (STAGES[arg] ? q(`#pipe .stage:nth-child(${STAGES[arg]})`) : null) };
       case "sink": return { view: "policies.telemetry", find: () => all("#sinks .sink").find((e) => (e.querySelector(".t")?.firstChild?.textContent || "").trim().toLowerCase().startsWith(arg.toLowerCase())) };
       case "deployed": return { view: "policies.deployed", fallback: "deployed-policies",
@@ -335,8 +338,10 @@
     }
   }
   function openCall(n) {
-    if (!pageCalls()[n - 1] || typeof window.showEvidence !== "function") return false;
-    window.showEvidence(n - 1); return true;
+    const r = pageCalls()[n - 1];
+    if (!r || typeof window.showEvidence !== "function") return false;
+    window.showEvidence(n - 1); window.gwFlow?.fromCall(r, n - 1);  // trace + logs on Evidence; the replay waits on Live session
+    return true;
   }
   async function act(a, b) {
     if (a.type === "navigate") {
@@ -353,10 +358,10 @@
       addChip(b, `Evidence of #${a.call}`, () => openCall(a.call), !ok);
       await sleep(900);
     } else if (a.type === "play_flow") {
-      goView("policies.investigate"); await sleep(60);
+      goView("live"); await sleep(60);
       byId("gwFlow")?.scrollIntoView({ behavior: smooth(), block: "center" });
       window.gwFlow?.play(a.example);
-      addChip(b, `▶ Flow: ${a.example}`, () => { goView("policies.investigate"); byId("gwFlow")?.scrollIntoView({ behavior: smooth(), block: "center" }); window.gwFlow?.play(a.example); });
+      addChip(b, `▶ Flow: ${a.example}`, () => { goView("live"); byId("gwFlow")?.scrollIntoView({ behavior: smooth(), block: "center" }); window.gwFlow?.play(a.example); });
       await sleep(600);
     } else if (a.type === "policy_flow") {
       renderFlow(b, a);

@@ -22,6 +22,8 @@ $lookupCost = Get-Block $lookup 'semanticCacheLookupMicroUsd'
 $scope = Get-Block $lookup 'semanticCacheScope'
 $partition = Get-Block $lookup 'semanticCachePartition'
 $result = Get-Inline $pricing 'semanticCacheResult'
+$bypass = [regex]::Match($pricing, '<when condition="@\((context\.Variables\.ContainsKey\("semanticCacheScope"\))\)">\s*<set-header name="x-gw-semantic-cache" exists-action="override">\s*<value>bypass</value>').Groups[1].Value
+if (!$bypass) { throw 'bypass branch not found in semantic-cache-pricing-fragment.xml' }
 $hitCost = Get-Inline $pricing 'costMicroUsd'
 $missCost = [regex]::Matches($pricing, '<set-variable name="costMicroUsd" value="@\((.*?)\)" />')[1].Groups[1].Value
 $attempts = [regex]::Match($policy, '<when condition="@\((context\.Variables\.ContainsKey\("attemptBackend"\)[^"]*?"semanticCacheEligible", false\))\)">').Groups[1].Value
@@ -39,7 +41,7 @@ public class Url { public string Path = "/inference/openai/v1/chat/completions";
 public class Headers : Dictionary<string, string> {
     public string GetValueOrDefault(string name, string fallback) { return ContainsKey(name) ? this[name] : fallback; }
 }
-public class Request { public string Method = "POST"; public Url Url = new Url(); public Body Body = new Body(); public Headers Headers = new Headers(); }
+public class Request { public string Method = "POST"; public Url Url = new Url(); public Url OriginalUrl = new Url(); public Body Body = new Body(); public Headers Headers = new Headers(); }
 public class Product { public string Id; }
 public class Subscription { public string Id = "user-alice"; }
 public class Ctx { public Vars Variables = new Vars(); public Request Request = new Request(); public Product Product = new Product { Id = "gold" }; public Subscription Subscription = new Subscription(); }
@@ -52,6 +54,7 @@ public static class SemanticCachePolicyTests {
     static int HitCost(Ctx context) { return $hitCost; }
     static int MissCost(Ctx context) { return $missCost; }
     static bool EmitAttempts(Ctx context) { return $attempts; }
+    static bool Bypass(Ctx context) { return $bypass; }
     static void Assert(bool condition, string message) { if (!condition) throw new Exception(message); }
     static Ctx Call(string messages) {
         var c = new Ctx();
@@ -69,7 +72,9 @@ public static class SemanticCachePolicyTests {
         var c = Call(one); c.Product.Id = "bronze"; Assert(!Eligible(c), "Plan not in tiers must bypass the cache");
         c = Call(one); c.Product = null; Assert(!Eligible(c), "No product must bypass the cache");
         c = Call(one); c.Variables["streamRequested"] = true; Assert(!Eligible(c), "Streams must bypass the cache");
-        c = Call(one); c.Request.Url.Path = "/inference/openai/v1/responses"; Assert(!Eligible(c), "Responses API must bypass the cache");
+        c = Call(one); c.Request.OriginalUrl.Path = "/inference/openai/v1/responses"; Assert(!Eligible(c), "Responses API must bypass the cache");
+        // Regression: llm-content-safety rewrites context.Request.Url to the Content Safety endpoint before the lookup runs
+        c = Call(one); c.Request.Url.Path = "/contentsafety/text:shieldPrompt"; Assert(Eligible(c), "Eligibility must use the frontend URL, not the rewritten backend URL");
         c = Call(one); c.Request.Method = "GET"; Assert(!Eligible(c), "GET must bypass the cache");
         c = new Ctx(); c.Request.Body.Text = "{\"input\":\"hi\"}"; Assert(!Eligible(c), "Body without messages must bypass the cache");
 
@@ -93,6 +98,9 @@ public static class SemanticCachePolicyTests {
         Assert(EmitAttempts(new Ctx()), "Behavior without the semantic cache is unchanged");
 
         // Cache scope: picked per request, anything unknown falls back to the default
+        var deployed = new Ctx(); deployed.Variables["semanticCacheScope"] = "session";
+        Assert(Bypass(deployed), "Deployed but not eligible must report bypass");
+        Assert(!Bypass(new Ctx()), "Without the semantic cache policy there is no bypass header");
         c = Call(one); Assert(Scope(c) == "session", "No header must use the default scope");
         c.Request.Headers["x-gw-cache-scope"] = " User "; Assert(Scope(c) == "user", "Header is trimmed and case-insensitive");
         c.Request.Headers["x-gw-cache-scope"] = "plan"; Assert(Scope(c) == "plan", "plan scope is allowed");
