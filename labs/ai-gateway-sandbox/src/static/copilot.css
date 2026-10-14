@@ -1,0 +1,131 @@
+/* Sandbox Copilot: floating assistant button, pop-out chat, page spotlights and the policy flow visual (see copilot.js) */
+:root { --cop:#5c2e91; --cop-2:#8764b8; --cop-bg:#f7f3fc; --cop-line:#d9cbee; }
+.cop-fab { position:fixed; right:20px; bottom:20px; z-index:160; display:inline-flex; align-items:center; justify-content:center; gap:0; height:52px; min-width:52px; padding:0 15px;
+  border:0; border-radius:26px; color:#fff; font-weight:600; font-size:14px; cursor:pointer; white-space:nowrap;
+  background:linear-gradient(135deg, #0f6cbd 0%, var(--cop-2) 60%, #c239b3 100%);
+  box-shadow:0 6.4px 14.4px rgba(0,0,0,.18), 0 1.2px 3.6px rgba(0,0,0,.14); transition:transform .15s, box-shadow .15s, gap .2s; animation:copHello 1.2s ease-out 1s 2; }
+.cop-fab:hover:not(:disabled), .cop-fab:focus-visible { transform:translateY(-2px); background:linear-gradient(135deg, #0f6cbd 0%, var(--cop-2) 60%, #c239b3 100%); border:0; gap:8px;
+  box-shadow:0 12px 24px rgba(0,0,0,.22), 0 2px 6px rgba(0,0,0,.16); }
+.cop-fab svg { width:22px; height:22px; fill:#fff; flex:0 0 22px; }
+.cop-fab span { max-width:0; overflow:hidden; transition:max-width .25s ease; }
+.cop-fab:hover span, .cop-fab:focus-visible span { max-width:120px; }
+@keyframes copHello { 0% { box-shadow:0 0 0 0 rgba(135,100,184,.55), 0 6.4px 14.4px rgba(0,0,0,.18); } 100% { box-shadow:0 0 0 16px rgba(135,100,184,0), 0 6.4px 14.4px rgba(0,0,0,.18); } }
+.cop-fab[hidden], .cop-panel[hidden] { display:none; }
+body.has-copilot .toast { bottom:84px; }
+/* the conversation's message box sits at the bottom-right of the screen: keep its Send button clear of the floating button */
+body.has-copilot #cvCard .cv-compose, body.has-copilot #cvCard .cv-ctx { margin-right:60px; }
+
+.cop-panel { position:fixed; right:16px; top:52px; bottom:16px; width:min(430px, calc(100vw - 32px)); z-index:170; display:flex; flex-direction:column;
+  background:#fff; border-radius:10px; overflow:hidden; border:1px solid var(--border);
+  box-shadow:0 25.6px 57.6px rgba(0,0,0,.22), 0 4.8px 14.4px rgba(0,0,0,.18); transform-origin:bottom right; animation:copIn .18s ease-out; }
+.cop-panel.cop-left { right:auto; left:16px; transform-origin:bottom left; animation:copIn .18s ease-out; }
+@keyframes copIn { from { opacity:0; transform:translateY(12px) scale(.97); } }
+/* wide screens: the page makes room for the open chat instead of hiding behind it */
+@media (min-width:1500px) { body.cop-open main, body.cop-open .pagehead { margin-right:462px; } }
+.cop-head { display:flex; align-items:center; gap:10px; padding:10px 10px 10px 14px; color:#fff;
+  background:linear-gradient(120deg, #0f6cbd 0%, var(--cop-2) 75%, #a33cb0 100%); }
+.cop-logo { width:30px; height:30px; border-radius:8px; background:rgba(255,255,255,.18); display:grid; place-items:center; flex:0 0 30px; }
+.cop-logo svg { width:20px; height:20px; fill:#fff; }
+.cop-ttl { flex:1; min-width:0; } .cop-ttl b { display:block; font-size:15px; } .cop-ttl small { font-size:11.5px; opacity:.9; }
+.cop-ib { width:30px; height:30px; padding:0; border-radius:6px; background:transparent; border:0; color:#fff; font-size:15px; font-weight:400; }
+.cop-ib:hover:not(:disabled) { background:rgba(255,255,255,.2); border:0; }
+.cop-body { flex:1; min-height:0; overflow:auto; padding:14px 14px 6px; display:flex; flex-direction:column; gap:12px; background:#faf9f8; }
+.cop-intro { text-align:center; padding:14px 10px 4px; color:var(--text); font-size:13px; }
+.cop-intro .cop-hi { width:46px; height:46px; margin:0 auto 8px; border-radius:14px; display:grid; place-items:center;
+  background:linear-gradient(135deg, #0f6cbd, var(--cop-2) 60%, #c239b3); }
+.cop-intro .cop-hi svg { width:28px; height:28px; fill:#fff; }
+.cop-intro p { color:var(--muted); margin:6px 0 0; line-height:1.45; }
+.cop-sugs { display:flex; flex-direction:column; gap:6px; }
+.cop-sug { height:auto; min-height:32px; padding:6px 12px; text-align:left; font-weight:400; font-size:13px; color:var(--text); background:#fff;
+  border:1px solid var(--cop-line); border-radius:16px; }
+.cop-sug:hover:not(:disabled) { background:var(--cop-bg); border-color:var(--cop-2); color:var(--cop); }
+.cop-msg { max-width:100%; font-size:13px; line-height:1.5; }
+.cop-msg.user { align-self:flex-end; max-width:86%; padding:7px 12px; background:var(--accent-light); border:1px solid #c7e0f4; border-radius:12px 12px 2px 12px; white-space:pre-wrap; word-break:break-word; }
+.cop-msg.bot { align-self:stretch; padding:10px 12px; background:#fff; border:1px solid var(--border); border-radius:12px 12px 12px 2px; }
+.cop-txt p { margin:0 0 6px; } .cop-txt p:last-child { margin-bottom:0; }
+.cop-txt ul, .cop-txt ol { margin:4px 0 6px; padding-left:20px; } .cop-txt li { margin:2px 0; }
+.cop-txt code { font:12px Consolas, monospace; background:#f3f2f1; border-radius:3px; padding:0 4px; }
+.cop-txt pre { font:12px Consolas, monospace; background:#f3f2f1; border-radius:4px; padding:8px; overflow:auto; white-space:pre; margin:4px 0 8px; }
+.cop-txt .cop-h { font-weight:600; margin:8px 0 2px; }
+.cop-txt a.cop-call { font-weight:600; cursor:pointer; background:var(--cop-bg); border-radius:8px; padding:0 5px; color:var(--cop); }
+.cop-err { color:var(--bad); background:var(--bad-bg); border-radius:6px; padding:6px 10px; }
+.cop-err small { display:block; color:var(--text); margin-top:4px; }
+
+/* how the answer was found: model calls through the gateway + read-only lookups */
+.cop-how { margin:0 0 8px; font-size:12px; }
+.cop-how > summary { cursor:pointer; list-style:none; color:var(--muted); display:flex; align-items:center; gap:6px; }
+.cop-how > summary::-webkit-details-marker { display:none; }
+.cop-how > summary::before { content:"▸"; font-size:10px; } .cop-how[open] > summary::before { content:"▾"; }
+.cop-how ol { list-style:none; margin:6px 0 0; padding:0 0 0 22px; }
+.cop-how li { position:relative; padding:2px 0; color:var(--text); }
+/* the connector: one segment per step, centred on the dots, from the first dot to the last */
+.cop-how li::before { content:""; position:absolute; left:-15px; top:0; bottom:0; width:2px; background:var(--cop-line); }
+.cop-how li:first-child::before { top:12px; }
+.cop-how li:last-child::before { bottom:auto; height:12px; }
+.cop-how li:only-child::before { display:none; }
+.cop-how li small { color:var(--muted); margin-left:4px; } .cop-how li a { margin-left:6px; font-size:11px; }
+.cop-how li .st { position:absolute; z-index:1; left:-20px; top:6px; width:12px; height:12px; border-radius:50%; background:#fff; border:2px solid var(--cop-2); }
+.cop-how li.run .st { border-color:var(--cop-line); border-top-color:var(--cop-2); animation:copSpin .8s linear infinite; }
+.cop-how li.ok .st { background:var(--cop-2); } .cop-how li.bad .st { background:#d13438; border-color:#d13438; }
+.cop-how li.gw { color:var(--muted); } .cop-how li.gw .st { border-radius:3px; border-color:#0f6cbd; } .cop-how li.gw.ok .st { background:#0f6cbd; }
+@keyframes copSpin { to { transform:rotate(360deg); } }
+.cop-think { display:inline-flex; align-items:center; gap:6px; color:var(--muted); font-size:12px; }
+.cop-dots { display:inline-flex; gap:3px; } .cop-dots i { width:5px; height:5px; border-radius:50%; background:var(--cop-2); animation:copDot 1s ease-in-out infinite; }
+.cop-dots i:nth-child(2) { animation-delay:.15s; } .cop-dots i:nth-child(3) { animation-delay:.3s; }
+@keyframes copDot { 0%, 100% { opacity:.25; transform:translateY(0); } 50% { opacity:1; transform:translateY(-2px); } }
+
+/* what the copilot showed on the page: click to show it again */
+.cop-shown { display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin-top:8px; padding-top:8px; border-top:1px dashed var(--divider); }
+.cop-shown[hidden] { display:none; }
+.cop-shown .l { font-size:11px; color:var(--muted); }
+.cop-chip { height:24px; padding:0 9px; font-size:11.5px; font-weight:600; border-radius:12px; color:var(--cop); background:var(--cop-bg); border:1px solid var(--cop-line); }
+.cop-chip:hover:not(:disabled) { background:#efe6fa; border-color:var(--cop-2); color:var(--cop); }
+.cop-chip.off { color:var(--muted); background:#f3f2f1; border-color:var(--border); text-decoration:line-through; }
+.cop-chip.clr { color:var(--muted); background:transparent; border-color:transparent; font-weight:400; }
+
+/* a policy (or a call) as a step-by-step flow */
+.cop-flow { margin-top:10px; border:1px solid var(--cop-line); border-radius:8px; background:linear-gradient(180deg, var(--cop-bg), #fff 60px); padding:10px 12px; }
+.cop-flow-h { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:6px; }
+.cop-flow-h b { font-size:13px; } .cop-scope { font-size:11px; padding:0 8px; border-radius:10px; background:#fff; border:1px solid var(--cop-line); color:var(--cop); }
+.cop-flow ol { list-style:none; margin:0; padding:0; }
+/* the connector: one segment per row, centred on the numbered circles, from the first circle to the last */
+.cop-flow ol > li { position:relative; }
+.cop-flow ol > li::before { content:""; position:absolute; left:11px; top:0; bottom:0; width:2px; background:var(--cop-line); }
+.cop-flow .cop-sec:first-child::before { display:none; }
+.cop-flow .cop-sec:first-child + .cop-step::before { top:16px; }
+.cop-flow .cop-step:last-child::before { bottom:auto; height:16px; }
+.cop-flow .cop-sec:first-child + .cop-step:last-child::before { display:none; }
+.cop-flow .cop-sec { padding:8px 0 3px 30px; font-size:10px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:#0f6cbd; }
+.cop-flow .cop-sec:first-child { padding-top:0; }
+.cop-flow .cop-sec.backend { color:#00666d; } .cop-flow .cop-sec.outbound { color:var(--cop); } .cop-flow .cop-sec.on-error { color:#a4262c; }
+.cop-step { position:relative; display:flex; gap:8px; align-items:flex-start; padding:4px 6px 4px 0; border-radius:6px; cursor:pointer; outline:none; }
+.cop-step:hover, .cop-step:focus-visible { background:rgba(135,100,184,.08); }
+.cop-step .cop-num { position:relative; z-index:1; flex:0 0 24px; height:24px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:700;
+  background:#fff; border:2px solid #0f6cbd; color:#0f6cbd; }
+.cop-step.backend .cop-num { border-color:#00b7c3; color:#00666d; } .cop-step.outbound .cop-num { border-color:var(--cop-2); color:var(--cop); }
+.cop-step.on-error .cop-num { border-color:#d13438; color:#a4262c; }
+.cop-step code { font:600 12px Consolas, monospace; color:var(--text); }
+.cop-step small { display:block; color:var(--muted); font-size:12px; line-height:1.4; }
+.cop-out { display:inline-block; margin-left:6px; font-size:10.5px; font-weight:700; padding:0 6px; border-radius:8px; background:#edebe9; color:#484644; vertical-align:1px; }
+.cop-out.bad { background:var(--bad-bg); color:var(--bad); } .cop-out.warn { background:var(--warn-bg); color:var(--warn); } .cop-out.ok { background:var(--ok-bg); color:var(--ok); }
+
+.cop-ctx { padding:6px 14px; font-size:11.5px; color:var(--muted); border-top:1px solid var(--divider); background:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cop-ctx code { font-size:11px; color:#005a9e; }
+.cop-compose { display:flex; gap:8px; align-items:flex-end; padding:8px 12px 6px; background:#fff; margin:0; }
+.cop-compose textarea { flex:1; min-height:38px; max-height:140px; resize:none; border-radius:8px; font-size:13px; line-height:1.4; padding:8px 10px; }
+.cop-compose button { flex:0 0 auto; height:38px; min-width:44px; padding:0 12px; border-radius:8px; background:var(--cop-2); border-color:var(--cop-2); }
+.cop-compose button:hover:not(:disabled) { background:var(--cop); border-color:var(--cop); }
+.cop-compose button.stop { background:#fff; color:var(--bad); border-color:#d13438; }
+.cop-foot { padding:0 14px 8px; font-size:10.5px; color:var(--muted); background:#fff; }
+
+/* spotlight on the page: outline + numbered caption, never blocks clicks */
+.cop-spot { position:fixed; z-index:140; pointer-events:none; border:2px solid var(--cop-2); border-radius:8px;
+  box-shadow:0 0 0 4px rgba(135,100,184,.22), 0 0 26px rgba(135,100,184,.45); animation:copPulse 1.6s ease-in-out infinite; }
+@keyframes copPulse { 50% { box-shadow:0 0 0 8px rgba(135,100,184,.10), 0 0 34px rgba(135,100,184,.55); } }
+.cop-cap { position:fixed; z-index:141; pointer-events:none; max-width:300px; padding:5px 10px; border-radius:6px; font-size:12px; line-height:1.4;
+  color:#fff; background:var(--cop); box-shadow:0 6.4px 14.4px rgba(0,0,0,.2); }
+.cop-cap b { margin-right:4px; }
+.cop-col { background:rgba(135,100,184,.09) !important; }
+.cop-flash { animation:copFlash 1.4s ease-out 1; border-radius:4px; }
+@keyframes copFlash { 0%, 40% { background:rgba(135,100,184,.22); } 100% { background:transparent; } }
+@media (prefers-reduced-motion: reduce) { .cop-fab, .cop-spot, .cop-panel, .cop-dots i, .cop-flash { animation:none; } .cop-how li.run .st { animation:none; } }

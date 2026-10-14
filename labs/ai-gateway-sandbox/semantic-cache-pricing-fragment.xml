@@ -1,0 +1,78 @@
+<fragment>
+    <!--
+        AI Gateway Sandbox - "semantic-cache-pricing" policy fragment (included by policy.xml after the token price and
+        the responses-pricing fragment, only for a 200 JSON response). A no-op unless the semantic cache lookup ran
+        (semanticCacheEligible, set by semantic-cache-lookup-policy.xml).
+
+        - Hit or miss: the backend section sets attemptBackend; on a cache hit the backend is skipped, so it is unset.
+        - Hit: the body is the cached answer with the ORIGINAL usage block. Its token price becomes the saving
+          (x-gw-cache-saved-usd, SemanticCacheSavedMicroUSD metric), and the call is charged only the embedding lookup
+          (semanticCacheLookupMicroUsd). Tokens are reported as 0 (none were processed), pricingRule = semantic-cache-hit.
+        - Miss: the model's answer is priced as usual plus the embedding lookup, and stored by llm-semantic-cache-store.
+        - Both: x-gw-semantic-cache (hit | miss), x-gw-cache-scope (session | user | plan), x-gw-cache-partition (who can
+          reuse this answer: "<scope>:<subscription>[/<end user>][/<session>]/sys:<instructions hash>"),
+          x-gw-cache-lookup-usd and one SemanticCacheLookups metric per lookup (by Result and Scope).
+
+        The $ budgets, the chargeback record and the CostMicroUSD metric all use the adjusted costMicroUsd.
+    -->
+    <choose>
+        <when condition="@(context.Variables.GetValueOrDefault<bool>("semanticCacheEligible", false))">
+            <set-variable name="semanticCacheResult" value="@(context.Variables.ContainsKey("attemptBackend") ? "miss" : "hit")" />
+            <set-variable name="semanticCacheLookupMicroUsd" value="@(context.Variables.GetValueOrDefault<int>("semanticCacheLookupMicroUsd", 1))" />
+            <choose>
+                <when condition="@((string)context.Variables["semanticCacheResult"] == "hit")">
+                    <set-variable name="semanticCacheSavedMicroUsd" value="@(context.Variables.GetValueOrDefault<int>("costMicroUsd", 0))" />
+                    <set-variable name="semanticCacheSavedTokens" value="@(context.Variables.GetValueOrDefault<int>("promptTokens", 0) + context.Variables.GetValueOrDefault<int>("completionTokens", 0))" />
+                    <set-variable name="promptTokens" value="@(0)" />
+                    <set-variable name="completionTokens" value="@(0)" />
+                    <set-variable name="cachedTokens" value="@(0)" />
+                    <set-variable name="cachedSavingsMicroUsd" value="@(0)" />
+                    <set-variable name="costMicroUsd" value="@((int)context.Variables["semanticCacheLookupMicroUsd"])" />
+                    <set-variable name="pricingRule" value="semantic-cache-hit" />
+                    <emit-metric name="SemanticCacheSavedMicroUSD" value="@((double)(int)context.Variables["semanticCacheSavedMicroUsd"])" namespace="ai-gateway-sandbox">
+                        <dimension name="Agent" value="@(context.Variables.GetValueOrDefault<string>("payer", context.Subscription?.Id ?? "anonymous"))" />
+                        <dimension name="Tier" value="@(context.Variables.GetValueOrDefault<string>("payerTier", context.Product?.Id ?? "none"))" />
+                        <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("servedModel", "unknown"))" />
+                    </emit-metric>
+                    <set-header name="x-gw-cached-tokens" exists-action="override">
+                        <value>0</value>
+                    </set-header>
+                    <set-header name="x-gw-cached-savings-usd" exists-action="override">
+                        <value>0.000000</value>
+                    </set-header>
+                    <set-header name="x-gw-pricing-rule" exists-action="override">
+                        <value>semantic-cache-hit</value>
+                    </set-header>
+                    <set-header name="x-gw-cache-saved-usd" exists-action="override">
+                        <value>@(((int)context.Variables["semanticCacheSavedMicroUsd"] / 1000000.0).ToString("0.000000"))</value>
+                    </set-header>
+                    <set-header name="x-gw-cache-saved-tokens" exists-action="override">
+                        <value>@(((int)context.Variables["semanticCacheSavedTokens"]).ToString())</value>
+                    </set-header>
+                </when>
+                <otherwise>
+                    <set-variable name="costMicroUsd" value="@(context.Variables.GetValueOrDefault<int>("costMicroUsd", 0) + (int)context.Variables["semanticCacheLookupMicroUsd"])" />
+                </otherwise>
+            </choose>
+            <emit-metric name="SemanticCacheLookups" value="1" namespace="ai-gateway-sandbox">
+                <dimension name="Agent" value="@(context.Variables.GetValueOrDefault<string>("payer", context.Subscription?.Id ?? "anonymous"))" />
+                <dimension name="Tier" value="@(context.Variables.GetValueOrDefault<string>("payerTier", context.Product?.Id ?? "none"))" />
+                <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("servedModel", "unknown"))" />
+                <dimension name="Result" value="@((string)context.Variables["semanticCacheResult"])" />
+                <dimension name="Scope" value="@(context.Variables.GetValueOrDefault<string>("semanticCacheScope", "none"))" />
+            </emit-metric>
+            <set-header name="x-gw-semantic-cache" exists-action="override">
+                <value>@((string)context.Variables["semanticCacheResult"])</value>
+            </set-header>
+            <set-header name="x-gw-cache-scope" exists-action="override">
+                <value>@(context.Variables.GetValueOrDefault<string>("semanticCacheScope", ""))</value>
+            </set-header>
+            <set-header name="x-gw-cache-partition" exists-action="override">
+                <value>@(context.Variables.GetValueOrDefault<string>("semanticCachePartition", ""))</value>
+            </set-header>
+            <set-header name="x-gw-cache-lookup-usd" exists-action="override">
+                <value>@(((int)context.Variables["semanticCacheLookupMicroUsd"] / 1000000.0).ToString("0.000000"))</value>
+            </set-header>
+        </when>
+    </choose>
+</fragment>

@@ -56,6 +56,24 @@ lab_parameters["imagePricing"] = ";".join(f"{model}|{quality}|{size}={int(round(
                                           for model, qualities in images.get("prices", {}).items()
                                           for quality, sizes in qualities.items() for size, price in sizes.items())
 lab_parameters["imagesConfig"] = {k: v for k, v in images.items() if k not in ("$comment", "prices")}
+# Semantic cache (Azure Managed Redis + an embeddings deployment). Decimals go to Bicep as strings: it has no floats.
+semantic_cache = config.get("semanticCache", {"enabled": False})
+CACHE_SCOPES = ("session", "user", "plan")
+default_scope = semantic_cache.get("defaultScope", "session")
+allowed_scopes = semantic_cache.get("allowedScopes", list(CACHE_SCOPES))
+if semantic_cache.get("enabled") and (default_scope not in CACHE_SCOPES or not set(allowed_scopes) <= set(CACHE_SCOPES)):
+    raise SystemExit(f"semanticCache: defaultScope and allowedScopes must be among {', '.join(CACHE_SCOPES)}")
+lab_parameters["semanticCacheConfig"] = {
+    "enabled": True,
+    "tiers": semantic_cache.get("tiers", []),
+    "defaultScope": default_scope,
+    "allowedScopes": allowed_scopes,
+    "scoreThreshold": f"{float(semantic_cache.get('scoreThreshold', 0.15)):g}",
+    "ttlSeconds": int(semantic_cache.get("ttlSeconds", 600)),
+    "redisSku": semantic_cache.get("redisSku", "Balanced_B0"),
+    "embeddingsModel": semantic_cache["embeddingsModel"],
+    "embeddingPrice": f"{float(semantic_cache.get('embeddingPricePer1MTokensUsd', 0.02)):.4f}",
+} if semantic_cache.get("enabled") else {"enabled": False}
 
 # Static part of the demo UI configuration (the endpoints and subscription keys are added by Bicep)
 ui_config = {
@@ -68,6 +86,7 @@ ui_config = {
     "cachedInputPrices": responses.get("cachedInputPrices", {}),
     "endUserBudgets": {k: v for k, v in end_user_budgets.items() if k != "$comment"},
     "images": {k: v for k, v in images.items() if k != "$comment"},
+    "semanticCache": {k: v for k, v in semantic_cache.items() if k != "$comment"},
 }
 
 target = os.path.join(INFRA, "sandbox.generated.json")

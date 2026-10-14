@@ -1,7 +1,8 @@
 {
   "$comment": "Reviewed exact mappings, not fuzzy matching. All rates are USD per 1M tokens. Add explicit model/version/SKU rules for new models; never infer SKU from a model name.",
   "exclude": [
-    { "model": "gpt-image-1-mini" }
+    { "model": "gpt-image-1-mini" },
+    { "model": "text-embedding-3-small" }
   ],
   "meterMappings": [
     {

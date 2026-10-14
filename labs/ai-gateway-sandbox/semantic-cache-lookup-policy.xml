@@ -1,0 +1,98 @@
+<!--
+    AI Gateway Sandbox - semantic cache LOOKUP (optional, semanticCache.enabled in sandbox-config.json).
+    main.bicep renders it into the models API policy (policy.xml): inbound, after the plan policy and right before
+    set-backend-service. Disabled, a comment takes its place and nothing here is deployed.
+
+    - Runs after <base />: entitlement, model downgrade, output cap, token limits, $ budgets and content safety have all
+      passed, so a denied, throttled or unsafe prompt never reaches the cache (and never gets a cached answer).
+    - Only single-turn chat completions (one user message after system/developer messages), non-streamed, from the
+      plans in {semantic-cache-tiers}. In a multi-turn conversation the same last question can mean something
+      different, so those always go to the model.
+    - llm-semantic-cache-lookup embeds the prompt with the "embeddings-backend" (APIM managed identity) and searches
+      Azure Managed Redis (RediSearch). score-threshold is a vector DISTANCE: lower is stricter.
+    - Cache SCOPE decides who may reuse an answer. The app picks one of {semantic-cache-allowed-scopes} per request with the
+      x-gw-cache-scope header (removed before the backend); anything else gets {semantic-cache-default-scope}:
+        session  same subscription + end user (x-gw-end-user) + session (x-session-id): nothing leaks between sessions
+        user     same subscription + end user, any session
+        plan     every caller of the plan (an opt-in shared FAQ cache)
+      The answer is stored in the partition of the request that missed, so an entry is only ever readable in the scope
+      it was written with: a session-scoped answer can't be read through a user- or plan-scoped request.
+    - vary-by also partitions by plan (product), served model, budget epoch and a hash of the system/developer messages:
+      plans never see each other's answers, a downgraded call never gets a premium model's answer, Reset budgets starts
+      a cold cache, and a caller's own instructions can't plant an answer for callers with other instructions (the
+      embeddings ignore system messages, the partition does not).
+    - Returned as evidence: x-gw-cache-scope (the effective scope) and x-gw-cache-partition (semantic-cache-pricing).
+    - On a hit the gateway skips the rest of inbound and the backend, and resumes outbound right after the matching
+      llm-semantic-cache-store (semantic-cache-store-policy.xml), so the call is still priced, metered and logged.
+      The semantic-cache-pricing fragment charges it the embedding lookup instead of the model tokens.
+-->
+<set-variable name="semanticCacheScope" value="@{
+            var requested = context.Request.Headers.GetValueOrDefault("x-gw-cache-scope", "").Trim().ToLowerInvariant();
+            return requested != "" && (",{semantic-cache-allowed-scopes},").Contains("," + requested + ",") ? requested : "{semantic-cache-default-scope}";
+        }" />
+        <set-header name="x-gw-cache-scope" exists-action="delete" />
+        <set-variable name="semanticCacheEligible" value="@{
+            if (context.Request.Method != "POST" || !context.Request.Url.Path.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase)) { return false; }
+            if (context.Variables.GetValueOrDefault<bool>("streamRequested", false)) { return false; }
+            if (!(",{semantic-cache-tiers},").Contains("," + (context.Product?.Id ?? "") + ",")) { return false; }
+            var messages = context.Request.Body?.As<JObject>(preserveContent: true)?["messages"] as JArray;
+            if (messages == null) { return false; }
+            int turns = 0;
+            foreach (var message in messages) {
+                var item = message as JObject;
+                if (item == null) { return false; }
+                var role = (string)item["role"] ?? "";
+                if (role != "system" && role != "developer") { turns++; }
+            }
+            return turns == 1;
+        }" />
+        <choose>
+            <when condition="@((bool)context.Variables["semanticCacheEligible"])">
+                <!-- What the lookup's embedding call costs (non-system text / 4 tokens x {semantic-cache-embedding-price} USD per 1M), at least 1 micro-USD -->
+                <set-variable name="semanticCacheLookupMicroUsd" value="@{
+                    var messages = (JArray)context.Request.Body.As<JObject>(preserveContent: true)["messages"];
+                    long chars = 0;
+                    foreach (var message in messages) {
+                        var item = (JObject)message;
+                        var role = (string)item["role"] ?? "";
+                        var content = item["content"];
+                        if (role == "system" || role == "developer" || content == null) { continue; }
+                        if (content.Type == JTokenType.String) { chars += ((string)content).Length; continue; }
+                        var parts = content as JContainer;
+                        if (parts == null) { continue; }
+                        foreach (var token in parts.Descendants()) {
+                            if (token.Type == JTokenType.String) { chars += ((string)token).Length; }
+                        }
+                    }
+                    var price = double.Parse("{semantic-cache-embedding-price}");
+                    return (int)Math.Max(1, Math.Ceiling(((chars + 3) / 4) * price));
+                }" />
+                <!-- The partition this request reads from (and, on a miss, writes to): scope owner + instructions hash -->
+                <set-variable name="semanticCachePartition" value="@{
+                    var scope = (string)context.Variables["semanticCacheScope"];
+                    var owner = context.Subscription?.Id ?? "anonymous";
+                    var endUser = context.Variables.GetValueOrDefault<string>("endUser", "");
+                    if (endUser != "") { owner += "/" + endUser; }
+                    var key = scope == "plan" ? "plan:" + (context.Product?.Id ?? "none")
+                        : scope == "user" ? "user:" + owner
+                        : "session:" + owner + "/" + context.Variables.GetValueOrDefault<string>("session", "no-session");
+                    var instructions = new System.Text.StringBuilder();
+                    foreach (var message in (JArray)context.Request.Body.As<JObject>(preserveContent: true)["messages"]) {
+                        var item = (JObject)message;
+                        var role = (string)item["role"] ?? "";
+                        if (role == "system" || role == "developer") { instructions.Append(role).Append(':').Append(item["content"]?.ToString() ?? "").Append('\n'); }
+                    }
+                    if (instructions.Length == 0) { return key + "/sys:none"; }
+                    using (var sha = System.Security.Cryptography.SHA256.Create()) {
+                        var hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(instructions.ToString()));
+                        return key + "/sys:" + BitConverter.ToString(hash, 0, 4).Replace("-", "").ToLowerInvariant();
+                    }
+                }" />
+                <llm-semantic-cache-lookup score-threshold="{semantic-cache-score-threshold}" embeddings-backend-id="embeddings-backend" embeddings-backend-auth="system-assigned" ignore-system-messages="true">
+                    <vary-by>@(context.Product?.Id ?? "none")</vary-by>
+                    <vary-by>@(context.Variables.GetValueOrDefault<string>("servedModel", ""))</vary-by>
+                    <vary-by>@(context.Variables.GetValueOrDefault<string>("budgetEpoch", ""))</vary-by>
+                    <vary-by>@((string)context.Variables["semanticCachePartition"])</vary-by>
+                </llm-semantic-cache-lookup>
+            </when>
+        </choose>

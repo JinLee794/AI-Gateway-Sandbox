@@ -66,6 +66,7 @@ module sandbox '../main.bicep' = {
     cachedInputPricing: lab.?cachedInputPricing ?? ''
     imagePricing: lab.?imagePricing ?? ''
     imagesConfig: lab.?imagesConfig ?? { enabled: false }
+    semanticCacheConfig: lab.?semanticCacheConfig ?? { enabled: false }
     uiClientId: uiIdentity.outputs.clientId
     contentSafetyConfig: lab.?contentSafetyConfig ?? {}
     purviewDlpConfig: lab.?purviewDlpConfig ?? {}
@@ -93,6 +94,7 @@ var demoConfig = union(config.uiConfig, {
   agentIdentityClientId: sandbox.outputs.agentIdentityClientId
   foundryBackends: sandbox.outputs.foundryBackends
   budgetSuspend: sandbox.outputs.budgetSuspend
+  semanticCacheResource: sandbox.outputs.semanticCache
 })
 
 module ui 'ui.bicep' = {

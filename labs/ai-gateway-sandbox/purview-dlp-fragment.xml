@@ -63,7 +63,7 @@
                     return "purview-obo-" + BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
                 }
             }" />
-            <cache-lookup-value key="@((string)context.Variables["pvCacheKey"])" variable-name="pvGraphToken" />
+            <cache-lookup-value key="@((string)context.Variables["pvCacheKey"])" variable-name="pvGraphToken" caching-type="internal" />
             <choose>
                 <when condition="@(!context.Variables.ContainsKey("pvGraphToken"))">
                     <send-request mode="new" response-variable-name="pvOboResponse" timeout="20" ignore-error="true">
@@ -90,7 +90,7 @@
                     }" />
                     <choose>
                         <when condition="@((string)context.Variables["pvGraphToken"] != "")">
-                            <cache-store-value key="@((string)context.Variables["pvCacheKey"])" value="@((string)context.Variables["pvGraphToken"])" duration="3300" />
+                            <cache-store-value key="@((string)context.Variables["pvCacheKey"])" value="@((string)context.Variables["pvGraphToken"])" duration="3300" caching-type="internal" />
                         </when>
                     </choose>
                 </when>

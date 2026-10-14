@@ -15,7 +15,9 @@
     - DELETE 200 removes the mapping.
     - x-gw-affinity: new:<backend> | sticky:<backend> | unknown (cache miss: the pool routes the call) | none
 
-    The built-in cache is volatile: after a cache miss the call is routed by the backend pool (best effort).
+    The built-in cache is volatile: after a cache miss the call is routed by the backend pool (best effort). The cache
+    policies pin caching-type="internal", so the optional semantic cache (Azure Managed Redis as the external cache)
+    doesn't move these entries.
     Pricing of Responses calls (cached input tokens, free stored reads) is in the responses-pricing fragment.
 -->
 <policies>
@@ -32,7 +34,7 @@
         <set-variable name="affinity" value="none" />
         <choose>
             <when condition="@((string)context.Variables["responseRef"] != "")">
-                <cache-lookup-value key="@("resp-" + (string)context.Variables["responseRef"])" variable-name="responseOwner" default-value="" />
+                <cache-lookup-value key="@("resp-" + (string)context.Variables["responseRef"])" variable-name="responseOwner" default-value="" caching-type="internal" />
                 <choose>
                     <when condition="@((string)context.Variables["responseOwner"] == "")">
                         <set-variable name="affinity" value="unknown" />
@@ -85,13 +87,13 @@
                     <when condition="@((string)context.Variables["newResponseId"] != "" && context.Variables.GetValueOrDefault<string>("attemptBackend", "") != "")">
                         <cache-store-value key="@("resp-" + (string)context.Variables["newResponseId"])"
                             value="@((string)context.Variables["attemptBackend"] + "|" + (context.Subscription?.Id ?? "") + "|" + context.Variables.GetValueOrDefault<string>("servedModel", ""))"
-                            duration="2592000" />
+                            duration="2592000" caching-type="internal" />
                         <set-variable name="affinity" value="@(((string)context.Variables["affinity"]).StartsWith("sticky:") ? (string)context.Variables["affinity"] : "new:" + (string)context.Variables["attemptBackend"])" />
                     </when>
                 </choose>
             </when>
             <when condition="@(context.Request.Method == "DELETE" && context.Response.StatusCode == 200 && (string)context.Variables["responseRef"] != "")">
-                <cache-remove-value key="@("resp-" + (string)context.Variables["responseRef"])" />
+                <cache-remove-value key="@("resp-" + (string)context.Variables["responseRef"])" caching-type="internal" />
             </when>
         </choose>
         <set-header name="x-gw-affinity" exists-action="override">

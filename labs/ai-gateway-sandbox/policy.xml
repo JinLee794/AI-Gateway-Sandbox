@@ -18,6 +18,11 @@
       Retry-After period and the retry below re-sends the request to the priority-2 (secondary) backend, so the
       caller gets a 200 instead of a 429. Every attempt is recorded in x-gw-route; the BackendAttempts metric
       records the attempt count per request, split by the backend that served it and whether it failed over.
+    - Semantic cache (optional, semanticCache.enabled): main.bicep renders semantic-cache-lookup-policy.xml right
+      before set-backend-service and semantic-cache-store-policy.xml first in outbound (their placeholders appear
+      once each, below). Single-turn chat completions of the opted-in plans are answered from Azure Managed Redis
+      when a similar prompt was answered before (x-gw-semantic-cache: hit); the semantic-cache-pricing fragment
+      charges a hit the embedding lookup only.
 -->
 <policies>
     <inbound>
@@ -100,6 +105,7 @@
                 </return-response>
             </when>
         </choose>
+        {semantic-cache-lookup}
         <set-backend-service backend-id="{backend-id}" />
         <llm-emit-token-metric namespace="ai-gateway-sandbox">
             <dimension name="Agent" value="@((string)context.Variables["payer"])" />
@@ -123,16 +129,22 @@
         </retry>
     </backend>
     <outbound>
+        {semantic-cache-store}
         <base />
-        <!-- emit-metric is not allowed in <backend>, so the routing outcome is emitted once per request here -->
-        <emit-metric name="BackendAttempts" value="@((double)context.Variables.GetValueOrDefault<int>("attempts", 1))" namespace="ai-gateway-sandbox">
-            <dimension name="Backend" value="@(context.Variables.GetValueOrDefault<string>("attemptBackend", "unknown"))" />
-            <dimension name="Region" value="@(context.Variables.GetValueOrDefault<string>("attemptRegion", "unknown"))" />
-            <dimension name="Failover" value="@(context.Variables.GetValueOrDefault<int>("attempts", 1) > 1 ? "yes" : "no")" />
-            <dimension name="Status" value="@(context.Response.StatusCode.ToString())" />
-            <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("servedModel", "unknown"))" />
-            <dimension name="Tier" value="@(context.Variables.GetValueOrDefault<string>("payerTier", "none"))" />
-        </emit-metric>
+        <!-- emit-metric is not allowed in <backend>, so the routing outcome is emitted once per request here
+             (not for a semantic cache hit: no backend was called) -->
+        <choose>
+            <when condition="@(context.Variables.ContainsKey("attemptBackend") || !context.Variables.GetValueOrDefault<bool>("semanticCacheEligible", false))">
+                <emit-metric name="BackendAttempts" value="@((double)context.Variables.GetValueOrDefault<int>("attempts", 1))" namespace="ai-gateway-sandbox">
+                    <dimension name="Backend" value="@(context.Variables.GetValueOrDefault<string>("attemptBackend", "unknown"))" />
+                    <dimension name="Region" value="@(context.Variables.GetValueOrDefault<string>("attemptRegion", "unknown"))" />
+                    <dimension name="Failover" value="@(context.Variables.GetValueOrDefault<int>("attempts", 1) > 1 ? "yes" : "no")" />
+                    <dimension name="Status" value="@(context.Response.StatusCode.ToString())" />
+                    <dimension name="Model" value="@(context.Variables.GetValueOrDefault<string>("servedModel", "unknown"))" />
+                    <dimension name="Tier" value="@(context.Variables.GetValueOrDefault<string>("payerTier", "none"))" />
+                </emit-metric>
+            </when>
+        </choose>
         <choose>
             <when condition="@(context.Response.StatusCode == 200 && context.Response.Headers.GetValueOrDefault("Content-Type", "").Contains("application/json"))">
                 <set-variable name="usageSource" value="body" />
@@ -185,6 +197,8 @@
                         <include-fragment fragment-id="responses-pricing" />
                     </otherwise>
                 </choose>
+                <!-- semantic cache: a hit costs the embedding lookup instead of the model tokens (no-op without a lookup) -->
+                <include-fragment fragment-id="semantic-cache-pricing" />
                 <emit-metric name="CostMicroUSD" value="@((double)(int)context.Variables["costMicroUsd"])" namespace="ai-gateway-sandbox">
                     <dimension name="Agent" value="@((string)context.Variables["payer"])" />
                     <dimension name="Tier" value="@((string)context.Variables["payerTier"])" />

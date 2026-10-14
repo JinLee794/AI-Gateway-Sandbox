@@ -72,6 +72,9 @@ param imagePricing string = ''
 @description('Image generation: enabled, model (name, publisher, version, sku, capacity; deployed in the priority-1 region only), defaultSize, defaultQuality, maxImagesPerRequest and tiers (per tier: allowedImageModels, allowedImageQualities, imagesPerMinute)')
 param imagesConfig object = { enabled: false }
 
+@description('Semantic cache: enabled, tiers (plans that use it), defaultScope (session | user | plan), allowedScopes (scopes an app may pick with x-gw-cache-scope), scoreThreshold (vector distance, string, e.g. "0.15"), ttlSeconds, redisSku (Azure Managed Redis), embeddingsModel (name, publisher, version, sku, capacity; deployed in the priority-1 region only), embeddingPrice (USD per 1M tokens, string), location (optional). Empty or enabled: false deploys nothing.')
+param semanticCacheConfig object = { enabled: false }
+
 // ------------------
 //    VARIABLES
 // ------------------
@@ -83,6 +86,26 @@ var purviewDlpEnabled = contentSafetyEnabled && (purviewDlpConfig.?enabled ?? fa
 // Image generation (optional): the image model is deployed in the priority-1 Foundry resource only
 var enableImages = imagesConfig.?enabled ?? false
 var primaryFoundryName = filter(aiServicesConfig, config => (config.?priority ?? 1) == 1)[0].name
+var primaryFoundryIndex = indexOf(map(aiServicesConfig, config => config.name), primaryFoundryName)
+
+// Semantic cache (optional): Azure Managed Redis + an embeddings deployment in the priority-1 Foundry resource. The
+// lookup / store snippets are rendered into the models API policy at {semantic-cache-lookup} / {semantic-cache-store}.
+var enableSemanticCache = semanticCacheConfig.?enabled ?? false
+var semanticCachePlaceholders = {
+  '{semantic-cache-tiers}': join(semanticCacheConfig.?tiers ?? [], ',')
+  '{semantic-cache-default-scope}': semanticCacheConfig.?defaultScope ?? 'session'
+  '{semantic-cache-allowed-scopes}': join(semanticCacheConfig.?allowedScopes ?? ['session', 'user', 'plan'], ',')
+  '{semantic-cache-score-threshold}': string(semanticCacheConfig.?scoreThreshold ?? '0.15')
+  '{semantic-cache-ttl-seconds}': string(semanticCacheConfig.?ttlSeconds ?? 600)
+  '{semantic-cache-embedding-price}': string(semanticCacheConfig.?embeddingPrice ?? '0.0200')
+}
+var semanticCacheLookupXml = enableSemanticCache
+  ? reduce(items(semanticCachePlaceholders), loadTextContent('semantic-cache-lookup-policy.xml'), (xml, placeholder) => replace(xml, placeholder.key, placeholder.value))
+  : '<!-- Semantic cache is disabled (semanticCache.enabled = false in sandbox-config.json) -->'
+var semanticCacheStoreXml = enableSemanticCache
+  ? reduce(items(semanticCachePlaceholders), loadTextContent('semantic-cache-store-policy.xml'), (xml, placeholder) => replace(xml, placeholder.key, placeholder.value))
+  : ''
+var inferencePolicyXml = replace(replace(loadTextContent('policy.xml'), '{semantic-cache-lookup}', semanticCacheLookupXml), '{semantic-cache-store}', semanticCacheStoreXml)
 
 // ------------------
 //    RESOURCES
@@ -125,7 +148,8 @@ module foundryModule '../../modules/cognitive-services/v3/foundry.bicep' = [for 
     ]
     modelsConfig: concat(map(modelsConfig, model => union(model, {
       capacity: (config.?priority ?? 1) == 1 ? (model.?primaryCapacity ?? model.capacity) : model.capacity
-    })), enableImages && config.name == primaryFoundryName ? [imagesConfig.model] : [])
+    })), enableImages && config.name == primaryFoundryName ? [imagesConfig.model] : [],
+      enableSemanticCache && config.name == primaryFoundryName ? [semanticCacheConfig.embeddingsModel] : [])
     apimPrincipalId: apimModule.outputs.principalId
     foundryProjectName: foundryProjectName
   }
@@ -386,7 +410,7 @@ resource safetyLedgerFragment 'Microsoft.ApiManagement/service/policyFragments@2
 module inferenceAPIModule '../../modules/apim/v3/inference-api.bicep' = {
   name: 'inferenceAPIModule'
   params: {
-    policyXml: loadTextContent('policy.xml')
+    policyXml: inferencePolicyXml
     apimLoggerId: apimModule.outputs.loggerId
     appInsightsId: appInsightsModule.outputs.id
     appInsightsInstrumentationKey: appInsightsModule.outputs.instrumentationKey
@@ -401,7 +425,33 @@ module inferenceAPIModule '../../modules/apim/v3/inference-api.bicep' = {
     attributionFragment
     chargebackFragment
     responsesPricingFragment
+    semanticCachePricingFragment
+    semanticCacheModule
   ]
+}
+
+// 6a. Optional: semantic cache. Azure Managed Redis (RediSearch) as the APIM external cache and the embeddings
+//     backend used by llm-semantic-cache-lookup. Must exist before the models API policy that references them.
+module semanticCacheModule 'semantic-cache.bicep' = if (enableSemanticCache) {
+  name: 'semanticCacheModule'
+  params: {
+    apimName: apimModule.outputs.name
+    location: semanticCacheConfig.?location ?? resourceGroup().location
+    resourceSuffix: resourceSuffix
+    redisSku: semanticCacheConfig.?redisSku ?? 'Balanced_B0'
+    embeddingsUrl: '${foundryModule[primaryFoundryIndex].outputs.extendedAIServicesConfig[0].endpoint}openai/deployments/${semanticCacheConfig.?embeddingsModel.?name ?? 'text-embedding-3-small'}/embeddings'
+  }
+}
+
+// Always deployed: a no-op unless the semantic cache lookup ran for the call
+resource semanticCachePricingFragment 'Microsoft.ApiManagement/service/policyFragments@2024-06-01-preview' = {
+  parent: apim
+  name: 'semantic-cache-pricing'
+  properties: {
+    description: 'Semantic cache: charges a cache hit the embedding lookup instead of the model tokens, adds the lookup to a miss and returns x-gw-semantic-cache'
+    format: 'rawxml'
+    value: loadTextContent('semantic-cache-pricing-fragment.xml')
+  }
 }
 
 // 6b. Responses API: stateful calls (previous_response_id, stored responses) stick to the backend that stored them
@@ -529,6 +579,23 @@ resource agentPlatformSubscription 'Microsoft.ApiManagement/service/subscription
     scope: '/products/agent-platform'
     state: 'active'
     allowTracing: true
+  }
+  dependsOn: [
+    tierProduct
+  ]
+}
+
+// The demo UI's Sandbox Copilot is an agent on the gateway too: its model calls use this subscription on the internal
+// agent-platform product, so they are governed, metered and charged back like any other agent. app.py reads the key with
+// listSecrets (and creates this subscription on deployments that predate it).
+resource copilotSubscription 'Microsoft.ApiManagement/service/subscriptions@2024-06-01-preview' = {
+  parent: apim
+  name: 'sandbox-copilot'
+  properties: {
+    displayName: 'Sandbox Copilot (demo UI assistant)'
+    scope: '/products/agent-platform'
+    state: 'active'
+    allowTracing: false
   }
   dependsOn: [
     tierProduct
@@ -874,6 +941,15 @@ output contentSafetyEnabled bool = contentSafetyEnabled
 output contentSafetyEndpoint string = contentSafetyEnabled ? contentSafetyModule!.outputs.contentSafetyEndpoint : ''
 output contentSafetyTiers array = contentSafetyEnabled ? map(filter(tiersConfig, tier => tier.?contentSafety ?? false), tier => tier.name) : []
 output purviewDlpEnabled bool = purviewDlpEnabled
+output semanticCache object = enableSemanticCache ? {
+  enabled: true
+  redisName: semanticCacheModule!.outputs.redisName
+  redisId: semanticCacheModule!.outputs.redisId
+  redisHostName: semanticCacheModule!.outputs.redisHostName
+  redisSku: semanticCacheConfig.?redisSku ?? 'Balanced_B0'
+  embeddingsModel: semanticCacheConfig.?embeddingsModel.?name ?? 'text-embedding-3-small'
+  embeddingsBackend: primaryFoundryName
+} : { enabled: false }
 output budgetSuspend object = budgetSuspendEnabled ? {
   enabled: true
   subscriptions: budgetSuspend.?subscriptions ?? []

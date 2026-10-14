@@ -1,0 +1,12 @@
+<!--
+    AI Gateway Sandbox - semantic cache STORE (optional, semanticCache.enabled in sandbox-config.json).
+    main.bicep renders it into the models API policy (policy.xml) as the FIRST policy of the outbound section.
+    On a miss it stores the model's 200 answer in Azure Managed Redis for {semantic-cache-ttl-seconds} seconds. On a hit
+    the gateway resumes right after this policy, so everything below it (the plan's outbound, pricing, metrics,
+    chargeback record and x-gw-* headers) still runs for answers served from the cache.
+-->
+<choose>
+            <when condition="@(context.Variables.GetValueOrDefault<bool>("semanticCacheEligible", false))">
+                <llm-semantic-cache-store duration="{semantic-cache-ttl-seconds}" />
+            </when>
+        </choose>

@@ -6,7 +6,9 @@ deployed by the refresh workflow. Publishing updates just the existing APIM
 
 1. Discover every deployment in an explicit account allow list using Azure CLI/ARM.
    Capture account, deployment name, model, model version, SKU and account region.
-   The optional image model is explicitly excluded; unrecognized token models fail.
+   The optional image model and the semantic cache's embeddings model (used by the
+   gateway itself, priced by `semanticCache.embeddingPricePer1MTokensUsd`) are explicitly
+   excluded; unrecognized token models fail.
 2. Fetch all pages of the unauthenticated Azure Retail Prices API for those regions.
    Only USD consumption meters effective as of generation time are eligible.
 3. Resolve reviewed, exact meter mappings from `overrides.json`; no fuzzy guessing.
