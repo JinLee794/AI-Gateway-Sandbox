@@ -40,7 +40,7 @@ GW_HEADERS = ["x-gw-agent", "x-gw-tier", "x-gw-model-requested", "x-gw-model-ser
               "x-gw-cached-tokens", "x-gw-cached-savings-usd", "x-gw-pricing-rule", "x-gw-affinity",
               "x-gw-image-count", "x-gw-image-unit-usd", "x-gw-image-spec", "x-gw-remaining-images",
               "x-gw-semantic-cache", "x-gw-cache-saved-usd", "x-gw-cache-saved-tokens", "x-gw-cache-lookup-usd",
-              "x-gw-cache-scope", "x-gw-cache-partition"]
+              "x-gw-cache-scope", "x-gw-cache-partition", "x-gw-group", "x-gw-group-budget-usd", "x-gw-member-budget-usd"]
 GATEWAY_AUDIENCE = "https://cognitiveservices.azure.com"
 ARM = "https://management.azure.com"
 TRACE_APIS = {"model": "inference-api", "tool": "commerce-mcp", "agent": "sourcing-agent", "image": "image-api"}
@@ -133,10 +133,10 @@ QUERIES = {
 }
 
 
-def managed_identity_token(resource):
+def managed_identity_token(resource, client_id=None):
     query = {"resource": resource, "api-version": "2019-08-01"}
-    if os.environ.get("AZURE_CLIENT_ID"):
-        query["client_id"] = os.environ["AZURE_CLIENT_ID"]
+    if client_id or os.environ.get("AZURE_CLIENT_ID"):
+        query["client_id"] = client_id or os.environ["AZURE_CLIENT_ID"]
     request = urllib.request.Request(f"{os.environ['IDENTITY_ENDPOINT']}?{urllib.parse.urlencode(query)}",
                                      headers={"X-IDENTITY-HEADER": os.environ["IDENTITY_HEADER"]})
     with urllib.request.urlopen(request, timeout=30) as response:
@@ -163,6 +163,39 @@ def az_token(resource):
         expires = data.get("expires_on") or time.time() + 1800
         _token_cache[resource] = (data["accessToken"], float(expires))
         return data["accessToken"]
+
+
+def entra_mode_config():
+    """Entra-only mode as deployed (the entraMode output of main.bicep), or None when it isn't deployed."""
+    resource = CONFIG.get("entraModeResource")
+    return resource if isinstance(resource, dict) and resource.get("enabled") and resource.get("inferenceBaseUrl") else None
+
+
+def persona_available(persona):
+    """Managed identity personas are attached to the hosted UI; the Azure CLI persona (the deployer) works locally only."""
+    return (persona.get("kind") == "managed-identity" and HOSTED and bool(persona.get("clientId"))) or (persona.get("kind") == "azure-cli" and not HOSTED)
+
+
+def entra_persona(name):
+    entra = entra_mode_config()
+    return next((p for p in (entra or {}).get("personas", []) if p.get("name") == name), None)
+
+
+def persona_token(persona):
+    """Token for the gateway app registration (the Entra-only API's audience), as the persona's identity."""
+    entra = entra_mode_config()
+    if not entra or not persona_available(persona):
+        raise RuntimeError(f"Persona '{persona.get('name')}' is not available here: managed identity personas need the hosted UI, "
+                           "the Azure CLI persona needs a locally run UI")
+    key = f"persona:{persona['name']}"
+    with _token_lock:
+        cached = _token_cache.get(key)
+        if cached and cached[1] - 300 > time.time():
+            return cached[0]
+        if persona.get("kind") == "managed-identity":
+            _token_cache[key] = managed_identity_token(entra["gatewayAppId"], persona["clientId"])
+            return _token_cache[key][0]
+    return az_token(entra["gatewayAppId"])
 
 
 def http(method, url, body=None, headers=None, timeout=120):
@@ -368,6 +401,21 @@ def gateway_auth(agent, payload, surface):
     return headers
 
 
+def entra_gateway_auth(persona, payload):
+    """Entra-only mode: no subscription key. tokenAs picks the credential: persona (its own token for the gateway app,
+    default), foundry (the UI's usual Foundry-audience token, which the key-less API must reject) or none."""
+    _budget_unused.update(epoch=None)
+    headers = {}
+    if valid_session(payload.get("session")):
+        headers["x-session-id"] = payload["session"]
+    token_as = payload.get("tokenAs", "persona")
+    if token_as == "persona":
+        headers["Authorization"] = "Bearer " + persona_token(persona)
+    elif token_as == "foundry":
+        headers["Authorization"] = "Bearer " + az_token(GATEWAY_AUDIENCE)
+    return headers
+
+
 def signed_in_user(headers):
     """The Easy Auth user (App Service strips client-supplied X-MS-CLIENT-PRINCIPAL-* headers). Hosted mode only."""
     if not HOSTED:
@@ -440,8 +488,11 @@ def sse_chat_completion(text):
 
 
 def chat(payload):
-    agent = agent_by_name(payload.get("agent", ""))
-    if not agent:
+    persona = entra_persona(payload.get("persona", "")) if payload.get("persona") else None
+    if payload.get("persona") and not persona:
+        return 400, {"error": f"Unknown persona '{payload.get('persona')}' (Entra-only mode is not deployed or the persona doesn't exist)"}
+    agent = None if persona else agent_by_name(payload.get("agent", ""))
+    if not persona and not agent:
         return 400, {"error": f"Unknown agent '{payload.get('agent')}'"}
     if limited := demo_limit():
         return 429, {"error": limited}
@@ -456,10 +507,18 @@ def chat(payload):
         # include_usage: the last event carries the backend's real token counts, shown next to the gateway's ceiling charge
         body["stream"] = True
         body["stream_options"] = {"include_usage": True}
-    status, headers, text, elapsed = http("POST", f"{CONFIG['inferenceBaseUrl']}/chat/completions", body, gateway_auth(agent, payload, "model"))
-    result = {"surface": "model", "status": status, "latencyMs": round(elapsed * 1000), "agent": agent["name"], "tier": agent["tier"],
-              "requestedModel": payload.get("model"), "headers": gw_headers(headers), "entraToken": not payload.get("noToken"),
+    if persona:
+        url, auth = f"{entra_mode_config()['inferenceBaseUrl']}/chat/completions", entra_gateway_auth(persona, payload)
+    else:
+        url, auth = f"{CONFIG['inferenceBaseUrl']}/chat/completions", gateway_auth(agent, payload, "model")
+    status, headers, text, elapsed = http("POST", url, body, auth)
+    caller = persona or agent
+    result = {"surface": "model", "status": status, "latencyMs": round(elapsed * 1000), "agent": caller["name"], "tier": caller.get("tier", ""),
+              "requestedModel": payload.get("model"), "headers": gw_headers(headers),
+              "entraToken": payload.get("tokenAs", "persona") != "none" if persona else not payload.get("noToken"),
               "historyMessages": len(history), "stream": stream}
+    if persona:
+        result.update(mode="entra", persona=persona["name"], group=persona.get("group", ""), tokenAs=payload.get("tokenAs", "persona"))
     if stream and status == 200 and "text/event-stream" in {k.lower(): v for k, v in headers.items()}.get("content-type", ""):
         data = sse_chat_completion(text)
     else:
@@ -1376,6 +1435,7 @@ def copilot_session_activity(ui, session=None, window="1d"):
 # What created a session, from its id (<prefix>-<MMDDhhmm>-<random>, see newSessionId and the scenarios in static/index.html).
 # The page's own runs are checked first; these patterns cover sessions older than the saved run history.
 SESSION_ORIGINS = ((r"alice-loop-\d{8}-", 'scenario "Runaway session: per-session $ cap"'),
+                   (r"entra-[a-z]+-\d{8}-", 'scenario "Entra only: team $ budget and member cap"'),
                    (r"(ana|raj|tom|mei|app)-\d{8}-", 'scenario "One app, many users: per-user $ budgets"'),
                    (r"(alice|chloe|dev)-\d{8}-", 'scenario "Chargeback by user & session" (or New session in the request builder)'),
                    (r"ben-\d{8}-", 'scenario "Chargeback by user & session" or "Over budget, switched off"'),
@@ -1692,6 +1752,7 @@ def public_config(user=None):
         "images": {**(CONFIG.get("images") or {}), "enabled": bool(CONFIG.get("imagesBaseUrl"))},
         "semanticCache": semantic_cache_config(),
         "semanticCacheResource": {k: v for k, v in (CONFIG.get("semanticCacheResource") or {}).items() if k in ("enabled", "redisName", "redisSku", "embeddingsModel")},
+        "entraMode": public_entra_mode(),
         "copilot": {"enabled": copilot_enabled(), "model": COPILOT_MODEL, "subscription": COPILOT_SUBSCRIPTION, "plan": COPILOT_PRODUCT},
         "links": {
             "workbook": f"{portal}{CONFIG['workbookId']}/workbook" if CONFIG.get("workbookId") else None,
@@ -1701,6 +1762,16 @@ def public_config(user=None):
             "redis": f"{portal}{CONFIG['semanticCacheResource']['redisId']}/overview" if (CONFIG.get("semanticCacheResource") or {}).get("redisId") else None,
         },
     }
+
+
+def public_entra_mode():
+    """Entra-only mode for the page: personas (without client IDs) with whether this UI can call as them, and the groups."""
+    entra = entra_mode_config()
+    if not entra:
+        return {"enabled": False}
+    personas = [{**{k: p.get(k, "") for k in ("name", "displayName", "group", "tier", "kind")}, "available": persona_available(p)}
+                for p in entra.get("personas", [])]
+    return {"enabled": True, "inferenceBaseUrl": entra["inferenceBaseUrl"], "personas": personas, "groups": entra.get("groups", [])}
 
 
 def semantic_cache_config():

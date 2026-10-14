@@ -28,6 +28,7 @@
     <inbound>
         <set-variable name="surface" value="model" />
         <base />
+        {plan-inbound}
         <include-fragment fragment-id="payer-attribution" />
         <!-- Streamed calls: capture the ceiling inputs here, after the tier policy has applied the output cap -->
         <set-variable name="streamRequested" value="@{
@@ -131,6 +132,7 @@
     <outbound>
         {semantic-cache-store}
         <base />
+        {plan-outbound}
         <!-- emit-metric is not allowed in <backend>, so the routing outcome is emitted once per request here
              (not for a semantic cache hit: no backend was called) -->
         <choose>
@@ -220,10 +222,10 @@
         <!-- one chargeback record per billable call: user, team, cost center, session, model, tokens, cost -->
         <include-fragment fragment-id="chargeback-record" />
         <set-header name="x-gw-agent" exists-action="override">
-            <value>@(context.Subscription?.Id ?? "anonymous")</value>
+            <value>@(context.Variables.GetValueOrDefault<string>("entraPayer", context.Subscription?.Id ?? "anonymous"))</value>
         </set-header>
         <set-header name="x-gw-tier" exists-action="override">
-            <value>@(context.Product?.Id ?? "none")</value>
+            <value>@(context.Variables.GetValueOrDefault<string>("entraTier", context.Product?.Id ?? "none"))</value>
         </set-header>
         <set-header name="x-gw-billed-to" exists-action="override">
             <value>@(context.Variables.GetValueOrDefault<string>("payer", ""))</value>
@@ -255,5 +257,6 @@
     </outbound>
     <on-error>
         <base />
+        {plan-on-error}
     </on-error>
 </policies>

@@ -1,0 +1,187 @@
+<fragment>
+    <!--
+        AI Gateway Sandbox - "entra-plan-inbound" policy fragment (Entra-only mode, key-less models API entra/inference).
+
+        The same job as a tier (product) policy, without an APIM subscription: the plan and the $ budgets come from
+        Microsoft Entra ID.
+          1. validate-azure-ad-token  - audience = the gateway app registration, the Gateway.Invoke app role is required
+                                        (401 otherwise). No subscription key is read.
+          2. Gateway group            - the token's groups claim is matched against the {{entra-gateway-groups}} named
+                                        value ("<group object id>=<name>|<tier>|<rank>|<pool micro-USD>|<member micro-USD>;...").
+                                        A caller in several gateway groups gets the best plan (lowest rank). No gateway
+                                        group: 403 (x-gw-blocked-by: entra-group); a token without a groups claim because
+                                        the user is in too many groups: 403 (entra-group-overage).
+          3. Plan                     - model governance, output cap, TPM + token quota of the group's tier (per member).
+          4. Team $ budget            - quota-by-key "group-budget": ONE counter per security group, shared by its members.
+          5. Member $ cap             - quota-by-key "member-budget": one counter per caller (oid) inside the group.
+             Both count parts per million of their own budget, so the amounts live in the named value and change
+             without a policy redeploy (the same technique as the end-user budgets of the tier policy).
+        Sets entraPayer / entraTier, which the payer-attribution fragment and the models API policy prefer over the
+        subscription, so metrics, chargeback and x-gw-* headers name the persona and the group's plan.
+    -->
+    <validate-azure-ad-token tenant-id="{tenant-id}" header-name="Authorization" failed-validation-httpcode="401"
+        failed-validation-error-message="Microsoft Entra ID token missing or invalid. Send a token for the AI Gateway Sandbox gateway app ({gateway-app-id}) with the Gateway.Invoke app role."
+        output-token-variable-name="entraToken">
+        <audiences>
+            <audience>{gateway-app-id}</audience>
+            <audience>api://{gateway-app-id}</audience>
+        </audiences>
+        <required-claims>
+            <claim name="roles" match="any">
+                <value>Gateway.Invoke</value>
+            </claim>
+        </required-claims>
+    </validate-azure-ad-token>
+    <set-header name="Authorization" exists-action="delete" />
+    <set-variable name="budgetEpoch" value="{{budget-epoch}}" />
+    <set-variable name="entraOid" value="@(((Jwt)context.Variables["entraToken"]).Claims.GetValueOrDefault("oid", ""))" />
+    <set-variable name="entraPayer" value="@{
+        var oid = (string)context.Variables["entraOid"];
+        foreach (var entry in "{{entra-gateway-members}}".Split(';')) {
+            var kv = entry.Split('=');
+            if (kv.Length == 2 && kv[0].Trim() == oid) { return kv[1].Trim(); }
+        }
+        return "oid:" + oid;
+    }" />
+    <set-variable name="caller" value="@{
+        var jwt = (Jwt)context.Variables["entraToken"];
+        var user = jwt.Claims.GetValueOrDefault("upn", jwt.Claims.GetValueOrDefault("preferred_username", ""));
+        return user != "" ? user + " (Entra only)" : (string)context.Variables["entraPayer"] + " (managed identity, Entra only)";
+    }" />
+    <set-variable name="callerType" value="@(((Jwt)context.Variables["entraToken"]).Claims.GetValueOrDefault("idtyp", "user"))" />
+    <set-variable name="session" value="@{
+        var value = context.Request.Headers.GetValueOrDefault("x-session-id", "").Trim();
+        return value != "" && System.Text.RegularExpressions.Regex.IsMatch(value, "^[A-Za-z0-9._:-]{1,128}$") ? value : "no-session";
+    }" />
+    <set-variable name="entraGroup" value="@{
+        var jwt = (Jwt)context.Variables["entraToken"];
+        string[] groups;
+        if (!jwt.Claims.TryGetValue("groups", out groups)) { groups = new string[0]; }
+        string best = "";
+        int bestRank = int.MaxValue;
+        foreach (var entry in "{{entra-gateway-groups}}".Split(';')) {
+            var kv = entry.Split('=');
+            if (kv.Length != 2) { continue; }
+            var id = kv[0].Trim();
+            var parts = kv[1].Split('|');
+            int rank;
+            if (parts.Length != 5 || !int.TryParse(parts[2], out rank)) { continue; }
+            if (Array.IndexOf(groups, id) >= 0 && rank < bestRank) { best = id + "|" + kv[1].Trim(); bestRank = rank; }
+        }
+        return best;
+    }" />
+    <choose>
+        <when condition="@((string)context.Variables["entraGroup"] == "")">
+            <set-variable name="entraOverage" value="@(((Jwt)context.Variables["entraToken"]).Claims.ContainsKey("_claim_names"))" />
+            <return-response>
+                <set-status code="403" reason="No Gateway Group" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-header name="x-gw-blocked-by" exists-action="override"><value>@((bool)context.Variables["entraOverage"] ? "entra-group-overage" : "entra-group")</value></set-header>
+                <set-header name="x-gw-request-id" exists-action="override"><value>@(context.RequestId.ToString())</value></set-header>
+                <set-header name="x-gw-caller" exists-action="override"><value>@((string)context.Variables["caller"])</value></set-header>
+                <set-body>@(new JObject(new JProperty("error", new JObject(
+                    new JProperty("code", (bool)context.Variables["entraOverage"] ? "GroupsOverage" : "NoGatewayGroup"),
+                    new JProperty("message", (bool)context.Variables["entraOverage"]
+                        ? "The token has no groups claim because the caller is in too many groups. Use a workload identity or groupMembershipClaims ApplicationGroup."
+                        : "The caller is not in any gateway security group, so no plan or budget applies.")))).ToString())</set-body>
+            </return-response>
+        </when>
+    </choose>
+    <!-- "<group id>|<name>|<tier>|<rank>|<pool micro-USD>|<member micro-USD>" -->
+    <set-variable name="entraGroupId" value="@(((string)context.Variables["entraGroup"]).Split('|')[0])" />
+    <set-variable name="entraGroupName" value="@(((string)context.Variables["entraGroup"]).Split('|')[1])" />
+    <set-variable name="entraTier" value="@(((string)context.Variables["entraGroup"]).Split('|')[2])" />
+    <set-variable name="entraPoolMicroUsd" value="@(Math.Max(1L, long.Parse(((string)context.Variables["entraGroup"]).Split('|')[4])))" />
+    <set-variable name="entraMemberMicroUsd" value="@(Math.Max(1L, long.Parse(((string)context.Variables["entraGroup"]).Split('|')[5])))" />
+    <!-- v1 of Entra-only mode covers chat completions only -->
+    <choose>
+        <when condition="@(context.Request.Method != "POST" || !context.Request.Url.Path.TrimEnd('/').EndsWith("/chat/completions"))">
+            <return-response>
+                <set-status code="404" reason="Not Available In Entra-only Mode" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-header name="x-gw-blocked-by" exists-action="override"><value>entra-mode-operation</value></set-header>
+                <set-header name="x-gw-request-id" exists-action="override"><value>@(context.RequestId.ToString())</value></set-header>
+                <set-body>{"error":{"code":"OperationNotAvailable","message":"The Entra-only models API supports POST /chat/completions only."}}</set-body>
+            </return-response>
+        </when>
+    </choose>
+    <!-- The group's plan: settings and per-member token limits of each tier (llm-token-limit needs fixed numbers) -->
+    <set-variable name="governanceActions" value="none" />
+    <choose>
+{tier-branches}
+    </choose>
+    <set-variable name="requestedModel" value="@{
+        var body = context.Request.Body?.As<JObject>(preserveContent: true);
+        return body?["model"]?.ToString() ?? "";
+    }" />
+    <set-variable name="servedModel" value="@((string)context.Variables["requestedModel"])" />
+    <choose>
+        <when condition="@((string)context.Variables["requestedModel"] != "" && !("," + (string)context.Variables["entraAllowedModels"] + ",").Contains("," + (string)context.Variables["requestedModel"] + ","))">
+            <emit-metric name="GovernanceEvents" value="1" namespace="ai-gateway-sandbox">
+                <dimension name="Agent" value="@((string)context.Variables["entraPayer"])" />
+                <dimension name="Tier" value="@((string)context.Variables["entraTier"])" />
+                <dimension name="Event" value="@((string)context.Variables["entraOnDisallowed"] == "deny" ? "model-denied" : "model-downgraded")" />
+                <dimension name="Model" value="@((string)context.Variables["requestedModel"])" />
+            </emit-metric>
+            <choose>
+                <when condition="@((string)context.Variables["entraOnDisallowed"] == "deny")">
+                    <return-response>
+                        <set-status code="403" reason="Model Not Allowed" />
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="x-gw-governance" exists-action="override"><value>model-denied</value></set-header>
+                        <set-header name="x-gw-blocked-by" exists-action="override"><value>model-entitlement</value></set-header>
+                        <set-header name="x-gw-request-id" exists-action="override"><value>@(context.RequestId.ToString())</value></set-header>
+                        <set-header name="x-gw-tier" exists-action="override"><value>@((string)context.Variables["entraTier"])</value></set-header>
+                        <set-header name="x-gw-group" exists-action="override"><value>@((string)context.Variables["entraGroupName"])</value></set-header>
+                        <set-body>@(new JObject(new JProperty("error", new JObject(
+                            new JProperty("code", "ModelNotAllowed"),
+                            new JProperty("message", "Model '" + (string)context.Variables["requestedModel"] + "' is not allowed for the '" + (string)context.Variables["entraTier"] + "' plan of group '" + (string)context.Variables["entraGroupName"] + "'. Allowed models: " + (string)context.Variables["entraAllowedModels"])))).ToString())</set-body>
+                    </return-response>
+                </when>
+                <otherwise>
+                    <set-variable name="servedModel" value="@((string)context.Variables["entraFallbackModel"])" />
+                    <set-variable name="governanceActions" value="model-downgraded" />
+                </otherwise>
+            </choose>
+        </when>
+    </choose>
+    <set-variable name="outputCapped" value="@{
+        var body = context.Request.Body.As<JObject>(preserveContent: true);
+        var cap = (int)context.Variables["entraMaxOutputTokens"];
+        foreach (var key in new [] { "max_completion_tokens", "max_tokens" }) {
+            if (body[key] != null) { return (int)body[key] > cap; }
+        }
+        return false;
+    }" />
+    <set-body>@{
+        var body = context.Request.Body.As<JObject>(preserveContent: true);
+        var cap = (int)context.Variables["entraMaxOutputTokens"];
+        body["model"] = (string)context.Variables["servedModel"];
+        string key = body["max_completion_tokens"] != null ? "max_completion_tokens" : "max_tokens";
+        if (body[key] == null || (int)body[key] > cap) { body[key] = cap; }
+        return body.ToString();
+    }</set-body>
+    <choose>
+        <when condition="@((bool)context.Variables["outputCapped"])">
+            <set-variable name="governanceActions" value="@((string)context.Variables["governanceActions"] == "none" ? "output-capped" : (string)context.Variables["governanceActions"] + ",output-capped")" />
+        </when>
+    </choose>
+    <!-- Team $ budget: one counter per security group, shared by every member -->
+    <quota-by-key id="group-budget" calls="1000000" renewal-period="{budget-period-seconds}"
+        counter-key="@("entra-group-" + (string)context.Variables["entraGroupId"] + "-" + (string)context.Variables["budgetEpoch"])"
+        increment-condition="@(context.Response.StatusCode == 200)"
+        increment-count="@{
+            long cost = context.Variables.GetValueOrDefault<int>("costMicroUsd", 0);
+            long budget = (long)context.Variables["entraPoolMicroUsd"];
+            return (int)Math.Min(int.MaxValue, (cost * 1000000L + budget - 1) / budget);
+        }" />
+    <!-- Member $ cap: one counter per caller (oid), so one member can't drain the whole team budget -->
+    <quota-by-key id="member-budget" calls="1000000" renewal-period="{budget-period-seconds}"
+        counter-key="@("entra-member-" + (string)context.Variables["entraOid"] + "-" + (string)context.Variables["budgetEpoch"])"
+        increment-condition="@(context.Response.StatusCode == 200)"
+        increment-count="@{
+            long cost = context.Variables.GetValueOrDefault<int>("costMicroUsd", 0);
+            long budget = (long)context.Variables["entraMemberMicroUsd"];
+            return (int)Math.Min(int.MaxValue, (cost * 1000000L + budget - 1) / budget);
+        }" />
+</fragment>

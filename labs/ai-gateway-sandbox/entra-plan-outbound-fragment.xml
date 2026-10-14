@@ -1,0 +1,48 @@
+<fragment>
+    <!--
+        AI Gateway Sandbox - "entra-plan-outbound" policy fragment (Entra-only mode, outbound and on-error of the
+        key-less models API). Returns who called, which security group paid and its budgets; on errors also which
+        policy blocked the call (group-budget / member-budget for the team budget and the member cap).
+    -->
+    <set-header name="x-gw-request-id" exists-action="override">
+        <value>@(context.RequestId.ToString())</value>
+    </set-header>
+    <set-header name="x-gw-caller" exists-action="override">
+        <value>@(context.Variables.GetValueOrDefault<string>("caller", ""))</value>
+    </set-header>
+    <set-header name="x-gw-session" exists-action="override">
+        <value>@(context.Variables.GetValueOrDefault<string>("session", "no-session"))</value>
+    </set-header>
+    <choose>
+        <when condition="@(context.Variables.ContainsKey("entraGroupName"))">
+            <set-header name="x-gw-group" exists-action="override">
+                <value>@((string)context.Variables["entraGroupName"])</value>
+            </set-header>
+            <set-header name="x-gw-group-budget-usd" exists-action="override">
+                <value>@(((double)(long)context.Variables["entraPoolMicroUsd"] / 1000000.0).ToString("0.000000"))</value>
+            </set-header>
+            <set-header name="x-gw-member-budget-usd" exists-action="override">
+                <value>@(((double)(long)context.Variables["entraMemberMicroUsd"] / 1000000.0).ToString("0.000000"))</value>
+            </set-header>
+        </when>
+    </choose>
+    <choose>
+        <when condition="@(context.LastError != null)">
+            <set-header name="x-gw-blocked-by" exists-action="override">
+                <value>@{
+                    var policy = context.LastError.PolicyId ?? "";
+                    return policy == "group-budget" || policy == "member-budget" ? "quota-by-key (" + policy + ")" : (context.LastError.Source ?? "");
+                }</value>
+            </set-header>
+            <set-header name="x-gw-block-reason" exists-action="override">
+                <value>@(context.LastError.Reason ?? "")</value>
+            </set-header>
+            <set-header name="x-gw-agent" exists-action="override">
+                <value>@(context.Variables.GetValueOrDefault<string>("entraPayer", "anonymous"))</value>
+            </set-header>
+            <set-header name="x-gw-tier" exists-action="override">
+                <value>@(context.Variables.GetValueOrDefault<string>("entraTier", "none"))</value>
+            </set-header>
+        </when>
+    </choose>
+</fragment>

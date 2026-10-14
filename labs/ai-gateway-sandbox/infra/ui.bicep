@@ -4,6 +4,9 @@ param registryLocation string
 param containerAppsEnvironmentId string
 param identityName string
 
+@description('Entra-only mode persona identities (user-assigned managed identity resource IDs) the UI calls the key-less API as')
+param extraIdentityIds array = []
+
 @description('Image set by azd deploy; empty until the first deploy')
 param imageName string = ''
 
@@ -60,7 +63,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
   tags: union(tags, { 'azd-service-name': 'ui' })
   identity: {
     type: 'UserAssigned'
-    userAssignedIdentities: { '${identity.id}': {} }
+    userAssignedIdentities: reduce(extraIdentityIds, { '${identity.id}': {} }, (identities, id) => union(identities, { '${id}': {} }))
   }
   properties: {
     managedEnvironmentId: containerAppsEnvironmentId

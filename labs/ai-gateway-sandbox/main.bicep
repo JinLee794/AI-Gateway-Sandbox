@@ -75,6 +75,15 @@ param imagesConfig object = { enabled: false }
 @description('Semantic cache: enabled, tiers (plans that use it), defaultScope (session | user | plan), allowedScopes (scopes an app may pick with x-gw-cache-scope), scoreThreshold (vector distance, string, e.g. "0.15"), ttlSeconds, redisSku (Azure Managed Redis), embeddingsModel (name, publisher, version, sku, capacity; deployed in the priority-1 region only), embeddingPrice (USD per 1M tokens, string), location (optional). Empty or enabled: false deploys nothing.')
 param semanticCacheConfig object = { enabled: false }
 
+@description('Entra-only mode (optional): a key-less models API where the plan and $ budgets come from Entra security groups. enabled, groupMembershipClaims, includeDeployerIn, groups (name, displayName, tier, poolMicroUsd, memberMicroUsd, costCenter), identities (name, displayName, group). Needs permission to create app registrations and security groups. See entra-mode.bicep.')
+param entraModeConfig object = { enabled: false }
+
+@description('Object ID of the deployer: added to the entraModeConfig.includeDeployerIn group (Entra-only mode, optional)')
+param deployerPrincipalId string = ''
+
+@description('Service tree ID for Entra ID app registrations, required by some tenants (leave empty otherwise)')
+param serviceManagementReference string = ''
+
 // ------------------
 //    VARIABLES
 // ------------------
@@ -105,7 +114,18 @@ var semanticCacheLookupXml = enableSemanticCache
 var semanticCacheStoreXml = enableSemanticCache
   ? reduce(items(semanticCachePlaceholders), loadTextContent('semantic-cache-store-policy.xml'), (xml, placeholder) => replace(xml, placeholder.key, placeholder.value))
   : ''
-var inferencePolicyXml = replace(replace(loadTextContent('policy.xml'), '{semantic-cache-lookup}', semanticCacheLookupXml), '{semantic-cache-store}', semanticCacheStoreXml)
+var semanticCachePolicyXml = replace(replace(loadTextContent('policy.xml'), '{semantic-cache-lookup}', semanticCacheLookupXml), '{semantic-cache-store}', semanticCacheStoreXml)
+// Keyed models API: the tier (product) policy runs at <base />, so the Entra-only plan hooks render empty
+var inferencePolicyXml = replace(replace(replace(semanticCachePolicyXml, '{plan-inbound}', ''), '{plan-outbound}', ''), '{plan-on-error}', '')
+
+// Entra-only mode (optional): key-less copy of the models API; the plan comes from the caller's Entra security group
+var enableEntraMode = entraModeConfig.?enabled ?? false
+var entraGroupsConfig = entraModeConfig.?groups ?? []
+var entraIdentitiesConfig = entraModeConfig.?identities ?? []
+var entraModePolicyXml = replace(replace(replace(semanticCachePolicyXml,
+  '{plan-inbound}', '<include-fragment fragment-id="entra-plan-inbound" />'),
+  '{plan-outbound}', '<include-fragment fragment-id="entra-plan-outbound" />'),
+  '{plan-on-error}', '<include-fragment fragment-id="entra-plan-outbound" />')
 
 // ------------------
 //    RESOURCES
@@ -271,12 +291,16 @@ resource attributionFragment 'Microsoft.ApiManagement/service/policyFragments@20
 
 // Chargeback directory: who owns each subscription (display name, team, cost center, agent or user). The demo users are
 // plain subscriptions (one key each), so no Entra ID identities are needed; in production derive the user from the token.
+// Entra-only mode adds its personas (keyed by persona name; the gateway maps the token's oid to it), billed to their group.
+var entraDirectoryEntries = [for identity in entraIdentitiesConfig: '${identity.name}=${identity.displayName}|${empty(identity.?group ?? '') ? 'No group' : filter(entraGroupsConfig, g => g.name == identity.group)[0].displayName}|${empty(identity.?group ?? '') ? 'n/a' : (filter(entraGroupsConfig, g => g.name == identity.group)[0].?costCenter ?? 'n/a')}|user']
 resource chargebackDirectoryNamedValue 'Microsoft.ApiManagement/service/namedValues@2024-06-01-preview' = {
   parent: apim
   name: 'chargeback-directory'
   properties: {
     displayName: 'chargeback-directory'
-    value: join(map(agentsConfig, agent => '${agent.name}=${agent.displayName}|${agent.?team ?? 'Unassigned'}|${agent.?costCenter ?? 'n/a'}|${agent.?kind ?? 'agent'}'), ';')
+    value: join(concat(map(agentsConfig, agent => '${agent.name}=${agent.displayName}|${agent.?team ?? 'Unassigned'}|${agent.?costCenter ?? 'n/a'}|${agent.?kind ?? 'agent'}'),
+      enableEntraMode ? entraDirectoryEntries : [],
+      enableEntraMode && !empty(deployerPrincipalId) && !empty(entraModeConfig.?includeDeployerIn ?? '') ? ['entra-you=You (Azure CLI)|${filter(entraGroupsConfig, g => g.name == entraModeConfig.includeDeployerIn)[0].displayName}|${filter(entraGroupsConfig, g => g.name == entraModeConfig.includeDeployerIn)[0].?costCenter ?? 'n/a'}|user'] : []), ';')
     secret: false
   }
 }
@@ -464,6 +488,167 @@ module responsesOpsModule 'responses-ops.bicep' = {
   dependsOn: [
     inferenceAPIModule
   ]
+}
+
+// 6c. Optional: Entra-only mode. The same models API without APIM subscriptions: the gateway app registration, the
+//     team security groups and the persona managed identities (entra-mode.bicep), the group -> plan / budget named
+//     values, the entra-plan fragments (validate token, pick the group, plan, team budget, member cap) and a key-less
+//     API at entra/<inferenceAPIPath>/openai/v1 that reuses the Foundry backend pool and the models API policy.
+module entraModeModule 'entra-mode.bicep' = if (enableEntraMode) {
+  name: 'entraModeModule'
+  params: {
+    location: agentLocation
+    resourceSuffix: resourceSuffix
+    config: entraModeConfig
+    tierNames: map(tiersConfig, tier => tier.name)
+    deployerPrincipalId: deployerPrincipalId
+    serviceManagementReference: serviceManagementReference
+  }
+}
+
+resource entraGroupsNamedValue 'Microsoft.ApiManagement/service/namedValues@2024-06-01-preview' = if (enableEntraMode) {
+  parent: apim
+  name: 'entra-gateway-groups'
+  properties: {
+    displayName: 'entra-gateway-groups'
+    value: enableEntraMode ? join(entraModeModule!.outputs.groupEntries, ';') : 'none=none'
+    secret: false
+  }
+}
+
+resource entraMembersNamedValue 'Microsoft.ApiManagement/service/namedValues@2024-06-01-preview' = if (enableEntraMode) {
+  parent: apim
+  name: 'entra-gateway-members'
+  properties: {
+    displayName: 'entra-gateway-members'
+    value: enableEntraMode ? entraModeModule!.outputs.membersValue : 'none=none'
+    secret: false
+  }
+}
+
+var entraTierBranches = join(map(filter(tiersConfig, tier => !(tier.?internal ?? false)), tier => reduce(items({
+  '{tier}': tier.name
+  '{allowed-models}': join(tier.allowedModels, ',')
+  '{fallback-model}': tier.fallbackModel
+  '{on-disallowed-model}': tier.onDisallowedModel
+  '{max-output-tokens}': string(tier.maxOutputTokens)
+  '{tpm}': string(tier.tpm)
+  '{token-quota}': string(tier.tokenQuota)
+  '{token-quota-period}': tier.tokenQuotaPeriod
+}), loadTextContent('entra-plan-tier.xml'), (xml, placeholder) => replace(xml, placeholder.key, placeholder.value))), '')
+
+resource entraPlanInboundFragment 'Microsoft.ApiManagement/service/policyFragments@2024-06-01-preview' = if (enableEntraMode) {
+  parent: apim
+  name: 'entra-plan-inbound'
+  properties: {
+    description: 'Entra-only mode: validates the gateway token, maps the caller\'s security group to a plan and enforces the team $ budget and the member $ cap'
+    format: 'rawxml'
+    value: reduce(items({
+      '{tenant-id}': tenant().tenantId
+      '{gateway-app-id}': enableEntraMode ? entraModeModule!.outputs.gatewayAppId : 'none'
+      '{budget-period-seconds}': string(tiersConfig[0].budgetPeriodSeconds)
+      '{tier-branches}': entraTierBranches
+    }), loadTextContent('entra-plan-inbound-fragment.xml'), (xml, placeholder) => replace(xml, placeholder.key, placeholder.value))
+  }
+  dependsOn: [
+    budgetEpochNamedValue
+    entraGroupsNamedValue
+    entraMembersNamedValue
+  ]
+}
+
+resource entraPlanOutboundFragment 'Microsoft.ApiManagement/service/policyFragments@2024-06-01-preview' = if (enableEntraMode) {
+  parent: apim
+  name: 'entra-plan-outbound'
+  properties: {
+    description: 'Entra-only mode: x-gw-* response headers (caller, group, budgets, blocking policy)'
+    format: 'rawxml'
+    value: loadTextContent('entra-plan-outbound-fragment.xml')
+  }
+}
+
+resource entraInferenceApi 'Microsoft.ApiManagement/service/apis@2024-06-01-preview' = if (enableEntraMode) {
+  parent: apim
+  name: 'inference-entra'
+  properties: {
+    apiType: 'http'
+    displayName: 'Inference API (Entra only)'
+    description: 'Key-less models API: the plan and the $ budgets come from the caller\'s Microsoft Entra security group'
+    format: 'openapi+json'
+    path: 'entra/${inferenceAPIPath}/openai/v1'
+    protocols: [
+      'https'
+    ]
+    subscriptionRequired: false
+    type: 'http'
+    value: string(loadJsonContent('../../modules/apim/v3/specs/AIFoundryOpenAIV1.json'))
+  }
+  dependsOn: [
+    inferenceAPIModule
+  ]
+}
+
+resource entraInferenceApiPolicy 'Microsoft.ApiManagement/service/apis/policies@2024-06-01-preview' = if (enableEntraMode) {
+  parent: entraInferenceApi
+  name: 'policy'
+  properties: {
+    format: 'rawxml'
+    value: replace(entraModePolicyXml, '{backend-id}', length(aiServicesConfig) > 1 ? 'inference-backend-pool' : aiServicesConfig[0].name)
+  }
+  dependsOn: [
+    entraPlanInboundFragment
+    entraPlanOutboundFragment
+    modelPricingNamedValue
+    attributionFragment
+    chargebackFragment
+    responsesPricingFragment
+    semanticCachePricingFragment
+    semanticCacheModule
+  ]
+}
+
+resource entraInferenceApiDiagnostics 'Microsoft.ApiManagement/service/apis/diagnostics@2024-06-01-preview' = if (enableEntraMode) {
+  parent: entraInferenceApi
+  name: 'azuremonitor'
+  properties: {
+    alwaysLog: 'allErrors'
+    verbosity: 'verbose'
+    logClientIp: true
+    loggerId: apimModule.outputs.loggerId
+    sampling: {
+      samplingType: 'fixed'
+      percentage: json('100')
+    }
+    largeLanguageModel: {
+      logs: 'enabled'
+      requests: {
+        messages: 'all'
+        maxSizeInBytes: 262144
+      }
+      responses: {
+        messages: 'all'
+        maxSizeInBytes: 262144
+      }
+    }
+  }
+}
+
+// Custom metrics (emit-metric, llm-emit-token-metric) need Application Insights diagnostics with metrics on the API
+resource entraInferenceApiAppInsights 'Microsoft.ApiManagement/service/apis/diagnostics@2022-08-01' = if (enableEntraMode) {
+  parent: entraInferenceApi
+  name: 'applicationinsights'
+  properties: {
+    alwaysLog: 'allErrors'
+    httpCorrelationProtocol: 'W3C'
+    logClientIp: true
+    loggerId: resourceId('Microsoft.ApiManagement/service/loggers', apim.name, 'appinsights-logger')
+    metrics: true
+    verbosity: 'verbose'
+    sampling: {
+      samplingType: 'fixed'
+      percentage: 100
+    }
+  }
 }
 
 // 7. Commerce tools: a REST API (mock backend implemented in the gateway) exposed as an MCP server
@@ -875,6 +1060,7 @@ module demoUi 'demo-ui.bicep' = if (hostDemoUi) {
     identityId: uiIdentity!.id
     identityClientId: uiIdentity!.properties.clientId
     identityPrincipalId: uiIdentity!.properties.principalId
+    extraIdentityIds: enableEntraMode ? filter(map(entraModeModule!.outputs.personas, p => p.resourceId), id => !empty(id)) : []
     apimName: apimModule.outputs.name
     logAnalyticsName: lawModule.outputs.name
     appInsightsName: appInsightsModule.outputs.name
@@ -959,6 +1145,22 @@ output budgetSuspend object = budgetSuspendEnabled ? {
   roleDefinitionId: budgetSuspendModule!.outputs.roleDefinitionId
   customRole: budgetSuspendModule!.outputs.customRole
 } : { enabled: false }
+
+// Entra-only mode: the key-less models API, the token audience and the personas the demo UI can call it as
+output entraMode object = enableEntraMode ? {
+  enabled: true
+  inferenceBaseUrl: '${apimModule.outputs.gatewayUrl}/entra/${inferenceAPIPath}/openai/v1'
+  gatewayAppId: entraModeModule!.outputs.gatewayAppId
+  personas: entraModeModule!.outputs.personas
+  groups: map(entraGroupsConfig, g => {
+    name: g.name
+    displayName: g.displayName
+    tier: g.tier
+    poolMicroUsd: g.poolMicroUsd
+    memberMicroUsd: g.memberMicroUsd
+  })
+} : { enabled: false }
+output entraPersonaIdentityIds array = enableEntraMode ? filter(map(entraModeModule!.outputs.personas, p => p.resourceId), id => !empty(id)) : []
 
 #disable-next-line outputs-should-not-contain-secrets
 output agentKeys array = [for (agent, i) in agentsConfig: {

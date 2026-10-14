@@ -11,6 +11,8 @@ param sku string = 'B1'
 param identityId string
 param identityClientId string
 param identityPrincipalId string
+@description('Entra-only mode persona identities (user-assigned managed identity resource IDs) the UI calls the key-less API as')
+param extraIdentityIds array = []
 param apimName string
 param logAnalyticsName string
 param appInsightsName string
@@ -82,9 +84,7 @@ resource site 'Microsoft.Web/sites@2024-04-01' = {
   kind: 'app,linux'
   identity: {
     type: 'UserAssigned'
-    userAssignedIdentities: {
-      '${identityId}': {}
-    }
+    userAssignedIdentities: reduce(extraIdentityIds, { '${identityId}': {} }, (identities, id) => union(identities, { '${id}': {} }))
   }
   properties: {
     serverFarmId: plan.id

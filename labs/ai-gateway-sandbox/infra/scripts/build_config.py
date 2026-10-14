@@ -75,6 +75,32 @@ lab_parameters["semanticCacheConfig"] = {
     "embeddingPrice": f"{float(semantic_cache.get('embeddingPricePer1MTokensUsd', 0.02)):.4f}",
 } if semantic_cache.get("enabled") else {"enabled": False}
 
+# Entra-only mode: plans and $ budgets from Entra security groups (micro-USD, like the tier budgets)
+entra_mode = config.get("entraMode", {"enabled": False})
+if entra_mode.get("enabled"):
+    tier_names = [t["name"] for t in tiers]
+    group_names = [g["name"] for g in entra_mode.get("groups", [])]
+    for group in entra_mode.get("groups", []):
+        if group.get("tier") not in tier_names:
+            raise SystemExit(f"entraMode: group {group.get('name')} uses unknown tier {group.get('tier')}")
+    for identity in entra_mode.get("identities", []):
+        if identity.get("group") and identity["group"] not in group_names:
+            raise SystemExit(f"entraMode: identity {identity.get('name')} uses unknown group {identity['group']}")
+    if entra_mode.get("includeDeployerIn") and entra_mode["includeDeployerIn"] not in group_names:
+        raise SystemExit(f"entraMode: includeDeployerIn uses unknown group {entra_mode['includeDeployerIn']}")
+    lab_parameters["entraModeConfig"] = {
+        "enabled": True,
+        "groupMembershipClaims": entra_mode.get("groupMembershipClaims", "SecurityGroup"),
+        "includeDeployerIn": entra_mode.get("includeDeployerIn", ""),
+        "groups": [{**{k: v for k, v in g.items() if k not in ("budgetUsd", "memberBudgetUsd")},
+                    "poolMicroUsd": int(round(g["budgetUsd"] * 1_000_000)),
+                    "memberMicroUsd": int(round(g.get("memberBudgetUsd", g["budgetUsd"]) * 1_000_000))}
+                   for g in entra_mode.get("groups", [])],
+        "identities": entra_mode.get("identities", []),
+    }
+else:
+    lab_parameters["entraModeConfig"] = {"enabled": False}
+
 # Static part of the demo UI configuration (the endpoints and subscription keys are added by Bicep)
 ui_config = {
     "tiers": tiers,
@@ -87,6 +113,7 @@ ui_config = {
     "endUserBudgets": {k: v for k, v in end_user_budgets.items() if k != "$comment"},
     "images": {k: v for k, v in images.items() if k != "$comment"},
     "semanticCache": {k: v for k, v in semantic_cache.items() if k != "$comment"},
+    "entraMode": {k: v for k, v in entra_mode.items() if k != "$comment"},
 }
 
 target = os.path.join(INFRA, "sandbox.generated.json")

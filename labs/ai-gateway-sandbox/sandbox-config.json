@@ -70,6 +70,24 @@
     "$comment": "Over budget, switched off: the first blocked subscription-budget call triggers a Logic App directly to suspend watched subscriptions. No periodic spend scans. ON for azd up; set enabled=false to skip it (the notebook keeps it off by default). Only exhaustion is supported (not custom percentages or email notifications). useCustomRole=true needs Owner or User Access Administrator; false uses API Management Service Contributor on this APIM instance.",
     "enabled": true, "subscriptions": ["user-ben"], "useCustomRole": true
   },
+  "entraMode": {
+    "$comment": "OPTIONAL Entra-only mode (azd up; off by default). Adds a key-less copy of the models API (entra/inference/openai/v1, no APIM subscription) where the plan and the $ budgets come from Microsoft Entra ID: a gateway app registration (app role Gateway.Invoke), one security group per team (tier, a shared team budgetUsd and a per-member memberBudgetUsd cap) and one user-assigned managed identity per persona, attached to the hosted UI. Groups reach the gateway in the token's groups claim (groupMembershipClaims: SecurityGroup), mapped to plans by the entra-gateway-groups named value. Needs permission to create app registrations and security groups. includeDeployerIn adds the azd user to one group (tokens of users in more than 200 groups carry no groups claim). The demo UI shows the 'Entra only' toggle when this is deployed.",
+    "enabled": false,
+    "groupMembershipClaims": "SecurityGroup",
+    "includeDeployerIn": "",
+    "groups": [
+      { "name": "customer-care", "displayName": "Customer Care", "tier": "gold", "budgetUsd": 0.03, "memberBudgetUsd": 0.02, "costCenter": "CC-1001" },
+      { "name": "supply-chain", "displayName": "Supply Chain", "tier": "silver", "budgetUsd": 0.02, "memberBudgetUsd": 0.01, "costCenter": "CC-2002" },
+      { "name": "marketing", "displayName": "Marketing", "tier": "bronze", "budgetUsd": 0.01, "memberBudgetUsd": 0.01, "costCenter": "CC-3003" }
+    ],
+    "identities": [
+      { "name": "entra-ana", "displayName": "Ana Lopez", "group": "customer-care" },
+      { "name": "entra-raj", "displayName": "Raj Iyer", "group": "customer-care" },
+      { "name": "entra-sam", "displayName": "Sam Reed", "group": "supply-chain" },
+      { "name": "entra-mia", "displayName": "Mia Chen", "group": "marketing" },
+      { "name": "entra-contractor", "displayName": "Contractor (no group)", "group": "" }
+    ]
+  },
   "tools": [
     { "name": "search-products", "priceUsd": 0.0005, "description": "Search the product catalog" },
     { "name": "check-inventory", "priceUsd": 0.0002, "description": "Stock level of a SKU per warehouse" },

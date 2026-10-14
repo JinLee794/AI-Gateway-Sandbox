@@ -10,12 +10,14 @@
              The headers are only trusted from the agent-platform product, so a regular caller can't redirect its spend.
      
          Sets the variables: payer, payerTier, via (direct | <agent id>)
+         Entra-only mode (key-less models API): the entra-plan-inbound fragment sets entraPayer / entraTier (the persona
+         and its security group's plan), which win over the subscription; keyed calls never set them.
      -->
     <set-variable name="onBehalfOf" value="@(context.Product?.Id == "agent-platform" ? context.Request.Headers.GetValueOrDefault("x-gw-on-behalf-of", "") : "")" />
     <set-variable name="payer" value="@{
         var onBehalfOf = (string)context.Variables["onBehalfOf"];
-        return onBehalfOf != "" ? onBehalfOf : (context.Subscription?.Id ?? "anonymous");
+        return onBehalfOf != "" ? onBehalfOf : context.Variables.GetValueOrDefault<string>("entraPayer", context.Subscription?.Id ?? "anonymous");
     }" />
-    <set-variable name="payerTier" value="@((string)context.Variables["onBehalfOf"] != "" ? context.Request.Headers.GetValueOrDefault("x-gw-on-behalf-of-tier", "unknown") : (context.Product?.Id ?? "none"))" />
+    <set-variable name="payerTier" value="@((string)context.Variables["onBehalfOf"] != "" ? context.Request.Headers.GetValueOrDefault("x-gw-on-behalf-of-tier", "unknown") : context.Variables.GetValueOrDefault<string>("entraTier", context.Product?.Id ?? "none"))" />
     <set-variable name="via" value="@((string)context.Variables["onBehalfOf"] != "" ? context.Request.Headers.GetValueOrDefault("x-gw-via-agent", "agent") : "direct")" />
 </fragment>

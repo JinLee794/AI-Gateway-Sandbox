@@ -199,6 +199,12 @@
   .scenarios .sctopic:first-child { margin-top:0; }
   .scenarios .sctopic span { text-transform:none; letter-spacing:0; font-weight:400; }
   .scenarios button .offtag { margin-left:auto; align-self:center; flex:0 0 auto; font-size:10px; font-weight:700; letter-spacing:.06em; padding:2px 7px; border-radius:10px; background:#edebe9; color:#605e5c; border:1px solid #c8c6c4; }
+  .gwmode { display:inline-flex; border:1px solid var(--border); border-radius:4px; overflow:hidden; flex:0 0 auto; }
+  .gwmode button { background:#fff; color:var(--text); border:0; border-radius:0; height:28px; padding:0 10px; font-weight:500; font-size:12px; }
+  .gwmode button + button { border-left:1px solid var(--border); }
+  .gwmode button.active { background:var(--accent); color:#fff; }
+  .gwmode button:disabled { color:#a19f9d; background:#faf9f8; cursor:not-allowed; }
+  #personas .agent.off { opacity:.55; cursor:not-allowed; }
   #scenario { margin-bottom:16px; border-left:4px solid var(--accent); }
   #scSteps, .rsteps { margin:12px 0 0; padding-left:22px; line-height:2; font-size:13px; }
   #scTakeaway, .rtake { margin-top:12px; padding:10px 12px 10px 38px; background:var(--accent-light); border:1px solid #c7e0f4; border-radius:4px; position:relative; font-size:13px; }
@@ -615,6 +621,10 @@
         <button class="mode" data-mode="build" role="tab" aria-selected="false" title="Build your own request"><span class="ic">✎</span><span><b>Build your own request</b><small>pick an agent, a target and a prompt</small></span></button>
       </div>
       <span class="lsum hidden" id="lsum"></span>
+      <div class="gwmode" id="gwMode" role="radiogroup" aria-label="How callers authenticate">
+        <button data-gw="keys" class="active" role="radio" aria-checked="true" title="APIM subscription key (which plan pays) + Microsoft Entra ID token (who calls)">Keys + Entra</button>
+        <button data-gw="entra" role="radio" aria-checked="false" title="No keys: the key-less models API, where the caller's Entra security group picks the plan and pays">Entra only</button>
+      </div>
       <span class="sp"></span>
       <span class="lstat"><span class="live"></span><span class="spin sm" aria-hidden="true"></span><span class="muted" id="runStatus"></span></span>
       <button class="secondary hidden" id="btnStop">Stop</button>
@@ -633,6 +643,7 @@
       <h2><span class="step">1</span>Pick who's calling</h2>
       <div class="muted pickhelp">Each card is <span class="term" tabindex="0" data-primer><b>one subscription key</b></span>, and the gateway bills whoever's key makes the call. So pick an app <i>or</i> a user: a call is never both.</div>
       <div class="agents" id="agents"></div>
+      <div class="agents hidden" id="personas"></div>
       <div class="callerNote"><b>A user working through an agent?</b> Pick the user, then the <b>A2A agent</b> tab. The agent makes model and tool calls on the user's behalf, and the gateway bills the user (<code>x-gw-on-behalf-of</code>). Only the agent platform may name someone else to bill, so an ordinary app can't push its cost onto a user.</div>
     </div>
     <div class="form">
@@ -1598,6 +1609,9 @@ const PRESETS = {
 const COLORS = ["#0078d4", "#8764b8", "#00b7c3", "#ca5010", "#e3008c", "#498205", "#4f6bed"];
 const STATUS_COLORS = { "200": "#107c10", "401": "#a4262c", "403": "#d13438", "429": "#f7630c", "other": "#a19f9d" };
 let cfg, selectedAgent, running = false, surface = "model";
+// "keys": APIM subscription key (which plan pays) + Entra ID token (who calls). "entra": the key-less models API, where the
+// caller's Entra security group decides the plan and pays (Entra-only mode, entraMode.enabled)
+let gwMode = "keys", selectedPersona = null;
 const session = { calls: [], costByAgent: {}, costBySurface: {}, costByAgentSurface: {}, outcomes: {}, ledger: {} };
 const charts = {};
 const $ = (id) => document.getElementById(id);
@@ -1728,6 +1742,7 @@ async function init() {
   setInterval(() => { if (document.visibilityState === "visible") refreshBudgets(); }, 60000);  // other users and agents spend too
   renderPlans();
   renderScenarios();
+  initGwMode();
 }
 
 function setSurface(s) {
@@ -1741,6 +1756,13 @@ function setSurface(s) {
 }
 
 function renderCallerLine() {
+  if (gwMode === "entra") {
+    const p = selectedPersona, g = entraGroup(p?.group);
+    $("callerLine").innerHTML = !p ? "Pick a persona in step 1."
+      : `Calling as <b>${escapeHtml(p.displayName)}</b> with <b>no key</b>: its own Entra ID token → ${g ? `group <b>${escapeHtml(g.displayName)}</b> <span class="badge ${g.tier}">${g.tier}</span> → billed to the team budget ($${microUsd(g.poolMicroUsd)}, $${microUsd(g.memberMicroUsd)} per member)` : "<b>no gateway group</b> (the gateway answers 403)"}`
+        + `<br><span class="muted">Key-less models API <code>${escapeHtml(cfg.entraMode?.inferenceBaseUrl || "")}</code> · chat completions only</span>`;
+    return;
+  }
   const a = selectedAgent;
   if (!a) { $("callerLine").textContent = "Pick who's calling in step 1."; return; }
   const who = `<b>${escapeHtml(a.displayName)}</b>`, kind = a.kind === "user" ? "user" : "app";
@@ -1764,6 +1786,66 @@ function selectAgent(name) {
   if (currentTool) $("tool").value = currentTool;
   renderCallerLine();
   cvCtx();
+}
+
+// ---------- Entra-only mode toggle: scenarios, callers and Send switch to the key-less models API ----------
+function renderPersonas() {
+  const ps = cfg.entraMode?.personas || [];
+  $("personas").innerHTML = `<div class="agrp">Personas <span>· each one is a managed identity in an Entra security group; no subscription keys</span></div>`
+    + ps.map(p => { const g = entraGroup(p.group);
+      return `<div class="agent${p.available ? "" : " off"}" data-persona="${escapeHtml(p.name)}"${p.available ? "" : ` title="${p.kind === "azure-cli" ? "The Azure CLI persona works in a locally run UI only" : "Managed identity personas work in the hosted UI only"}"`}>
+        <div class="name"><span>${ico("entra-id")} ${escapeHtml(p.displayName)}</span>${p.tier ? ` <span class="badge ${p.tier}">${p.tier}</span>` : ""}</div>
+        <div class="short">${g ? `${escapeHtml(g.displayName)} · team $${microUsd(g.poolMicroUsd)} · $${microUsd(g.memberMicroUsd)} each` : "no gateway group"}${p.available ? "" : " · not available here"}</div>
+        <div class="meta">${p.kind === "azure-cli" ? "You, via the Azure CLI" : "User-assigned managed identity"} · app role <code>Gateway.Invoke</code><br/>${g ? `group <b>${escapeHtml(g.displayName)}</b> → plan <b>${g.tier}</b>` : "in no gateway group: blocked with 403"}</div></div>`; }).join("");
+  $("personas").querySelectorAll(".agent[data-persona]").forEach(el => {
+    el.tabIndex = 0;
+    el.onclick = () => selectPersona(el.dataset.persona);
+    el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectPersona(el.dataset.persona); } };
+    el.onmouseenter = el.onfocus = () => showAgentTip(el);
+    el.onmouseleave = queueHidePreview; el.onblur = hidePreview;
+  });
+}
+function selectPersona(name) {
+  const p = (cfg.entraMode?.personas || []).find(x => x.name === name);
+  if (!p) return;
+  if (!p.available) { toast(p.kind === "azure-cli" ? "The Azure CLI persona works in a locally run UI only" : "Managed identity personas work in the hosted UI only"); return; }
+  selectedPersona = p;
+  document.querySelectorAll("#personas .agent").forEach(el => el.classList.toggle("selected", el.dataset.persona === name));
+  const t = cfg.tiers.find(x => x.name === p.tier) || { allowedModels: [], onDisallowedModel: "deny" }, current = $("model").value;
+  $("model").innerHTML = cfg.models.map(m => {
+    const ok = t.allowedModels.includes(m.name), mark = ok ? "· allowed" : (t.onDisallowedModel === "deny" ? "· denied" : "· downgraded to " + t.fallbackModel);
+    return `<option value="${m.name}">${m.name}  ($${m.inputPrice}/$${m.outputPrice} per 1M)  ${p.group ? mark : "· no plan"}</option>`;
+  }).join("");
+  if (current) $("model").value = current;
+  renderCallerLine();
+  cvCtx();
+}
+function setGwMode(mode) {
+  if (running) return;
+  gwMode = mode === "entra" && cfg.entraMode?.enabled ? "entra" : "keys";
+  try { localStorage.setItem("sbx.gwMode", gwMode); } catch {}
+  const entra = gwMode === "entra";
+  document.querySelectorAll("#gwMode button").forEach(b => { const on = b.dataset.gw === gwMode; b.classList.toggle("active", on); b.setAttribute("aria-checked", on); });
+  $("agents").classList.toggle("hidden", entra); $("personas").classList.toggle("hidden", !entra);
+  document.querySelector(".callerNote")?.classList.toggle("hidden", entra);
+  document.querySelectorAll("#surfacePivot button").forEach(b => { b.disabled = entra && b.dataset.surface !== "model"; });
+  if (entra) {
+    if (surface !== "model") setSurface("model");
+    if (!selectedPersona) { const first = entraPersonas()[0]; if (first) selectPersona(first.name); else renderCallerLine(); }
+    else selectPersona(selectedPersona.name);
+  } else if (selectedAgent) selectAgent(selectedAgent.name);
+  renderScenarios();
+}
+function initGwMode() {
+  const btnEntra = document.querySelector('#gwMode button[data-gw="entra"]');
+  if (!cfg.entraMode?.enabled) {
+    btnEntra.disabled = true;
+    btnEntra.title = "Entra-only mode isn't deployed: set entraMode.enabled to true in sandbox-config.json and run azd up";
+  } else renderPersonas();
+  document.querySelectorAll("#gwMode button").forEach(b => b.onclick = () => setGwMode(b.dataset.gw));
+  let saved = "keys";
+  try { saved = localStorage.getItem("sbx.gwMode") || "keys"; } catch {}
+  if (saved === "entra" && cfg.entraMode?.enabled) setGwMode("entra");
 }
 
 function renderPlans() {
@@ -1878,6 +1960,12 @@ async function post(path, body) {
 function send(agentName, model, opts = {}) {
   return post("/api/chat", { agent: agentName, model, prompt: opts.prompt ?? $("prompt").value, history: opts.history, stream: opts.stream || undefined,
                              maxTokens: opts.maxTokens ?? (Number($("maxTokens").value) || undefined), ...authOpts(opts) });
+}
+// Entra-only mode: the key-less models API, called with the persona's own Entra ID token (tokenAs: persona | foundry | none)
+function sendAs(personaName, model, opts = {}) {
+  return post("/api/chat", { agent: personaName, persona: personaName, model, prompt: opts.prompt ?? $("prompt").value, history: opts.history,
+                             maxTokens: opts.maxTokens ?? (Number($("maxTokens").value) || undefined), tokenAs: opts.tokenAs || "persona",
+                             session: opts.session ?? $("sessionId").value.trim() });
 }
 function callTool(agentName, tool, args, opts = {}) { return post("/api/mcp", { agent: agentName, action: "call", tool, arguments: args ?? TOOL_ARGS[tool] ?? {}, ...authOpts(opts) }); }
 function listTools(agentName, opts = {}) { return post("/api/mcp", { agent: agentName, action: "list", ...authOpts(opts) }); }
@@ -2765,7 +2853,7 @@ function snapshotRequest(b) {
   const sim = b.id === "btnSim";
   const target = sim ? "AI models + MCP tools" : surface === "tool" ? `tool ${$("tool").value}` : surface === "agent" ? "Sourcing Agent (A2A)" : $("model").value;
   return { id: b.id, action: b.id === "btnBurst" ? `Burst ×${Math.min(20, Math.max(1, Number($("burst").value) || 10))}` : b.textContent.trim(),
-    who: sim ? "Random agents" : selectedAgent?.displayName || "", agent: selectedAgent?.name, surface: sim ? "mixed" : surface, target,
+    who: sim ? "Random agents" : (gwMode === "entra" ? selectedPersona?.displayName : selectedAgent?.displayName) || "", agent: gwMode === "entra" && !sim ? selectedPersona?.name : selectedAgent?.name, surface: sim ? "mixed" : surface, target,
     model: $("model").value, preset: $("preset").value, prompt: $("prompt").value, maxTokens: $("maxTokens").value, burst: $("burst").value,
     tool: $("tool").value, toolArgs: $("toolArgs").value, task: $("agentTask").value, sessionId: $("sessionId").value, endUser: $("endUser").value, cacheScope: $("cacheScope").value, token: $("useToken").checked, trace: $("useTrace").checked, stream: $("useStream").checked };
 }
@@ -3031,6 +3119,10 @@ function toolArgs() {
   try { return JSON.parse($("toolArgs").value || "{}"); } catch { toast("Tool arguments must be valid JSON"); return null; }
 }
 function sendCurrent(withHistory = false) {  // only a single Send carries the session's earlier turns; bursts stay single-turn
+  if (gwMode === "entra") {
+    if (!selectedPersona) { toast("Pick a persona in step 1"); return Promise.resolve(null); }
+    return sendAs(selectedPersona.name, $("model").value, withHistory && $("useHistory").checked ? { history: chatHistory($("sessionId").value.trim()) } : {});
+  }
   if (surface === "tool") { const args = toolArgs(); return args ? callTool(selectedAgent.name, $("tool").value, args) : Promise.resolve(null); }
   if (surface === "agent") return callAgent(selectedAgent.name);
   return send(selectedAgent.name, $("model").value, { stream: $("useStream").checked, ...(withHistory && $("useHistory").checked ? { history: chatHistory($("sessionId").value.trim()) } : {}) });
@@ -4054,7 +4146,112 @@ const SCENARIOS = [
         + `<div class="cv-sec">Isolation evidence: what the gateway returned for every call</div>${evidence}`
         + `<div class="muted">Scope and partition come from the <code>x-gw-cache-scope</code> and <code>x-gw-cache-partition</code> response headers. Every hit is also a chargeback record (<code>pricingRule = semantic-cache-hit</code>) and a <code>SemanticCacheLookups</code> metric split by <code>Result</code> and <code>Scope</code>.${cfg.links?.redis ? ` <a href="${cfg.links.redis}" target="_blank">Open Azure Managed Redis ↗</a>` : ""}</div>`);
     } },
+  // ---------- Entra only: no APIM subscription keys. The caller's security group decides the plan and pays. ----------
+  { title: "Entra only: no key, the token is the contract", entra: true, get off() { return !cfg?.entraMode?.enabled; },
+    get cost() { return cfg?.entraMode?.enabled ? "4 calls · < $0.001" : "off · set entraMode.enabled to try it"; },
+    gist: "No subscription key at all. The token must be for the gateway app and carry Gateway.Invoke; the caller's security group picks the plan.",
+    policies: ["validate-azure-ad-token (audience + roles)", "entra-plan-inbound fragment", "named value entra-gateway-groups"],
+    preview: () => { const p = entraPersona(), np = entraPersona(""), m = entraModel(p);
+      return dg.row(dg.node(p?.displayName || "persona", "no token"), dg.arrow(surfChip("model")), dg.gw("Entra-only API"), dg.arrow("rejected", "bad"), dg.node("Foundry", "never called", "dim"), dg.code(401))
+        + dg.row(dg.node(p?.displayName || "persona", "Foundry-audience token"), dg.arrow(surfChip("model")), dg.gw("wrong audience"), dg.arrow("rejected", "bad"), dg.node("Foundry", "never called", "dim"), dg.code(401))
+        + dg.row(dg.node(np?.displayName || "no-group identity", "Gateway.Invoke, no group"), dg.arrow(surfChip("model")), dg.gw("group → plan"), dg.arrow("no plan", "bad"), dg.node("Foundry", "never called", "dim"), dg.code(403))
+        + dg.row(dg.node(p?.displayName || "persona", entraGroupLabel(p)), dg.arrow(surfChip("model")), dg.gw("group → plan"), dg.arrow(`<span class="badge ${p?.tier}">${p?.tier || "?"}</span>`, "ok"), dg.model(m || "model"), dg.code(200))
+        + dg.note("No api-key header and no APIM subscription: the Entra ID token is the only credential."); },
+    story: () => `The key-less models API <code>entra/inference</code> never reads an APIM subscription key. <code>validate-azure-ad-token</code> accepts only tokens for the <b>gateway app registration</b> that carry the <code>Gateway.Invoke</code> app role. The <code>entra-plan-inbound</code> fragment then matches the token's <code>groups</code> claim against the <code>entra-gateway-groups</code> named value: the <b>security group</b> picks the plan and the budget.`,
+    async run() {
+      const p = entraPersona(), np = entraPersona(""), m = entraModel(p);
+      if (!p) { info("No persona with a gateway group can be used from this UI: managed identity personas need the hosted UI (<code>azd up</code>), the Azure CLI persona a locally run UI with <code>includeDeployerIn</code> set."); return; }
+      const r1 = await sendAs(p.name, m, { prompt: ASK, maxTokens: 60, tokenAs: "none" });
+      step(r1, `no token · blocked by <code>${escapeHtml(hdr(r1, "x-gw-blocked-by") || "?")}</code>`);
+      if (!running) return;
+      const r2 = await sendAs(p.name, m, { prompt: ASK, maxTokens: 60, tokenAs: "foundry" });
+      step(r2, `the token the keyed API accepts (audience Foundry) · blocked by <code>${escapeHtml(hdr(r2, "x-gw-blocked-by") || "?")}</code>`);
+      if (!running) return;
+      let r3;
+      if (np) { r3 = await sendAs(np.name, m, { prompt: ASK, maxTokens: 60 }); step(r3, `${escapeHtml(np.displayName)}: Gateway.Invoke but no gateway group · blocked by <code>${escapeHtml(hdr(r3, "x-gw-blocked-by") || "?")}</code>`); }
+      else info("No persona without a group is available, so the no-group check is skipped.");
+      if (!running) return;
+      const r4 = await sendAs(p.name, m, { prompt: ASK, maxTokens: 60 });
+      step(r4, `${escapeHtml(p.displayName)} · group <b>${escapeHtml(hdr(r4, "x-gw-group") || "?")}</b> → plan <b>${escapeHtml(hdr(r4, "x-gw-tier") || "?")}</b>`);
+      takeaway(`No subscription key anywhere. Without a token the call got <b>${r1.status}</b>; a valid Entra ID token for the wrong audience got <b>${r2.status}</b>${r3 ? `; an identity with the app role but no gateway group got <b>${r3.status}</b> (<code>${escapeHtml(hdr(r3, "x-gw-blocked-by") || "")}</code>)` : ""}. ${escapeHtml(p.displayName)}'s own token answered <b>${r4.status}</b> on the <b>${escapeHtml(hdr(r4, "x-gw-tier") || "?")}</b> plan of group <b>${escapeHtml(hdr(r4, "x-gw-group") || "?")}</b> (${fmtUsd(usd(r4))}, billed to <code>${escapeHtml(hdr(r4, "x-gw-billed-to") || p.name)}</code>). Moving someone to another plan is a group membership change in Entra ID, not a new key.`);
+    } },
+  { title: "Entra only: team $ budget and member cap", entra: true, get off() { return !cfg?.entraMode?.enabled; },
+    get cost() { return cfg?.entraMode?.enabled ? "≤ 20 calls · ≈ $0.03" : "off · set entraMode.enabled to try it"; },
+    gist: "Every member of a security group draws from ONE team $ budget, and each member also has their own cap, so nobody can drain the team's pot alone.",
+    policies: ["quota-by-key (member-budget)", "quota-by-key (group-budget)", "named value entra-gateway-groups"],
+    preview: () => { const [a, b] = entraTeam(), g = entraGroup(a?.group);
+      return dg.row(dg.col(dg.node(a?.displayName || "member 1", "member cap $" + microUsd(g?.memberMicroUsd)), dg.node(b?.displayName || "member 2", "member cap $" + microUsd(g?.memberMicroUsd))),
+                    dg.arrow("Entra token"), dg.gw(`group ${escapeHtml(g?.displayName || "?")}: team budget $${microUsd(g?.poolMicroUsd)}`), dg.arrow(), dg.model(entraModel(a) || "model"))
+        + dg.note(`${escapeHtml(a?.displayName || "member 1")} spends until their own cap`) + dg.seq([200, 200, 200, 200, 403], `<span style="margin-left:6px">member-budget</span>`)
+        + dg.note(`${escapeHtml(b?.displayName || "member 2")} keeps going on what's left of the team budget`) + dg.seq([200, 200, 403], `<span style="margin-left:6px">group-budget</span>`); },
+    story: () => { const [a] = entraTeam(), g = entraGroup(a?.group);
+      return `The <b>${escapeHtml(g?.displayName || "team")}</b> security group shares one team budget (<b>$${microUsd(g?.poolMicroUsd)}</b>, one <code>quota-by-key</code> counter per group) and caps each member at <b>$${microUsd(g?.memberMicroUsd)}</b> (one counter per caller <code>oid</code>). Both amounts come from the <code>entra-gateway-groups</code> named value and are counted in millionths of their own budget, so they change without a policy redeploy. Budgets are reset first so the team starts from $0.`; },
+    async run() {
+      const [a, b] = entraTeam(), m = entraModel(a);
+      if (!a || !b) { info("This scenario needs two available personas in the same gateway group (the hosted UI from <code>azd up</code>, with two identities in one group)."); return; }
+      info("Resetting budgets (budget-epoch named value) so the team starts from $0…");
+      if (!await resetBudgets()) return;
+      await resetSettle();
+      const sid = (x) => newSessionId(x.name), spent = {}, blocked = {};
+      async function loop(p, max) {
+        const s = sid(p); spent[p.name] = 0;
+        for (let i = 0; i < max && running; i++) {
+          const r = await sendAs(p.name, m, { prompt: LONG, maxTokens: 300, session: s });
+          if (r.status === 200) spent[p.name] += usd(r);
+          step(r, r.status === 200 ? `${escapeHtml(p.displayName)} has spent ${fmtUsd(spent[p.name])}` : `blocked by <code>${escapeHtml(hdr(r, "x-gw-blocked-by") || "?")}</code>`);
+          if (r.status === 429) { await sleep(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5)); continue; }
+          if (r.status !== 200) { blocked[p.name] = r; return; }
+        }
+      }
+      await loop(a, 10); if (!running) return;
+      await loop(b, 10); if (!running) return;
+      const g = entraGroup(a.group), why = (p) => blocked[p.name] ? `<b>${blocked[p.name].status}</b> <code>${escapeHtml(hdr(blocked[p.name], "x-gw-blocked-by") || "")}</code>` : "never blocked";
+      takeaway(`${escapeHtml(a.displayName)} spent ${fmtUsd(spent[a.name])} and then got ${why(a)}: their own <b>$${microUsd(g?.memberMicroUsd)}</b> cap. ${escapeHtml(b.displayName)}, in the same group <b>${escapeHtml(g?.displayName || a.group)}</b>, was still served and spent ${fmtUsd(spent[b.name])} before getting ${why(b)}: together they used up the <b>$${microUsd(g?.poolMicroUsd)}</b> team budget. No key, no subscription per person: one group, one pot, one cap per member. Quota counters sync asynchronously, so a call or two can land past a cap.`);
+    } },
+  { title: "Entra only: the plan comes from the group", entra: true, get off() { return !cfg?.entraMode?.enabled; },
+    get cost() { return cfg?.entraMode?.enabled ? `${(cfg.entraMode.groups || []).length} calls · < $0.003` : "off · set entraMode.enabled to try it"; },
+    gist: "The same request for the most expensive model from a member of each security group: served, downgraded or denied by the group's plan.",
+    policies: ["entra-plan-inbound fragment (model governance)", "llm-token-limit (per member)"],
+    preview: () => { const m = premiumModel();
+      return (cfg.entraMode?.groups || []).map(g => { const t = cfg.tiers.find(x => x.name === g.tier) || {}, ok = (t.allowedModels || []).includes(m);
+        return dg.row(dg.node(escapeHtml(g.displayName), `<span class="badge ${g.tier}">${g.tier}</span>`), dg.arrow(m), dg.gw("group → plan"),
+          dg.arrow(ok ? "allowed" : t.onDisallowedModel === "deny" ? "denied" : "→ " + t.fallbackModel, ok ? "ok" : t.onDisallowedModel === "deny" ? "bad" : ""),
+          dg.model(ok ? m : t.onDisallowedModel === "deny" ? "-" : t.fallbackModel), dg.code(ok || t.onDisallowedModel !== "deny" ? 200 : 403)); }).join("")
+        + dg.note("Same API, same request: only the caller's group membership differs."); },
+    story: () => `Every member asks the key-less API for <b>${escapeHtml(premiumModel())}</b>. The gateway maps each caller's security group to a plan, and the plan's model governance (allowed models, downgrade or deny), output cap and per-member tokens-per-minute apply exactly as on the keyed plans.`,
+    async run() {
+      const m = premiumModel(), groups = cfg.entraMode?.groups || [], out = [];
+      for (const g of groups) {
+        if (!running) return;
+        const p = (cfg.entraMode.personas || []).find(x => x.available && x.group === g.name);
+        if (!p) { info(`No available persona in group <b>${escapeHtml(g.displayName)}</b>: skipped.`); continue; }
+        const r = await sendAs(p.name, m, { prompt: ASK, maxTokens: 60 });
+        step(r, `group <b>${escapeHtml(g.displayName)}</b> → plan <b>${escapeHtml(hdr(r, "x-gw-tier") || g.tier)}</b>`);
+        out.push([g, r]);
+      }
+      takeaway(out.map(([g, r]) => `<b>${escapeHtml(g.displayName)}</b> (<span class="badge ${g.tier}">${g.tier}</span>): <b>${r.status}</b>${r.status === 200 ? `, served <b>${escapeHtml(hdr(r, "x-gw-model-served") || "-")}</b>` : ` <code>${escapeHtml(hdr(r, "x-gw-blocked-by") || "")}</code>`}`).join(" · ")
+        + `. One API, no keys: the security group the caller is in decides what they may use.`);
+    } },
 ];
+// Entra-only mode helpers: personas the UI can call as (hosted: managed identities; local: the Azure CLI persona)
+const entraPersonas = () => (cfg?.entraMode?.personas || []).filter(p => p.available);
+function entraPersona(group) {  // undefined: any persona with a group; "": a persona without one
+  return group === "" ? entraPersonas().find(p => !p.group) : entraPersonas().find(p => p.group && (group === undefined || p.group === group));
+}
+const entraGroup = (name) => (cfg?.entraMode?.groups || []).find(g => g.name === name);
+const entraGroupLabel = (p) => p ? `${escapeHtml(entraGroup(p.group)?.displayName || p.group || "no group")}` : "";
+function entraTeam() {  // two available personas in the same group, preferring the best plan
+  const order = cfg?.tiers?.map(t => t.name) || [];
+  const groups = [...(cfg?.entraMode?.groups || [])].sort((x, y) => order.indexOf(x.tier) - order.indexOf(y.tier));
+  for (const g of groups) { const ms = entraPersonas().filter(p => p.group === g.name); if (ms.length >= 2) return ms.slice(0, 2); }
+  return [];
+}
+const premiumModel = () => [...(cfg?.models || [])].sort((x, y) => y.outputPrice - x.outputPrice)[0]?.name;
+function entraModel(p) {  // the most expensive model the persona's plan allows, so budgets move quickly
+  const allowed = cfg?.tiers?.find(t => t.name === p?.tier)?.allowedModels || [];
+  return [...(cfg?.models || [])].filter(m => allowed.includes(m.name)).sort((x, y) => y.outputPrice - x.outputPrice)[0]?.name || allowed[0];
+}
+const microUsd = (v) => v === undefined ? "?" : +(Number(v) / 1e6).toFixed(6);
 // Semantic cache scenario: one FAQ question, the same question in other words, and an unrelated question
 const SEM_Q = ["How do I return an item that arrived damaged?", "My order arrived damaged. How do I return it?", "What time does the store open on Sundays?"];
 const semCfg = () => { const sc = cfg.semanticCache || {};
@@ -4130,6 +4327,7 @@ function hidePreview() { clearTimeout(previewHideTimer); $("scPreview").classLis
 function queueHidePreview() { clearTimeout(previewHideTimer); previewHideTimer = setTimeout(hidePreview, 150); }
 // Display-only grouping: SCENARIOS keeps its order, so scenario numbers, saved run history and the full demo order don't change.
 const SCENARIO_TOPICS = [
+  ["Entra only", "No subscription keys: the caller's security group picks the plan and pays", /^Entra only/],
   ["Budgets & spend caps", "Stop spend in $ per plan, per session, per end user, across surfaces", /\$ budget|per-session \$ cap|Over budget/i],
   ["Pricing & cost", "What each call costs and how the gateway prices it", /every model|Responses API|Images priced|Semantic cache/i],
   ["Model governance & limits", "Which models, how much output, how fast", /Model governance|Output cap|Tokens-per-minute/i],
@@ -4138,19 +4336,24 @@ const SCENARIO_TOPICS = [
   ["Routing & resilience", "Regions, failover and circuit breaking", /Load balancing/i],
   ["Chargeback & evidence", "Who pays, and the proof in traces and logs", /Chargeback|Policy trace/i]];
 function renderScenarios() {
+  // Entra-only scenarios show under the "Entra only" toggle; while Entra-only mode isn't deployed they show OFF among the others
+  const visible = (s) => gwMode === "entra" ? !!s.entra : (!s.entra || s.off);
   const btn = (s, i) => s.off
       ? `<button data-i="${i}" class="off" disabled aria-disabled="true" title="Not deployed in this sandbox: ${escapeHtml(s.cost.replace(/^off · /, ""))}"><span class="n">${i + 1}</span><span><span class="t">${s.title}</span><span class="c">${s.cost.replace(/^off · /, "Not deployed · ")}</span></span><span class="offtag">OFF</span></button>`
       : `<button data-i="${i}"><span class="n">${i + 1}</span><span><span class="t">${s.title}</span><span class="c">${s.cost}</span></span></button>`;
   const placed = new Set(), groups = SCENARIO_TOPICS.map(([name, sub, re]) => {
-    const items = SCENARIOS.map((s, i) => [s, i]).filter(([s, i]) => !placed.has(i) && re.test(s.title));
+    const items = SCENARIOS.map((s, i) => [s, i]).filter(([s, i]) => !placed.has(i) && visible(s) && re.test(s.title));
     items.forEach(([, i]) => placed.add(i));
     return [name, sub, items];
   });
-  const rest = SCENARIOS.map((s, i) => [s, i]).filter(([, i]) => !placed.has(i));
+  const rest = SCENARIOS.map((s, i) => [s, i]).filter(([s, i]) => !placed.has(i) && visible(s));
   if (rest.length) groups.push(["More", "", rest]);
+  const quickCount = SCENARIOS.filter(s => !s.slow && !s.off && visible(s)).length;
   $("scenarios").innerHTML = groups.filter(([, , items]) => items.length).map(([name, sub, items]) =>
       `<div class="sctopic">${name}${sub ? ` <span>· ${sub}</span>` : ""}</div>` + items.map(([s, i]) => btn(s, i)).join("")).join("")
-    + `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${SCENARIOS.filter(s => !s.slow && !s.off).length})</span><span class="c">≈ ${99 + (cfg.contentSafety?.enabled ? 5 : 0) + (cfg.images?.enabled ? 5 : 0) + (cfg.semanticCache?.enabled ? 10 : 0)} calls · demo prices · about 10 minutes</span></span></button>`;
+    + (gwMode === "entra"
+      ? `<button class="all" id="btnAll"><span><span class="t">Run the Entra-only demo (all ${quickCount})</span><span class="c">≈ ${24 + (cfg.entraMode?.groups || []).length} calls · demo prices · about 2 minutes</span></span></button>`
+      : `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${quickCount})</span><span class="c">≈ ${99 + (cfg.contentSafety?.enabled ? 5 : 0) + (cfg.images?.enabled ? 5 : 0) + (cfg.semanticCache?.enabled ? 10 : 0)} calls · demo prices · about 10 minutes</span></span></button>`);
   document.querySelectorAll(".scenarios button[data-i]").forEach(b => {
     b.onclick = async () => {
       if (b.classList.contains("off") || running) return;
@@ -4163,18 +4366,21 @@ function renderScenarios() {
     b.addEventListener("mouseleave", queueHidePreview);
     b.addEventListener("blur", hidePreview);
   });
-  $("scenarios").addEventListener("mouseleave", queueHidePreview); // disabled buttons may not fire their own mouseleave
-  $("scPreview").onmouseenter = () => clearTimeout(previewHideTimer);
-  $("scPreview").onmouseleave = queueHidePreview;
-  window.addEventListener("scroll", (e) => {
-    if (e.target === $("scPreview")) return;
-    const b = document.querySelector(".scenarios button[data-i]:hover, .scenarios button[data-i]:focus");
-    b ? showPreview(b) : hidePreview();
-  }, true);
-  window.addEventListener("keydown", (e) => { if (e.key === "Escape") hidePreview(); });
+  if (!renderScenarios.wired) {  // the toggle re-renders the buttons; the page-level listeners are added once
+    renderScenarios.wired = true;
+    $("scenarios").addEventListener("mouseleave", queueHidePreview); // disabled buttons may not fire their own mouseleave
+    $("scPreview").onmouseenter = () => clearTimeout(previewHideTimer);
+    $("scPreview").onmouseleave = queueHidePreview;
+    window.addEventListener("scroll", (e) => {
+      if (e.target === $("scPreview")) return;
+      const b = document.querySelector(".scenarios button[data-i]:hover, .scenarios button[data-i]:focus");
+      b ? showPreview(b) : hidePreview();
+    }, true);
+    window.addEventListener("keydown", (e) => { if (e.key === "Escape") hidePreview(); });
+  }
   $("btnAll").onclick = async () => {
     setRunning(true, "Running the full demo…");
-    const quick = SCENARIOS.filter(s => !s.slow && !s.off); // slow scenarios (minutes of Azure Monitor latency) run on their own; off ones aren't deployed
+    const quick = SCENARIOS.filter(s => !s.slow && !s.off && visible(s)); // slow scenarios (minutes of Azure Monitor latency) run on their own; off ones aren't deployed
     for (const [i, s] of quick.entries()) {
       if (!running) break;
       $("runStatus").textContent = `Full demo: scenario ${i + 1}/${quick.length}`;

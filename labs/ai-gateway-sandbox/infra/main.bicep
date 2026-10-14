@@ -73,6 +73,9 @@ module sandbox '../main.bicep' = {
     purviewClientSecret: purviewClientSecret
     budgetSuspend: lab.?budgetSuspend ?? { enabled: false }
     endUserBudgets: lab.?endUserBudgets ?? 'default=standard;standard=5000;power=15000;exec=50000;@raj.iyer=power;@mei.wong=exec;@tom.intern=2000'
+    entraModeConfig: lab.?entraModeConfig ?? { enabled: false }
+    deployerPrincipalId: principalId
+    serviceManagementReference: serviceManagementReference
   }
 }
 
@@ -95,6 +98,7 @@ var demoConfig = union(config.uiConfig, {
   foundryBackends: sandbox.outputs.foundryBackends
   budgetSuspend: sandbox.outputs.budgetSuspend
   semanticCacheResource: sandbox.outputs.semanticCache
+  entraModeResource: sandbox.outputs.entraMode
 })
 
 module ui 'ui.bicep' = {
@@ -105,6 +109,7 @@ module ui 'ui.bicep' = {
     registryLocation: location
     containerAppsEnvironmentId: sandbox.outputs.containerAppsEnvironmentId
     identityName: uiIdentity.outputs.name
+    extraIdentityIds: sandbox.outputs.entraPersonaIdentityIds
     imageName: uiImageName
     demoConfig: string(demoConfig)
     tags: tags

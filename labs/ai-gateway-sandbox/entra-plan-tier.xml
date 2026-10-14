@@ -1,0 +1,12 @@
+        <when condition="@((string)context.Variables["entraTier"] == "{tier}")">
+            <set-variable name="entraAllowedModels" value="{allowed-models}" />
+            <set-variable name="entraFallbackModel" value="{fallback-model}" />
+            <set-variable name="entraOnDisallowed" value="{on-disallowed-model}" />
+            <set-variable name="entraMaxOutputTokens" value="@({max-output-tokens})" />
+            <llm-token-limit counter-key="@("entra-tokens-" + (string)context.Variables["entraOid"] + "-" + (string)context.Variables["budgetEpoch"])"
+                tokens-per-minute="{tpm}" token-quota="{token-quota}" token-quota-period="{token-quota-period}"
+                estimate-prompt-tokens="false"
+                remaining-tokens-header-name="x-gw-remaining-tpm"
+                remaining-quota-tokens-header-name="x-gw-remaining-quota-tokens"
+                tokens-consumed-header-name="x-gw-tokens-consumed" />
+        </when>
