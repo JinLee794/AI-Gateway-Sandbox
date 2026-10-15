@@ -6125,13 +6125,12 @@ function renderScenarios() {
       if (scInline() && i === scSel) { scExpanded = !scExpanded; scPane(); scReveal(i); }  // click the open row again to fold it
       else { scExpanded = true; scSelect(i); }
     });
-    $("scList").addEventListener("dblclick", e => { const r = e.target.closest(".scrow"); if (r && !SCENARIOS[r.dataset.i].off) scRun(Number(r.dataset.i)); });
     $("scList").addEventListener("keydown", e => {
       if (!e.target.closest(".scrow")) return;  // keys on the open details' buttons are theirs
       const order = scOrder(), k = order.indexOf(scSel);
       if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); scSelect(order[Math.max(0, Math.min(order.length - 1, k + (e.key === "ArrowDown" ? 1 : -1)))], true); }
       else if (e.key === "Home" || e.key === "End") { e.preventDefault(); scSelect(order[e.key === "Home" ? 0 : order.length - 1], true); }
-      else if (e.key === "Enter" && scSel != null && !e.target.closest(".scrow")?.classList.contains("off")) { e.preventDefault(); if (!running) scRun(scSel); }
+      else if (e.key === "Enter" && scSel != null && scInline()) { e.preventDefault(); scExpanded = !scExpanded; scPane(); scReveal(scSel); }  // only ▶ Run runs a scenario
     });
     $("scPick").addEventListener("click", e => {
       const b = e.target.closest(".scpv [data-act], .scpv [data-ctl], .scexp [data-act], .scexp [data-ctl]"); if (!b) return;
