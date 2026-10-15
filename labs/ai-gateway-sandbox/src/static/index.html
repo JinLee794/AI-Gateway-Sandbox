@@ -658,7 +658,10 @@
   .preview .ptip .meta { font-size:12px; line-height:1.6; color:var(--muted); margin-top:6px; }
   .preview .ptip .hint { font-size:11px; color:var(--muted); margin-top:8px; border-top:1px solid var(--divider); padding-top:6px; }
   /* Minimized: the launch panel shrinks to a slim rail (side by side only) and the conversation takes the width */
-  .rlab { display:none; } #btnMini { padding:0 10px; font-size:16px; }
+  .rlab { display:none; }
+  #btnMini { display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px 0 10px; font-size:13px; font-weight:600; border-color:#8a8886; }
+  #btnMini .mi { font-size:17px; line-height:1; margin-top:-2px; }
+  #btnMini:hover:not(:disabled) { background:var(--accent-light); border-color:var(--accent); color:#005a9e; }
   @media (min-width:1101px) {
     .launch:not(.collapsed) #btnToggle { display:none; }  /* side by side, « (minimize to a rail) collapses the open panel; a run shrinks it to the strip */
     .bench:has(.launch.mini) { grid-template-columns:52px minmax(0,1fr); }
@@ -686,7 +689,8 @@
     .launch.mini .mode, .launch.mini .mode:hover:not(:disabled), .launch.mini .mode.active { flex:none; width:36px; height:36px; padding:0; justify-content:center; border-color:transparent; background:transparent; box-shadow:none; }
     .launch.mini .mode .ic { width:28px; height:28px; flex-basis:28px; font-size:13px; }
     .launch.mini #btnMini, .launch.mini #btnAgain, .launch.mini #btnStop { width:40px; padding:0; font-size:12px; }
-    .launch.mini #btnMini { font-size:16px; }
+    .launch.mini #btnMini { flex-direction:column; gap:0; height:46px; font-size:10px; background:var(--accent); border-color:var(--accent); color:#fff; }
+    .launch.mini #btnMini .mi { font-size:18px; margin:0; } .launch.mini #btnMini:hover:not(:disabled) { background:var(--accent-hover); color:#fff; }
     .launch.mini .rlab { display:block; flex:1; writing-mode:vertical-rl; transform:rotate(180deg); background:none; border:0; height:auto; padding:8px 0; color:var(--muted); font-weight:600; font-size:12px; letter-spacing:.3px; cursor:pointer; }
     .launch.mini .rlab:hover { color:var(--accent); }
     /* the Keys + Entra | Entra only switch: two short stacked buttons in the rail */
@@ -776,7 +780,7 @@
       <button class="hidden" id="btnNext"></button>
       <button class="secondary" id="btnToggle">Collapse ▴</button>
       <button class="rlab" id="rlab" title="Expand the panel">Scenarios &amp; request builder</button>
-      <button class="secondary" id="btnMini" title="Minimize the panel to a side rail" aria-expanded="true">«</button>
+      <button class="secondary" id="btnMini" title="Hide this panel to a slim rail, so the conversation gets the full width" aria-expanded="true"><span class="mi">«</span><span class="ml">Hide</span></button>
     </div>
     <div class="lbody" id="lbody">
     <div class="guided" id="mode-guided">
@@ -3829,7 +3833,8 @@ function miniLaunch(on) {
   const L = $("launch"); if (L.classList.contains("mini") === on) return;
   if (on && L.classList.contains("collapsed")) { L.classList.remove("collapsed"); $("lbody").classList.remove("hidden"); }
   L.classList.toggle("mini", on); hidePreview();
-  $("btnMini").textContent = on ? "»" : "«"; $("btnMini").title = on ? "Expand the panel" : "Minimize the panel to a side rail";
+  $("btnMini").innerHTML = on ? `<span class="mi">»</span><span class="ml">Show</span>` : `<span class="mi">«</span><span class="ml">Hide</span>`;
+  $("btnMini").title = on ? "Show the scenarios and request builder again" : "Hide this panel to a slim rail, so the conversation gets the full width";
   $("btnMini").setAttribute("aria-expanded", !on);
   try { localStorage.setItem("sbx.mini", on ? "1" : ""); } catch {}
   updateLaunch();
