@@ -4560,7 +4560,7 @@ const SCENARIOS = [
       takeaway(`No subscription key anywhere. Without a token the call got <b>${r1.status}</b>; a valid Entra ID token for the wrong audience got <b>${r2.status}</b>${r3 ? `; an identity with the app role but no gateway group got <b>${r3.status}</b> (<code>${escapeHtml(hdr(r3, "x-gw-blocked-by") || "")}</code>)` : ""}. ${escapeHtml(p.displayName)}'s own token answered <b>${r4.status}</b> on the <b>${escapeHtml(hdr(r4, "x-gw-tier") || "?")}</b> plan of group <b>${escapeHtml(hdr(r4, "x-gw-group") || "?")}</b> (${fmtUsd(usd(r4))}, billed to <code>${escapeHtml(hdr(r4, "x-gw-billed-to") || p.name)}</code>). Moving someone to another plan is a group membership change in Entra ID, not a new key.`);
     } },
   { title: "Entra only: team $ budget and member cap", entra: true, get off() { return !cfg?.entraMode?.enabled; },
-    get cost() { return cfg?.entraMode?.enabled ? "≤ 20 calls · ≈ $0.03" : "off · set entraMode.enabled to try it"; },
+    get cost() { return cfg?.entraMode?.enabled ? "≤ 30 calls · ≈ $0.05 · paced, about 2-3 minutes" : "off · set entraMode.enabled to try it"; },
     gist: "Every member of a security group draws from ONE team $ budget, and each member also has their own cap, so nobody can drain the team's pot alone.",
     policies: ["quota-by-key (member-budget)", "quota-by-key (group-budget)", "named value entra-gateway-groups"],
     preview: () => { const [a, b] = entraTeam(), g = entraGroup(a?.group);
@@ -4575,22 +4575,30 @@ const SCENARIOS = [
       if (!a || !b) { info("This scenario needs two available personas in the same gateway group (the hosted UI from <code>azd up</code>, with two identities in one group)."); return; }
       info("Resetting budgets (budget-epoch named value) so the team starts from $0…");
       if (!await resetBudgets()) return;
-      await resetSettle();
-      const sid = (x) => newSessionId(x.name), spent = {}, blocked = {};
+      if (!await entraEpochApplied()) return;
+      const sid = (x) => newSessionId(x.name), spent = {}, blocked = {}, calls = {};
       async function loop(p, max) {
-        const s = sid(p); spent[p.name] = 0;
+        const s = sid(p); spent[p.name] = 0; calls[p.name] = 0;
         for (let i = 0; i < max && running; i++) {
+          // quota-by-key counters sync asynchronously: pacing the calls lets each one see the spend before it
+          if (i) await sleep(ENTRA_PACE_MS);
           const r = await sendAs(p.name, m, { prompt: LONG, maxTokens: 300, session: s });
-          if (r.status === 200) spent[p.name] += usd(r);
+          if (r.status === 200) { spent[p.name] += usd(r); calls[p.name]++; }
           step(r, r.status === 200 ? `${escapeHtml(p.displayName)} has spent ${fmtUsd(spent[p.name])}` : `blocked by <code>${escapeHtml(hdr(r, "x-gw-blocked-by") || "?")}</code>`);
           if (r.status === 429) { await sleep(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5)); continue; }
           if (r.status !== 200) { blocked[p.name] = r; return; }
         }
       }
-      await loop(a, 10); if (!running) return;
-      await loop(b, 10); if (!running) return;
-      const g = entraGroup(a.group), why = (p) => blocked[p.name] ? `<b>${blocked[p.name].status}</b> <code>${escapeHtml(hdr(blocked[p.name], "x-gw-blocked-by") || "")}</code>` : "never blocked";
-      takeaway(`${escapeHtml(a.displayName)} spent ${fmtUsd(spent[a.name])} and then got ${why(a)}: their own <b>$${microUsd(g?.memberMicroUsd)}</b> cap. ${escapeHtml(b.displayName)}, in the same group <b>${escapeHtml(g?.displayName || a.group)}</b>, was still served and spent ${fmtUsd(spent[b.name])} before getting ${why(b)}: together they used up the <b>$${microUsd(g?.poolMicroUsd)}</b> team budget. No key, no subscription per person: one group, one pot, one cap per member. Quota counters sync asynchronously, so a call or two can land past a cap.`);
+      await loop(a, 15); if (!running) return;
+      await loop(b, 15); if (!running) return;
+      const g = entraGroup(a.group), cap = Number(g?.memberMicroUsd) / 1e6, pool = Number(g?.poolMicroUsd) / 1e6;
+      const why = (p) => blocked[p.name] ? `<b>${blocked[p.name].status}</b> <code>${escapeHtml(hdr(blocked[p.name], "x-gw-blocked-by") || "")}</code>` : "<b>never blocked</b>";
+      const over = (v, limit) => v > limit ? ` (${fmtUsd(v - limit)} past it)` : "";
+      const team = spent[a.name] + spent[b.name];
+      takeaway(`${escapeHtml(a.displayName)} spent ${fmtUsd(spent[a.name])} in ${calls[a.name]} calls against her <b>$${microUsd(g?.memberMicroUsd)}</b> member cap${over(spent[a.name], cap)}, then got ${why(a)}. `
+        + `${escapeHtml(b.displayName)}, in the same group <b>${escapeHtml(g?.displayName || a.group)}</b>, was still served: ${fmtUsd(spent[b.name])} in ${calls[b.name]} calls, then ${why(b)}. `
+        + `Together they spent ${fmtUsd(team)} of the <b>$${microUsd(g?.poolMicroUsd)}</b> team budget${over(team, pool)}. No key, no subscription per person: one group, one pot, one cap per member. `
+        + `<br><span class="muted">Why a cap can be passed: each call is checked against what is already counted and charged after it runs, and API Management syncs <code>quota-by-key</code> counters asynchronously, so a call or two (more when calls come fast) lands past a cap. This run paces calls ${ENTRA_PACE_MS / 1000} s apart; size real budgets so one call is a small share of them.</span>`);
     } },
   { title: "Entra only: the plan comes from the group", entra: true, get off() { return !cfg?.entraMode?.enabled; },
     get cost() { return cfg?.entraMode?.enabled ? `${(cfg.entraMode.groups || []).length} calls · < $0.003` : "off · set entraMode.enabled to try it"; },
@@ -4605,6 +4613,9 @@ const SCENARIOS = [
     story: () => `Every member asks the key-less API for <b>${escapeHtml(premiumModel())}</b>. The gateway maps each caller's security group to a plan, and the plan's model governance (allowed models, downgrade or deny), output cap and per-member tokens-per-minute apply exactly as on the keyed plans.`,
     async run() {
       const m = premiumModel(), groups = cfg.entraMode?.groups || [], out = [];
+      // budgets first: after the team-budget scenario the Gold team is spent, which would turn this plan demo into a 403
+      if (!await resetBudgets()) return;
+      if (!await entraEpochApplied()) return;
       for (const g of groups) {
         if (!running) return;
         const p = (cfg.entraMode.personas || []).find(x => x.available && x.group === g.name);
@@ -4658,6 +4669,22 @@ const RESP_CONTEXT = "You are the support assistant for Contoso Outfitters. Foll
 
 // app.py already waits until ARM reports the new budget-epoch; a short pause covers the gateway picking it up
 const resetSettle = () => resetSkipped ? Promise.resolve() : sleep(2000);
+// Entra-only scenarios: ARM confirms a budget reset at once, but the entra-plan-inbound fragment can keep the old
+// {{budget-epoch}} for tens of seconds, and calls in that window hit the old (possibly spent) counters. Poll a free probe
+// until the gateway's own x-gw-budget-epoch matches.
+const ENTRA_PACE_MS = 4000;
+async function entraEpochApplied(maxMs = 120000) {
+  if (resetSkipped) return true;
+  const t0 = Date.now();
+  for (let n = 1; running && Date.now() - t0 < maxMs; n++) {
+    const r = await (await fetch("/api/entra-epoch", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).json().catch(() => ({}));
+    if (!r.available || r.applied) { if (n > 1) info(`The gateway switched to budget epoch <code>${escapeHtml(r.gateway || "")}</code> after ${Math.round((Date.now() - t0) / 1000)} s.`); return true; }
+    if (n === 1) info(`Waiting for the gateway to pick up the new budget epoch <code>${escapeHtml(r.expected || "")}</code> (it still uses <code>${escapeHtml(r.gateway || "?")}</code>; named values reach the gateway's policies asynchronously)…`);
+    await sleep(3000);
+  }
+  if (running) info("The gateway didn't report the new budget epoch within 2 minutes; the run continues, but its first calls may count against the old budgets.");
+  return running;
+}
 async function runScenario(s) {
   $("scenario").dataset.mode = "guided";
   $("scenario").classList.remove("hidden"); $("scSteps").innerHTML = "";
@@ -4738,7 +4765,7 @@ function renderScenarios() {
   $("scenarios").innerHTML = groups.filter(([, , items]) => items.length).map(([name, sub, items]) =>
       `<div class="sctopic">${name}${sub ? ` <span>· ${sub}</span>` : ""}</div>` + items.map(([s, i]) => btn(s, i)).join("")).join("")
     + (gwMode === "entra"
-      ? `<button class="all" id="btnAll"><span><span class="t">Run the Entra-only demo (all ${quickCount})</span><span class="c">≈ ${24 + (cfg.entraMode?.groups || []).length} calls · demo prices · about 2 minutes</span></span></button>`
+      ? `<button class="all" id="btnAll"><span><span class="t">Run the Entra-only demo (all ${quickCount})</span><span class="c">≈ ${34 + (cfg.entraMode?.groups || []).length} calls · demo prices · about 4 minutes</span></span></button>`
       : `<button class="all" id="btnAll"><span><span class="t">Run the full demo (all ${quickCount})</span><span class="c">≈ ${99 + (cfg.contentSafety?.enabled ? 5 : 0) + (cfg.images?.enabled ? 5 : 0) + (cfg.semanticCache?.enabled ? 10 : 0)} calls · demo prices · about 10 minutes</span></span></button>`);
   document.querySelectorAll(".scenarios button[data-i]").forEach(b => {
     b.onclick = async () => {

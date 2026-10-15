@@ -220,8 +220,31 @@ class EntraModeAppTests(unittest.TestCase):
         self.assertEqual(app.public_config()["entraMode"], {"enabled": False})
 
     def test_group_headers_reach_the_ui(self):
-        for header in ("x-gw-group", "x-gw-group-budget-usd", "x-gw-member-budget-usd"):
+        for header in ("x-gw-group", "x-gw-group-budget-usd", "x-gw-member-budget-usd", "x-gw-budget-epoch"):
             self.assertIn(header, app.GW_HEADERS)
+
+    def test_epoch_probe_compares_the_gateway_epoch_with_the_reset(self):
+        for gateway, applied in (("42", True), ("41", False), ("", False)):
+            with patch.object(app, "http", return_value=(404, {"X-Gw-Budget-Epoch": gateway}, "{}", 0.1)) as http, \
+                 patch.object(app, "managed_identity_token", return_value=("persona-token", 9e9)), \
+                 patch.object(app, "budget_epoch", return_value="42"), patch.object(app, "_token_cache", {}):
+                status, result = app.entra_epoch({})
+            self.assertEqual((status, result["applied"], result["gateway"]), (200, applied, gateway))
+            method, url, body, headers = http.call_args.args[:4]
+            self.assertEqual((method, url, body), ("GET", "https://gw/entra/inference/openai/v1/models", None), "a refused GET: nothing is spent")
+            self.assertTrue(headers["Authorization"].endswith("persona-token"))
+        for p in self.config["entraModeResource"]["personas"]:
+            p["group"] = ""
+        with patch.object(app, "http") as http:
+            self.assertEqual(app.entra_epoch({}), (200, {"available": False}), "a persona without a group is refused before the epoch is set")
+            http.assert_not_called()
+
+    def test_fragments_report_the_epoch_their_counters_use(self):
+        inbound = (LAB / "entra-plan-inbound-fragment.xml").read_text(encoding="utf-8")
+        guard = inbound[inbound.index("covers chat completions only"):inbound.index("</return-response>", inbound.index("covers chat completions only"))]
+        self.assertIn('name="x-gw-budget-epoch"', guard, "the free probe reads it from the 404")
+        self.assertLess(inbound.index('<set-variable name="budgetEpoch"'), inbound.index("covers chat completions only"))
+        self.assertIn('name="x-gw-budget-epoch"', (LAB / "entra-plan-outbound-fragment.xml").read_text(encoding="utf-8"))
 
     def test_budgets_report_member_caps_and_team_budgets(self):
         rows = [{"User": "user-alice", "SpentMicroUsd": 100, "Calls": 1, "RecentRequestIds": []},

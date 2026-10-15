@@ -41,7 +41,7 @@ GW_HEADERS = ["x-gw-agent", "x-gw-tier", "x-gw-model-requested", "x-gw-model-ser
               "x-gw-cached-tokens", "x-gw-cached-savings-usd", "x-gw-pricing-rule", "x-gw-affinity",
               "x-gw-image-count", "x-gw-image-unit-usd", "x-gw-image-spec", "x-gw-remaining-images",
               "x-gw-semantic-cache", "x-gw-cache-saved-usd", "x-gw-cache-saved-tokens", "x-gw-cache-lookup-usd",
-              "x-gw-cache-scope", "x-gw-cache-partition", "x-gw-group", "x-gw-group-budget-usd", "x-gw-member-budget-usd"]
+              "x-gw-cache-scope", "x-gw-cache-partition", "x-gw-group", "x-gw-group-budget-usd", "x-gw-member-budget-usd", "x-gw-budget-epoch"]
 GATEWAY_AUDIENCE = "https://cognitiveservices.azure.com"
 ARM = "https://management.azure.com"
 TRACE_APIS = {"model": "inference-api", "tool": "commerce-mcp", "agent": "sourcing-agent", "image": "image-api"}
@@ -415,6 +415,21 @@ def entra_gateway_auth(persona, payload):
     elif token_as == "foundry":
         headers["Authorization"] = "Bearer " + az_token(GATEWAY_AUDIENCE)
     return headers
+
+
+def entra_epoch(_payload):
+    """Which budget epoch the Entra-only counters use right now. ARM reports a reset as soon as the named value is saved,
+    but the gateway can keep the old {{budget-epoch}} in the entra-plan-inbound fragment for tens of seconds, and calls in
+    that window count against the old (possibly spent) counters. A GET on the key-less API is refused (404) after the
+    fragment has set its epoch and before anything is spent, so it is a free probe."""
+    entra = entra_mode_config()
+    persona = next((p for p in (entra or {}).get("personas", []) if p.get("group") and persona_available(p)), None)
+    if not persona:
+        return 200, {"available": False}
+    status, headers, _, _ = http("GET", f"{entra['inferenceBaseUrl']}/models", None, {"Authorization": "Bearer " + persona_token(persona)}, timeout=30)
+    gateway = {k.lower(): v for k, v in headers.items()}.get("x-gw-budget-epoch", "")
+    expected = budget_epoch(fresh=True) or ""
+    return 200, {"available": True, "status": status, "gateway": gateway, "expected": expected, "applied": bool(gateway) and gateway == expected}
 
 
 def signed_in_user(headers):
@@ -1907,7 +1922,7 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception as error:
                 return self.send_json(500, {"error": scrub(str(error))})
         routes = {"/api/chat": chat, "/api/mcp": mcp, "/api/a2a": a2a, "/api/telemetry": telemetry, "/api/reset-budgets": reset_budgets,
-                  "/api/trace": trace, "/api/evidence": evidence, "/api/policy-evidence": policy_evidence, "/api/policies": policies, "/api/flow-policies": flow_policies,
+                  "/api/trace": trace, "/api/evidence": evidence, "/api/policy-evidence": policy_evidence, "/api/policies": policies, "/api/flow-policies": flow_policies, "/api/entra-epoch": entra_epoch,
                   "/api/chargeback": chargeback, "/api/budget-suspend": budget_suspend, "/api/budgets": budgets, "/api/responses": responses, "/api/image": image}
         handler = routes.get(self.path)
         if not handler:

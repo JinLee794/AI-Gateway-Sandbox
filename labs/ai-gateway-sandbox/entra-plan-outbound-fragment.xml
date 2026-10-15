@@ -13,6 +13,9 @@
     <set-header name="x-gw-session" exists-action="override">
         <value>@(context.Variables.GetValueOrDefault<string>("session", "no-session"))</value>
     </set-header>
+    <set-header name="x-gw-budget-epoch" exists-action="override">
+        <value>@(context.Variables.GetValueOrDefault<string>("budgetEpoch", ""))</value>
+    </set-header>
     <choose>
         <when condition="@(context.Variables.ContainsKey("entraGroupName"))">
             <set-header name="x-gw-group" exists-action="override">

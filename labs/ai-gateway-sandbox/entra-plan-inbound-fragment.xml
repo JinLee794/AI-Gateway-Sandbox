@@ -102,6 +102,8 @@
                 <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
                 <set-header name="x-gw-blocked-by" exists-action="override"><value>entra-mode-operation</value></set-header>
                 <set-header name="x-gw-request-id" exists-action="override"><value>@(context.RequestId.ToString())</value></set-header>
+                <!-- the epoch this fragment's counters use: a free probe (GET) shows when a budget reset reached the gateway -->
+                <set-header name="x-gw-budget-epoch" exists-action="override"><value>@((string)context.Variables["budgetEpoch"])</value></set-header>
                 <set-body>{"error":{"code":"OperationNotAvailable","message":"The Entra-only models API supports POST /chat/completions only."}}</set-body>
             </return-response>
         </when>
