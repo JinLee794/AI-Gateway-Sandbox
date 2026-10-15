@@ -885,6 +885,19 @@
         .gwf-stages .st.warn { background:#fff8e6; border-color:#f2d58a; color:#8a3707; } .gwf-stages .st.cur { box-shadow:0 0 0 2px rgba(0,120,212,.35); }
         .gwf-buckets { margin-top:8px; display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:8px; animation:gwfIn .25s both; }
         .gwf-buckets[hidden] { display:none; }
+        .gwf-iso { margin-top:8px; border:1px solid #f0c9ca; border-left:4px solid #d13438; border-radius:6px; background:#fffafa; padding:8px 12px; font-size:12px; animation:gwfIn .25s both; }
+        .gwf-iso[hidden] { display:none; }
+        .gwf-iso .ih { display:flex; gap:8px; align-items:center; font-size:12.5px; margin-bottom:6px; } .gwf-iso .ih img { width:16px; height:16px; }
+        .gwf-iso .key { display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-bottom:8px; }
+        .gwf-iso .key .k { display:inline-flex; flex-direction:column; padding:2px 8px; border-radius:5px; border:1px solid var(--border); background:#fff; line-height:1.25; }
+        .gwf-iso .key .k small { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; } .gwf-iso .key .k b { font:600 11.5px Consolas,monospace; }
+        .gwf-iso .key .k.own { border-color:#e8a2a4; background:#fdf3f4; } .gwf-iso .key .plus { color:#a19f9d; }
+        .gwf-iso table { border-collapse:collapse; width:100%; max-width:760px; }
+        .gwf-iso th, .gwf-iso td { padding:4px 8px; border-bottom:1px solid var(--divider); text-align:center; white-space:nowrap; }
+        .gwf-iso th:first-child, .gwf-iso td:first-child { text-align:left; white-space:normal; }
+        .gwf-iso th { font-weight:600; color:var(--muted); } .gwf-iso th.cur, .gwf-iso td.cur { background:#fff4ce; } .gwf-iso th.cur { color:var(--text); }
+        .gwf-iso .y { color:#107c10; font-weight:700; } .gwf-iso .n { color:#a19f9d; }
+        .gwf-iso .inote { margin-top:6px; color:var(--muted); }
         .gwf-buckets .bhd { grid-column:1 / -1; font-size:12px; color:var(--muted); }
         .gwf-buckets .bkt { border:1px solid var(--border); border-radius:6px; padding:7px 10px; background:#fff; font-size:12px; }
         .gwf-buckets .bkt .bt { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .gwf-buckets .bkt .bv { font-size:15px; font-weight:600; margin-top:2px; }
@@ -1001,6 +1014,7 @@
         <div class="gwf-now" id="gwfNow" aria-live="polite"></div>
         <div class="gwf-stages" id="gwfStages" aria-label="What the gateway decided, step by step (click a step to see its policy lines)"></div>
         <div class="gwf-lens" id="gwfLens" hidden aria-live="polite"></div>
+        <div class="gwf-iso" id="gwfIso" hidden></div>
         <div class="gwf-buckets" id="gwfBuckets" hidden></div>
         <div class="gwf-more">
           <details id="gwfStepsBox"><summary>Narration <span class="muted" id="gwfStepCount"></span></summary><ol class="gwf-steps" id="gwfSteps"></ol></details>
@@ -1286,6 +1300,7 @@
           layer.scope.textContent = "PRODUCT (PLAN) SCOPE";
           el("gwfSteps").innerHTML = ""; el("gwfHdrs").innerHTML = ""; el("gwfTrace").innerHTML = ""; el("gwfNow").innerHTML = "";
           el("gwfStages").innerHTML = ""; el("gwfBuckets").hidden = true; el("gwfBuckets").innerHTML = ""; el("gwfStepCount").textContent = ""; el("gwfHdrCount").textContent = "";
+          el("gwfIso").hidden = true; el("gwfIso").innerHTML = "";
           el("gwfLens").hidden = true; el("gwfLens").innerHTML = "";
         }
         const backends = () => (C().foundryBackends || []).slice().sort((a, b) => (a.priority ?? 1) - (b.priority ?? 1));
@@ -1589,6 +1604,35 @@
         const apiDoc = (r) => isEntra(r) ? "api:inference-entra" : "api:inference-api";
         const priceNv = (h) => ({ name: "model-pricing", match: (e) => (e.split("=")[0] || "").toLowerCase() === String(h["x-gw-model-served"] || "").toLowerCase(), why: "&lt;model&gt;=&lt;input $/1M&gt;/&lt;output $/1M&gt;/…" });
 
+        // Semantic cache isolation: what this answer is stored under (x-gw-cache-partition plus the fixed parts of the key) and,
+        // for each scope the app may pick with x-gw-cache-scope, who can reuse it. The call's own scope is highlighted.
+        function showCacheIso(r, hit) {
+          const h = r.headers || {}, sc = C().semanticCache || {}, scope = h["x-gw-cache-scope"] || sc.defaultScope || "session", part = String(h["x-gw-cache-partition"] || "");
+          const m = part.match(/^(session|user|plan):(.*?)(?:\/sys:([^/]+))?$/) || [], segs = (m[2] || "").split("/").filter(Boolean);
+          const owner = scope === "plan" ? [] : scope === "user"
+            ? [["subscription", segs[0]], segs[1] ? ["end user", segs[1]] : null]
+            : [["subscription", segs[0]], segs.length > 2 ? ["end user", segs[1]] : null, ["session", segs[segs.length - 1]]];
+          const k = (label, v, own) => `<span class="k${own ? " own" : ""}"><small>${esc(label)}</small><b>${esc(v || "-")}</b></span>`;
+          const key = [k("plan", h["x-gw-tier"] || r.tier || (scope === "plan" ? segs[0] : "")), k("served model", h["x-gw-model-served"]), k("budget epoch", "current"),
+            k("scope", scope, true), ...owner.filter(Boolean).map(([l, v]) => k(l, v, true)), k("instructions", m[3] ? `sys:${m[3]}` : "sys hash")].join(`<span class="plus">+</span>`);
+          const scopes = (sc.allowedScopes || ["session", "user", "plan"]).filter(s => ["session", "user", "plan"].includes(s));
+          const rows = [
+            ["The same caller, in this session", { session: 1, user: 1, plan: 1 }],
+            ["The same caller (key + end user), another session", { user: 1, plan: 1 }],
+            ["Another user or app on the same plan", { plan: 1 }],
+            ["Anyone on another plan, or asking another model", {}],
+            ["Different system / developer instructions", {}],
+            ["After <b>Reset budgets</b> (new budget epoch: a cold cache)", {}],
+          ];
+          const box = el("gwfIso");
+          box.hidden = false;
+          box.innerHTML = `<div class="ih"><img src="/icons/managed-redis.svg" alt=""><b>Who can reuse this answer?</b>
+              <span class="muted">${hit ? "it was found" : "it is stored"} under this key · scope <code>${esc(scope)}</code> · apps pick it per request with <code>x-gw-cache-scope</code> (default <code>${esc(sc.defaultScope || "session")}</code>)</span></div>
+            <div class="key">${key}</div>
+            <table><thead><tr><th>Another request from…</th>${scopes.map(s => `<th class="${s === scope ? "cur" : ""}">scope <code>${esc(s)}</code>${s === (sc.defaultScope || "session") ? " (default)" : ""}</th>`).join("")}</tr></thead>
+            <tbody>${rows.map(([who, ok]) => `<tr><td>${who}</td>${scopes.map(s => `<td class="${s === scope ? "cur" : ""}">${ok[s] ? `<span class="y">✓ reuses it</span>` : `<span class="n">✗ misses</span>`}</td>`).join("")}</tr>`).join("")}</tbody></table>
+            <div class="inote">The highlighted parts of the key decide the sharing; plan, model, epoch and instructions always separate answers. Each scope is its own partition, so a <code>user</code>-scoped request doesn't read <code>session</code>-scoped entries. Entries expire after ${Math.round((sc.ttlSeconds || 600) / 60)} minutes.</div>`;
+        }
         async function play(r, g) {
           const h = r.headers || {}, surf = r.surface || "model", st = Number(r.status) || 0, color = SURF[surf] || SURF.model;
           const tier = h["x-gw-tier"] || r.tier || "", blocker = blockerOf(r), entra = isEntra(r), grp = entra ? entraGrp(r) : null;
@@ -1653,6 +1697,7 @@
               doc: apiDoc(r), anchor: /<llm-semantic-cache-lookup/, end: /<\/llm-semantic-cache-lookup>/, max: 8, hit: /semanticCachePartition/,
               mark: semHit ? `hit · scope ${h["x-gw-cache-scope"] || "?"}` : "miss: on to the model",
               note: `The prompt is embedded and compared, by vector distance, with the answers stored under the same plan, served model, budget epoch and partition <code>${esc(h["x-gw-cache-partition"] || "")}</code> (scope <code>${esc(h["x-gw-cache-scope"] || "")}</code>).` }, g);
+            showCacheIso(r, semHit);
             if (semHit) {
               mark("cache", "ok"); badge("cache", `hit · saved $${Number(h["x-gw-cache-saved-usd"] || 0).toFixed(6)}`, "#107c10");
               say(`<code>llm-semantic-cache-lookup</code> found a similar answered question in Azure Managed Redis (scope <code>${esc(h["x-gw-cache-scope"] || "")}</code>): the stored answer is returned and <b>the model is never called</b>. The ${esc(h["x-gw-cache-saved-tokens"] || "")} tokens it would have cost (${usd(h["x-gw-cache-saved-usd"])}) are saved; only the embedding lookup (${usd(h["x-gw-cache-lookup-usd"])}) is charged.`, "ok",
