@@ -559,6 +559,8 @@
   .idlehint { border:1px dashed #8a8886; border-radius:6px; padding:10px 14px; margin-bottom:14px; font-size:13px; background:#fff; }
   #sessionArea:not(.idle) .idlehint { display:none; }
   .lsum { cursor:pointer; } .lsum:hover { color:var(--accent); text-decoration:underline; }
+  .lsum .lcost { color:var(--muted); }
+  #btnNext { height:30px; padding:0 12px; font-size:12px; max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   /* Run history: every scenario, full demo or custom request is a run you can analyze afterwards */
   .tabs .pill { font-size:11px; font-weight:600; background:#edebe9; color:#484644; border-radius:10px; padding:1px 7px; margin-left:4px; }
   .runs { display:grid; grid-template-columns:320px minmax(0,1fr); gap:16px; align-items:start; }
@@ -621,7 +623,7 @@
   /* Minimized: the launch panel shrinks to a slim rail (side by side only) and the conversation takes the width */
   .rlab { display:none; } #btnMini { padding:0 10px; font-size:16px; }
   @media (min-width:1101px) {
-    #btnToggle { display:none; }  /* side by side, « (minimize to a rail) is the only collapse control */
+    .launch:not(.collapsed) #btnToggle { display:none; }  /* side by side, « (minimize to a rail) collapses the open panel; a run shrinks it to the strip */
     .bench:has(.launch.mini) { grid-template-columns:52px minmax(0,1fr); }
     .bench:has(.launch.mini) .cvcol { min-height:0; }
     /* Side by side, the bench fits the screen: the scenario list / request builder scrolls inside its panel and the
@@ -728,6 +730,7 @@
       <span class="lstat"><span class="live"></span><span class="spin sm" aria-hidden="true"></span><span class="muted" id="runStatus"></span></span>
       <button class="secondary hidden" id="btnStop">Stop</button>
       <button class="secondary hidden" id="btnAgain" title="Run again">↻<span class="lbl"> Run again</span></button>
+      <button class="hidden" id="btnNext"></button>
       <button class="secondary" id="btnToggle">Collapse ▴</button>
       <button class="rlab" id="rlab" title="Expand the panel">Scenarios &amp; request builder</button>
       <button class="secondary" id="btnMini" title="Minimize the panel to a side rail" aria-expanded="true">«</button>
@@ -3427,7 +3430,7 @@ function record(r) {
   const tokens = r.usage ? (r.usage.total_tokens || 0) : (r.steps || []).reduce((s, x) => s + (x.tokens || 0), 0);
   r.tokens = tokens;
   if (curPart && curPart.si >= 0 && SCENARIOS[curPart.si]) { curPart.pid ||= newId(); r.si = curPart.si; r.pid = curPart.pid; }  // which scenario run it belongs to (Policies at work)
-  const idx = session.calls.push(r) - 1; if (curRun) { curRun.calls.push(idx); curPart?.calls.push(idx); }
+  const idx = session.calls.push(r) - 1; if (curRun) { curRun.calls.push(idx); curPart?.calls.push(idx); if (lastRun?.n === curRun.n) updateLaunch(); }
   session.totalCost = (session.totalCost || 0) + cost; session.tokens = (session.tokens || 0) + tokens;
   session.costByAgent[r.agent] = (session.costByAgent[r.agent] || 0) + cost;
   if (cost || isBudgetBlock(r)) queueBudgetRefresh();
@@ -3627,7 +3630,9 @@ function setRunning(on, label = "") {
   $("btnStop").classList.toggle("hidden", !on); $("runStatus").textContent = label;
   $("launch").classList.toggle("running", on);
   releaseRunBusy();
-  if (on) { rememberRun(label); if (!sideBySide()) collapseLaunch(true); $("sessionArea").classList.remove("idle");
+  if (on) { rememberRun(label);
+            if (!sideBySide() || (/^(scenario|demo)$/.test(curRun?.kind) && !$("launch").classList.contains("mini"))) collapseLaunch(true);
+            $("sessionArea").classList.remove("idle");
             runBusy = busy($("sessionArea"), label || "Running…", "Waiting for the gateway to answer. Results appear here as they arrive.", true); }
   else endRun();
   updateLaunch();
@@ -3682,8 +3687,21 @@ function updateLaunch() {
   $("btnToggle").classList.toggle("hidden", !collapsed && !lastRun);
   $("btnAgain").classList.toggle("hidden", running || !lastRun);
   $("lsum").classList.toggle("hidden", !collapsed || !lastRun);
-  if (lastRun) { $("lsum").innerHTML = `<span class="muted">${running ? "Running" : "Last run"} #${lastRun.n}:</span> ${escapeHtml(lastRun.text)}`; $("lsum").title = "Analyze this run: " + lastRun.text; }
+  if (lastRun) {
+    const run = runs.find(r => r.n === lastRun.n), n = run ? run.calls.length : 0, cost = run ? run.calls.reduce((t, i) => t + callCost(session.calls[i] || {}), 0) : 0;
+    $("lsum").innerHTML = `<span class="muted">${running ? "Running" : "Last run"} #${lastRun.n}:</span> ${escapeHtml(lastRun.text)}`
+      + (n ? ` <span class="lcost">· ${n} call${n === 1 ? "" : "s"} · ${fmtUsd(cost)}</span>` : "");
+    $("lsum").title = "Analyze this run: " + lastRun.text;
+  }
+  // Next ›: the scenario after the last one in the list it was picked from (the Start here tour, a topic, or All)
+  const nx = !running && lastRun?.si != null ? scNext(lastRun.si) : null;
+  $("btnNext").classList.toggle("hidden", !nx);
+  if (nx) {
+    $("btnNext").textContent = `Next${nx.tour ? ` (${nx.k} of ${nx.of})` : ""}: ${nx.i + 1}. ${SCENARIOS[nx.i].title} ›`;
+    $("btnNext").title = `Run scenario ${nx.i + 1}: ${SCENARIOS[nx.i].title}`; $("btnNext").dataset.i = nx.i;
+  }
 }
+$("btnNext").onclick = () => { const i = Number($("btnNext").dataset.i); if (running || !SCENARIOS[i]) return; setMode("guided"); scRun(i); };
 $("lbody").addEventListener("click", e => { const b = e.target.closest("button"); if (b && !b.disabled) lastBtn = b; }, true);
 document.querySelectorAll(".modes .mode").forEach(b => b.onclick = () => { setMode(b.dataset.mode); collapseLaunch(false); });
 $("btnToggle").onclick = () => collapseLaunch(!$("launch").classList.contains("collapsed"));
@@ -5754,6 +5772,9 @@ async function runScenario(s) {
   $("cacheScope").value = "";                  // ...and their cache scopes
   if (curRun) { snapPart(curPart); curPart = { si: SCENARIOS.indexOf(s), title: s.title, calls: [] }; curRun.parts.push(curPart); }
   if (!s.tab && !(curTab === "happened" && psec === "investigate")) showPsec("investigate");  // scenarios play out in the gateway flow
+  const top = $("scenario").getBoundingClientRect().top;  // bring the results card (and the flow under it) into view, unless it already is
+  $("scenario").style.scrollMarginTop = ($("launch").classList.contains("collapsed") ? $("launch").offsetHeight + 48 : 16) + "px";  // clear the sticky strip (it gains Run again / Next when the run ends)
+  if (top < 0 || top > innerHeight * 0.5) $("scenario").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
   try { await s.run(); } catch (e) { info("Scenario failed: " + escapeHtml(e.message)); }
   finally { $("sessionId").value = buildSession; $("endUser").value = buildEndUser; $("cacheScope").value = buildScope; cvCtx(); }
   snapPart(curPart);
@@ -5923,6 +5944,12 @@ function scOpen(i) {  // shows one scenario in the picker, ready to run
   $("launch").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 function scRun(i) { scSelect(i); $("scPv").querySelector(".scrun")?.click(); }
+function scNext(si) {  // { i, tour, k, of } of the next runnable scenario after si, or null
+  const tour = scTour(), lists = [scTopic === "start" && !scQ.trim() ? tour : scOrder(), tour, SCENARIOS.map((s, i) => i).filter(i => scVisible(SCENARIOS[i]))];
+  const list = lists.find(l => l.includes(si)), i = list?.slice(list.indexOf(si) + 1).find(j => !SCENARIOS[j].off && !SCENARIOS[j].slow);
+  if (i == null) return null;
+  return list === tour ? { i, tour: true, k: tour.indexOf(i) + 1, of: tour.length } : { i };
+}
 // Opens the picker on one scenario (from the copilot, the explorer or a link); returns what to point at
 window.scFocus = (i) => {
   if (!SCENARIOS[i]) return null;
