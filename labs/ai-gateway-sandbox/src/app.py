@@ -1281,9 +1281,9 @@ UI targets for ui_highlight
 - Plans, policies & chargeback › Chargeback (view chargeback): chargeback-flow, chargeback-ledger, chargeback-monitor, session:<session id> (its row in the Azure Monitor chargeback table)
 - Plans, policies & chargeback › Products & plans (view plans): plans-matrix, plan:<gold|silver|bronze>, price-list, endpoints
 - Evidence & monitoring › Investigate (view policies.investigate): request-log, flow-diagram, flow:<client|entra|plan|api|pool|mi|log|r0|r1|mcp|a2a|la|ai> (the gateway flow; it follows the page's calls while shown), evidence-panel
-- Plans, policies & chargeback › Policy pipeline (view policies.pipeline): pipeline, stage:<client|identity|plan|routing|metering>, policy:<policy element, e.g. llm-token-limit or quota-by-key>, policy-map (scenario breakout: each high-level control → the deployed policy lines → out of the box / configured / custom), backend-pool
+- Plans, policies & chargeback › Policy explorer, by stage (view policies.pipeline): pipeline (the explorer: pipeline strip, control list, selected control's detail), stage:<client|identity|plan|routing|metering>, policy:<policy element or name, e.g. llm-token-limit or quota-by-key> (selects that control and shows what it does, its level and its deployed lines), policy-map (the control list and detail), backend-pool
 - Evidence & monitoring › Logs & telemetry (view policies.telemetry): evidence-sinks, sink:<table, e.g. ApiManagementGatewayLlmLog>, policy-evidence
-- Plans, policies & chargeback › Deployed policies (view policies.deployed): deployed-policies, deployed:<scope name, e.g. Silver or entra-identity>
+- Plans, policies & chargeback › Policy explorer, by document (view policies.deployed): deployed-policies (the document list), deployed:<document name, e.g. Silver or entra-identity> (selects it: purpose, size, controls, named values, includes, full XML)
 - Evidence & monitoring › Azure Monitor (view monitor): monitor-cost, monitor-outcomes, monitor-cost-time, monitor-chargeback, monitor-resources, monitor-tokens, monitor-governance
 - Header: portal-links, reset-budgets, references"""
 

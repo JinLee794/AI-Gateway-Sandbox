@@ -282,49 +282,60 @@
   .legend { margin-left:auto; font-size:11px; font-weight:400; color:var(--muted); display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
   .out { font-size:10px; font-weight:700; padding:0 6px; border-radius:8px; line-height:16px; display:inline-block; white-space:nowrap; }
   .out.o401, .out.o403 { background:var(--bad-bg); color:var(--bad); } .out.o429 { background:var(--warn-bg); color:var(--warn); } .out.dg { background:#fff4ce; color:#8a5300; }
-  .pscopes, .pipe { display:grid; grid-template-columns:repeat(5, 1fr); gap:16px; }
-  .pscopes { margin-top:2px; font-size:10px; text-transform:uppercase; letter-spacing:.5px; font-weight:600; color:var(--muted); }
-  .pscopes span { border-bottom:2px solid var(--border); padding-bottom:3px; } .pscopes .c2 { grid-column:span 2; border-color:#8764b8; } .pscopes .c3 { border-color:var(--accent); } .pscopes .c4 { border-color:var(--ok); }
-  .pipe { margin-top:8px; }
-  .pipe .stage { border:1px solid var(--border); border-radius:6px; padding:10px 12px; background:#fff; font-size:12px; position:relative; display:flex; flex-direction:column; gap:7px; }
-  .pipe .stage.gw { border-color:#c7e0f4; background:var(--accent-light); }
-  .pipe .stage:not(:first-child)::before { content:""; position:absolute; left:-13px; top:18px; border:5px solid transparent; border-left:7px solid #8a8886; border-right:0; }
-  .pipe .stage .hd { display:flex; align-items:center; gap:8px; font-weight:600; font-size:13px; } .pipe .stage .hd img { width:24px; height:24px; }
-  .pipe .pi { display:flex; align-items:center; gap:4px; flex-wrap:wrap; line-height:1.35; } .pipe .pi code { font-size:11px; } .pipe .pi .k { font-weight:600; }
-  .pipe .pi small { flex-basis:100%; color:var(--muted); font-size:11px; }
-  .pipe .stage .pat { margin-top:auto; }
-  /* Policy pipeline › scenario breakout: high-level control → deployed policy → customization level */
+  /* Policy explorer: a compact pipeline strip, then the list of controls (or documents) and the selected one's detail */
+  .pipe { display:flex; flex-wrap:wrap; gap:6px 18px; margin:2px 0 12px; }
+  .pipe .stage { position:relative; flex:1 1 150px; display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; background:#fff; font-size:12px; cursor:pointer; min-width:0; }
+  .pipe .stage.gw { background:#f8fbfe; border-color:#c7e0f4; }
+  .pipe .stage:hover, .pipe .stage:focus-visible { border-color:var(--accent); outline:none; }
+  .pipe .stage:not(:first-child)::before { content:"›"; position:absolute; left:-13px; top:50%; transform:translateY(-55%); color:#8a8886; font-size:16px; }
+  .pipe .stage > img { width:22px; height:22px; flex:0 0 22px; } .pipe .stage .tx { flex:1; min-width:0; } .pipe .stage b { display:block; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pipe .stage small { display:block; color:var(--muted); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .pipe .stage small a { font-weight:400; }
+  .pipe .stage .pmk { margin-left:auto; color:var(--accent); font-weight:700; font-size:12px; white-space:nowrap; } .pipe .stage .pmk:empty { display:none; }
+  .pipe .stage.cur { box-shadow:inset 0 0 0 2px var(--accent); } .pipe.focus .stage:not(.hit) { opacity:.5; }
   .lvl { display:inline-flex; align-items:center; gap:2px; font-size:11px; font-weight:600; white-space:nowrap; }
   .lvl i { width:6px; height:11px; border-radius:1.5px; background:#e1dfdd; display:inline-block; } .lvl i:nth-of-type(3) { margin-right:4px; }
   .lvl.l1 { color:#0b6a0b; } .lvl.l1 i:nth-of-type(-n+1) { background:#107c10; }
   .lvl.l2 { color:#8a5300; } .lvl.l2 i:nth-of-type(-n+2) { background:#c19c00; }
   .lvl.l3 { color:#5c2e91; } .lvl.l3 i:nth-of-type(-n+3) { background:#8764b8; }
-  .pmhead { display:flex; align-items:center; gap:10px 16px; flex-wrap:wrap; margin:0 0 12px; font-size:12px; }
-  .pmhead label { margin:0; font-size:12px; } .pmhead select { width:auto; min-width:300px; max-width:460px; height:32px; font-size:13px; }
-  .pmhead .sum { display:flex; gap:12px; flex-wrap:wrap; align-items:center; color:var(--muted); }
-  .pmhead .sum b { color:var(--text); }
-  .pmlegend { display:flex; flex-wrap:wrap; gap:4px 18px; font-size:11.5px; color:var(--muted); margin:-4px 0 12px; } .pmlegend .lvl { margin-right:2px; }
-  .pipe.focus .stage:not(.hit) { opacity:.42; }
-  .pipe .stage.hit { box-shadow:inset 0 0 0 2px #0078d4; }
-  .pipe .stage .pmk { font-size:11px; font-weight:700; color:var(--accent); } .pipe .stage .pmk:empty { display:none; } .pipe .stage .pmk span { font-weight:400; color:var(--muted); }
-  .pipe .pi.on { background:#fff; border-radius:4px; box-shadow:0 0 0 1px #0078d4; padding:2px 4px; margin:-2px -4px; }
-  .pipe .pi .pnum { color:var(--accent); font-weight:700; }
-  .pmrows { margin-top:16px; border-top:1px solid var(--divider); }
-  .pmrow { display:grid; grid-template-columns:26px minmax(170px,1.15fr) minmax(170px,1fr) minmax(240px,2.1fr) 120px; gap:6px 14px; padding:10px 0; border-bottom:1px solid var(--divider); font-size:12.5px; align-items:start; }
-  .pmrow.hd { font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; padding:8px 0 6px; }
-  .pmrow .n { width:22px; height:22px; border-radius:50%; background:var(--accent); color:#fff; display:grid; place-items:center; font-size:11px; font-weight:700; }
-  .pmrow .ctl b { display:block; font-size:13px; line-height:1.3; margin-bottom:3px; } .pmrow .ctl .out { margin-right:3px; }
-  .pmrow .pol code { font-size:11.5px; white-space:normal; } .pmrow .pol small, .pmrow .lvc small { display:block; color:var(--muted); font-size:11px; margin-top:3px; line-height:1.35; }
-  .pmrow .what { line-height:1.45; } .pmrow .what .uses { display:block; margin-top:4px; font-size:11px; color:var(--muted); } .pmrow .what .uses a { margin-right:6px; }
-  .pmrow details { grid-column:2 / -1; } .pmrow details > summary { cursor:pointer; font-size:12px; color:var(--accent); }
-  .pmrow .pmsrc { margin-top:6px; font-size:11px; color:var(--muted); } .pmrow pre.xml { margin-top:4px; max-height:320px; white-space:pre-wrap; word-break:break-word; }
-  .pmrow pre.xml .xl { display:block; padding-left:47px; text-indent:-47px; } /* ARM returns long elements on one line: wrap them under the gutter */
-  .pmrow .nvl { margin-top:6px; font-size:11px; display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
-  .pmrow .nvl .nvref { font:600 11px Consolas,monospace; background:#f4effa; color:#5c2e91; border:1px solid #d9c7ee; border-radius:3px; padding:0 3px; }
-  .pmrow .nvl code { font-size:10.5px; background:#fff; border:1px solid var(--divider); border-radius:3px; padding:0 5px; }
-  .pmrow .adopt { margin-top:8px; font-size:12px; background:var(--panel2); border-left:3px solid var(--accent); padding:6px 10px; border-radius:0 4px 4px 0; }
-  .pmgrp { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); padding:14px 0 2px; display:flex; gap:6px; align-items:center; } .pmgrp img { width:16px; height:16px; }
-  @media (max-width:1100px) { .pmrow { grid-template-columns:26px 1fr; } .pmrow > :not(.n) { grid-column:2; } .pmrow.hd { display:none; } }
+  .pxbar { display:flex; align-items:center; gap:8px 14px; flex-wrap:wrap; margin:0 0 12px; font-size:12px; }
+  .pxbar label { margin:0; font-size:12px; } .pxbar select { width:auto; min-width:260px; max-width:420px; height:32px; font-size:13px; }
+  .pxbar .sp { flex:1; } .pxbar .sum { color:var(--muted); } .pxbar .sum b { color:var(--text); }
+  .seg { display:inline-flex; border:1px solid #8a8886; border-radius:4px; overflow:hidden; }
+  .seg button { height:30px; padding:0 12px; border:0; border-radius:0; background:#fff; color:var(--text); font-size:12.5px; font-weight:400; }
+  .seg button + button { border-left:1px solid #c8c6c4; }
+  .seg button:hover:not(:disabled) { background:var(--accent-light); color:var(--text); }
+  .seg button.on, .seg button.on:hover:not(:disabled) { background:var(--accent); color:#fff; font-weight:600; }
+  .pxlv { display:inline-flex; gap:4px; flex-wrap:wrap; } .pxlv[hidden] { display:none; } .pxlv .pc[aria-pressed="false"] { opacity:.45; } .pxlv .pc[aria-pressed="false"] .lvl { filter:grayscale(1); }
+  .pxbody { display:grid; grid-template-columns:minmax(230px, 310px) minmax(0, 1fr); gap:14px; align-items:start; }
+  .pxlist { border:1px solid var(--border); border-radius:6px; background:#fff; max-height:680px; overflow:auto; position:sticky; top:12px; }
+  .pxlist .g { position:sticky; top:0; z-index:1; background:var(--panel2); font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); padding:6px 10px; display:flex; gap:6px; align-items:center; border-bottom:1px solid var(--divider); }
+  .pxlist .g img { width:14px; height:14px; } .pxlist .g .cnt { margin-left:auto; }
+  .pxlist .it { display:flex; align-items:center; gap:7px; width:100%; height:auto; min-height:32px; padding:5px 10px; border:0; border-bottom:1px solid var(--divider); border-radius:0; background:#fff; color:var(--text); font-size:12.5px; font-weight:400; text-align:left; line-height:1.3; scroll-margin-top:34px; }
+  .pxlist .it:hover:not(:disabled) { background:var(--accent-light); color:var(--text); border-color:var(--divider); }
+  .pxlist .it.sel, .pxlist .it.sel:hover:not(:disabled) { background:var(--accent-light); box-shadow:inset 3px 0 0 var(--accent); font-weight:600; }
+  .pxlist .it .nb { flex:0 0 20px; height:20px; border-radius:50%; background:var(--accent); color:#fff; font-size:10.5px; font-weight:700; display:grid; place-items:center; } .pxlist .it .nb:empty { background:transparent; }
+  .pxlist .it .lvl { flex:0 0 auto; } .pxlist .it .lab { flex:1; min-width:0; } .pxlist .it .tag { margin-left:auto; font-size:10.5px; color:var(--muted); white-space:nowrap; font-weight:400; }
+  .pxlist .it.out { color:var(--muted); } .pxlist .it.out .lvl { opacity:.5; } .pxlist .it.off .lab { text-decoration:line-through; text-decoration-color:#a19f9d; }
+  .pxdetail { border:1px solid var(--border); border-radius:6px; background:#fff; padding:14px 16px; min-width:0; font-size:13px; line-height:1.5; }
+  .pxdetail .pxh { display:flex; align-items:center; gap:8px; flex-wrap:wrap; } .pxdetail .pxh h3 { margin:0; font-size:16px; } .pxdetail .pxh .nb { width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:700; display:grid; place-items:center; }
+  .pxdetail .pxh .sp { flex:1; }
+  .pxdetail .pxh .sz { margin-left:auto; font-size:12px; color:var(--muted); }
+  .pxdetail .kv { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:8px 16px; margin:10px 0; padding:8px 12px; background:var(--panel2); border-radius:6px; font-size:12.5px; }
+  .pxdetail .kv small { display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; } .pxdetail .kv code { white-space:normal; }
+  .pxdetail .pur { color:var(--muted); margin:4px 0 0; }
+  .pxdetail .tiers { display:flex; gap:4px; align-items:center; flex-wrap:wrap; margin-top:12px; font-size:12px; color:var(--muted); }
+  .pxdetail .pmsrc { margin-top:10px; font-size:11.5px; color:var(--muted); }
+  .pxdetail pre.xml { margin-top:4px; max-height:420px; white-space:pre-wrap; word-break:break-word; } .pxdetail pre.xml .xl { display:block; padding-left:47px; text-indent:-47px; } /* ARM returns long elements on one line: wrap them under the gutter */
+  .pxdetail .nvl { margin-top:6px; font-size:11px; display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+  .pxdetail .nvl code { font-size:10.5px; background:#fff; border:1px solid var(--divider); border-radius:3px; padding:0 5px; }
+  .pxdetail .adopt { margin-top:12px; font-size:12.5px; background:var(--panel2); border-left:3px solid var(--accent); padding:8px 12px; border-radius:0 4px 4px 0; }
+  .pxdetail .meta { display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:12px; font-size:12px; color:var(--muted); align-items:center; }
+  .pxdetail .ctls { display:flex; flex-wrap:wrap; gap:5px; margin:10px 0 4px; }
+  .pxdetail .elh { font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; margin-top:12px; }
+  .pxdetail .sr { display:flex; gap:6px; align-items:flex-start; margin-top:4px; } .pxdetail .sr > span { flex:0 0 66px; font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; padding-top:2px; }
+  .pxdetail details.full { margin-top:12px; } .pxdetail details.full > summary { cursor:pointer; color:var(--accent); font-size:12.5px; } .pxdetail details.full pre.xml { max-height:560px; }
+  .pxdetail.flash { animation:lensHit 1s both; }
+  @media (max-width:1000px) { .pxbody { grid-template-columns:1fr; } .pxlist { position:static; max-height:320px; } }
   .bkpool { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:10px; }
   .bkpool .ph { grid-column:1 / -1; font-size:12px; color:var(--muted); display:flex; gap:6px; align-items:center; }
   .bk { border:1px solid var(--border); border-radius:6px; padding:10px 12px; display:flex; gap:10px; align-items:flex-start; background:#fff; }
@@ -348,31 +359,10 @@
   .cnt { font-size:11px; font-weight:600; padding:0 7px; border-radius:10px; background:#edebe9; color:#484644; line-height:18px; } .cnt.has { background:var(--accent-light); color:#005a9e; }
   details.kq .body { padding:0 12px 10px; overflow:auto; max-height:300px; }
   td.bar { position:relative; min-width:110px; } td.bar i { position:absolute; left:6px; top:7px; bottom:7px; background:#c7e0f4; border-radius:2px; } td.bar b { position:relative; font-weight:600; }
-  .polgrp { margin-top:14px; } .polgrp:first-child { margin-top:4px; } .polgrp h3 { font-size:13px; margin:0 0 6px; display:flex; align-items:center; gap:6px; }
-  .polgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); gap:10px; }
-  .polcard { border:1px solid var(--border); border-radius:6px; padding:10px 12px; background:#fff; min-width:0; }
-  .polcard:has(details[open]) { grid-column:1 / -1; } .polcard details[open] pre.xml { max-height:520px; }
-  .polcard .nm { font-weight:600; font-size:13px; display:flex; align-items:center; gap:6px; margin-bottom:6px; }
-  .polcard .sr { display:flex; gap:6px; align-items:flex-start; margin-top:4px; } .polcard .sr > span { flex:0 0 62px; font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; padding-top:2px; }
-  .polcard details { margin-top:6px; } .polcard summary { cursor:pointer; font-size:12px; color:var(--accent); }
-  .polcard .pdm { margin-left:auto; font-weight:400; font-size:11px; color:var(--muted); white-space:nowrap; }
-  .polcard .pur { font-size:12px; color:var(--muted); margin:-2px 0 8px; line-height:1.4; }
-  .polcard .pctl { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:4px; } .polcard .pctl .none { font-size:11.5px; color:var(--muted); }
-  .polcard .elh { font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; margin-top:8px; }
-  .polcard .pcx { border-left:3px solid var(--accent); background:var(--panel2); padding:8px 10px; margin:6px 0; font-size:12px; border-radius:0 4px 4px 0; line-height:1.45; }
-  .polcard .pcx .h { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:3px; } .polcard .pcx .h b { font-size:12.5px; }
-  .polcard .pcx pre.xml { margin-top:4px; max-height:320px; white-space:pre-wrap; word-break:break-word; } .polcard .pcx pre.xml .xl { display:block; padding-left:47px; text-indent:-47px; }
-  .polcard .pcx .pmsrc { margin-top:6px; font-size:11px; color:var(--muted); } .polcard .pcx .adopt { margin-top:6px; }
-  .polcard .pcx .nvl { margin-top:6px; font-size:11px; display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
-  .polcard .pcx .nvl code { font-size:10.5px; background:#fff; border:1px solid var(--divider); border-radius:3px; padding:0 5px; }
-  .polcard:has(.pcx) { grid-column:1 / -1; }
-  .polcard .pref { font-size:11px; color:var(--muted); display:flex; flex-wrap:wrap; gap:4px 6px; align-items:center; margin-top:8px; }
   .nvref { font:600 11px Consolas,monospace; background:#f4effa; color:#5c2e91; border:1px solid #d9c7ee; border-radius:3px; padding:0 3px; }
-  #deployedPolicies.focus .polcard:not(.hit) { opacity:.42; } #deployedPolicies .polcard.hit { box-shadow:inset 0 0 0 2px #0078d4; }
-  #deployedPolicies .polcard.flash { animation:lensHit 1.2s both; }
   .pc { display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 9px; background:#fff; color:var(--text); border:1px solid var(--border); border-radius:12px; font-size:12px; font-weight:400; }
   .pc:hover:not(:disabled) { background:var(--accent-light); border-color:#c7e0f4; color:var(--text); }
-  .pc.on { border-color:#0078d4; box-shadow:inset 0 0 0 1px #0078d4; } .pc[aria-expanded="true"] { background:var(--accent-light); border-color:#0078d4; font-weight:600; }
+  .pc.on { border-color:#0078d4; box-shadow:inset 0 0 0 1px #0078d4; } .pc.cur { background:var(--accent-light); border-color:#0078d4; font-weight:600; }
   .evh { font-size:13px; margin:0 0 8px; display:flex; align-items:center; gap:6px; } .evh .muted { font-weight:400; }
   .tl { display:flex; height:22px; border-radius:4px; overflow:hidden; margin:4px 0 2px; font-size:10.5px; font-weight:600; color:#fff; }
   .tl > div { display:flex; align-items:center; justify-content:center; min-width:0; white-space:nowrap; overflow:hidden; padding:0 4px; }
@@ -2087,7 +2077,7 @@
         pop.addEventListener("click", (e) => { if (e.target.closest("[data-pat]")) popHide(0); });
         document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !pop.hidden) popHide(0); });
 
-        return { fromCall, follow, trace, pattern, shown, play: runDemo, primer };
+        return { fromCall, follow, trace, pattern, shown, play: runDemo, has: (id) => demos().some(d => d.id === id), primer };
       })();
       </script>
       </div>
@@ -2145,10 +2135,9 @@
     </div>
 
     <div id="tab-plans" class="hidden">
-      <div class="psub" role="tablist" aria-label="Plans, policies and chargeback views">
+      <div class="psub" role="tablist" aria-label="Plans, policies and chargeback views" style="grid-template-columns:repeat(3,1fr)">
         <button class="on" data-psec="plans" role="tab"><img class="ico" src="/icons/plan.svg" alt=""><span><b>Products &amp; plans</b><small>models, tools, agents, prices</small></span></button>
-        <button data-psec="pipeline" role="tab"><img class="ico" src="/icons/policy.svg" alt=""><span><b>Policy pipeline</b><small>what runs, in what order</small></span></button>
-        <button data-psec="deployed" role="tab"><img class="ico" src="/icons/apim.svg" alt=""><span><b>Deployed policies</b><small>read back from ARM</small></span></button>
+        <button data-psec="explorer" role="tab"><img class="ico" src="/icons/policy.svg" alt=""><span><b>Policy explorer</b><small>controls · deployed policies · lines</small></span></button>
         <button data-psec="chargeback" role="tab"><img class="ico" src="/icons/cost-management.svg" alt=""><span><b>Chargeback</b><small>users, teams &amp; sessions</small></span></button>
       </div>
       <div class="psec" data-psec="plans">
@@ -2176,36 +2165,23 @@
       </div>
       </div><!-- /psec plans -->
 
-      <div class="psec hidden" data-psec="pipeline">
+      <div class="psec hidden" data-psec="explorer">
       <div class="card" id="polMapCard">
-        <h2>Request pipeline <span class="info" tabindex="0" data-tip="Policies run in scopes: the product (plan) policy wraps the API policy. A call is rejected by the first policy that fails, before it costs anything. Every response carries x-gw-request-id, the key that finds the same call in the trace and in every Log Analytics table. Pick a scenario to see which high-level controls it shows, the exact deployed policy behind each one, and how much of it is out of the box versus custom.">i</span>
-          <span class="legend"><span class="out o401">401</span> identity <span class="out o403">403</span> entitlement / $ budget <span class="out o429">429</span> token limit <span class="out dg">↓</span> downgrade</span></h2>
-        <div class="pmhead">
-          <label for="polMapSc">Break it down for</label><select id="polMapSc"></select>
-          <span class="sum" id="polMapSum"></span>
+        <h2><img class="hico" src="/icons/policy.svg" alt="">Policy explorer <span class="muted">every control on this gateway, the policy behind it and its deployed lines</span> <span class="info" tabindex="0" data-tip="Policies run in scopes: the product (plan) policy wraps the API policy, and a call is rejected by the first policy that fails, before it costs anything. Pick a scenario to see the controls it shows. Group by stage to follow a call, or by document to see each deployed policy whole. Every line shown is read back from Azure Resource Manager.">i</span></h2>
+        <div class="pxbar">
+          <label for="polMapSc">Scenario</label><select id="polMapSc"></select>
+          <div class="seg" role="group" aria-label="Group by"><button type="button" data-pxg="stage" class="on">By stage</button><button type="button" data-pxg="doc">By document</button></div>
+          <div class="pxlv" id="pxLevels" role="group" aria-label="Show customization levels"></div>
+          <span class="sp"></span><span class="sum" id="polMapSum"></span>
         </div>
-        <div class="pmlegend" id="polMapLegend"></div>
-        <div class="pscopes"><span class="c1">Client</span><span class="c2">Product (plan) scope · inbound</span><span class="c3">API scope · inbound + backend</span><span class="c4">Outbound</span></div>
-        <div class="pipe" id="pipe"></div>
-        <div class="pmrows" id="polMap"></div>
+        <div class="pipe" id="pipe" aria-label="Request pipeline"></div>
+        <div class="pxbody" id="polMap"><div class="pxlist" id="pxList" aria-label="Controls"></div><div class="pxdetail" id="pxDetail" aria-live="polite"><div class="muted">Loading the deployed policies…</div></div></div>
       </div>
       <div class="card" style="margin-top:16px">
         <h2><img class="ico lg" src="/icons/backend-pool.svg" alt=""> Backend pool <span class="muted">priority routing · circuit breakers · managed identity</span></h2>
         <div id="backendsKv" class="bkpool"><div class="muted">Loading…</div></div>
       </div>
-      </div><!-- /psec pipeline -->
-
-      <div class="psec hidden" data-psec="deployed">
-      <div class="card" id="polDepCard">
-        <h2>Deployed policies <span class="muted">read back from Azure Resource Manager</span> <span class="info" tabindex="0" data-tip="Every policy document on the gateway, with what it is for, the high-level controls it implements (click one to see its lines), the named values it reads and the fragments it includes. In the portal: API Management › Products › (plan) › Policies; APIs › (API) › All operations › Policy code editor; APIs › Policy fragments; Backends.">i</span></h2>
-        <div class="pmhead">
-          <label for="polDepSc">Highlight a scenario</label><select id="polDepSc"></select>
-          <span class="sum" id="polDepSum"></span>
-        </div>
-        <div class="pmlegend" id="polDepLegend"></div>
-        <div id="deployedPolicies" class="muted" style="margin-top:8px">Loading…</div>
-      </div>
-      </div><!-- /psec deployed -->
+      </div><!-- /psec explorer -->
 
       <div class="psec hidden" data-psec="chargeback" id="tab-chargeback">
       <div class="card">
@@ -3967,8 +3943,10 @@ document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showTab
 // Three tabs. The earlier tab names still work (scenarios, the copilot and deep links use them) and map to a tab + section.
 const TAB_OF = { live: ["live"], runs: ["live"], evidence: ["evidence"], policies: ["evidence", "investigate"], monitor: ["evidence", "monitor"],
                  plans: ["plans", "plans"], chargeback: ["plans", "chargeback"] };
-const PSEC_TAB = { investigate: "evidence", telemetry: "evidence", monitor: "evidence", plans: "plans", pipeline: "plans", deployed: "plans", chargeback: "plans" };
-window.topTabOf = (name) => (TAB_OF[name] || [PSEC_TAB[name] || "live"])[0];
+const PSEC_TAB = { investigate: "evidence", telemetry: "evidence", monitor: "evidence", plans: "plans", explorer: "plans", chargeback: "plans" };
+// the Policy pipeline and Deployed policies views became the Policy explorer (grouped by stage or by document)
+const PSEC_ALIAS = { pipeline: ["explorer", "stage"], deployed: ["explorer", "doc"] };
+window.topTabOf = (name) => (TAB_OF[name] || [PSEC_TAB[(PSEC_ALIAS[name] || [name])[0]] || "live"])[0];
 function showTab(tab) {
   const [top, sec] = TAB_OF[tab] || ["live"];
   document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("active", x.dataset.tab === top));
@@ -3992,6 +3970,7 @@ function cbText(rules) {
 // Sections of the Evidence and Plans tabs: each tab keeps its own selected section
 let psec = "investigate";
 function showPsec(name) {
+  if (PSEC_ALIAS[name]) { const [to, group] = PSEC_ALIAS[name]; if (group !== pxGroup) { pxGroup = group; pxSel = null; } name = to; }
   const top = PSEC_TAB[name]; if (!top) return;
   if (curTab !== top) showTab(top);
   psec = name;
@@ -3999,23 +3978,22 @@ function showPsec(name) {
   root.querySelectorAll(".psub button").forEach(b => { b.classList.toggle("on", b.dataset.psec === name); b.setAttribute("aria-selected", b.dataset.psec === name); });
   root.querySelectorAll("div.psec").forEach(x => x.classList.toggle("hidden", x.dataset.psec !== name));
   if (name === "investigate") { renderEvLog(); window.gwFlow?.shown(); }
-  if (name === "pipeline") renderPolMap();
+  if (name === "explorer") renderExplorer();
   if (name === "chargeback" && !cbLoaded) { cbLoaded = true; loadChargeback(); }
   if (name === "monitor" && !charts._loaded) { charts._loaded = true; refreshMonitor(); }
 }
 document.querySelectorAll(".psub button").forEach(b => b.onclick = () => showPsec(b.dataset.psec));
 const pill = (o) => `<span class="out ${o === "dg" ? "dg" : "o" + o}">${o === "dg" ? "↓ downgrade" : o}</span>`;
-// [policy or "~label", short note, ...outcomes]
+// The request pipeline, as the Policy explorer's strip (one stage per step a call takes; the controls are listed under it)
 const PIPE = [
-  { ico: "users", title: "Agent / app", pat: "overview", items: [["api-key", "which plan pays"], ["Authorization: Bearer", "who calls"]] },
-  { ico: "entra-id", title: "Identity", gw: 1, pat: "identity", items: [["validate-azure-ad-token", "tenant · audience · client apps", "401"], ["entra-identity", "fragment: caller → chargeback"]] },
-  { ico: "plan", title: "Plan enforcement", gw: 1, pat: "plan", items: [["~entitlement", "model / tool / agent", "dg", "403"], ["llm-token-limit", "TPM + token quota", "429"], ["quota-by-key", "$ budget per key and session", "403"]] },
-  { ico: "backend-pool", title: "Routing & resilience", gw: 1, pat: "routing", items: [["set-backend-service", "priority pool"], ["retry", "429 / 5xx → next region"], ["~circuit breaker", "trips a throttled region"], ["authentication-managed-identity", "→ Foundry, no keys"]] },
-  { ico: "metrics", title: "Metering & logging", gw: 1, pat: "metering", items: [["llm-emit-token-metric", "tokens per agent, model"], ["emit-metric", "cost per agent, tier"], ["trace", "chargeback record"], ["x-gw-*", "response headers"]] },
+  { ico: "users", title: "Agent / app", sub: "api-key · Entra token", pat: "overview" },
+  { ico: "entra-id", title: "Identity", sub: "who calls", gw: 1, pat: "identity" },
+  { ico: "plan", title: "Plan enforcement", sub: "what, how much, $", gw: 1, pat: "plan" },
+  { ico: "backend-pool", title: "Routing & resilience", sub: "where it runs", gw: 1, pat: "routing" },
+  { ico: "metrics", title: "Metering & logging", sub: "price · evidence", gw: 1, pat: "metering" },
 ];
-$("pipe").innerHTML = PIPE.map(st => `<div class="stage${st.gw ? " gw" : ""}"><div class="hd">${ico(st.ico, "", "")}${st.title}</div>`
-  + st.items.map(([p, n, ...o]) => `<div class="pi">${p[0] === "~" ? `<span class="k">${p.slice(1)}</span>` : `<code>${p}</code>`}${o.map(pill).join("")}<small>${n}</small></div>`).join("")
-  + `<div class="pat"><a href="#" data-pat="${st.pat}">See the pattern</a></div></div>`).join("");
+$("pipe").innerHTML = PIPE.map(st => `<div class="stage${st.gw ? " gw" : ""}" role="button" tabindex="0" title="Show this stage's controls">${ico(st.ico, "", "")}`
+  + `<div class="tx"><b>${st.title}</b><small>${st.sub} · <a href="#" data-pat="${st.pat}">pattern</a></small></div><span class="pmk"></span></div>`).join("");
 const SINKS = [
   { ico: "api", t: "x-gw-* response headers", by: "set-header policies", f: ["plan", "served model", "tokens", "cost", "limits left", "caller", "session", "route", "blocked-by"], key: "the response", d: "instant" },
   { ico: "trace", t: "Request trace", by: "APIM tracing (debug credential)", f: ["every policy, in order", "timings", "variables", "retries", "backend URL"], key: "apim-trace-id", d: "instant" },
@@ -4029,13 +4007,13 @@ const SINKS = [
 $("sinks").innerHTML = SINKS.map(x => `<div class="sink"><div class="h">${ico(x.ico, "", "")}<div class="t">${x.t}<small>${x.by}</small></div><span class="dly${x.d === "instant" ? " now" : ""}">${x.d}</span></div>`
   + `<div class="chips">${x.f.map(f => `<span class="chip">${f}</span>`).join("")}</div><div class="fk">find a call by <span class="chip key">${x.key}</span></div></div>`).join("");
 
-// ---------- Policy pipeline › scenario breakout ----------
+// ---------- Policy explorer: every control, the policy behind it and its deployed lines ----------
 // Each scenario lists the high-level controls it demonstrates (SCENARIOS[i].controls). A control names the policy that
 // implements it, where it is deployed, what it does, how much of it is built in, and an anchor that finds its lines in the
-// deployed XML (read back from ARM by /api/flow-policies, so the line numbers and the rendered plan values are real).
+// deployed XML (read back from ARM by /api/policies, so the line numbers and the rendered plan values are real).
 //   s short label · c control · p policy · st pipeline stage · at where · doc "product" (resolved to a plan) | "api:…" | "fragment:…" | "op:…"
-//   a anchor line · e end line (max lines) or n lines · pre lines before the anchor · l level 1-3 · o outcomes · w what it does · u to use it yourself
-//   nv named values it reads · pi the item it matches in the pipeline diagram · tier the plan whose policy is shown
+//   a anchor line · e end line (max lines) or n lines · pre lines before the anchor · back the element's start · l level 1-3 · o outcomes
+//   w what it does · u to use it yourself · nv named values it reads · pi the policy name the copilot's policy: target matches · tier the plan shown by default
 const POL_LEVELS = {
   1: ["Out of the box", "A built-in API Management policy or gateway setting: you only set its attributes."],
   2: ["Configured", "A built-in policy put to work with your own counter keys, expressions or named values."],
@@ -4212,16 +4190,20 @@ const POL_CONTROLS = {
     w: "One counter per caller (<code>oid</code>), so one member can't drain the whole team budget.",
     u: "Copy the block next to the team budget." },
 };
-let polMapSel = null, polDocs = null, polDocsP = null, polBackends = null, polMapToggled = new Set();
+// Explorer state: the scenario (index or "all"), grouping, visible levels, the selected control or document, the plan shown
+let polMapSel = null, pxGroup = "stage", pxLevels = new Set([1, 2, 3]), pxSel = null, pxTier = null;
+// polDeployed: every policy document read back from ARM (/api/policies); polDocs: the flow documents + plain named values (/api/flow-policies)
+let polDeployed = null, polDeployedErr = null, polDocs = null, polDocsP = null, polBackends = null;
 function loadPolDocs() {
   if (!polDocsP) polDocsP = fetch("/api/flow-policies", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
     .then(x => x.json()).then(d => { polDocs = d && d.docs ? d : { error: (d && d.error) || "no policy documents returned" }; })
     .catch(e => { polDocs = { error: e.message }; });
   return polDocsP;
 }
+const tierName = (t) => (cfg?.tiers || []).find(x => x.name === t)?.displayName || t;
 function polDocLabel(id) {
   const [k, n] = id.split(":");
-  if (k === "product") return `${(cfg?.tiers || []).find(t => t.name === n)?.displayName || n} plan policy`;
+  if (k === "product") return `${tierName(n)} plan policy`;
   return k === "api" ? ({ "inference-api": "AI models API", "commerce-mcp": "MCP server API", "sourcing-agent": "A2A agent API", "image-api": "Image API", "inference-entra": "Entra-only models API" }[n] || n) + " policy"
     : k === "op" ? `${n} operation policy` : `${n} fragment`;
 }
@@ -4236,12 +4218,6 @@ function polCut(c, xml) {
   else end = Math.min(lines.length - 1, at + (c.n || 1) - 1);
   return { start, lines: lines.slice(start, end + 1), cut: !!c.e && !c.e.test(lines[end]) };
 }
-function polSnippet(c) {
-  let doc = c.doc;
-  if (doc === "product") { const want = `product:${c.tier || "silver"}`; doc = polDocs.docs[want] ? want : Object.keys(polDocs.docs).find(k => k.startsWith("product:")) || want; }
-  const s = polDocs.docs[doc] ? polCut(c, polDocs.docs[doc]) : null;
-  return s ? { doc, ...s } : { doc };
-}
 // the excerpt: where it is, the highlighted lines with their real line numbers, and the named values it reads (when known)
 function polExcerpt(c, s) {
   const ind = Math.min(...s.lines.filter(x => x.trim()).map(x => x.match(/^\s*/)[0].length));
@@ -4252,92 +4228,13 @@ function polExcerpt(c, s) {
   return `<div class="pmsrc">Deployed <b>${escapeHtml(polDocLabel(s.doc))}</b> · line${s.lines.length > 1 ? `s ${s.start + 1}–${s.start + s.lines.length}` : ` ${s.start + 1}`}${s.cut ? " (excerpt)" : ""} · read back from Azure Resource Manager</div>`
     + xmlPre(s.lines.map(x => x.slice(ind)).join("\n")).replace(/^<pre class="xml">/, `<pre class="xml" style="counter-reset:xl ${s.start}">`).replace(/\n<span class="xl">/g, `<span class="xl">`) + nvs;
 }
-function polXml(c) {
-  if (!c.a) return c.live ? c.live() : "";
-  if (!polDocs) return `<div class="pmsrc">Reading the deployed policy from Azure Resource Manager…</div>`;
-  if (polDocs.error) return `<div class="pmsrc">Couldn't read the deployed policies: ${escapeHtml(polDocs.error)}. <a href="#" data-pmretry>Retry</a></div>`;
-  const s = polSnippet(c);
-  if (!s.lines) return `<div class="pmsrc">Not in the deployed ${escapeHtml(polDocLabel(s.doc))}: this feature is off in this sandbox.</div>`;
-  return polExcerpt(c, s);
-}
-// the scenarios that show a control (catalog view)
+// the gateway flow example that shows a control (window.gwFlow.play)
+const POL_DEMO = { "entra": "noauth", "model-ent": "downgrade", "tpm": "tpm", "budget": "budget", "session-budget": "budget", "pool": "failover", "retry": "failover", "cb": "failover",
+  "tool-ent": "mcp", "tool-price": "mcp", "tool-rate": "mcp", "agent-ent": "a2a", "agent-price": "a2a", "obo": "a2a", "model-price": "happy", "token-metric": "happy", "cost-metric": "happy",
+  "chargeback": "happy", "req-id": "happy", "sem-cache": "semcache", "sem-scope": "semcache", "sem-price": "semcache", "resp-price": "promptcache",
+  "entra-only-token": "entra", "entra-group-plan": "entra-nogroup", "entra-model-ent": "entra", "entra-tpm": "entra", "group-budget": "entra-team", "member-budget": "entra-team" };
+// the scenarios that show a control
 const polUses = (id) => SCENARIOS.map((s, i) => [s, i]).filter(([s]) => (s.controls || []).includes(id));
-function fillPolMapPicker() {
-  const opt = (s, i) => `<option value="${i}">${i + 1}. ${escapeHtml(s.title)}${s.off ? " (not deployed)" : ""}</option>`, placed = new Set();
-  const html = `<option value="all">Every control (catalog)</option>` + SCENARIO_TOPICS.map(([name, , re]) => {
-    const items = SCENARIOS.map((s, i) => [s, i]).filter(([s, i]) => !placed.has(i) && re.test(s.title));
-    items.forEach(([, i]) => placed.add(i));
-    return items.length ? `<optgroup label="${escapeHtml(name)}">${items.map(([s, i]) => opt(s, i)).join("")}</optgroup>` : "";
-  }).join("") + SCENARIOS.map((s, i) => placed.has(i) ? "" : opt(s, i)).join("");
-  if (polMapSel == null) polMapSel = 0;
-  // the Policy pipeline and Deployed policies pickers share one selection
-  for (const sel of [$("polMapSc"), $("polDepSc")]) {
-    sel.innerHTML = html; sel.value = String(polMapSel);
-    sel.onchange = () => { polMapSel = sel.value === "all" ? "all" : Number(sel.value); polMapToggled.clear(); renderPolMap(); };
-  }
-}
-function renderPolMap() {
-  const box = $("polMap"); if (!box || !$("polMapSc").options.length) return;
-  const all = polMapSel === "all", sc = all ? null : SCENARIOS[polMapSel];
-  const ids = all ? Object.keys(POL_CONTROLS).sort((a, b) => STAGE_IX[POL_CONTROLS[a].st] - STAGE_IX[POL_CONTROLS[b].st]) : (sc?.controls || []);
-  const ctls = ids.filter(id => POL_CONTROLS[id]).map(id => [id, POL_CONTROLS[id]]);
-  $("polMapSc").value = String(polMapSel);
-  // the pipeline: dim the stages this scenario doesn't touch, number the ones it does (and the policy items they match)
-  const pipe = $("pipe");
-  pipe.classList.toggle("focus", !all);
-  pipe.querySelectorAll(".pnum").forEach(x => x.remove());
-  pipe.querySelectorAll(".pi.on").forEach(x => x.classList.remove("on"));
-  pipe.querySelectorAll(".stage").forEach((st, k) => {
-    const nums = all ? [] : ctls.map(([, c], i) => STAGE_IX[c.st] === k ? circ(i + 1) : "").filter(Boolean);
-    st.classList.toggle("hit", nums.length > 0);
-    let m = st.querySelector(".pmk"); if (!m) { m = document.createElement("div"); m.className = "pmk"; st.querySelector(".hd").after(m); }
-    m.innerHTML = nums.length ? `${nums.join(" ")} <span>in this scenario</span>` : "";
-    if (all) return;
-    st.querySelectorAll(".pi").forEach(pi => {
-      const name = (pi.querySelector("code, .k")?.textContent || "").trim(), hits = ctls.map(([, c], i) => STAGE_IX[c.st] === k && c.pi === name ? circ(i + 1) : "").filter(Boolean);
-      if (hits.length) { pi.classList.add("on"); pi.insertAdjacentHTML("afterbegin", `<span class="pnum">${hits.join("")}</span>`); }
-    });
-  });
-  const n = [1, 2, 3].map(l => ctls.filter(([, c]) => c.l === l).length);
-  $("polMapSum").innerHTML = `<span><b>${ctls.length}</b> control${ctls.length === 1 ? "" : "s"}${sc ? ` in <b>${escapeHtml(sc.title)}</b>` : ""}</span>`
-    + [1, 2, 3].map(l => `<span>${lvlHtml(l)} <b>${n[l - 1]}</b></span>`).join("");
-  $("polMapLegend").innerHTML = [1, 2, 3].map(l => `<span>${lvlHtml(l)} ${POL_LEVELS[l][1]}</span>`).join("");
-  const head = `<div class="pmrow hd"><span></span><span>High-level control</span><span>Policy that does it · where</span><span>What it does here</span><span>Customization</span></div>`;
-  let lastSt = null;
-  box.innerHTML = (ctls.length ? head : `<div class="muted" style="padding:10px 0">This view has no policy breakdown.</div>`) + ctls.map(([id, c], i) => {
-    const grp = all && c.st !== lastSt ? `<div class="pmgrp">${ico(PIPE[STAGE_IX[c.st]].ico, "", "")}${PIPE[STAGE_IX[c.st]].title}</div>` : "";
-    lastSt = c.st;
-    const uses = all ? polUses(id) : [];
-    return grp + `<div class="pmrow" data-ctl="${id}"><span class="n">${i + 1}</span>
-      <div class="ctl"><b>${c.c}</b>${(c.o || []).map(pill).join("")}</div>
-      <div class="pol"><code>${escapeHtml(c.p)}</code><small>${escapeHtml(c.at)}</small></div>
-      <div class="what">${c.w}${uses.length ? `<span class="uses">Shown in: ${uses.map(([s, k]) => `<a href="#" data-pmsc="${k}" title="${escapeHtml(s.title)}">scenario ${k + 1}</a>`).join("")}</span>` : ""}</div>
-      <div class="lvc">${lvlHtml(c.l)}</div>
-      <details data-pmx="${id}"${all === polMapToggled.has(id) ? " open" : ""}><summary>${c.a ? "Deployed policy lines" : "Where it's configured"} · to use it yourself</summary><div class="pmxml"></div><div class="adopt"><b>To use it yourself:</b> ${c.u}</div></details></div>`;
-  }).join("");
-  box.querySelectorAll("details[data-pmx]").forEach(d => d.ontoggle = () => { d.open === all ? polMapToggled.add(d.dataset.pmx) : polMapToggled.delete(d.dataset.pmx); });
-  box.querySelectorAll("[data-pmsc]").forEach(a => a.onclick = (e) => { e.preventDefault(); polMapSel = Number(a.dataset.pmsc); polMapToggled.clear(); renderPolMap(); $("polMapCard").scrollIntoView({ behavior: "smooth", block: "start" }); });
-  fillPolXml();
-  if (!polDocs && ctls.some(([, c]) => c.a)) loadPolDocs().then(fillPolXml);
-  renderPolDeployedFocus();
-}
-function fillPolXml() {
-  document.querySelectorAll("#polMap details[data-pmx]").forEach(d => { d.querySelector(".pmxml").innerHTML = polXml(POL_CONTROLS[d.dataset.pmx]); });
-  document.querySelectorAll("#polMap [data-pmretry]").forEach(a => a.onclick = (e) => { e.preventDefault(); polDocs = null; polDocsP = null; renderPolMap(); });
-}
-// a scenario card's policy strip: one chip per control (coloured by how custom it is) that opens the breakout
-function openPolMap(i) { polMapSel = i; polMapToggled.clear(); showPsec("pipeline"); renderPolMap(); $("polMapCard").scrollIntoView({ behavior: "smooth", block: "start" }); }
-function scPolicyStrip(s) {
-  const i = SCENARIOS.indexOf(s), ids = (s?.controls || []).filter(id => POL_CONTROLS[id]);
-  $("scPol").innerHTML = ids.length ? `<span class="muted">Policies behind it:</span>` + ids.map(id => { const c = POL_CONTROLS[id];
-      return `<button type="button" class="pc" data-sc="${i}" title="${escapeHtml(c.c)}: ${escapeHtml(c.p)} · ${POL_LEVELS[c.l][0]}">${lvlHtml(c.l, false)}${escapeHtml(c.s)}</button>`; }).join("")
-    + `<a href="#" class="pat" data-sc="${i}">How each one is built</a>` : "";
-  $("scPol").querySelectorAll("[data-sc]").forEach(b => b.onclick = (e) => { e.preventDefault(); openPolMap(i); });
-}
-
-// ---------- Deployed policies: every policy document with its purpose, size, the controls it implements (click one for its
-// lines in that document), the named values it reads and the fragments it includes; the scenario picker highlights the
-// documents a scenario relies on
 const POL_DOC_PURPOSE = {
   "product": "The plan's contract: which models, tools and agents a subscriber may use, its limits and its $ budgets. One copy per plan, rendered from one template.",
   "api:inference-api": "Every model call: routes it to the backend pool with failover, meters its tokens, prices it and writes its chargeback record.",
@@ -4361,81 +4258,185 @@ const POL_SCOPES = { Product: ["plan", "Product (plan) policies", "wrap every AP
 const polDocHas = (c, doc) => !!c?.a && (c.doc === doc || (c.doc === "product" && doc.startsWith("product:")));
 const polStat = (xml) => ({ lines: xml.split(/\r?\n/).length, expr: (xml.match(/@[({]/g) || []).length,
   nv: [...new Set([...xml.matchAll(/\{\{([A-Za-z0-9._-]+)\}\}/g)].map(m => m[1]))], inc: [...new Set([...xml.matchAll(/<include-fragment fragment-id="([^"]+)"/g)].map(m => m[1]))] });
-let polDeployed = null;
-function renderPolDeployed() {
-  const box = $("deployedPolicies"), list = polDeployed || [], groups = {};
-  for (const p of list) (groups[p.scope] ||= []).push(p);
-  const card = (p) => {
-    const s = polStat(p.xml), doc = p.doc || "", ctls = Object.entries(POL_CONTROLS).filter(([, c]) => polDocHas(c, doc)), el = polElements(p.xml);
-    const purpose = POL_DOC_PURPOSE[doc.startsWith("product:") ? "product" : doc] || "";
-    return `<div class="polcard" data-doc="${escapeHtml(doc)}"><div class="nm">${escapeHtml(p.name)}<span class="pdm" title="Lines of deployed XML · C# policy expressions (@(…) / @{…}): a rough measure of how much custom logic it holds">${s.lines} lines · ${s.expr} C# expression${s.expr === 1 ? "" : "s"}</span></div>`
-      + (purpose ? `<div class="pur">${purpose}</div>` : "")
-      + `<div class="pctl">${ctls.length ? ctls.map(([id, c]) => `<button type="button" class="pc" data-pcx="${id}" aria-expanded="false" title="${escapeHtml(c.c)}: ${escapeHtml(c.p)} · ${POL_LEVELS[c.l][0]}">${lvlHtml(c.l, false)}${escapeHtml(c.s)}</button>`).join("")
-          : `<span class="none">No mapped control: supporting logic for the policies that include it.</span>`}</div>`
-      + `<div class="elh">Policy elements</div>` + Object.entries(el).map(([sec, names]) => `<div class="sr"><span>${sec}</span><div class="chips">`
-        + names.map(n => `<span class="chip${KEY_SOURCES.test(n) ? " key" : ""}">${n}</span>`).join("") + `</div></div>`).join("")
-      + (s.nv.length || s.inc.length ? `<div class="pref">${s.nv.length ? `reads ${s.nv.map(n => `<span class="nvref">{{${escapeHtml(n)}}}</span>`).join("")}` : ""}${s.nv.length && s.inc.length ? "<span>·</span>" : ""}`
-        + `${s.inc.length ? `<span>includes ${s.inc.map(f => `<a href="#" data-frag="${escapeHtml(f)}">${escapeHtml(f)}</a>`).join(", ")}</span>` : ""}</div>` : "")
-      + `<details><summary>View XML</summary>${xmlPre(p.xml)}</details></div>`;
-  };
-  box.classList.remove("muted");
-  box.innerHTML = Object.keys(POL_SCOPES).filter(k => groups[k]).map(sc => `<div class="polgrp"><h3>${ico(POL_SCOPES[sc][0], "", "")}${POL_SCOPES[sc][1]} <span class="cnt">${groups[sc].length}</span> <span class="muted" style="font-weight:400">· ${POL_SCOPES[sc][2]}</span></h3><div class="polgrid">`
-    + groups[sc].map(card).join("") + `</div></div>`).join("") || `<div class="muted">No policies found.</div>`;
-  $("polDepLegend").innerHTML = [1, 2, 3].map(l => `<span>${lvlHtml(l)} ${POL_LEVELS[l][1]}</span>`).join("");
-  box.onclick = (e) => {
-    const b = e.target.closest("[data-pcx]"), f = e.target.closest("[data-frag]"), o = e.target.closest("[data-pmopen]");
-    if (b) togglePolCtl(b);
-    if (f) { e.preventDefault(); const t = box.querySelector(`.polcard[data-doc="fragment:${CSS.escape(f.dataset.frag)}"]`);
-      if (t) { t.scrollIntoView({ behavior: "smooth", block: "center" }); t.classList.remove("flash"); void t.offsetWidth; t.classList.add("flash"); } }
-    if (o) { e.preventDefault(); const id = o.dataset.pmopen, cur = SCENARIOS[polMapSel]?.controls || [], uses = polUses(id);
-      openPolMap(cur.includes(id) ? polMapSel : uses.length ? uses[0][1] : "all"); }
-  };
-  renderPolDeployedFocus();
+const pxDocXml = (doc) => (polDeployed || []).find(p => p.doc === doc)?.xml;
+// the plans a plan control can be shown for: the configured plans (internal products such as agent-platform aren't plans people buy)
+const pxTiers = () => { const all = (polDeployed || []).filter(p => p.doc.startsWith("product:")).map(p => p.doc.slice(8)), known = (cfg?.tiers || []).filter(x => !x.internal).map(x => x.name);
+  return known.length ? all.filter(t => known.includes(t)) : all; };
+// the document a control is shown from; a plan control is shown from the chosen plan, else the plan its scenario uses
+function pxCtlDoc(c, tier) {
+  if (c.doc !== "product") return c.doc;
+  const ts = pxTiers(), want = [tier, c.tier || "silver"].find(t => t && ts.includes(t)) || ts[0] || c.tier || "silver";
+  return `product:${want}`;
 }
-// a control chip in a policy card: what the control does and its lines in THIS document (each plan shows its own values)
-function togglePolCtl(b) {
-  const card = b.closest(".polcard"), id = b.dataset.pcx, open = b.getAttribute("aria-expanded") === "true";
-  card.querySelector(".pcx")?.remove();
-  card.querySelectorAll("[data-pcx]").forEach(x => x.setAttribute("aria-expanded", "false"));
-  if (open) return;
-  b.setAttribute("aria-expanded", "true");
-  const c = POL_CONTROLS[id], doc = card.dataset.doc, xml = (polDeployed || []).find(p => p.doc === doc)?.xml, s = xml ? polCut(c, xml) : null;
-  const paint = () => `<div class="h"><b>${c.c}</b>${(c.o || []).map(pill).join("")}${lvlHtml(c.l)}</div><div>${c.w}</div>`
-    + (s ? polExcerpt(c, { doc, ...s }) : `<div class="pmsrc">Not found in this document.</div>`)
-    + `<div class="adopt"><b>To use it yourself:</b> ${c.u}</div><a href="#" class="pat" data-pmopen="${id}">See it in the policy pipeline</a>`;
-  card.querySelector(".pctl").insertAdjacentHTML("afterend", `<div class="pcx" data-for="${id}">${paint()}</div>`);
-  if (!polDocs && c.nv) loadPolDocs().then(() => { const x = card.querySelector(`.pcx[data-for="${id}"]`); if (x) x.innerHTML = paint(); });  // named values come with the flow documents
+const pxScIds = () => polMapSel === "all" || polMapSel == null ? [] : (SCENARIOS[polMapSel]?.controls || []).filter(id => POL_CONTROLS[id]);
+const pxScDocs = () => (polDeployed || []).filter(p => pxScIds().some(id => polDocHas(POL_CONTROLS[id], p.doc)));
+// not deployed: an XML control whose anchor isn't in its document (the feature is off in this sandbox)
+const pxOff = (c) => !!(c.a && polDeployed && !polCut(c, pxDocXml(pxCtlDoc(c)) || ""));
+// the controls the list shows, in order: the scenario's first (numbered), then the rest of the catalog
+function pxCtlOrder() {
+  const sc = pxScIds(), rest = Object.keys(POL_CONTROLS).filter(id => !sc.includes(id));
+  return [...sc, ...rest].filter(id => pxLevels.has(POL_CONTROLS[id].l) || sc.includes(id));
 }
-function renderPolDeployedFocus() {
-  if (!polDeployed || !$("polDepSc").options.length) return;
-  const box = $("deployedPolicies"), all = polMapSel === "all", sc = all ? null : SCENARIOS[polMapSel], ids = sc?.controls || [];
-  $("polDepSc").value = String(polMapSel);
-  box.classList.toggle("focus", !all);
-  let hit = 0;
-  box.querySelectorAll(".polcard").forEach(card => {
-    const on = ids.filter(id => polDocHas(POL_CONTROLS[id], card.dataset.doc));
-    card.classList.toggle("hit", on.length > 0); if (on.length) hit++;
-    card.querySelectorAll("[data-pcx]").forEach(b => b.classList.toggle("on", on.includes(b.dataset.pcx)));
+function fillPolMapPicker() {
+  const opt = (s, i) => `<option value="${i}">${i + 1}. ${escapeHtml(s.title)}${s.off ? " (not deployed)" : ""}</option>`, placed = new Set();
+  $("polMapSc").innerHTML = `<option value="all">Every control (catalog)</option>` + SCENARIO_TOPICS.map(([name, , re]) => {
+    const items = SCENARIOS.map((s, i) => [s, i]).filter(([s, i]) => !placed.has(i) && re.test(s.title));
+    items.forEach(([, i]) => placed.add(i));
+    return items.length ? `<optgroup label="${escapeHtml(name)}">${items.map(([s, i]) => opt(s, i)).join("")}</optgroup>` : "";
+  }).join("") + SCENARIOS.map((s, i) => placed.has(i) ? "" : opt(s, i)).join("");
+  if (polMapSel == null) polMapSel = 0;
+  $("polMapSc").value = String(polMapSel);
+  $("polMapSc").onchange = (e) => { polMapSel = e.target.value === "all" ? "all" : Number(e.target.value); pxSel = null; renderExplorer(); };
+}
+function renderExplorer() {
+  if (!$("polMapSc").options.length) return;
+  const all = polMapSel === "all", sc = pxScIds();
+  $("polMapSc").value = String(polMapSel);
+  document.querySelectorAll("#polMapCard [data-pxg]").forEach(b => { b.classList.toggle("on", b.dataset.pxg === pxGroup); b.setAttribute("aria-pressed", String(b.dataset.pxg === pxGroup)); });
+  const pool = all ? Object.values(POL_CONTROLS) : sc.map(id => POL_CONTROLS[id]);
+  $("pxLevels").hidden = pxGroup === "doc";
+  $("pxLevels").innerHTML = [1, 2, 3].map(l => `<button type="button" class="pc" data-pxl="${l}" aria-pressed="${pxLevels.has(l)}" title="${POL_LEVELS[l][0]}: ${POL_LEVELS[l][1]} Click to show or hide.">${lvlHtml(l)} ${pool.filter(c => c.l === l).length}</button>`).join("");
+  $("polMapSum").innerHTML = all ? `<b>${Object.keys(POL_CONTROLS).length}</b> controls${polDeployed ? ` · <b>${polDeployed.length}</b> policy documents` : ""}`
+    : `<b>${sc.length}</b> control${sc.length === 1 ? "" : "s"} in this scenario${polDeployed ? ` · <b>${pxScDocs().length}</b> of ${polDeployed.length} documents` : ""}`;
+  // the selection: keep it while it exists, else the scenario's first control (or document), else the first in the list
+  if (pxGroup === "doc") {
+    if (!(pxSel?.kind === "doc" && (polDeployed || []).some(p => p.doc === pxSel.id))) pxSel = polDeployed?.length ? { kind: "doc", id: (pxScDocs()[0] || polDeployed[0]).doc } : null;
+  } else if (!(pxSel?.kind === "ctl" && POL_CONTROLS[pxSel.id])) pxSel = { kind: "ctl", id: pxCtlOrder()[0] || Object.keys(POL_CONTROLS)[0] };
+  const selCtl = pxSel?.kind === "ctl" ? POL_CONTROLS[pxSel.id] : null;
+  // the pipeline strip: dims the stages this scenario doesn't touch, numbers the ones it does, outlines the selected control's stage
+  const pipe = $("pipe");
+  pipe.classList.toggle("focus", !all);
+  pipe.querySelectorAll(".stage").forEach((st, k) => {
+    const nums = sc.map((id, i) => STAGE_IX[POL_CONTROLS[id].st] === k ? circ(i + 1) : "").filter(Boolean);
+    st.classList.toggle("hit", nums.length > 0);
+    st.classList.toggle("cur", !!selCtl && STAGE_IX[selCtl.st] === k);
+    st.querySelector(".pmk").textContent = nums.join("");
   });
-  if (all) {
-    const st = polDeployed.map(p => polStat(p.xml)), n = [1, 2, 3].map(l => Object.values(POL_CONTROLS).filter(c => c.l === l).length);
-    $("polDepSum").innerHTML = `<span><b>${polDeployed.length}</b> policy documents · <b>${st.reduce((a, x) => a + x.lines, 0).toLocaleString()}</b> lines · <b>${st.reduce((a, x) => a + x.expr, 0).toLocaleString()}</b> C# expressions</span>`
-      + [1, 2, 3].map(l => `<span>${lvlHtml(l)} <b>${n[l - 1]}</b></span>`).join("");
-  } else {
-    const noXml = ids.map(id => POL_CONTROLS[id]).filter(c => c && !c.a);
-    $("polDepSum").innerHTML = `<span><b>${hit}</b> of ${polDeployed.length} documents implement <b>${escapeHtml(sc?.title || "")}</b>${hit ? "" : " (its features are off in this sandbox)"}</span>`
-      + (noXml.length ? `<span>not in policy XML: ${noXml.map(c => `<b>${escapeHtml(c.s)}</b> (${escapeHtml(c.at)})`).join(", ")}</span>` : "");
-  }
+  $("pxList").innerHTML = pxGroup === "doc" ? pxDocList() : pxCtlList();
+  $("pxList").querySelector(".it.sel")?.scrollIntoView({ block: "nearest" });
+  pxPaintDetail();
+}
+function pxCtlList() {
+  const sc = pxScIds(), ids = pxCtlOrder();
+  const item = (id, n, out) => { const c = POL_CONTROLS[id], off = pxOff(c);
+    return `<button type="button" class="it${pxSel?.id === id ? " sel" : ""}${out ? " out" : ""}${off ? " off" : ""}" data-pxi="ctl:${id}" title="${escapeHtml(c.p)}${off ? " · not deployed in this sandbox" : ""}">`
+      + `<span class="nb">${n >= 0 ? n + 1 : ""}</span>${lvlHtml(c.l, false)}<span class="lab">${escapeHtml(c.s)}</span>${(c.o || []).filter(o => o !== "dg").slice(0, 1).map(o => `<span class="tag">${o}</span>`).join("")}</button>`; };
+  // a scenario's controls come first, in its order; the rest of the catalog follows by pipeline stage
+  const head = sc.length ? `<div class="g">${ico("policy", "", "")}In this scenario<span class="cnt">${sc.length}</span></div>` + sc.map((id, i) => item(id, i, false)).join("") : "";
+  return head + Object.keys(STAGE_IX).map(stg => {
+    const items = ids.filter(id => POL_CONTROLS[id].st === stg && !sc.includes(id));
+    if (!items.length) return "";
+    const st = PIPE[STAGE_IX[stg]];
+    return `<div class="g">${ico(st.ico, "", "")}${sc.length ? "Also in " : ""}${st.title}<span class="cnt">${items.length}</span></div>` + items.map(id => item(id, -1, sc.length > 0)).join("");
+  }).join("");
+}
+function pxDocList() {
+  if (polDeployedErr) return `<div class="muted" style="padding:10px">Couldn't read the deployed policies: ${escapeHtml(polDeployedErr)}. <a href="#" data-pxretry>Retry</a></div>`;
+  if (!polDeployed) return `<div class="muted" style="padding:10px">Reading the deployed policies…</div>`;
+  const sc = pxScIds(), groups = {};
+  for (const p of polDeployed) (groups[p.scope] ||= []).push(p);
+  return Object.keys(POL_SCOPES).filter(k => groups[k]).map(k => `<div class="g">${ico(POL_SCOPES[k][0], "", "")}${POL_SCOPES[k][1]}<span class="cnt">${groups[k].length}</span></div>`
+    + groups[k].map(p => {
+      const nums = sc.map((id, i) => polDocHas(POL_CONTROLS[id], p.doc) ? i + 1 : 0).filter(Boolean), n = Object.values(POL_CONTROLS).filter(c => polDocHas(c, p.doc)).length;
+      return `<button type="button" class="it${pxSel?.id === p.doc ? " sel" : ""}${!sc.length || nums.length ? "" : " out"}" data-pxi="doc:${escapeHtml(p.doc)}">`
+        + `<span class="lab">${escapeHtml(p.name)}</span><span class="tag">${nums.length ? nums.map(circ).join("") : n ? `${n} control${n === 1 ? "" : "s"}` : ""}</span></button>`;
+    }).join("")).join("");
+}
+function pxPaintDetail() {
+  const box = $("pxDetail");
+  if (!pxSel) { box.innerHTML = `<div class="muted">${polDeployedErr ? "Couldn't read the deployed policies." : "Reading the deployed policies…"}</div>`; return; }
+  box.innerHTML = pxSel.kind === "doc" ? pxDocHtml(pxSel.id) : pxCtlHtml(pxSel.id);
+  // named values arrive with the flow documents: repaint the detail once they're here
+  if (!polDocs && pxSel.kind === "ctl" && POL_CONTROLS[pxSel.id]?.nv) { const sel = pxSel; loadPolDocs().then(() => { if (pxSel === sel) box.innerHTML = pxCtlHtml(sel.id); }); }
+}
+function pxCtlHtml(id) {
+  const c = POL_CONTROLS[id], n = pxScIds().indexOf(id), st = PIPE[STAGE_IX[c.st]];
+  const doc = c.a ? pxCtlDoc(c, pxTier) : null, xml = doc ? pxDocXml(doc) : null, s = xml ? polCut(c, xml) : null;
+  const lines = !c.a ? (c.live ? c.live() : "")
+    : polDeployedErr ? `<div class="pmsrc">Couldn't read the deployed policies: ${escapeHtml(polDeployedErr)}. <a href="#" data-pxretry>Retry</a></div>`
+    : !polDeployed ? `<div class="pmsrc">Reading the deployed policy from Azure Resource Manager…</div>`
+    : !s ? `<div class="pmsrc">Not in the deployed ${escapeHtml(polDocLabel(doc))}: this feature is off in this sandbox.</div>`
+    : polExcerpt(c, { doc, ...s });
+  const tiers = c.doc === "product" ? pxTiers() : [], uses = polUses(id), demo = POL_DEMO[id] && window.gwFlow?.has?.(POL_DEMO[id]) ? POL_DEMO[id] : null;
+  return `<div class="pxh">${n >= 0 ? `<span class="nb">${n + 1}</span>` : ""}<h3>${c.c}</h3>${(c.o || []).map(pill).join("")}<span class="sp"></span>${lvlHtml(c.l)}</div>`
+    + `<div class="kv"><div><small>Policy</small><code>${escapeHtml(c.p)}</code></div><div><small>Where</small>${escapeHtml(c.at)}</div><div><small>Stage</small>${ico(st.ico, "sm", "")} ${st.title}</div></div>`
+    + `<div>${c.w}</div>`
+    + (tiers.length > 1 ? `<div class="tiers">Plan: ${tiers.map(t => `<button type="button" class="pc${doc === "product:" + t ? " cur" : ""}" data-pxt="${escapeHtml(t)}">${escapeHtml(tierName(t))}</button>`).join("")}<span>the same control, with each plan's own values</span></div>` : "")
+    + lines
+    + `<div class="adopt"><b>To use it yourself:</b> ${c.u}</div>`
+    + `<div class="meta">${doc ? `<span>In <a href="#" data-pxdoc="${escapeHtml(doc)}">${escapeHtml(polDocLabel(doc))}</a>${xml ? ` · ${polStat(xml).lines} lines` : ""}</span>` : ""}`
+    + `${uses.length ? `<span>Shown in ${uses.map(([sc, k]) => `<a href="#" data-pmsc="${k}" title="${escapeHtml(sc.title)}">scenario ${k + 1}</a>`).join(", ")}</span>` : ""}`
+    + `${demo ? `<a href="#" class="pat" data-pxdemo="${demo}">Watch it in the gateway flow</a>` : ""}</div>`;
+}
+function pxDocHtml(doc) {
+  const p = (polDeployed || []).find(x => x.doc === doc);
+  if (!p) return `<div class="muted">${polDeployedErr ? "Couldn't read the deployed policies." : "Reading the deployed policies…"}</div>`;
+  const s = polStat(p.xml), sc = pxScIds(), ctls = Object.entries(POL_CONTROLS).filter(([, c]) => polDocHas(c, doc)), el = polElements(p.xml);
+  const purpose = POL_DOC_PURPOSE[doc.startsWith("product:") ? "product" : doc] || "", name = doc.split(":")[1];
+  const by = doc.startsWith("fragment:") ? polDeployed.filter(x => polStat(x.xml).inc.includes(name)) : [];
+  return `<div class="pxh"><h3>${escapeHtml(p.name)}</h3><span class="muted">${escapeHtml(polDocLabel(doc))}</span><span class="sz">${s.lines} lines · ${s.expr} C# expression${s.expr === 1 ? "" : "s"}</span></div>`
+    + (purpose ? `<p class="pur">${purpose}</p>` : "")
+    + `<div class="elh">Controls it implements</div><div class="ctls">${ctls.length ? ctls.map(([id, c]) => `<button type="button" class="pc${sc.includes(id) ? " on" : ""}" data-pxc="${id}" title="${escapeHtml(c.c)}: ${escapeHtml(c.p)} · ${POL_LEVELS[c.l][0]}">${lvlHtml(c.l, false)}${escapeHtml(c.s)}</button>`).join("")
+        : `<span class="muted">No mapped control: supporting logic for the policies that include it.</span>`}</div>`
+    + (s.nv.length || s.inc.length || by.length ? `<div class="meta">${s.nv.length ? `<span>Reads ${s.nv.map(n => `<span class="nvref">{{${escapeHtml(n)}}}</span>`).join(" ")}</span>` : ""}`
+      + `${s.inc.length ? `<span>Includes ${s.inc.map(f => `<a href="#" data-pxdoc="fragment:${escapeHtml(f)}">${escapeHtml(f)}</a>`).join(", ")}</span>` : ""}`
+      + `${by.length ? `<span>Included by ${by.map(x => `<a href="#" data-pxdoc="${escapeHtml(x.doc)}">${escapeHtml(x.name)}</a>`).join(", ")}</span>` : ""}</div>` : "")
+    + `<div class="elh">Policy elements</div>` + Object.entries(el).map(([sec, names]) => `<div class="sr"><span>${sec}</span><div class="chips">`
+      + names.map(n => `<span class="chip${KEY_SOURCES.test(n) ? " key" : ""}">${n}</span>`).join("") + `</div></div>`).join("")
+    + `<details class="full" open><summary>Deployed XML · read back from Azure Resource Manager</summary>${xmlPre(p.xml)}</details>`;
+}
+function pxSelect(sel, group) { if (group) pxGroup = group; pxSel = sel; renderExplorer(); }
+$("polMapCard").addEventListener("click", (e) => {
+  const t = (sel) => e.target.closest(sel);
+  if (t("[data-pat]")) return;  // the stage's "pattern" link opens the lightbox
+  let x;
+  if ((x = t("[data-pxg]"))) { if (x.dataset.pxg !== pxGroup) pxSelect(null, x.dataset.pxg); return; }
+  if ((x = t("[data-pxl]"))) { const l = Number(x.dataset.pxl); if (pxLevels.has(l) && pxLevels.size > 1) pxLevels.delete(l); else pxLevels.add(l); renderExplorer(); return; }
+  if ((x = t("[data-pxi]"))) { const [kind, ...id] = x.dataset.pxi.split(":"); pxSelect({ kind, id: id.join(":") }); if (innerWidth < 1000) $("pxDetail").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+  if ((x = t(".pipe .stage"))) { const stg = Object.keys(STAGE_IX)[[...x.parentNode.children].indexOf(x)], id = pxCtlOrder().find(k => POL_CONTROLS[k].st === stg);
+    if (id) pxSelect({ kind: "ctl", id }, "stage"); return; }
+  const act = (fn) => { e.preventDefault(); fn(); };
+  if ((x = t("[data-pxt]"))) act(() => { pxTier = x.dataset.pxt; pxPaintDetail(); });
+  else if ((x = t("[data-pxdoc]"))) act(() => { pxSelect({ kind: "doc", id: x.dataset.pxdoc }, "doc"); $("pxDetail").classList.remove("flash"); void $("pxDetail").offsetWidth; $("pxDetail").classList.add("flash"); });
+  else if ((x = t("[data-pxc]"))) act(() => { if (pxSel?.kind === "doc" && pxSel.id.startsWith("product:")) pxTier = pxSel.id.slice(8); pxSelect({ kind: "ctl", id: x.dataset.pxc }, "stage"); });
+  else if ((x = t("[data-pmsc]"))) act(() => { polMapSel = Number(x.dataset.pmsc); renderExplorer(); });
+  else if ((x = t("[data-pxdemo]"))) act(() => { showPsec("investigate"); $("gwFlow").scrollIntoView({ behavior: "smooth", block: "start" }); window.gwFlow?.play(x.dataset.pxdemo); });
+  else if (t("[data-pxretry]")) act(() => { polDeployedErr = null; loadPolicies(); });
+});
+$("pipe").addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("stage")) { e.preventDefault(); e.target.click(); } });
+// The copilot's highlight targets: select what it asks for and return the element to spotlight (idempotent: it polls)
+window.pxFindPolicy = (arg) => {
+  const a = String(arg || "").toLowerCase().trim(), ids = Object.keys(POL_CONTROLS);
+  const id = ids.find(k => [POL_CONTROLS[k].pi, POL_CONTROLS[k].p.split(/[\s(]/)[0]].some(v => (v || "").toLowerCase() === a)) || ids.find(k => POL_CONTROLS[k].p.toLowerCase().includes(a));
+  if (!id) return null;
+  if (!(pxGroup === "stage" && pxSel?.kind === "ctl" && pxSel.id === id)) pxSelect({ kind: "ctl", id }, "stage");
+  return $("pxDetail");
+};
+window.pxFindDoc = (arg) => {
+  const a = String(arg || "").toLowerCase().trim(), p = (polDeployed || []).find(x => x.name.toLowerCase().includes(a) || x.doc.toLowerCase().includes(a));
+  if (!p) return null;
+  if (!(pxGroup === "doc" && pxSel?.id === p.doc)) pxSelect({ kind: "doc", id: p.doc }, "doc");
+  return $("pxDetail");
+};
+window.pxShowDocs = () => { if (pxGroup !== "doc") pxSelect(null, "doc"); return $("polMap"); };
+// a scenario card's policy strip: one chip per control (coloured by how custom it is) that opens the explorer on that scenario
+function openPolMap(i, id) { polMapSel = i; pxSelect(id ? { kind: "ctl", id } : null, "stage"); showPsec("explorer"); $("polMapCard").scrollIntoView({ behavior: "smooth", block: "start" }); }
+function scPolicyStrip(s) {
+  const i = SCENARIOS.indexOf(s), ids = (s?.controls || []).filter(id => POL_CONTROLS[id]);
+  $("scPol").innerHTML = ids.length ? `<span class="muted">Policies behind it:</span>` + ids.map(id => { const c = POL_CONTROLS[id];
+      return `<button type="button" class="pc" data-sc="${i}" data-ctl="${id}" title="${escapeHtml(c.c)}: ${escapeHtml(c.p)} · ${POL_LEVELS[c.l][0]}">${lvlHtml(c.l, false)}${escapeHtml(c.s)}</button>`; }).join("")
+    + `<a href="#" class="pat" data-sc="${i}">How each one is built</a>` : "";
+  $("scPol").querySelectorAll("[data-sc]").forEach(b => b.onclick = (e) => { e.preventDefault(); openPolMap(i, b.dataset.ctl); });
 }
 
 async function loadPolicies() {
   const done = [busy($("backendsKv").closest(".card"), "Reading the backend pool…", "Azure API Management"),
-                busy($("deployedPolicies").closest(".card"), "Reading deployed policies…", "Azure API Management")];
+                busy($("polMapCard"), "Reading deployed policies…", "Azure API Management")];
   try {
     const d = await (await fetch("/api/policies", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).json();
     if (d.error) throw new Error(d.error);
     const singles = Object.fromEntries((d.backends || []).filter(b => b.type !== "Pool").map(b => [b.name, b]));
-    polBackends = d.backends || []; fillPolXml();
+    polBackends = d.backends || [];
     const regions = Object.fromEntries((cfg.foundryBackends || []).map(b => [b.name, b.location]));
     $("backendsKv").innerHTML = (d.backends || []).filter(b => b.type === "Pool").map(p => `<div class="ph">pool <code>${escapeHtml(p.name)}</code> · lower priority number is tried first; equal priorities share load</div>`
       + (p.pool || []).map(s => { const n = shortId(s.id), b = singles[n] || {}, pr = s.priority ?? 1, cb = b.circuitBreaker ? cbText(b.circuitBreaker) : "";
@@ -4443,8 +4444,8 @@ async function loadPolicies() {
             + `<div class="chips" style="margin-top:6px">${ico("managed-identity", "sm", "managed identity")}${cb ? `<span class="chip" title="${escapeHtml(cb)}">${ico("circuit-breaker", "", "")}circuit breaker</span>` : ""}</div></div>`
             + `<span class="pr${pr === 1 ? " p1" : ""}">priority ${pr}</span></div>`; }).join("")).join("")
       || `<div class="muted">No backend pool found.</div>`;
-    polDeployed = d.policies || []; renderPolDeployed();
-  } catch (e) { $("deployedPolicies").textContent = "Failed to read policies: " + e.message; }
+    polDeployed = d.policies || []; polDeployedErr = null; renderExplorer();
+  } catch (e) { polDeployedErr = e.message; renderExplorer(); }
   finally { done.forEach(f => f()); }
 }
 // Policy statements in a policy document, grouped by section (regex: policy XML can hold C# generics such as <string> that break XML parsers)
@@ -5526,8 +5527,8 @@ async function runScenario(s) {
   $("scenario").dataset.mode = "guided";
   $("scenario").classList.remove("hidden"); $("scSteps").innerHTML = "";
   $("scTitle").textContent = s.title; $("scStory").innerHTML = s.story(); $("scTakeaway").innerHTML = "";
-  scPolicyStrip(s); polMapSel = SCENARIOS.indexOf(s); polMapToggled.clear();
-  if (psec === "pipeline" && curTab === "plans") renderPolMap(); else renderPolDeployedFocus();
+  scPolicyStrip(s); polMapSel = SCENARIOS.indexOf(s); pxSel = null;
+  if (psec === "explorer" && curTab === "plans") renderExplorer();
   $("scFlow").innerHTML = ""; $("scFlowMore").innerHTML = "";
   try {
     if (s.preview) {
@@ -5640,7 +5641,7 @@ function renderScenarios() {
     setRunning(false, "Full demo finished.");
   };
   fillPolMapPicker();
-  if (psec === "pipeline" && curTab === "plans") renderPolMap(); else renderPolDeployedFocus();
+  renderExplorer();
 }
 try { if (localStorage.getItem("sbx.mini")) miniLaunch(true); } catch {}
 init();

@@ -72,7 +72,7 @@
   // ---------- What the copilot can see: the user's view, session and the calls this page sent ----------
   const TAB_NAMES = { live: "Live session", evidence: "Evidence & monitoring", plans: "Plans, policies & chargeback" };
   const PSEC_NAMES = { investigate: "Investigate a request", telemetry: "Logs & telemetry", monitor: "Azure Monitor", plans: "Products & plans",
-    pipeline: "Policy pipeline", deployed: "Deployed policies", chargeback: "Chargeback" };
+    explorer: "Policy explorer", chargeback: "Chargeback" };
   function viewLabel() {
     const tab = typeof curTab !== "undefined" ? curTab : "live", sub = typeof psec !== "undefined" ? psec : "";
     let s = TAB_NAMES[tab] || tab;
@@ -220,8 +220,8 @@
 
   // ---------- UI actions streamed by the agent ----------
   const VIEW_NAMES = { scenarios: "Guided scenarios", builder: "Request builder", conversation: "Conversation", live: "Live session", runs: "Live session › Run history",
-    chargeback: "Plans › Chargeback", plans: "Plans › Products & plans", "policies.investigate": "Evidence › Investigate", "policies.pipeline": "Plans › Policy pipeline",
-    "policies.telemetry": "Evidence › Logs & telemetry", "policies.deployed": "Plans › Deployed policies", monitor: "Evidence › Azure Monitor" };
+    chargeback: "Plans › Chargeback", plans: "Plans › Products & plans", "policies.investigate": "Evidence › Investigate", "policies.pipeline": "Plans › Policy explorer",
+    "policies.telemetry": "Evidence › Logs & telemetry", "policies.deployed": "Plans › Policy explorer (by document)", monitor: "Evidence › Azure Monitor" };
   function flash(el) { if (!el) return; el.classList.remove("cop-flash"); void el.offsetWidth; el.classList.add("cop-flash"); setTimeout(() => el.classList.remove("cop-flash"), 1500); }
   function goView(view) {
     if (!view) return null;
@@ -256,7 +256,7 @@
     "evidence-panel": ["policies.investigate", () => { const p = byId("evPanel"); return p && !p.classList.contains("hidden") ? p : byId("evLogCard"); }],
     pipeline: ["policies.pipeline", () => cardOf(byId("pipe"))], "policy-map": ["policies.pipeline", () => byId("polMap")], "backend-pool": ["policies.pipeline", () => cardOf(byId("backendsKv"))],
     "evidence-sinks": ["policies.telemetry", () => cardOf(byId("sinks"))], "policy-evidence": ["policies.telemetry", () => byId("policyEvidenceCard")],
-    "deployed-policies": ["policies.deployed", () => cardOf(byId("deployedPolicies"))],
+    "deployed-policies": ["policies.deployed", () => window.pxShowDocs?.()],
     "monitor-cost": ["monitor", () => cardOf(byId("mCostAgent"))], "monitor-outcomes": ["monitor", () => cardOf(byId("mOutcomes"))],
     "monitor-cost-time": ["monitor", () => cardOf(byId("mCostTime"))], "monitor-chargeback": ["monitor", () => cardOf(byId("mChargeback"))],
     "monitor-resources": ["monitor", () => cardOf(byId("mResources"))], "monitor-tokens": ["monitor", () => cardOf(byId("mTokens"))],
@@ -285,15 +285,9 @@
       case "flow": return { view: "policies.investigate", find: () => q(`#gwfSvg g[data-node="${CSS.escape(arg)}"]`) };
       case "stage": return { view: "policies.pipeline", find: () => (STAGES[arg] ? q(`#pipe .stage:nth-child(${STAGES[arg]})`) : null) };
       case "sink": return { view: "policies.telemetry", find: () => all("#sinks .sink").find((e) => (e.querySelector(".t")?.firstChild?.textContent || "").trim().toLowerCase().startsWith(arg.toLowerCase())) };
-      case "deployed": return { view: "policies.deployed", fallback: "deployed-policies",
-        find: () => all("#deployedPolicies .polcard").find((c) => (c.querySelector(".nm")?.textContent || "").toLowerCase().includes(arg.toLowerCase())) };
+      case "deployed": return { view: "policies.deployed", fallback: "deployed-policies", find: () => window.pxFindDoc?.(arg) };
       case "session": return { view: "chargeback", fallback: "chargeback-monitor", find: () => q(`#cbMonitor tr[data-session="${CSS.escape(arg)}"]`) };
-      case "policy": {  // a policy element: its line in the pipeline, else the first deployed scope that uses it
-        const keys = [arg, ...arg.split(/[:\s]+/)].filter(Boolean), match = (el) => keys.some((k) => same(el, k));
-        const inPipe = () => all("#pipe .pi").find((e) => match(e.querySelector("code, .k")));
-        if (inPipe()) return { view: "policies.pipeline", find: inPipe };
-        return { view: "policies.deployed", fallback: "deployed-policies", find: () => all("#deployedPolicies .polcard").find((c) => [...c.querySelectorAll(".chip")].some(match)) };
-      }
+      case "policy": return { view: "policies.pipeline", fallback: "pipeline", find: () => window.pxFindPolicy?.(arg) };  // a policy element: its control in the Policy explorer
     }
     return null;
   }
@@ -406,7 +400,7 @@
     if (b.shown || !b.flows) return;
     const n = ++b.shown, caption = "Where these steps run: click a step in the chat to find it";
     const ok = await highlight("pipeline", caption, n);
-    if (ok) addChip(b, `${circled(n)} Policy pipeline`, () => { clearSpots(); highlight("pipeline", caption, n); });
+    if (ok) addChip(b, `${circled(n)} Policy explorer`, () => { clearSpots(); highlight("pipeline", caption, n); });
   }
 
   // ---------- Spotlights: outline + numbered caption over a page element, kept in place while the page scrolls ----------
