@@ -1081,7 +1081,21 @@
         .gwf-split.on { grid-template-columns:minmax(0,1fr) 260px; }
         .gwf-paw { border:1px solid #d9c7ee; border-left:4px solid #8764b8; border-radius:6px; background:#fcfaff; padding:10px 10px 8px; font-size:12px; animation:gwfIn .25s both; }
         .gwf-paw[hidden] { display:none; }
-        .gwf-paw .ph { font-weight:700; font-size:12.5px; color:#3b1a5e; } .gwf-paw .ph small { display:block; font-weight:400; color:var(--muted); font-size:11px; margin-top:1px; }
+        .gwf-paw .ph { font-weight:700; font-size:12.5px; color:#3b1a5e; display:flex; align-items:flex-start; gap:6px; } .gwf-paw .ph .pt { flex:1; min-width:0; }
+        .gwf-paw .ph small { display:block; font-weight:400; color:var(--muted); font-size:11px; margin-top:1px; }
+        /* minimize: the panel folds to a slim tab beside the flow (a one-line bar under it on narrow screens) and the flow gets the width */
+        .gwf-paw .pmin { flex:0 0 auto; height:22px; padding:0 8px; font-size:11px; font-weight:600; background:#fff; color:#5c2e91; border:1px solid #d9c7ee; border-radius:11px; }
+        .gwf-paw .pmin:hover:not(:disabled) { background:#f3eefa; border-color:#8764b8; color:#3b1a5e; }
+        .gwf-paw .pmax { display:none; }
+        .gwf-split.on.min { grid-template-columns:minmax(0,1fr) 38px; }
+        .gwf-paw.min:not([hidden]) { display:block; padding:0; }
+        .gwf-paw.min > :not(.pmax) { display:none !important; }
+        .gwf-paw.min .pmax { display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; height:auto; min-height:180px; padding:10px 0; background:none; border:0; border-radius:0;
+                             color:#5c2e91; font-weight:700; font-size:11.5px; cursor:pointer; }
+        .gwf-paw.min .pmax:hover:not(:disabled) { background:#f3eefa; color:#3b1a5e; }
+        .gwf-paw .pmax .vl { writing-mode:vertical-rl; transform:rotate(180deg); white-space:nowrap; }
+        .gwf-paw .pmax .n { min-width:20px; height:20px; padding:0 5px; border-radius:10px; background:#8764b8; color:#fff; font-size:10.5px; display:grid; place-items:center; }
+        .gwf-paw .pmax .n.bad { background:#d13438; } .gwf-paw .pmax .n.warn { background:#ca5010; }
         .gwf-paw .pr { display:flex; align-items:center; gap:6px; width:100%; height:auto; min-height:28px; padding:3px 6px; margin-top:4px; border:1px solid transparent; border-radius:5px;
           background:transparent; color:var(--text); font-size:12px; font-weight:400; text-align:left; transition:background .2s, border-color .2s; }
         .gwf-paw .pr:hover:not(:disabled) { background:#fff; border-color:#d9c7ee; color:var(--text); }
@@ -1095,8 +1109,9 @@
         .gwf-paw .pf { margin-top:8px; padding-top:6px; border-top:1px solid #e8dff5; color:var(--muted); display:flex; flex-wrap:wrap; gap:4px 10px; font-size:11px; align-items:center; }
         .gwf-paw .pf a { font-weight:600; font-size:12px; }
         .gwf-lens .lctl { margin-left:auto; display:inline-flex; gap:8px; align-items:center; white-space:nowrap; font-size:11.5px; } .gwf-lens .lctl a { font-weight:600; }
-        @media (max-width:1100px) { .gwf-split.on { grid-template-columns:1fr; }
-          .gwf-paw { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); column-gap:6px; } .gwf-paw .ph, .gwf-paw .pf { grid-column:1 / -1; } }
+        @media (max-width:1100px) { .gwf-split.on, .gwf-split.on.min { grid-template-columns:1fr; }
+          .gwf-paw { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); column-gap:6px; } .gwf-paw .ph, .gwf-paw .pf { grid-column:1 / -1; }
+          .gwf-paw.min .pmax { flex-direction:row; justify-content:flex-start; min-height:34px; padding:0 12px; } .gwf-paw.min .pmax .vl { writing-mode:horizontal-tb; transform:none; } }
         @media (prefers-reduced-motion: reduce) { #gwfSvg *, .gwf-hdrs > span { transition:none !important; animation:none !important; } }
       </style>
       <div class="card" id="gwFlow">
@@ -4756,7 +4771,9 @@ function renderPaw(r) {
   }
   if (!r || !ids.length) { box.hidden = true; split.classList.remove("on"); return; }
   const n = [1, 2, 3].map(l => ids.filter(id => POL_CONTROLS[id].l === l).length);
-  box.innerHTML = `<div class="ph">${head}</div>` + ids.map((id, i) => {
+  const worst = ids.some(id => polHit(id, r) === "stop") ? "bad" : ids.some(id => polHit(id, r) === "warn") ? "warn" : "";
+  box.innerHTML = `<button type="button" class="pmax" data-pawmin title="Show the policies on this call">⟨<span class="n ${worst}">${ids.length}</span><span class="vl">${si != null ? "Policies at work" : "Policies on this call"}</span></button>`
+    + `<div class="ph"><span class="pt">${head}</span><button type="button" class="pmin" data-pawmin title="Minimize this panel: the flow gets the width (click the tab to bring it back)">Hide ⟩</button></div>` + ids.map((id, i) => {
     const c = POL_CONTROLS[id], now = polHit(id, r), t = tally?.[id], lit = t ? now : now !== "pass" ? now : null;  // outline what this call hit (per call: only changes and stops)
     const ct = t ? (["pass", "warn", "stop"].filter(k => t[k]).map(k => `<span class="${PAW_MARK[k][0]}">${PAW_MARK[k][1]}${t[k]}</span>`).join("") || `<span class="no">–</span>`)
       : now ? `<span class="${PAW_MARK[now][0]}">${PAW_MARK[now][1]}${now === "stop" ? " " + escapeHtml(r.status) : ""}</span>` : "";
@@ -4764,9 +4781,17 @@ function renderPaw(r) {
       + `${si != null ? `<span class="nb">${i + 1}</span>` : ""}${lvlHtml(c.l, false)}<span class="lab">${escapeHtml(c.s)}</span><span class="ct">${ct}</span></button>`;
   }).join("") + `<div class="pf">${[1, 2, 3].filter(l => n[l - 1]).map(l => `<span>${lvlHtml(l, false)}${n[l - 1]} ${POL_LEVELS[l][0].toLowerCase()}</span>`).join("")}`
     + `<a href="#" data-pawc="${ids[0]}"${si != null ? ` data-sc="${si}"` : ""}>Open in the policy explorer →</a></div>`;
-  box.hidden = false; split.classList.add("on");
+  box.hidden = false; split.classList.add("on"); pawApplyMin();
 }
 window.onFlowPlay = renderPaw;
+let pawMin = false;
+try { pawMin = localStorage.getItem("sbx.pawMin") === "1"; } catch {}
+function pawApplyMin() { $("gwfPaw")?.classList.toggle("min", pawMin); $("gwfSplit")?.classList.toggle("min", pawMin); }
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("[data-pawmin]")) return;
+  e.preventDefault(); pawMin = !pawMin; pawApplyMin();
+  try { localStorage.setItem("sbx.pawMin", pawMin ? "1" : ""); } catch {}
+});
 // the gateway flow's policy lens shows a control's lines: name the control so the lens can link to it
 const LENS_CTL = [[/validate-azure-ad-token/, (s) => s.doc === "fragment:entra-plan-inbound" ? "entra-only-token" : "entra"], [/entraGroup/, "entra-group-plan"], [/entraTier/, "entra-tpm"],
   [/entraAllowedModels/, "entra-model-ent"], [/group-budget/, "group-budget"], [/member-budget/, "member-budget"], [/Model governance/, "model-ent"], [/llm-token-limit/, "tpm"],
