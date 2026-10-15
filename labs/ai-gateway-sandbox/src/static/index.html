@@ -867,6 +867,7 @@
         #gwfSvg .fn.agent rect { fill:#f4effa; stroke:#b9a4d8; } #gwfSvg .fn.agent .t { fill:#5c2e91; }
         #gwfSvg .fn.sink rect { fill:#fff; stroke:#c3b3e0; } #gwfSvg .fn.sink .t { fill:#5c2e91; }
         #gwfSvg .fn.cache rect { fill:#fdf6f6; stroke:#e8a2a4; } #gwfSvg .fn.cache .t { fill:#a4262c; }
+        #gwfSvg .fn.safety rect { fill:#fdf6ec; stroke:#f0b78f; } #gwfSvg .fn.safety .t { fill:#8e3a0b; }
         #gwfSvg .fn:hover rect, #gwfSvg .fn:focus-visible rect { stroke:#0078d4; stroke-dasharray:4 2; }
         #gwfSvg .fn.on rect { stroke:#0078d4; stroke-width:2.5; stroke-dasharray:none; filter:drop-shadow(0 0 5px rgba(0,120,212,.45)); }
         #gwfSvg .fn.ok rect { stroke:#107c10; stroke-width:2.2; stroke-dasharray:none; }
@@ -1195,6 +1196,8 @@
             ["built-in-logging", "Built-in logging", "The APIM logger and diagnostic settings send gateway, LLM and MCP logs to Log Analytics.", REPO + "/labs/built-in-logging"]] },
           caching: { title: "Caching", items: [
             ["semantic-caching", "Semantic caching", "llm-semantic-cache-lookup embeds the prompt and returns a stored answer to a similar question from Azure Managed Redis, so the model isn't called; llm-semantic-cache-store keeps new answers.", REPO + "/labs/semantic-caching"]] },
+          safety: { title: "Content safety", items: [
+            ["content-safety", "Content safety at the gateway", "llm-content-safety sends the prompt (or tool arguments, or task text) to Azure AI Content Safety: harm categories, Prompt Shields for jailbreaks and a blocklist. A flagged call gets 403 before any model, tool or agent spend; the check itself is priced per text record and charged to the plan.", REPO + "/labs/content-safety"]] },
         };
         const PAT_KEYS = Object.keys(PATTERNS);
         // The lightbox is opened from other tabs and Policies sub-views, so it must not live inside a hidden one.
@@ -1242,6 +1245,7 @@
           plan: { x: 336, y: 120, w: 128, h: 64, t: "Product policy", s: "entitlement · limits · $", cls: "gw", pat: "plan" },
           api: { x: 496, y: 120, w: 110, h: 64, t: "API policy", s: "route · meter", cls: "gw", pat: "routing" },
           cache: { x: 496, y: 36, w: 240, h: 44, t: "Semantic cache", s: "Azure Managed Redis · embeddings", cls: "cache", pat: "caching" },
+          cs: { x: 300, y: 36, w: 174, h: 44, t: "AI Content Safety", s: "shields · harm · blocklist", cls: "safety", pat: "safety" },
           pool: { x: 622, y: 120, w: 116, h: 64, t: "Backend pool", s: "circuit breaker", cls: "gw", pat: "routing:2" },
           mi: { x: 752, y: 30, w: 112, h: 52, t: "Managed identity", s: "token for Foundry", cls: "gw", pat: "identity" },
           log: { x: 496, y: 232, w: 242, h: 52, t: "Logger · diagnostic settings", s: "emit-metric · trace · LLM / MCP logs", cls: "gw", pat: "metering:1" },
@@ -1253,10 +1257,10 @@
           ai: { x: 632, y: 322, w: 184, h: 50, t: "Application Insights", s: "metrics · chargeback traces", cls: "sink", pat: "metering" },
         };
         const P = (k) => ({ x: NODES[k].x + NODES[k].w / 2, y: NODES[k].y + NODES[k].h / 2 });
-        const EDGES = [["client", "entra"], ["entra", "plan"], ["plan", "api"], ["api", "cache"], ["api", "pool"], ["pool", "mi"], ["mi", "r0"], ["mi", "r1"], ["pool", "mcp"], ["pool", "a2a"], ["api", "log"], ["log", "la"], ["log", "ai"]];
+        const EDGES = [["client", "entra"], ["entra", "plan"], ["plan", "cs"], ["plan", "api"], ["api", "cache"], ["api", "pool"], ["pool", "mi"], ["mi", "r0"], ["mi", "r1"], ["pool", "mcp"], ["pool", "a2a"], ["api", "log"], ["log", "la"], ["log", "ai"]];
         const mk = (tag, attrs = {}, parent = svg) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); parent.appendChild(n); return n; };
         const nodeEl = {}, edgeEl = {}, layer = {};
-        const ICON = { client: "users", entra: "entra-id", plan: "plan", api: "api", cache: "managed-redis", pool: "backend-pool", mi: "managed-identity", log: "diagnostic-settings",
+        const ICON = { client: "users", entra: "entra-id", plan: "plan", api: "api", cache: "managed-redis", cs: "policy", pool: "backend-pool", mi: "managed-identity", log: "diagnostic-settings",
                        r0: "foundry-models", r1: "foundry-models", mcp: "mcp", a2a: "a2a", la: "log-analytics", ai: "app-insights" };
         const ctx2d = document.createElement("canvas").getContext("2d");
         // shrinks a label until it fits its node (down to 9px), then ellipsizes
@@ -1402,8 +1406,11 @@
         function showBuckets(r, phase) {
           const bs = buckets(r), box = el("gwfBuckets");
           if (!bs.length) { box.hidden = true; return; }
-          const h = r.headers || {}, cost = Number(h["x-gw-cost-usd"] || 0), by = String(h["x-gw-blocked-by"] || "");
-          const head = phase === "charge" ? `<b>${usd(cost)}</b> added to every bucket at once` : phase === "blocked" ? "Refused before any spend: a bucket was already full" : "$ buckets checked before the call (the price is added after it)";
+          // what quota-by-key adds: the call's price plus the content safety check (charged even when the check blocks the call)
+          const h = r.headers || {}, safety = Number(h["x-gw-safety-cost-usd"] || 0), cost = (Number(r.status) === 200 ? Number(h["x-gw-cost-usd"] || 0) : 0) + safety, by = String(h["x-gw-blocked-by"] || "");
+          const head = phase === "charge" ? (safety && Number(r.status) !== 200 ? `Refused by content safety: only the check, <b>${usd(safety)}</b>, is added to every bucket`
+              : `<b>${usd(cost)}</b>${safety ? ` (${usd(cost - safety)} call + ${usd(safety)} safety check)` : ""} added to every bucket at once`)
+            : phase === "blocked" ? "Refused before any spend: a bucket was already full" : "$ buckets checked before the call (the price is added after it)";
           box.hidden = false;
           box.innerHTML = `<div class="bhd">${head}</div>` + bs.map(b => {
             const full = phase === "blocked" && BUCKET_BLOCK[b.k]?.test(by), pct = b.usd ? Math.min(100, 100 * cost / b.usd) : 0;
@@ -1487,13 +1494,15 @@
             + `$ budgets, checked now: ${bucketList(bs)}. Each is one <code>quota-by-key</code> counter (keyed by ${bs.map(b => b.by).join(" · ")}). All still have room, so the call goes on. Its price isn't known yet: it is charged on the way back.`;
         }
         function priceText(r) {
-          const h = r.headers || {}, cost = Number(h["x-gw-cost-usd"] || 0), surf = r.surface || "model";
-          if (!cost) return "";
+          const h = r.headers || {}, cost = Number(h["x-gw-cost-usd"] || 0), surf = r.surface || "model", safety = Number(h["x-gw-safety-cost-usd"] || 0);
+          if (!cost && !safety) return "";
+          // the content safety check is priced on its own (x-gw-safety-cost-usd) and charged with the call
+          const plus = safety ? ` plus the content safety check <b>${usd(safety)}</b>` : "", total = safety ? ` (<b>${usd(cost + safety)}</b> in all)` : "";
           let how = `<b>${usd(cost)}</b>`;
           if (surf === "model") {
             if (h["x-gw-semantic-cache"] === "hit") {
               const bs = buckets(r);
-              return `Price: <b>semantic cache hit</b>, so no model call: charged the embedding lookup <b>${usd(cost)}</b> instead of the <b>${usd(h["x-gw-cache-saved-usd"])}</b> the tokens would have cost. <code>quota-by-key</code> adds it to ${bs.length > 1 ? "<b>every</b> bucket at once" : "the bucket"}: ${bucketList(bs)}.`;
+              return `Price: <b>semantic cache hit</b>, so no model call: charged the embedding lookup <b>${usd(cost)}</b> instead of the <b>${usd(h["x-gw-cache-saved-usd"])}</b> the tokens would have cost${plus}. <code>quota-by-key</code> adds it${total} to ${bs.length > 1 ? "<b>every</b> bucket at once" : "the bucket"}: ${bucketList(bs)}.`;
             }
             const m = (C().models || []).find(x => x.name === h["x-gw-model-served"]), pt = Number(h["x-gw-prompt-tokens"]), ct = Number(h["x-gw-completion-tokens"]);
             const cached = Number(h["x-gw-cached-tokens"] || 0), save = Number(h["x-gw-cached-savings-usd"] || 0), lookup = h["x-gw-semantic-cache"] === "miss" ? Number(h["x-gw-cache-lookup-usd"] || 0) : 0;
@@ -1505,9 +1514,9 @@
                 + (lookup ? ` + ${usd(lookup)} semantic cache lookup` : "") + ` = <b>${usd(cost)}</b> (<code>model-pricing</code>${cached ? ", <code>cached-input-pricing</code>" : ""})`
               : `<b>${usd(cost)}</b> from <code>model-pricing</code>${h["x-gw-pricing-rule"] ? ` (rule <code>${esc(h["x-gw-pricing-rule"])}</code>)` : " (cached input tokens are priced lower)"}`;
           } else if (surf === "tool") how = `<b>${usd(cost)}</b>, a flat price per call (<code>tool-pricing</code>)`;
-          else if (surf === "agent") return `Price: <b>${usd(cost)}</b> = agent fee ${usd(h["x-gw-agent-fee-usd"])} + what the agent spent downstream ${usd(h["x-gw-downstream-cost-usd"])}, all billed to the caller.`;
+          else if (surf === "agent") return `Price: <b>${usd(cost)}</b> = agent fee ${usd(h["x-gw-agent-fee-usd"])} + what the agent spent downstream ${usd(h["x-gw-downstream-cost-usd"])}, all billed to the caller${plus}${total}.`;
           const bs = buckets(r);
-          return `Price: ${how}. <code>quota-by-key</code> adds it to ${bs.length > 1 ? "<b>every</b> bucket at once" : "the bucket"}: ${bucketList(bs)}${isEntra(r) ? " (each counts the price as a share of its own budget)" : ""}. The first bucket to fill up refuses the next call with 403.`;
+          return `Price: ${how}${plus}. <code>quota-by-key</code> adds it${total} to ${bs.length > 1 ? "<b>every</b> bucket at once" : "the bucket"}: ${bucketList(bs)}${isEntra(r) ? " (each counts the price as a share of its own budget)" : ""}. The first bucket to fill up refuses the next call with 403.`;
         }
         const label = (r) => r.surface === "tool" ? (r.tool || (r.action === "list" ? "tools/list" : "tool")) : r.surface === "agent" ? (r.action === "card" ? "agent card" : "task") : (r.requestedModel || "model");
         const HDR_ORDER = ["x-gw-tier", "x-gw-group", "x-gw-group-budget-usd", "x-gw-member-budget-usd", "x-gw-caller", "x-gw-billed-to", "x-gw-session", "x-gw-end-user", "x-gw-model-requested", "x-gw-model-served", "x-gw-governance", "x-gw-tool", "x-gw-prompt-tokens", "x-gw-completion-tokens",
@@ -1596,7 +1605,7 @@
           await wait(p.verdict === "bad" ? 1500 : 950, g);
         }
         // the plan stage: each decision the plan makes, in policy order, stopping at the one that refused the call
-        async function planLens(r, g) {
+        async function planLens(r, g, tok) {
           const h = r.headers || {}, st = Number(r.status), failAt = st && st !== 200 ? String(h["x-gw-blocked-by"] || "") : "", surf = r.surface || "model";
           const served = h["x-gw-model-served"], asked = h["x-gw-model-requested"] || r.requestedModel, down = !!(served && asked && served !== asked);
           const epoch = { name: "budget-epoch", why: "in every counter key; <b>Reset budgets</b> changes it" };
@@ -1623,10 +1632,25 @@
             if (h["x-gw-session"] && h["x-gw-session"] !== "no-session") steps.push({ title: `Session $ cap: ${h["x-gw-session"]}`, chip: "Session $", doc, anchor: /<quota-by-key id="session-budget"/, end: /\/>\s*$/, max: 6, hit: /counter-key/, fail: /session-budget/, mark: "room left", note: later });
             if (h["x-gw-end-user"]) steps.push({ title: `End-user $ budget: ${h["x-gw-end-user"]}`, chip: "End user $", doc, anchor: /foreach \(var entry in "\{\{end-user-budgets\}\}"/, lines: 1, hit: /end-user-budgets/, fail: /end-user-budget/,
               nv: [{ name: "end-user-budgets", match: (e) => e.startsWith("@" + h["x-gw-end-user"] + "=") || e.startsWith("default=") }] });
+            // blocked before spend (last in the plan's inbound): the check is priced first, then Azure AI Content Safety screens the text
+            const safety = Number(h["x-gw-safety-cost-usd"] || 0), csBlock = /llm-content-safety|purview/.test(failAt);
+            if (safety || csBlock) {
+              const rate = (C().contentSafety?.pricePer1KRecordsUsd ?? 0.38) / 1000, records = rate ? Math.round(safety / rate) : 0, csDoc = "fragment:blocked-before-spend";
+              steps.push({ title: "Price the content safety check: text records × the per-record rate", chip: `Safety check ${usd(safety)}`, doc: csDoc, fail: /(?!)/,
+                anchor: /<set-variable name="safetyChars"/, end: /name="safetyMicroUsd"/, max: 10, hit: /safetyMicroUsd/,
+                mark: records ? `${records} record${records === 1 ? "" : "s"} × ${usd(rate)} = ${usd(safety)}` : usd(safety),
+                note: `A record is up to 1,000 characters of the screened text; Prompt Shields analyses it a second time${C().contentSafety?.shieldPrompt === false ? " (off here)" : ", so every record counts twice"}. The price is charged even when the check blocks the call: it's added to every $ bucket with the call's price, and logged as its own <code>safety</code> chargeback line.`,
+                fx: async () => { mark("cs", "on"); badge("cs", `${usd(safety)} · ${records || "?"} records`, "#ca5010", true); await go(tok, ["plan", "cs"], g); } });
+              steps.push({ title: "Content safety: screen the text before anything is spent", chip: csBlock ? "Content safety" : "Content safety ✓", doc: csDoc,
+                anchor: /<llm-content-safety /, end: /<\/llm-content-safety>/, max: 12, hit: /shield-prompt|<category name/, fail: /llm-content-safety|purview/, mark: "passed",
+                after: async (failing) => { mark("cs", failing ? "bad" : "ok"); if (!failing) await go(tok, ["cs", "plan"], g, { quiet: true }); } });
+            }
           }
           for (const s of steps) {
             const failing = !!failAt && s.fail.test(failAt);
+            if (s.fx && tok) await s.fx();
             await lens({ ...s, verdict: failing ? "bad" : s.warn ? "warn" : "ok", mark: failing ? `${st} · ${failAt}` : s.warn ? `not in plan → ${served}` : s.mark }, g);
+            if (s.after && tok) await s.after(failing);
             if (failing) return;
           }
         }
@@ -1674,7 +1698,7 @@
             setText("client", r.agent || "Client", tier ? `plan: ${tier}` : "agent / app");
             if (tier) { layer.scope.textContent = `PRODUCT (PLAN) SCOPE · ${tier.toUpperCase()}`; setText("plan", `${tier[0].toUpperCase()}${tier.slice(1)} plan policy`); }
           }
-          for (const k of ["mi", "r0", "r1", "mcp", "a2a", "cache"]) mark(k, "dim");
+          for (const k of ["mi", "r0", "r1", "mcp", "a2a", "cache", "cs"]) mark(k, "dim");
           if (surf === "model") { if (h["x-gw-semantic-cache"] !== "hit") { mark("mi", null); mark("r0", null); mark("r1", null); } } else mark(surf === "tool" ? "mcp" : "a2a", null);
           const tok = token(color, label(r), P("client"));
           mark("client", "on");
@@ -1697,7 +1721,7 @@
           await wait(350, g);
 
           await go(tok, ["entra", "plan"], g);
-          await planLens(r, g);
+          await planLens(r, g, tok);
           if (blocker === "plan") return blocked(r, tok, "plan", g);
           const gov = String(h["x-gw-governance"] || ""), served = h["x-gw-model-served"], asked = h["x-gw-model-requested"] || r.requestedModel;
           if (surf === "model" && served && asked && served !== asked) {
@@ -1792,7 +1816,7 @@
           mark("api", "ok");
           const costTxt = h["x-gw-cost-usd"] ? ` · cost <b>$${esc(h["x-gw-cost-usd"])}</b>` : "";
           say(`Outbound: ${surf === "model" ? "<code>llm-emit-token-metric</code> + " : ""}<code>emit-metric</code> meter the call${costTxt}${h["x-gw-billed-to"] ? ` billed to <b>${esc(h["x-gw-billed-to"])}</b>` : ""}; a chargeback <code>trace</code> record and the gateway logs flow to Azure Monitor.`, "ok", `Metered${costTxt}${h["x-gw-billed-to"] ? ` · billed to <b>${esc(h["x-gw-billed-to"])}</b>` : ""}`);
-          const price = priceText(r); if (price) { say(price, "ok", `Priced <b>${usd(h["x-gw-cost-usd"])}</b> and added to every $ bucket`); showBuckets(r, "charge"); }
+          const price = priceText(r); if (price) { say(price, "ok", `Priced <b>${usd(Number(h["x-gw-cost-usd"] || 0) + Number(h["x-gw-safety-cost-usd"] || 0))}</b>${h["x-gw-safety-cost-usd"] ? " (with the safety check)" : ""} and added to every $ bucket`); showBuckets(r, "charge"); }
           if (semHit) await lens({ title: "Semantic cache hit: charge the lookup, not the tokens", chip: `Price ${usd(h["x-gw-cost-usd"])} (lookup)`, doc: "fragment:semantic-cache-pricing",
             anchor: /semanticCacheResult"\] == "hit"/, end: /pricingRule" value="semantic-cache-hit"/, max: 10, hit: /name="costMicroUsd"/, mark: `$${Number(h["x-gw-cost-usd"]).toFixed(6)} instead of $${Number(h["x-gw-cache-saved-usd"] || 0).toFixed(6)}` }, g);
           if (surf === "model" && h["x-gw-cost-usd"] && !semHit) await lens({ title: "Price the call from the tokens the model used", chip: `Price ${usd(h["x-gw-cost-usd"])}`, doc: apiDoc(r), anchor: /<set-variable name="costMicroUsd" value=/, end: /\}" \/>/, max: 14,
@@ -1826,11 +1850,11 @@
           mark("a2a", "ok");
         }
         async function blocked(r, tok, at, g) {
-          const h = r.headers || {}, st = Number(r.status);
+          const h = r.headers || {}, st = Number(r.status), safety = Number(h["x-gw-safety-cost-usd"] || 0);
           mark(at, "bad"); recolor(tok, "#d13438", String(st)); badge(at, `${st} · ${h["x-gw-blocked-by"] || (at === "entra" ? "validate-azure-ad-token" : "blocked")}`, "#d13438");
-          say(`<b>Blocked with ${st}</b>: ${blockText(r)}. The request never reaches a backend, so it costs nothing.`, "bad", `<b>Blocked with ${st}</b>: ${blockText(r)}`);
+          say(`<b>Blocked with ${st}</b>: ${blockText(r)}. The request never reaches a backend, so ${safety ? `the only charge is the content safety check (<b>${usd(safety)}</b>), added to the $ buckets` : "it costs nothing"}.`, "bad", `<b>Blocked with ${st}</b>: ${blockText(r)}`);
           stage("http", `HTTP ${st} · ${h["x-gw-blocked-by"] || "blocked"}`, "bad");
-          if (/quota-by-key/.test(h["x-gw-blocked-by"] || "")) showBuckets(r, "blocked");
+          if (/quota-by-key/.test(h["x-gw-blocked-by"] || "")) showBuckets(r, "blocked"); else if (safety) showBuckets(r, "charge");
           if (h["x-gw-block-reason"]) say(`<code>on-error</code> returns <code>x-gw-blocked-by</code> and <code>x-gw-block-reason</code>: ${esc(String(h["x-gw-block-reason"]).slice(0, 160))}`, "bad");
           await wait(900, g);
           mark("log", "on"); edge(at, "log", "on"); const p = P(at), q = P("log");
@@ -1854,8 +1878,12 @@
           const premium = models.find(m => !(dTier.allowedModels || []).includes(m)) || "gpt-4.1";
           const tool = (c.tools || [])[1] || { name: "check-inventory", priceUsd: 0.0002 };
           const H = (o) => ({ "x-gw-request-id": "example", ...o });
+          // the content safety check on a short prompt (one text record, twice with Prompt Shields), when the plan screens content
+          const csOn = (tier) => !!c.contentSafety?.enabled && tierObj(tier).contentSafety !== false;
+          const csUsd = (((c.contentSafety?.shieldPrompt === false ? 1 : 2) * (c.contentSafety?.pricePer1KRecordsUsd ?? 0.38)) / 1000).toFixed(6);
+          const cs = (tier, surface = "model") => csOn(tier) && (c.contentSafety?.surfaces || ["model", "tool", "agent"]).includes(surface) ? { "x-gw-safety-cost-usd": csUsd } : {};
           const ok = (tier, model, extra = {}) => ({ "x-gw-tier": tier, "x-gw-caller": "you@contoso.com", "x-gw-session": "demo-session", "x-gw-model-requested": model, "x-gw-model-served": model, "x-gw-governance": "none",
-            "x-gw-prompt-tokens": "24", "x-gw-completion-tokens": "96", "x-gw-cost-usd": "0.000163", "x-gw-remaining-tpm": String((tierObj(tier).tpm || 10000) - 120), "x-gw-route": `${r0} 200`, ...extra });
+            "x-gw-prompt-tokens": "24", "x-gw-completion-tokens": "96", "x-gw-cost-usd": "0.000163", "x-gw-remaining-tpm": String((tierObj(tier).tpm || 10000) - 120), "x-gw-route": `${r0} 200`, ...cs(tier), ...extra });
           return [
             { id: "happy", label: "Happy path", code: 200, r: { status: 200, surface: "model", agent: ag("gold"), tier: "gold", requestedModel: small, headers: H(ok("gold", small)) } },
             { id: "downgrade", label: "Model downgrade", code: 200, r: { status: 200, surface: "model", agent: ag(dTier.name), tier: dTier.name, requestedModel: premium,
@@ -1867,11 +1895,14 @@
             { id: "failover", label: "Regional failover", code: 200, r: { status: 200, surface: "model", agent: ag("gold"), tier: "gold", requestedModel: small,
                 headers: H(ok("gold", small, { "x-gw-route": `${r0} 429 > ${r1} 200`, "x-gw-backend": b[1]?.name || "foundry2" })) } },
             { id: "mcp", label: "MCP tool call", code: 200, r: { status: 200, surface: "tool", agent: ag("gold"), tier: "gold", tool: tool.name,
-                headers: H({ "x-gw-tier": "gold", "x-gw-caller": "you@contoso.com", "x-gw-tool": tool.name, "x-gw-cost-usd": Number(tool.priceUsd || 0).toFixed(6), "x-gw-remaining-tool-calls": "29", "x-gw-billed-to": ag("gold") }) } },
+                headers: H({ "x-gw-tier": "gold", "x-gw-caller": "you@contoso.com", "x-gw-tool": tool.name, "x-gw-cost-usd": Number(tool.priceUsd || 0).toFixed(6), "x-gw-remaining-tool-calls": "29", "x-gw-billed-to": ag("gold"), ...cs("gold", "tool") }) } },
             { id: "a2a", label: "A2A agent task", code: 200, r: { status: 200, surface: "agent", agent: ag("gold"), tier: "gold",
                 steps: [{ type: "model", name: small, status: 200, costMicroUsd: 210, billedTo: ag("gold") }, { type: "tool", name: "check-inventory", status: 200, costMicroUsd: 200, billedTo: ag("gold") },
                         { type: "tool", name: "get-supplier-quote", status: 200, costMicroUsd: 2000, billedTo: ag("gold") }],
-                headers: H({ "x-gw-tier": "gold", "x-gw-caller": "you@contoso.com", "x-gw-agent-fee-usd": "0.005000", "x-gw-downstream-cost-usd": "0.002410", "x-gw-cost-usd": "0.007410", "x-gw-remaining-agent-calls": "9", "x-gw-billed-to": ag("gold") }) } },
+                headers: H({ "x-gw-tier": "gold", "x-gw-caller": "you@contoso.com", "x-gw-agent-fee-usd": "0.005000", "x-gw-downstream-cost-usd": "0.002410", "x-gw-cost-usd": "0.007410", "x-gw-remaining-agent-calls": "9", "x-gw-billed-to": ag("gold"), ...cs("gold", "agent") }) } },
+            ...(csOn("gold") ? [{ id: "safety", label: "403 content safety", code: 403, r: { status: 403, surface: "model", agent: ag("gold"), tier: "gold", requestedModel: small,
+                headers: H({ "x-gw-tier": "gold", "x-gw-caller": "you@contoso.com", "x-gw-session": "demo-session", "x-gw-blocked-by": "llm-content-safety", "x-gw-governance": "content-blocked",
+                  "x-gw-block-reason": "ContentSafetyPolicyViolated", "x-gw-prompt-tokens": "0", "x-gw-cost-usd": "0", "x-gw-safety-cost-usd": csUsd }) } }] : []),
             { id: "noauth", label: "401 no token", code: 401, r: { status: 401, surface: "model", agent: ag("gold"), tier: "gold", requestedModel: small,
                 headers: H({ "x-gw-blocked-by": "validate-azure-ad-token", "x-gw-block-reason": "Microsoft Entra ID token missing or invalid." }) } },
             ...cacheDemos(c, H, ok, ag, small),
@@ -1902,7 +1933,7 @@
           const grp = { "x-gw-group": g.name, "x-gw-tier": g.tier, "x-gw-group-budget-usd": (g.poolMicroUsd / 1e6).toFixed(6), "x-gw-member-budget-usd": (g.memberMicroUsd / 1e6).toFixed(6) };
           return [
             { id: "entra", label: "Entra only: plan from group", code: 200, r: { status: 200, surface: "model", mode: "entra", agent: p, tier: g.tier, requestedModel: small,
-                headers: H({ ...ok(g.tier, small), ...grp, "x-gw-caller": who(p), "x-gw-billed-to": p }) } },
+                headers: H({ ...ok(g.tier, small), ...grp, "x-gw-caller": who(p), "x-gw-billed-to": p, "x-gw-safety-cost-usd": undefined }) } },  // Entra-only mode doesn't screen content
             { id: "entra-team", label: "Entra only: 403 team budget", code: 403, r: { status: 403, surface: "model", mode: "entra", agent: p, tier: g.tier, requestedModel: small,
                 headers: H({ ...grp, "x-gw-caller": who(p), "x-gw-session": "demo-session", "x-gw-agent": p, "x-gw-blocked-by": "quota-by-key (group-budget)", "x-gw-block-reason": "Quota exceeded." }) } },
             { id: "entra-nogroup", label: "Entra only: 403 no group", code: 403, r: { status: 403, surface: "model", mode: "entra", agent: nobody, tier: "", requestedModel: small,
@@ -4089,7 +4120,7 @@ const POL_CONTROLS = {
     u: "Add <code>llm-token-limit</code> to the product and set <code>tokens-per-minute</code> and <code>token-quota</code>. The budget epoch in the counter key is a sandbox extra so <b>Reset budgets</b> works." },
   "budget": { s: "Plan $ budget", c: "One $ budget per subscription, across every surface", p: "quota-by-key (subscription-budget)", st: "plan", pi: "quota-by-key",
     at: "Plan (product) policy · inbound (checked before the call, charged after it)", doc: "product", a: /<quota-by-key id="subscription-budget"/, e: TAG_END, max: 6, l: 2, o: ["403"], nv: ["budget-epoch"],
-    w: "A built-in call quota used as a money meter: the limit is the budget in micro-USD and every successful call adds its price (<code>increment-count</code> = the cost the API policy computed). Models, MCP tools, A2A agents and images all draw from it.",
+    w: "A built-in call quota used as a money meter: the limit is the budget in micro-USD and every successful call adds its price (<code>increment-count</code> = the cost the API policy computed, plus the content safety check when the plan screens content). Models, MCP tools, A2A agents and images all draw from it.",
     u: "First price every call (see the pricing controls). Then set <code>calls</code> to the budget in micro-USD and <code>increment-count</code> to the price." },
   "session": { s: "Session id", c: "Group calls into one conversation (session)", p: "set-variable session", st: "plan",
     at: "Plan (product) policy · inbound", doc: "product", a: /<set-variable name="session" value="@\{/, e: XML_END, max: 16, l: 3,
@@ -4171,11 +4202,15 @@ const POL_CONTROLS = {
     u: "Turn on the diagnostic setting to a Log Analytics workspace and LLM / MCP logging on the APIs." },
   "content-safety": { s: "Content safety", c: "Harmful, jailbreak and sensitive prompts never reach a model", p: "llm-content-safety", st: "plan",
     at: "blocked-before-spend fragment · last in the plan policy's inbound", doc: "fragment:blocked-before-spend", a: /<llm-content-safety /, e: /<\/llm-content-safety>/, max: 12, l: 1, o: ["403"],
-    w: "Built-in: sends the prompt (or tool arguments, or task text) to Azure AI Content Safety for harm categories, Prompt Shields and a blocklist, and answers 403 before any model, tool or agent spend. It runs after the free checks, so throttled calls don't pay for a check.",
+    w: "Built-in: sends the prompt (or tool arguments, or task text) to Azure AI Content Safety for harm categories, Prompt Shields and a blocklist, and answers 403 before any model, tool or agent spend. It runs after the free checks, so throttled calls don't pay for a check. The check itself isn't free: see <b>Safety check pricing</b>.",
     u: "Add a Content Safety backend (managed identity) and <code>llm-content-safety</code> with your thresholds and blocklists." },
+  "safety-price": { s: "Safety check pricing", c: "Price the content safety check", p: "set-variable safetyMicroUsd", st: "metering",
+    at: "blocked-before-spend fragment · plan policy inbound, just before the check", doc: "fragment:blocked-before-spend", a: /<set-variable name="safetyChars"/, e: /name="safetyMicroUsd"/, max: 10, l: 3,
+    w: "Azure AI Content Safety bills per text record (up to 1,000 characters), and Prompt Shields analyses the same text a second time. The fragment counts the characters it screens (all the messages of a model call, a tool call's arguments or an agent task's text), rounds up to records, doubles them with Prompt Shields and multiplies by the per-record rate (<code>contentSafety.pricePer1KRecordsUsd</code> ÷ 1,000). A short prompt is 2 records. The price goes into every $ bucket with the call's price, even when the check blocks the call, and comes back in <code>x-gw-safety-cost-usd</code>.",
+    u: "Set your rate in <code>contentSafety.pricePer1KRecordsUsd</code>. It's an estimate: reconcile it with your Content Safety bill." },
   "safety-ledger": { s: "Safety check cost", c: "The safety check's own cost is charged", p: "safety-ledger fragment", st: "metering",
     at: "safety-ledger fragment · outbound and on-error of the plan policy", doc: "fragment:safety-ledger", a: /<trace source="chargeback"/, e: /<\/trace>/, max: 14, l: 3,
-    w: "Content Safety bills per text record, so the fragment estimates the records, adds their price to the $ budget and writes a <code>safety</code> chargeback line, for blocked calls too.",
+    w: "Writes the check's price (from <b>Safety check pricing</b>) as its own <code>safety</code> chargeback line, a <code>CostMicroUSD</code> metric with Surface = safety and the <code>x-gw-safety-cost-usd</code> header, for blocked calls too. A blocked call also gets <code>x-gw-blocked-by: llm-content-safety</code> and a <code>content-blocked</code> governance event.",
     u: "Optional: copy it if the safety check should be charged back." },
   "suspend": { s: "Suspend on overspend", c: "Switch the subscription off when its budget is spent", p: "send-request → Logic App", st: "plan",
     at: "Plan (product) policy · on-error, when the $ budget refuses", doc: "product", a: /<send-request mode="new" response-variable-name="suspensionResponse"/, e: /<\/send-request>/, max: 16, l: 3,
@@ -4280,6 +4315,7 @@ function polExcerpt(c, s) {
 const POL_DEMO = { "entra": "noauth", "model-ent": "downgrade", "tpm": "tpm", "budget": "budget", "session-budget": "budget", "pool": "failover", "retry": "failover", "cb": "failover",
   "tool-ent": "mcp", "tool-price": "mcp", "tool-rate": "mcp", "agent-ent": "a2a", "agent-price": "a2a", "obo": "a2a", "model-price": "happy", "token-metric": "happy", "cost-metric": "happy",
   "chargeback": "happy", "req-id": "happy", "sem-cache": "semcache", "sem-scope": "semcache", "sem-price": "semcache", "resp-price": "promptcache",
+  "content-safety": "safety", "safety-price": "safety", "safety-ledger": "safety",
   "entra-only-token": "entra", "entra-group-plan": "entra-nogroup", "entra-model-ent": "entra", "entra-tpm": "entra", "group-budget": "entra-team", "member-budget": "entra-team" };
 // the scenarios that show a control
 const polUses = (id) => SCENARIOS.map((s, i) => [s, i]).filter(([s]) => (s.controls || []).includes(id));
@@ -4518,7 +4554,7 @@ function polHit(id, r) {
     case "trace": return h["apim-trace-id"] ? "pass" : null;
     case "gw-logs": return h["x-gw-request-id"] && h["x-gw-request-id"] !== "example" ? "pass" : null;
     case "content-safety": return stop(/llm-content-safety|purview/) ? "stop" : h["x-gw-safety-cost-usd"] ? "pass" : null;
-    case "safety-ledger": return h["x-gw-safety-cost-usd"] ? "pass" : null;
+    case "safety-price": case "safety-ledger": return h["x-gw-safety-cost-usd"] ? "pass" : null;
     case "suspend": return stop(/subscription-budget|^quota-by-key$/) ? "stop" : null;
     case "resp-affinity": return stop(/response-ownership/) ? "stop" : /sticky/.test(h["x-gw-affinity"] || "") ? "warn" : /new/.test(h["x-gw-affinity"] || "") ? "pass" : null;
     case "resp-price": return Number(h["x-gw-cached-tokens"] || 0) > 0 ? "warn" : null;
@@ -4547,7 +4583,7 @@ function renderPaw(r) {
   } else {
     // any other call (an example, your own request): the controls it went through, in pipeline order (bookkeeping that applies
     // to every call is left out, and failover only shows when it happened)
-    const quiet = new Set(["req-id", "gw-logs", "trace", "session"]);
+    const quiet = new Set(["req-id", "gw-logs", "trace", "session", "safety-ledger"]);
     ids = Object.keys(POL_CONTROLS).filter(id => { const v = polHit(id, r); return v && !quiet.has(id) && !((id === "retry" || id === "cb") && v !== "warn"); })
       .sort((a, b) => STAGE_IX[POL_CONTROLS[a].st] - STAGE_IX[POL_CONTROLS[b].st]);
     head = `Policies on this call<small>${r?.headers?.["x-gw-request-id"] === "example" ? "example call · " : ""}what each control did, from its x-gw-* headers</small>`;
@@ -4569,7 +4605,8 @@ window.onFlowPlay = renderPaw;
 const LENS_CTL = [[/validate-azure-ad-token/, (s) => s.doc === "fragment:entra-plan-inbound" ? "entra-only-token" : "entra"], [/entraGroup/, "entra-group-plan"], [/entraTier/, "entra-tpm"],
   [/entraAllowedModels/, "entra-model-ent"], [/group-budget/, "group-budget"], [/member-budget/, "member-budget"], [/Model governance/, "model-ent"], [/llm-token-limit/, "tpm"],
   [/subscription-budget/, "budget"], [/session-budget/, "session-budget"], [/end-user-budgets/, "eu-budget"], [/modelPricing|costMicroUsd/, "model-price"],
-  [/llm-semantic-cache/, "sem-cache"], [/semanticCache(Saved|Lookup)/, "sem-price"], [/cachedSavings|cachedTokens|cached-input/, "resp-price"], [/chargebackDirectory/, "chargeback"]];
+  [/llm-semantic-cache/, "sem-cache"], [/semanticCache(Saved|Lookup)/, "sem-price"], [/cachedSavings|cachedTokens|cached-input/, "resp-price"], [/chargebackDirectory/, "chargeback"],
+  [/llm-content-safety/, "content-safety"], [/safetyChars|safetyRecords|safetyMicroUsd/, "safety-price"]];
 window.lensControl = (spec) => {
   const src = String(spec?.anchor?.source || ""), m = LENS_CTL.find(([re]) => re.test(src));
   const id = m && (typeof m[1] === "function" ? m[1](spec) : m[1]), c = id && POL_CONTROLS[id];
@@ -5186,7 +5223,7 @@ const SCENARIOS = [
       : "off · set contentSafety.enabled to try it"; },
     gist: "Compare a clean request with a jailbreak or sensitive data. The gateway screens model prompts, MCP arguments and A2A tasks before calling their backend.",
     policies: ["llm-content-safety", "Prompt Shields", "blocklist (sensitive data)", "safety-ledger fragment"],
-    controls: ["content-safety", "safety-ledger"],
+    controls: ["content-safety", "safety-price", "safety-ledger"],
     preview: () => dg.lane("1 · Clean request: screen, then forward", 200,
         dg.node("Clean prompt", "Gold caller"),
         dg.gw("Safety check passes"),

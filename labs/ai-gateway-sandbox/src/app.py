@@ -1229,7 +1229,7 @@ COPILOT_MAX_STEPS, COPILOT_MAX_TOKENS, COPILOT_MAX_TOOL_CALLS = 6, 600, 12
 COPILOT_RESULT_CHARS, COPILOT_TOTAL_RESULT_CHARS, COPILOT_MAX_BODY = 11000, 30000, 400_000
 COPILOT_VIEWS = ("scenarios", "builder", "conversation", "live", "runs", "spend", "chargeback", "plans", "policies.investigate",
                  "policies.pipeline", "policies.telemetry", "policies.deployed", "monitor")
-COPILOT_FLOWS = ("happy", "downgrade", "tpm", "budget", "failover", "mcp", "a2a", "noauth")
+COPILOT_FLOWS = ("happy", "downgrade", "tpm", "budget", "failover", "mcp", "a2a", "noauth", "safety")
 COPILOT_TARGET = re.compile(r"[a-z][a-z0-9-]{1,30}(:[\w .@()-]{1,80})?")
 # Highlight target names: keep in sync with T and resolve() in static/copilot.js (tests/test_copilot.py checks it)
 COPILOT_TARGETS = {"scenarios", "builder", "callers", "surface-picker", "model-select", "prompt", "session-id", "end-user", "trace-toggle",
@@ -1278,7 +1278,7 @@ UI targets for ui_highlight
 - Launch panel: scenarios, scenario:<number>, builder, callers, caller:<subscription e.g. user-ben>, surface-picker, model-select, prompt, session-id, end-user, trace-toggle, token-toggle, send-button
 - Conversation: conversation, budget-meter
 - Above the tabs (view live): kpis (calls, allowed, blocked, tokens, cost, latency)
-- What happened › Gateway flow (view policies.investigate; the page opens here and scenarios play out here): request-log, flow-diagram, flow:<client|entra|plan|api|pool|mi|log|r0|r1|mcp|a2a|la|ai> (the gateway flow; it follows the page's calls while shown), evidence-panel
+- What happened › Gateway flow (view policies.investigate; the page opens here and scenarios play out here): request-log, flow-diagram, flow:<client|entra|plan|cs|api|cache|pool|mi|log|r0|r1|mcp|a2a|la|ai> (the gateway flow, cs = Azure AI Content Safety, cache = semantic cache; it follows the page's calls while shown), evidence-panel
 - What happened › Session overview (view live): signals, last-response, outcomes-chart, latency-chart, live-request-log, run-history (view runs)
 - Why: policies › Policy explorer, by stage (view policies.pipeline): pipeline (the explorer: pipeline strip, control list, selected control's detail), stage:<client|identity|plan|routing|metering>, policy:<policy element or name, e.g. llm-token-limit or quota-by-key> (selects that control and shows what it does, its level and its deployed lines), policy-map (the control list and detail), backend-pool
 - Why: policies › Policy explorer, by document (view policies.deployed): deployed-policies (the document list), deployed:<document name, e.g. Silver or entra-identity> (selects it: purpose, size, controls, named values, includes, full XML)
@@ -1329,7 +1329,7 @@ COPILOT_TOOLS = [
         {"call_number": {"type": "integer"}}, ["call_number"]),
     _fn("ui_play_flow", "Play an illustrative example in the animated gateway flow diagram.",
         {"example": {"type": "string", "enum": list(COPILOT_FLOWS),
-                     "description": "happy path, model downgrade, 429 tokens per minute, 403 session budget, regional failover, MCP tool call, A2A agent task, 401 no token"}},
+                     "description": "happy path, model downgrade, 429 tokens per minute, 403 session budget, regional failover, MCP tool call, A2A agent task, 401 no token, 403 content safety (only when content safety is deployed)"}},
         ["example"]),
     _fn("ui_show_policy_flow", "Draw a visual step-by-step breakdown, in the chat, of what a policy (or one call) goes through. Use 4-8 steps, one per "
                                "behaviour (identity, model entitlement, output cap, token limits, $ budgets, content safety, routing, metering, response "
