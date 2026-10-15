@@ -296,7 +296,7 @@
     if (!arg) return T[k] ? { view: T[k][0], find: T[k][1] } : null;
     const all = (sel) => [...document.querySelectorAll(sel)];
     switch (k) {
-      case "scenario": return { view: "scenarios", find: () => q(`.scenarios button[data-i="${(parseInt(arg, 10) || 0) - 1}"]`) };
+      case "scenario": return { view: "scenarios", find: () => window.scFocus?.((parseInt(arg, 10) || 0) - 1) ?? q(`.scenarios .scrow[data-i="${(parseInt(arg, 10) || 0) - 1}"]`) };
       case "caller": return { view: "builder", find: () => all(".agent[data-agent]").find((e) => e.dataset.agent === arg) };
       case "plan": return { view: "plans", find: () => planColumn(arg)?.th, rect: () => planColumn(arg)?.rect(), prep: () => planColumn(arg)?.tint() };
       case "flow": return { view: "policies.investigate", find: () => q(`#gwfSvg g[data-node="${CSS.escape(arg)}"]`) };
