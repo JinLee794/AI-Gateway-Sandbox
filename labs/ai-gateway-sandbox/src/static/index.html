@@ -6030,7 +6030,7 @@ function scRender() {
   scPane();
 }
 const scInline = () => $("scenarios").clientWidth < 700;  // same threshold as the side-by-side container query
-let scExpanded = true, scDiagram = false;  // in the inline layout: whether the selected row is open, and its diagram
+let scExpanded = true, scDiagram = true;  // in the inline layout: whether the selected row is open, and its diagram
 function scPaneHtml(i, inline) {
   const s = SCENARIOS[i];
   let dgm = "";
