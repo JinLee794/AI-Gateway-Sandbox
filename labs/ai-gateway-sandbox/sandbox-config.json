@@ -35,7 +35,7 @@
     {
       "name": "agent-platform", "displayName": "Agent Platform (internal)", "description": "Internal plan for platform agents: their model and tool calls are charged back to the calling subscription",
       "allowedModels": ["gpt-4.1-mini", "gpt-4.1-nano"], "fallbackModel": "gpt-4.1-mini", "onDisallowedModel": "downgrade",
-      "maxOutputTokens": 600, "tpm": 50000, "tokenQuota": 2000000, "tokenQuotaPeriod": "Monthly", "budgetUsd": 5.00, "sessionBudgetUsd": 1.00,
+      "maxOutputTokens": 2000, "tpm": 250000, "tokenQuota": 20000000, "tokenQuotaPeriod": "Monthly", "budgetUsd": 25.00, "sessionBudgetUsd": 5.00,
       "allowedTools": ["search-products", "check-inventory", "get-supplier-quote"], "toolCallsPerMinute": 120,
       "allowedAgents": [], "agentCallsPerMinute": 1, "internal": true
     }

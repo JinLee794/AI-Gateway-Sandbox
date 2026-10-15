@@ -22,6 +22,9 @@ body.has-copilot #cvCard .cv-compose, body.has-copilot #cvCard .cv-ctx { margin-
 @keyframes copIn { from { opacity:0; transform:translateY(12px) scale(.97); } }
 /* wide screens: the page makes room for the open chat instead of hiding behind it */
 @media (min-width:1500px) { body.cop-open main, body.cop-open .pagehead { margin-right:462px; } }
+/* the References lightbox (opened by ui_open_reference) sits beside the open chat on wide screens, above it on narrow ones */
+@media (min-width:1000px) { body.cop-open .gwlb { padding-right:462px; } }
+@media (max-width:999px) { body.cop-open .gwlb { z-index:180; } }
 .cop-head { display:flex; align-items:center; gap:10px; padding:10px 10px 10px 14px; color:#fff;
   background:linear-gradient(120deg, #0f6cbd 0%, var(--cop-2) 75%, #a33cb0 100%); }
 .cop-logo { width:30px; height:30px; border-radius:8px; background:rgba(255,255,255,.18); display:grid; place-items:center; flex:0 0 30px; }
@@ -47,6 +50,10 @@ body.has-copilot #cvCard .cv-compose, body.has-copilot #cvCard .cv-ctx { margin-
 .cop-txt code { font:12px Consolas, monospace; background:#f3f2f1; border-radius:3px; padding:0 4px; }
 .cop-txt pre { font:12px Consolas, monospace; background:#f3f2f1; border-radius:4px; padding:8px; overflow:auto; white-space:pre; margin:4px 0 8px; }
 .cop-txt .cop-h { font-weight:600; margin:8px 0 2px; }
+.cop-txt .cop-tbl { overflow:auto; margin:4px 0 8px; max-height:320px; border:1px solid #edebe9; border-radius:4px; }
+.cop-txt table { border-collapse:collapse; font-size:12px; width:100%; }
+.cop-txt th, .cop-txt td { padding:3px 8px; border-bottom:1px solid #edebe9; text-align:left; vertical-align:top; white-space:nowrap; }
+.cop-txt th { position:sticky; top:0; background:#faf9f8; font-weight:600; }
 .cop-txt a.cop-call { font-weight:600; cursor:pointer; background:var(--cop-bg); border-radius:8px; padding:0 5px; color:var(--cop); }
 .cop-err { color:var(--bad); background:var(--bad-bg); border-radius:6px; padding:6px 10px; }
 .cop-err small { display:block; color:var(--text); margin-top:4px; }

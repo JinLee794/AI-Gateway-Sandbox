@@ -172,12 +172,13 @@
     } else if (ev.type === "step_done") {
       doneStep(b, ev.id, ev.ok, ev.summary, ev.portalLink);
     } else if (ev.type === "action") {
-      S.queue = S.queue.then(() => act(ev.action, b)).catch((e) => console.error("Copilot action failed", ev.action, e));
+      if (ev.action.type === "open_reference") b.ref = ev.action;  // the lightbox covers the page: open it after the answer's other actions
+      else S.queue = S.queue.then(() => act(ev.action, b)).catch((e) => console.error("Copilot action failed", ev.action, e));
     } else if (ev.type === "answer") {
       b.el.querySelector(".cop-txt").innerHTML = md(ev.text || "");
       summarize(b, ev.usage);
-      S.msgs.push({ role: "assistant", content: String(ev.text || "").slice(0, 2400) });
-      S.queue = S.queue.then(() => pointAtPipeline(b)).catch(console.error);
+      S.msgs.push({ role: "assistant", content: String(ev.text || "").slice(0, MSG_CHARS) });
+      S.queue = S.queue.then(() => pointAtPipeline(b)).then(() => b.ref && act(b.ref, b)).catch(console.error);
       return true;
     } else if (ev.type === "error") {
       fail(b, ev.error || "Something went wrong.", ev);
@@ -185,17 +186,28 @@
     scrollDown();
     return false;
   }
+  // The conversation sent with each question: the newest turns that fit app.py's COPILOT_HISTORY / COPILOT_HISTORY_CHARS
+  const MSG_CHARS = 12000, HISTORY = 40, HISTORY_CHARS = 120000;
+  function history() {
+    const out = []; let chars = 0;
+    for (let i = S.msgs.length - 1; i >= 0 && out.length < HISTORY; i--) {
+      chars += S.msgs[i].content.length; if (chars > HISTORY_CHARS) break;
+      out.unshift(S.msgs[i]);
+    }
+    while (out.length > 1 && out[0].role !== "user") out.shift();
+    return out;
+  }
   async function ask(text) {
     text = String(text || "").trim();
     if (!text || S.busy) return;
     clearSpots(); chat.querySelector(".cop-intro")?.remove(); chat.querySelector(".cop-sugs")?.remove();
-    addUser(text); S.msgs.push({ role: "user", content: text.slice(0, 2400) });
+    addUser(text); S.msgs.push({ role: "user", content: text.slice(0, MSG_CHARS) });
     input.value = ""; autosize(); ctxLine();
     const b = addBot(); let answered = false;
     setBusy(true); S.ctrl = new AbortController();
     try {
       const res = await fetch("/api/copilot", { method: "POST", headers: { "Content-Type": "application/json" }, signal: S.ctrl.signal,
-        body: JSON.stringify({ messages: S.msgs.slice(-10), ui: context() }) });
+        body: JSON.stringify({ messages: history(), ui: context() }) });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `HTTP ${res.status}`); }
       const take = (line) => { line = line.trim(); if (!line) return; let ev; try { ev = JSON.parse(line); } catch { return; } if (onEvent(ev, b)) answered = true; };
       if (res.body?.getReader) {
@@ -254,6 +266,7 @@
     "chargeback-monitor": ["chargeback", () => cardOf(byId("cbMonitor"))],
     "plans-matrix": ["plans", () => cardOf(byId("plansMatrix"))], "price-list": ["plans", () => cardOf(byId("priceList"))], endpoints: ["plans", () => cardOf(byId("endpoints"))],
     "request-log": ["policies.investigate", () => byId("evLogCard")], "flow-diagram": ["policies.investigate", () => byId("gwFlow")],
+    "policies-at-work": ["policies.investigate", () => { const p = byId("gwfPaw"); return p && !p.hidden ? p : byId("gwFlow"); }],
     "evidence-panel": ["policies.investigate", () => { const p = byId("evPanel"); return p && !p.classList.contains("hidden") ? p : byId("evLogCard"); }],
     pipeline: ["policies.pipeline", () => cardOf(byId("pipe"))], "policy-map": ["policies.pipeline", () => byId("polMap")], "backend-pool": ["policies.pipeline", () => cardOf(byId("backendsKv"))],
     "evidence-sinks": ["policies.telemetry", () => cardOf(byId("sinks"))], "policy-evidence": ["policies.telemetry", () => byId("policyEvidenceCard")],
@@ -265,6 +278,9 @@
     "portal-links": [null, () => q(".cmdbar")], "reset-budgets": [null, () => byId("btnReset")], references: [null, () => q('.cmdbar [data-pat="basics"]')],
   };
   const STAGES = { client: 1, identity: 2, plan: 3, routing: 4, metering: 5 };
+  // Log Analytics table names (as in the copilot's prompt) -> the sink cards' titles
+  const SINK_ALIAS = { apptraces: "App Insights traces", appmetrics: "App Insights customMetrics", apprequests: "App Insights requests",
+    custommetrics: "App Insights customMetrics", traces: "App Insights traces", requests: "App Insights requests", headers: "x-gw-* response headers", trace: "Request trace" };
   const same = (el, s) => !!el && el.textContent.trim().toLowerCase() === s.toLowerCase();
   function planColumn(tier) {
     const table = q("#plansMatrix table"); if (!table) return null;
@@ -285,7 +301,10 @@
       case "plan": return { view: "plans", find: () => planColumn(arg)?.th, rect: () => planColumn(arg)?.rect(), prep: () => planColumn(arg)?.tint() };
       case "flow": return { view: "policies.investigate", find: () => q(`#gwfSvg g[data-node="${CSS.escape(arg)}"]`) };
       case "stage": return { view: "policies.pipeline", find: () => (STAGES[arg] ? q(`#pipe .stage:nth-child(${STAGES[arg]})`) : null) };
-      case "sink": return { view: "policies.telemetry", find: () => all("#sinks .sink").find((e) => (e.querySelector(".t")?.firstChild?.textContent || "").trim().toLowerCase().startsWith(arg.toLowerCase())) };
+      case "sink": {
+        const name = (SINK_ALIAS[arg.toLowerCase()] || arg).toLowerCase();
+        return { view: "policies.telemetry", fallback: "evidence-sinks", find: () => all("#sinks .sink").find((e) => (e.querySelector(".t")?.firstChild?.textContent || "").trim().toLowerCase().startsWith(name)) };
+      }
       case "deployed": return { view: "policies.deployed", fallback: "deployed-policies", find: () => window.pxFindDoc?.(arg) };
       case "session": return { view: "chargeback", fallback: "chargeback-monitor", find: () => q(`#cbMonitor tr[data-session="${CSS.escape(arg)}"]`) };
       case "policy": return { view: "policies.pipeline", fallback: "pipeline", find: () => window.pxFindPolicy?.(arg) };  // a policy element: its control in the Policy explorer
@@ -366,9 +385,16 @@
       const n = ++b.shown;
       const ok = await highlight("send-button", "Ready: press Send to try it", n);
       addChip(b, `${circled(n)} Request prepared`, () => { prepare(a); clearSpots(); highlight("send-button", "Ready: press Send to try it", n); }, !ok);
+    } else if (a.type === "open_reference") {
+      const open = () => { if (typeof window.gwFlow?.pattern !== "function") return false; window.gwFlow.pattern(a.topic, a.index || 0); return true; };
+      const ok = open();
+      addChip(b, `📖 ${REF_NAMES[a.topic] || a.topic}`, open, !ok, "the References");
+      await sleep(ok ? 500 : 0);
     }
     ctxLine(); scrollDown();
   }
+  const REF_NAMES = { basics: "APIM basics", overview: "Surfaces", identity: "Identity", plan: "Plan enforcement", routing: "Routing & resilience",
+    metering: "Metering & logging", caching: "Caching", safety: "Content safety" };
   function prepare(a) {
     page("setMode")("build"); page("collapseLaunch")(false);
     page("selectAgent")(a.caller); page("setSurface")(a.surface);
@@ -415,8 +441,9 @@
   }
   function place() {
     S.raf = 0;
+    const lb = byId("gwLb"), covered = !!lb && !lb.hidden;  // spotlights wait behind the References lightbox and come back when it closes
     for (const sp of S.spots) {
-      const r = (sp.rect && sp.rect()) || sp.el.getBoundingClientRect(), on = sp.el.isConnected && (r.width > 0 || r.height > 0) && !!shown(sp.el);
+      const r = (sp.rect && sp.rect()) || sp.el.getBoundingClientRect(), on = !covered && sp.el.isConnected && (r.width > 0 || r.height > 0) && !!shown(sp.el);
       sp.box.style.display = on ? "" : "none"; sp.cap.style.display = on && !sp.cap.hidden ? "" : "none";
       if (!on) continue;
       Object.assign(sp.box.style, { left: `${r.left - 6}px`, top: `${r.top - 6}px`, width: `${r.width + 12}px`, height: `${r.height + 12}px` });
@@ -444,9 +471,20 @@
     const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
     const unesc = (s) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
     const fencePre = (lines) => { const raw = unesc(lines.join("\n")); return /^\s*</.test(raw) && typeof xmlPre === "function" ? xmlPre(raw, "xmlhl") : `<pre>${lines.join("\n")}</pre>`; };
+    const cells = (s) => s.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+    let table = null;
+    const flush = () => { if (table) { out.push(`<div class="cop-tbl"><table>${table.join("")}</tbody></table></div>`); table = null; } };
     for (const raw of esc(text).split("\n")) {
-      if (/^\s*```/.test(raw)) { if (fence) { out.push(fencePre(fence)); fence = null; } else { close(); fence = []; } continue; }
+      if (/^\s*```/.test(raw)) { flush(); if (fence) { out.push(fencePre(fence)); fence = null; } else { close(); fence = []; } continue; }
       if (fence) { fence.push(raw); continue; }
+      if (/^\s*\|.*\|\s*$/.test(raw)) {  // markdown table: header row, |---| separator, body rows
+        close();
+        if (/^\s*\|[\s:|-]+\|\s*$/.test(raw)) continue;
+        if (!table) table = [`<thead><tr>${cells(raw).map((c) => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>`];
+        else table.push(`<tr>${cells(raw).map((c) => `<td>${inline(c)}</td>`).join("")}</tr>`);
+        continue;
+      }
+      flush();
       const li = raw.match(/^\s*(?:[-*•]|(\d+)[.)])\s+(.*)$/);
       if (li) { const tag = li[1] ? "ol" : "ul"; if (list !== tag) { close(); out.push(`<${tag}>`); list = tag; } out.push(`<li>${inline(li[2])}</li>`); continue; }
       close();
@@ -454,7 +492,7 @@
       if (h) out.push(`<div class="cop-h">${inline(h[1])}</div>`); else if (raw.trim()) out.push(`<p>${inline(raw)}</p>`);
     }
     if (fence) out.push(fencePre(fence));
-    close();
+    flush(); close();
     return out.join("");
   }
 
@@ -476,5 +514,8 @@
     if (e.key !== "Escape") return;
     if (S.spots.length) clearSpots(); else if (!panel.hidden && panel.contains(document.activeElement)) open(false);
   });
-  window.sandboxCopilot = { open, ask, highlight: (target, caption) => { clearSpots(); return highlight(target, caption, 1); }, clear: clearSpots };
+  window.sandboxCopilot = { open, ask, highlight: (target, caption) => { clearSpots(); return highlight(target, caption, 1); }, clear: clearSpots,
+    // Runs one UI action as if the agent had sent it (presenter scripts and UI checks): e.g. { type: "open_reference", topic: "routing" }
+    act: async (a) => { const b = addBot(); b.sum.parentElement.hidden = true; await act(a, b); return !b.el.querySelector(".cop-chip.off"); },
+    targets: () => Object.keys(T) };
 })();

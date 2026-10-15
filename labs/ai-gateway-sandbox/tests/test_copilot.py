@@ -84,7 +84,7 @@ class CopilotTests(unittest.TestCase):
         with patch.object(app, "law_query", return_value=[{"Calls": 2, "Text": "t" * 500}]) as law:
             result = app.copilot_kql("AppTraces | summarize Calls = count();", "P30D")
         query, timespan = law.call_args[0]
-        self.assertTrue(query.endswith("\n| take 50"))
+        self.assertTrue(query.endswith(f"\n| take {app.COPILOT_KQL_ROWS}"))
         self.assertNotIn(";", query)
         self.assertEqual(timespan, "P1D")
         self.assertEqual(result["rowCount"], 1)
@@ -220,6 +220,35 @@ class CopilotTests(unittest.TestCase):
         for name in app.COPILOT_TARGETS | {k + ":" for k in app.COPILOT_TARGET_KINDS}:
             self.assertIn(name, app.COPILOT_PROMPT, name)
 
+    def test_references_match_the_page_and_open_by_topic_or_item(self):
+        html = (LAB / "src" / "static" / "index.html").read_text(encoding="utf-8")
+        block = html[html.index("const PATTERNS = {"):html.index("const PAT_KEYS")]
+        page, topic = {}, None
+        for m in re.finditer(r'^\s{10}([a-z]+): \{ title:|^\s{12}\["([a-z0-9-]+)",', block, re.M):
+            if m.group(1):
+                topic = m.group(1)
+                page[topic] = []
+            else:
+                page[topic].append(m.group(2))
+        self.assertEqual(page, app.COPILOT_REFERENCES)
+        js = (LAB / "src" / "static" / "copilot.js").read_text(encoding="utf-8")
+        self.assertEqual(set(re.findall(r"(\w+): \"", js[js.index("const REF_NAMES"):js.index("function prepare(")])), set(app.COPILOT_REFERENCES))
+        self.assertEqual(app.copilot_ui_action("ui_open_reference", {"topic": "routing", "item": "backend-circuit-breaking"}, self.ui)[0],
+                         {"type": "open_reference", "topic": "routing", "index": 2})
+        self.assertEqual(app.copilot_ui_action("ui_open_reference", {"topic": "nope", "item": "semantic-caching"}, self.ui)[0]["topic"], "caching")
+        self.assertEqual(app.copilot_ui_action("ui_open_reference", {"topic": "plan", "item": "zzz"}, self.ui)[0]["index"], 0)
+        self.assertIsNone(app.copilot_ui_action("ui_open_reference", {"topic": "nope"}, self.ui)[0])
+
+    def test_copilot_keeps_a_longer_conversation_than_build_your_own(self):
+        turns = [{"role": "user" if i % 2 == 0 else "assistant", "content": "x" * 2000} for i in range(31)]
+        self.assertIsNone(app.chat_history(turns))
+        self.assertEqual(len(app.chat_history(turns, app.COPILOT_HISTORY, app.COPILOT_HISTORY_CHARS)), 31)
+        with patch.object(app, "copilot_llm", return_value=llm_reply({"content": "ok"})) as llm:
+            events = []
+            app.copilot({"messages": turns, "ui": UI}, events.append)
+        self.assertEqual(events[-1]["type"], "answer")
+        self.assertEqual(len(llm.call_args[0][0]), 32)
+
     def test_gateway_block_is_reported_and_last_step_forces_an_answer(self):
         blocked = (429, {"x-gw-blocked-by": "llm-token-limit", "retry-after": "12"}, {"error": {"message": "Token limit is exceeded."}}, 0.1)
         events, _ = self.run_copilot([blocked])
@@ -228,7 +257,8 @@ class CopilotTests(unittest.TestCase):
         self.assertEqual(events[-1]["headers"]["x-gw-blocked-by"], "llm-token-limit")
 
         looping = [llm_reply({"content": None, "tool_calls": [tool_call(f"c{i}", "get_call_details", {"call_number": 3})]}) for i in range(5)]
-        events, llm = self.run_copilot(looping + [llm_reply({"content": "Done."})])
+        with patch.object(app, "COPILOT_MAX_STEPS", 6):
+            events, llm = self.run_copilot(looping + [llm_reply({"content": "Done."})])
         self.assertEqual(events[-1]["text"], "Done.")
         self.assertEqual([c[0][3] for c in llm.call_args_list], [False] * 5 + [True])
 

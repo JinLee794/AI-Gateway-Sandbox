@@ -467,18 +467,18 @@ def error_message(status, data, text):
 MAX_HISTORY, MAX_HISTORY_CHARS = 20, 24000
 
 
-def chat_history(value):
+def chat_history(value, max_messages=MAX_HISTORY, max_chars=MAX_HISTORY_CHARS):
     """Earlier turns of a build-your-own conversation, so the model sees the session's context. None when invalid."""
     if not value:
         return []
-    if not isinstance(value, list) or len(value) > MAX_HISTORY:
+    if not isinstance(value, list) or len(value) > max_messages:
         return None
     turns = []
     for m in value:
         if not isinstance(m, dict) or m.get("role") not in ("user", "assistant") or not isinstance(m.get("content"), str):
             return None
         turns.append({"role": m["role"], "content": m["content"]})
-    return turns if sum(len(m["content"]) for m in turns) <= MAX_HISTORY_CHARS else None
+    return turns if sum(len(m["content"]) for m in turns) <= max_chars else None
 
 
 def sse_chat_completion(text):
@@ -1225,8 +1225,16 @@ COPILOT_SUBSCRIPTION = os.environ.get("COPILOT_SUBSCRIPTION", "sandbox-copilot")
 COPILOT_PRODUCT = os.environ.get("COPILOT_PRODUCT", "agent-platform")
 COPILOT_MODEL = os.environ.get("COPILOT_MODEL", "gpt-4.1-mini")
 COPILOT_PER_MINUTE = int(os.environ.get("COPILOT_MAX_QUESTIONS_PER_MINUTE", 20))
-COPILOT_MAX_STEPS, COPILOT_MAX_TOKENS, COPILOT_MAX_TOOL_CALLS = 6, 600, 12
-COPILOT_RESULT_CHARS, COPILOT_TOTAL_RESULT_CHARS, COPILOT_MAX_BODY = 11000, 30000, 400_000
+COPILOT_MAX_STEPS = int(os.environ.get("COPILOT_MAX_STEPS", 10))
+# Output tokens per model call; the agent-platform plan's maxOutputTokens (sandbox-config.json) caps it again at the gateway
+COPILOT_MAX_TOKENS = int(os.environ.get("COPILOT_MAX_TOKENS", 2000))
+COPILOT_MAX_TOOL_CALLS = int(os.environ.get("COPILOT_MAX_TOOL_CALLS", 24))
+COPILOT_RESULT_CHARS = int(os.environ.get("COPILOT_RESULT_CHARS", 24000))
+COPILOT_TOTAL_RESULT_CHARS = int(os.environ.get("COPILOT_TOTAL_RESULT_CHARS", 90000))
+COPILOT_KQL_ROWS = int(os.environ.get("COPILOT_KQL_ROWS", 100))
+# The conversation the copilot sees: longer than build-your-own chats, so users can iterate on logs with it
+COPILOT_HISTORY, COPILOT_HISTORY_CHARS = int(os.environ.get("COPILOT_HISTORY", 40)), int(os.environ.get("COPILOT_HISTORY_CHARS", 120000))
+COPILOT_MAX_BODY = 1_000_000
 COPILOT_VIEWS = ("scenarios", "builder", "conversation", "live", "runs", "spend", "chargeback", "plans", "policies.investigate",
                  "policies.pipeline", "policies.telemetry", "policies.deployed", "monitor")
 COPILOT_FLOWS = ("happy", "downgrade", "tpm", "budget", "failover", "mcp", "a2a", "noauth", "safety")
@@ -1235,11 +1243,17 @@ COPILOT_TARGET = re.compile(r"[a-z][a-z0-9-]{1,30}(:[\w .@()-]{1,80})?")
 COPILOT_TARGETS = {"scenarios", "builder", "callers", "surface-picker", "model-select", "prompt", "session-id", "end-user", "trace-toggle",
                    "token-toggle", "send-button", "conversation", "budget-meter", "kpis", "signals", "last-response", "budgets", "budget-burn",
                    "outcomes-chart", "cost-chart", "latency-chart", "live-request-log", "run-history", "chargeback-flow", "chargeback-ledger",
-                   "chargeback-monitor", "plans-matrix", "price-list", "endpoints", "request-log", "flow-diagram", "evidence-panel", "pipeline",
+                   "chargeback-monitor", "plans-matrix", "price-list", "endpoints", "request-log", "flow-diagram", "policies-at-work", "evidence-panel", "pipeline",
                    "backend-pool", "policy-map", "evidence-sinks", "policy-evidence", "deployed-policies", "monitor-cost", "monitor-outcomes",
                    "monitor-cost-time", "monitor-chargeback", "monitor-resources", "monitor-tokens", "monitor-governance", "portal-links",
                    "reset-budgets", "references"}
 COPILOT_TARGET_KINDS = {"scenario", "caller", "plan", "flow", "stage", "policy", "sink", "deployed", "session"}
+# The prepared reference material (PATTERNS in static/index.html: topic -> diagram names, in order; tests/test_copilot.py checks it)
+COPILOT_REFERENCES = {
+    "basics": ["apim-basics"], "overview": ["ai-gateway", "model-context-protocol", "a2a-agent-2-agent"],
+    "identity": ["access-controlling", "mcp-client-authorization"], "plan": ["token-rate-limiting", "finops-framework", "model-routing"],
+    "routing": ["backend-pool-load-balancing", "advanced-load-balancing", "backend-circuit-breaking"],
+    "metering": ["token-metrics-emitting", "built-in-logging"], "caching": ["semantic-caching"], "safety": ["content-safety"]}
 POLICY_SECTIONS = ("inbound", "backend", "outbound", "on-error")
 KQL_TIMESPANS = ("PT15M", "PT1H", "PT4H", "P1D", "P7D")
 POLICY_SKIP = {"policies", "fragment", "base", "choose", "when", "otherwise", "value", "string", "int", "bool", "double", "long", "decimal",
@@ -1250,10 +1264,11 @@ _copilot_calls = []
 COPILOT_PROMPT = """You are Sandbox Copilot, the built-in guide of the AI Gateway Sandbox: a live demo of Azure API Management as an AI gateway in front of Microsoft Foundry models, an MCP tool server (Commerce Tools) and an A2A agent (Sourcing Agent). You help a presenter or learner understand what the gateway is configured to do and what happened to their requests.
 
 How to answer
-- Be concise: answer in one short paragraph (at most 2 sentences), then at most 5 short bullets with the supporting facts; never repeat a fact in both. Use **bold** for key values and `code` for policy, header, table and subscription names. No preamble. Never end with a question or an offer, and don't narrate the UI actions you took: the user sees them happen.
+- Be concise by default: answer in one short paragraph (at most 2 sentences), then at most 5 short bullets with the supporting facts; never repeat a fact in both. When the user asks for a table, give a markdown table (header row, then one row per item). When the user asks to dig deeper, compare, list or break down logs (for example "show me the rows", "walk me through", "why exactly"), go deeper: a markdown table or up to 12 bullets is fine. Use **bold** for key values and `code` for policy, header, table and subscription names. No preamble. Never end with a question or an offer, and don't narrate the UI actions you took: the user sees them happen.
+- This is a conversation: build on earlier turns (the sessions, calls, queries and results already discussed) instead of starting over, and refine your earlier KQL when the user iterates on it.
 - Ground every fact in a tool result or the page state below. Never invent configuration, prices, limits or log rows. Use get_gateway_config or get_policy before describing configuration. Gateway logs reach Log Analytics 2-5 minutes after a call and chargeback records 1-3 minutes after: say so when rows are missing.
 - Refer to the page's calls as #n (their request-log number); they become links.
-- Show, don't just tell: every answer about something the sandbox displays must call ui_highlight (1-3 targets in reading order, on the same view when possible, each with a short caption; it navigates there first), for example plan:silver for the Silver plan, stage:plan for plan enforcement, policy:quota-by-key for a policy element, flow:pool for routing. To explain what a policy or a call goes through, also call ui_show_policy_flow with the ordered steps. To show what happened to one of the page's calls, call ui_open_request (it switches to What happened › Gateway flow, replays the call in the flow and loads its trace and log rows); any highlights with it should stay on that view: evidence-panel, request-log or flow:<node>. To illustrate a gateway behaviour in general, call ui_play_flow. To let the user try something, call ui_prepare_request (it fills the request builder; the user presses Send). Make all your UI calls together in one turn after your lookups: the turn after it is your answer.
+- Show, don't just tell: every answer about something the sandbox displays must call ui_highlight (1-3 targets in reading order, on the same view when possible, each with a short caption; it navigates there first), for example plan:silver for the Silver plan, stage:plan for plan enforcement, policy:quota-by-key for a policy element, flow:pool for routing. To explain what a policy or a call goes through, also call ui_show_policy_flow with the ordered steps. To show what happened to one of the page's calls, call ui_open_request (it switches to What happened › Gateway flow, replays the call in the flow and loads its trace and log rows); any highlights with it should stay on that view: evidence-panel, request-log or flow:<node>. To illustrate a gateway behaviour in general, call ui_play_flow. To teach a concept or pattern in depth (what a backend pool, token rate limiting or semantic caching is), call ui_open_reference: it opens the prepared animated diagram with the matching lab. To let the user try something, call ui_prepare_request (it fills the request builder; the user presses Send). Make all your UI calls together in one turn after your lookups: the turn after it is your answer.
 - You are read-only: you cannot change configuration, reset budgets or send gateway requests for the user. Point them to the control instead (for example the reset-budgets target).
 - Your own model calls go through this gateway too: subscription `sandbox-copilot` on the internal `agent-platform` plan, session `copilot-<their session>`. Mention it only if asked.
 
@@ -1270,7 +1285,7 @@ Log Analytics tables (get_chargeback to rank users and sessions by cost, get_ses
 - ApiManagementGatewayLogs: TimeGenerated, CorrelationId, ApiId, OperationId, ProductId, ApimSubscriptionId, BackendId, BackendUrl, ResponseCode, BackendResponseCode, TotalTime, BackendTime, LastErrorSource, LastErrorReason, LastErrorMessage, Region
 - ApiManagementGatewayLlmLog: TimeGenerated, CorrelationId, DeploymentName, ModelName, PromptTokens, CompletionTokens, TotalTokens, IsStreamCompletion
 - ApiManagementGatewayMCPLog: TimeGenerated, CorrelationId, Method, ToolName, ServerName, ClientName, SessionId, Error
-- AppTraces (Application Insights): chargeback records where tostring(Properties.record) == "chargeback"; Properties: user, displayName, team, costCenter, kind, session, surface, item, via, costMicroUsd, chargedMicroUsd, promptTokens, completionTokens, cachedTokens, imageCount, caller, requestId, budgetEpoch
+- AppTraces (Application Insights): chargeback records where tostring(Properties.record) == "chargeback"; Properties: user, displayName, team, costCenter, kind, session, surface, item, via, costMicroUsd, chargedMicroUsd, promptTokens, completionTokens, cachedTokens, imageCount, caller, requestId, budgetEpoch. Properties values are dynamic strings: cast them before use, and convert micro-USD with a double, e.g. extend user = tostring(Properties.user), usd = todouble(Properties.chargedMicroUsd) / 1e6 | summarize sum(usd) by user (integer division by 1000000 rounds small costs to 0)
 - AppMetrics: Name in ("CostMicroUSD", "GovernanceEvents", "BackendAttempts", "Prompt Tokens", "Completion Tokens"), Sum, ItemCount, Properties (Agent, Tier, Model, Surface, Via, Event, Backend, Failover)
 - AppRequests: TimeGenerated, Url, ResultCode, DurationMs, Properties["Subscription Name"], Properties["Product Name"]
 
@@ -1278,7 +1293,7 @@ UI targets for ui_highlight
 - Launch panel: scenarios, scenario:<number>, builder, callers, caller:<subscription e.g. user-ben>, surface-picker, model-select, prompt, session-id, end-user, trace-toggle, token-toggle, send-button
 - Conversation: conversation, budget-meter
 - Above the tabs (view live): kpis (calls, allowed, blocked, tokens, cost, latency)
-- What happened › Gateway flow (view policies.investigate; the page opens here and scenarios play out here): request-log, flow-diagram, flow:<client|entra|plan|cs|api|cache|pool|mi|log|r0|r1|mcp|a2a|la|ai> (the gateway flow, cs = Azure AI Content Safety, cache = semantic cache; it follows the page's calls while shown), evidence-panel
+- What happened › Gateway flow (view policies.investigate; the page opens here and scenarios play out here): request-log, flow-diagram, flow:<client|entra|plan|cs|api|cache|pool|mi|log|r0|r1|mcp|a2a|la|ai> (the gateway flow, cs = Azure AI Content Safety, cache = semantic cache; it follows the page's calls while shown), policies-at-work (beside the flow: the policies the current call went through, step by step), evidence-panel
 - What happened › Session overview (view live): signals, last-response, outcomes-chart, latency-chart, live-request-log, run-history (view runs)
 - Why: policies › Policy explorer, by stage (view policies.pipeline): pipeline (the explorer: pipeline strip, control list, selected control's detail), stage:<client|identity|plan|routing|metering>, policy:<policy element or name, e.g. llm-token-limit or quota-by-key> (selects that control and shows what it does, its level and its deployed lines), policy-map (the control list and detail), backend-pool
 - Why: policies › Policy explorer, by document (view policies.deployed): deployed-policies (the document list), deployed:<document name, e.g. Silver or entra-identity> (selects it: purpose, size, controls, named values, includes, full XML)
@@ -1346,8 +1361,12 @@ COPILOT_TOOLS = [
          "surface": {"type": "string", "enum": ["model", "tool", "agent"]},
          "model": {"type": "string"}, "tool": {"type": "string"},
          "prompt": {"type": "string", "description": "the prompt (model) or task (agent)"}}, ["caller", "surface"]),
+    _fn("ui_open_reference", "Open the prepared reference material (an animated pattern diagram with its explanation and a link to the matching AI Gateway "
+                             "lab or Microsoft Learn page) in a lightbox over the page. Use it when the user wants to learn a concept or pattern in depth.",
+        {"topic": {"type": "string", "enum": list(COPILOT_REFERENCES), "description": "; ".join(f"{k}: {', '.join(v)}" for k, v in COPILOT_REFERENCES.items())},
+         "item": {"type": "string", "description": "optional: one diagram of the topic, e.g. token-rate-limiting"}}, ["topic"]),
 ]
-COPILOT_UI_TOOLS = {"ui_navigate", "ui_highlight", "ui_open_request", "ui_play_flow", "ui_show_policy_flow", "ui_prepare_request"}
+COPILOT_UI_TOOLS = {"ui_navigate", "ui_highlight", "ui_open_request", "ui_play_flow", "ui_show_policy_flow", "ui_prepare_request", "ui_open_reference"}
 
 
 def copilot_enabled():
@@ -1591,10 +1610,10 @@ def copilot_kql(kql, timespan="P1D"):
     if re.search(r"(^|;)\s*\.", query):
         return {"error": "Only queries are allowed, not management commands"}
     timespan = timespan if timespan in KQL_TIMESPANS else "P1D"
-    rows = law_query(query + "\n| take 50", timespan)
+    rows = law_query(query + f"\n| take {COPILOT_KQL_ROWS}", timespan)
     if isinstance(rows, dict):
         return {"error": rows.get("error"), "query": query}
-    return {"rowCount": len(rows), "rows": _rows(rows), "portalLink": portal_logs_link(query, timespan)}
+    return {"rowCount": len(rows), "rows": _rows(rows, COPILOT_KQL_ROWS), "portalLink": portal_logs_link(query, timespan)}
 
 
 def copilot_ui(value):
@@ -1679,6 +1698,14 @@ def copilot_ui_action(name, args, ui):
         tool = args.get("tool") if any(t["name"] == args.get("tool") for t in CONFIG.get("tools", [])) else None
         return {"type": "prepare_request", "caller": args["caller"], "surface": args["surface"], "model": model, "tool": tool,
                 "prompt": _clip(args.get("prompt"), 2000)}, None
+    if name == "ui_open_reference":
+        topic, item = args.get("topic"), args.get("item")
+        if topic not in COPILOT_REFERENCES:
+            topic = next((k for k, v in COPILOT_REFERENCES.items() if item in v), None)
+        if not topic:
+            return None, f"topic must be one of {', '.join(COPILOT_REFERENCES)}"
+        items = COPILOT_REFERENCES[topic]
+        return {"type": "open_reference", "topic": topic, "index": items.index(item) if item in items else 0}, None
     return None, f"unknown UI tool {name}"
 
 
@@ -1753,9 +1780,9 @@ def copilot(payload, emit, presenter=None):
     """One question: an agent loop of model calls through the gateway and tool calls. Streams step, action and answer events."""
     if not copilot_enabled():
         return emit({"type": "error", "error": "The copilot is turned off (COPILOT_DISABLED) or the gateway configuration is missing."})
-    history = chat_history(payload.get("messages"))
+    history = chat_history(payload.get("messages"), COPILOT_HISTORY, COPILOT_HISTORY_CHARS)
     if not history or history[-1]["role"] != "user":
-        return emit({"type": "error", "error": f"Send the question as the last of at most {MAX_HISTORY} user/assistant messages ({MAX_HISTORY_CHARS:,} characters)."})
+        return emit({"type": "error", "error": f"Send the question as the last of at most {COPILOT_HISTORY} user/assistant messages ({COPILOT_HISTORY_CHARS:,} characters)."})
     if limited := copilot_limit():
         return emit({"type": "error", "error": limited})
     ui = copilot_ui(payload.get("ui"))
