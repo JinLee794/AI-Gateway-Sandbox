@@ -1290,7 +1290,7 @@ Log Analytics tables (get_chargeback to rank users and sessions by cost, get_ses
 - AppRequests: TimeGenerated, Url, ResultCode, DurationMs, Properties["Subscription Name"], Properties["Product Name"]
 
 UI targets for ui_highlight
-- Launch panel: scenarios, scenario:<number>, builder, callers, caller:<subscription e.g. user-ben>, surface-picker, model-select, prompt, session-id, end-user, trace-toggle, token-toggle, send-button
+- Launch panel: scenarios (the scenario picker), scenario:<number> (selects it and shows its preview), builder (the request builder: one sentence, As <caller> call <surface> <target> with <preset>), callers (opens the caller menu), caller:<subscription e.g. user-ben>, surface-picker, model-select, prompt (the conversation box, where the prompt is typed), session-id, end-user, trace-toggle, token-toggle (these four are under ⚙ Advanced), send-button
 - Conversation: conversation, budget-meter
 - Above the tabs (view live): kpis (calls, allowed, blocked, tokens, cost, latency)
 - What happened › Gateway flow (view policies.investigate; the page opens here and scenarios play out here): request-log, flow-diagram, flow:<client|entra|plan|cs|api|cache|pool|mi|log|r0|r1|mcp|a2a|la|ai> (the gateway flow, cs = Azure AI Content Safety, cache = semantic cache; it follows the page's calls while shown), policies-at-work (beside the flow: the policies the current call went through, step by step), evidence-panel

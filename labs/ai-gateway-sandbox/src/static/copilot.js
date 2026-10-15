@@ -249,11 +249,12 @@
     return sub ? q(`div.psec[data-psec="${sub}"]`) : byId("tab-" + tab);
   }
   // Highlight targets: name -> [view, finder]. The names are listed in app.py's COPILOT_PROMPT; keep both in sync.
+  const adv = (el) => { const d = byId("bAdv"); if (d && el && d.contains(el)) d.open = true; return el; };  // expert settings sit behind ⚙ Advanced
   const T = {
-    scenarios: ["scenarios", () => byId("scenarios")], builder: ["builder", () => byId("mode-build")], callers: ["builder", () => byId("agents")],
-    "surface-picker": ["builder", () => byId("surfacePivot")], "model-select": ["builder", () => byId("model")], prompt: ["builder", () => byId("prompt")],
-    "session-id": ["builder", () => byId("sessionId")?.parentElement], "end-user": ["builder", () => byId("endUser")?.parentElement],
-    "trace-toggle": ["builder", () => byId("useTrace")?.closest("label")], "token-toggle": ["builder", () => byId("useToken")?.closest("label")],
+    scenarios: ["scenarios", () => byId("scenarios")], builder: ["builder", () => byId("mode-build")], callers: ["builder", () => page("callerMenu")(true) || byId("callerBtn")],
+    "surface-picker": ["builder", () => byId("surfacePivot")], "model-select": ["builder", () => byId("model")], prompt: ["builder", () => byId("cvInput")],
+    "session-id": ["builder", () => adv(byId("sessionId")?.parentElement)], "end-user": ["builder", () => adv(byId("endUser")?.parentElement)],
+    "trace-toggle": ["builder", () => adv(byId("useTrace")?.closest("label"))], "token-toggle": ["builder", () => adv(byId("useToken")?.closest("label"))],
     "send-button": ["builder", () => byId("btnSend")],
     conversation: ["conversation", () => byId("cvCard")],
     "budget-meter": ["conversation", () => { const m = byId("cvMeter"); return m && !m.classList.contains("hidden") ? m : byId("cvCard"); }],
@@ -297,7 +298,7 @@
     const all = (sel) => [...document.querySelectorAll(sel)];
     switch (k) {
       case "scenario": return { view: "scenarios", find: () => window.scFocus?.((parseInt(arg, 10) || 0) - 1) ?? q(`.scenarios .scrow[data-i="${(parseInt(arg, 10) || 0) - 1}"]`) };
-      case "caller": return { view: "builder", find: () => all(".agent[data-agent]").find((e) => e.dataset.agent === arg) };
+      case "caller": return { view: "builder", find: () => { page("callerMenu")(true); return all(".agent[data-agent]").find((e) => e.dataset.agent === arg); } };
       case "plan": return { view: "plans", find: () => planColumn(arg)?.th, rect: () => planColumn(arg)?.rect(), prep: () => planColumn(arg)?.tint() };
       case "flow": return { view: "policies.investigate", find: () => q(`#gwfSvg g[data-node="${CSS.escape(arg)}"]`) };
       case "stage": return { view: "policies.pipeline", find: () => (STAGES[arg] ? q(`#pipe .stage:nth-child(${STAGES[arg]})`) : null) };
@@ -400,7 +401,7 @@
     page("selectAgent")(a.caller); page("setSurface")(a.surface);
     if (a.surface === "model" && a.model) byId("model").value = a.model;
     if (a.surface === "tool" && a.tool) { byId("tool").value = a.tool; byId("toolArgs").value = JSON.stringify((typeof TOOL_ARGS !== "undefined" && TOOL_ARGS[a.tool]) || {}); }
-    if (a.prompt) byId(a.surface === "agent" ? "agentTask" : "prompt").value = a.prompt;
+    if (a.prompt) { byId(a.surface === "agent" ? "agentTask" : "prompt").value = a.prompt; if (byId("cvInput")) byId("cvInput").value = a.prompt; }
     page("cvCtx")();
   }
 
