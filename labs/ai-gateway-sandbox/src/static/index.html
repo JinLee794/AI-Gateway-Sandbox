@@ -421,6 +421,10 @@
   .dchips span { background:#fff; border:1px solid #c7e0f4; border-radius:10px; padding:1px 8px; color:#005a9e; } .dchips i { color:var(--muted); font-style:normal; }
   /* Scenario mini-flow: the scenario's path, revealed hop by hop when it starts */
   #scFlow:empty { display:none; }
+  #scFlowMore:empty { display:none; } #scFlowMore .dgm { max-width:760px; }
+  .scmore { display:flex; flex-direction:column; gap:6px; margin-top:10px; font-size:13px; }
+  .scmore > details > summary { cursor:pointer; color:var(--accent); font-weight:600; }
+  .scmore #scStory { margin-top:6px; } .scmore #scSteps { margin-top:6px; }
   #scFlow .dgm { max-width:760px; }
   #scFlow .dr > * { opacity:0; animation:scHop .35s ease-out forwards; animation-delay:calc(var(--i, 0) * 140ms); }
   @keyframes scHop { from { opacity:0; transform:translateX(-6px); } to { opacity:1; transform:none; } }
@@ -750,10 +754,13 @@
   <section class="idle" id="sessionArea">
     <div class="card hidden" id="scenario">
       <h2 id="scTitle"></h2>
-      <div id="scStory" class="muted" style="font-size:13px"></div>
       <div id="scFlow" aria-label="Scenario path"></div>
-      <ol id="scSteps"></ol>
       <div id="scTakeaway"></div>
+      <div class="scmore">
+        <details id="scMoreBox"><summary>Details <span class="muted">· what the scenario does and how the gateway decides</span></summary>
+          <div id="scStory" class="muted" style="font-size:13px"></div><div id="scFlowMore"></div></details>
+        <details id="scStepsBox"><summary>Steps <span class="muted" id="scStepCount"></span></summary><ol id="scSteps"></ol></details>
+      </div>
     </div>
     <div class="tabs">
       <button class="active" data-tab="live">Live session</button>
@@ -3630,12 +3637,24 @@ function showRequestCard(run) {
     + `${cap != null ? ` · $${cap} per-session cap` : ""} · Entra ID token ${q.token ? "on" : "off"} · policy trace ${q.trace ? "on" : "off"}<br>${sess}`;
   $("scSteps").innerHTML = ""; $("scTakeaway").innerHTML = "";
   try {
-    $("scFlow").innerHTML = `<div class="dgm">${dg.row(a ? dg.node(escapeHtml(a.displayName), `<span class="badge ${a.tier}">${a.tier}</span>`) : dg.node(escapeHtml(q.who)),
-      dg.arrow(q.surface === "mixed" ? "models + tools" : SURFACES[q.surface] || q.surface), dg.gw(sid ? escapeHtml(sid) : "no session"), dg.arrow(), dg.node(escapeHtml(q.target), "", "model"))}</div>`;
-    $("scFlow").querySelectorAll(".dr").forEach(row => [...row.children].forEach((c, k) => c.style.setProperty("--i", k)));
+    setScFlow(dg.row(a ? dg.node(escapeHtml(a.displayName), `<span class="badge ${a.tier}">${a.tier}</span>`) : dg.node(escapeHtml(q.who)),
+      dg.arrow(q.surface === "mixed" ? "models + tools" : SURFACES[q.surface] || q.surface), dg.gw(sid ? escapeHtml(sid) : "no session"), dg.arrow(), dg.node(escapeHtml(q.target), "", "model")));
   } catch (e) { $("scFlow").innerHTML = ""; }
   if (curTab !== "live") showTab("live");
 }
+// The scenario card shows only the diagram; its tables, notes and chips go to the collapsed Details (with the story)
+const SC_DIAGRAM = ".dr, .dc, .dlane, .dseq, .db, svg";
+function setScFlow(html) {
+  $("scFlow").innerHTML = `<div class="dgm">${html}</div>`; $("scFlowMore").innerHTML = "";
+  const box = $("scFlow").firstElementChild, more = [...box.children].filter(c => !c.matches(SC_DIAGRAM));
+  if (more.length) { const d = document.createElement("div"); d.className = "dgm"; more.forEach(c => d.appendChild(c)); $("scFlowMore").appendChild(d); }
+  if (!box.children.length) $("scFlow").innerHTML = "";
+  $("scFlow").querySelectorAll(".dr").forEach(row => [...row.children].forEach((c, k) => c.style.setProperty("--i", k)));
+}
+// the Steps summary counts the steps as they're added (scenarios, requests and restored runs all write #scSteps)
+new MutationObserver(() => { const n = $("scSteps").children.length; $("scStepCount").textContent = n ? `(${n})` : ""; $("scStepsBox").hidden = !n; })
+  .observe($("scSteps"), { childList: true });
+$("scStepsBox").hidden = true;
 function requestTakeaway(run) {
   const sid = run.req.sessionId.trim(), s = runStats(run);
   let html = `This run: <b>${s.calls}</b> call${s.calls === 1 ? "" : "s"}, <b>${s.ok}</b> allowed, <b>${s.blocked}</b> blocked, <b>${fmtUsd(s.cost)}</b>${s.lat.n ? `, latency <b>${latText(s.lat)}</b>` : ""}.`;
@@ -5028,11 +5047,10 @@ async function runScenario(s) {
   $("scenario").dataset.mode = "guided";
   $("scenario").classList.remove("hidden"); $("scSteps").innerHTML = "";
   $("scTitle").textContent = s.title; $("scStory").innerHTML = s.story(); $("scTakeaway").innerHTML = "";
-  $("scFlow").innerHTML = "";
+  $("scFlow").innerHTML = ""; $("scFlowMore").innerHTML = "";
   try {
     if (s.preview) {
-      $("scFlow").innerHTML = `<div class="dgm">${s.preview()}</div>`;
-      $("scFlow").querySelectorAll(".dr").forEach(row => [...row.children].forEach((c, k) => c.style.setProperty("--i", k)));
+      setScFlow(s.preview());
     }
   } catch (e) { console.warn("scenario mini-flow failed", e); }
   const buildSession = $("sessionId").value, buildEndUser = $("endUser").value, buildScope = $("cacheScope").value;  // the builder's session, end user and cache scope are restored afterwards, so build-your-own requests keep aggregating onto them
