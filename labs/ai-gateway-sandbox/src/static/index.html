@@ -538,13 +538,15 @@
   .guided .scenarios { grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); }
   /* Request builder as one sentence: As [caller ▾] call [surface] [target] with [preset] · the prompt is typed in the conversation box ·
      expert settings behind ⚙ Advanced. The caller menu is a popover with the caller cards (fixed, so the panel's scroll can't clip it). */
-  .sentence { display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:14px; }
-  .sentence .w { color:var(--muted); font-weight:600; font-size:13px; }
-  .sentence select { width:auto; max-width:100%; height:32px; font-size:13px; }
-  .sentence #model { max-width:min(340px, 100%); } .sentence #preset { max-width:220px; } .sentence #tool { max-width:min(380px, 100%); }
-  .sentence .pivot { margin:0; flex:0 0 auto; } .sentence .pivot button { flex:0 0 auto; padding:0 10px; font-size:12.5px; }
-  .sentence .tgt { display:inline-flex; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; }
-  .sentence .tgt.hidden { display:none !important; }
+  .bform { display:grid; grid-template-columns:76px minmax(0,1fr); gap:14px 12px; align-items:start; }
+  .bform .bl { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; padding-top:9px; }
+  .bform .bv { min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:4px; }
+  .bform select { width:auto; max-width:100%; height:32px; font-size:13px; }
+  .bform #model, .bform #tool { width:min(420px, 100%); }
+  .bform .pivot { margin:0; } .bform .pivot button { flex:0 0 auto; padding:0 12px; font-size:13px; }
+  .bform .tgt { display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; min-height:32px; min-width:0; max-width:100%; }
+  .bform .tgt.hidden { display:none !important; }
+  .bprow { display:flex; gap:8px; align-items:center; width:100%; } .bprow #preset { flex:0 1 190px; min-width:0; }
   .pickbtn { display:inline-flex; align-items:center; gap:6px; height:32px; max-width:100%; background:#fff; color:var(--text); border:1px solid #8a8886; padding:0 10px; font-weight:400; font-size:13px; }
   .pickbtn:hover:not(:disabled), .pickbtn[aria-expanded="true"] { background:var(--accent-light); color:var(--text); border-color:var(--accent); }
   .pickbtn b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .pickbtn img.ico { width:16px; height:16px; }
@@ -555,18 +557,21 @@
   .callermenu .users { grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:6px; }
   .callermenu .agent { padding:6px 10px; } .callermenu .agent .meta { display:none; }
   .callermenu .pickhelp { margin:0 0 8px; }
-  #mode-build .callerLine { margin:10px 0 0; font-size:12.5px; }
-  .bprompt { display:flex; gap:8px; align-items:baseline; margin-top:8px; font-size:12.5px; padding:6px 10px; border:1px dashed var(--border); border-radius:4px; background:#fff; }
-  .bprompt .l { color:var(--muted); font-weight:600; flex:0 0 auto; } .bprompt .q { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-style:italic; }
+  #mode-build .callerLine { margin:0; padding:0; background:none; border:0; font-size:12px; color:var(--muted); line-height:1.45; }
+  #mode-build .callerLine b { color:var(--text); font-weight:600; } #mode-build .callerLine .badge { font-size:10px; }
+  .bprompt { flex:1; min-width:0; display:flex; gap:8px; align-items:center; height:32px; font-size:13px; padding:0 10px; border:1px solid var(--border); border-radius:4px; background:#fff; }
+  .bprompt.hidden + select { display:none; }
+  .bprompt .q { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-style:italic; }
   .bprompt a { flex:0 0 auto; font-size:12px; cursor:pointer; }
-  .bextra { margin-top:8px; } .bextra textarea { min-height:48px; font-family:Consolas,monospace; font-size:12px; }
-  .adv { margin-top:10px; border:1px solid var(--divider); border-radius:4px; background:var(--panel2); }
+  .bextra { width:100%; } .bextra textarea { min-height:48px; font-family:Consolas,monospace; font-size:12px; }
+  .adv { margin-top:16px; border:1px solid var(--divider); border-radius:4px; background:var(--panel2); }
   .adv > summary { cursor:pointer; padding:6px 10px; font-size:13px; font-weight:600; list-style:none; display:flex; align-items:center; gap:6px; }
   .adv > summary::-webkit-details-marker { display:none; }
   .adv > summary .muted { font-weight:400; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
   .adv .dot { width:7px; height:7px; border-radius:50%; background:var(--accent); flex:0 0 7px; }
   .adv > div { padding:0 10px 10px; } .adv .row { margin-top:4px; } .adv .sessrow { flex-wrap:wrap; } .adv .sessrow > div { min-width:180px; }
-  #mode-build .actions { margin-top:10px; }
+  #mode-build .actions { margin-top:14px; align-items:center; } #mode-build .actions .quiet { margin-left:auto; border-color:transparent; color:var(--accent); }
+  #mode-build .actions .quiet:hover:not(:disabled) { background:var(--accent-light); }
   #sessionArea.idle #tab-live > :not(.idlehint):not(.bdetails):not(.runbanner) { opacity:.45; filter:grayscale(.5); }
   .sigs { display:grid; grid-template-columns:1fr 1fr; gap:4px 14px; }
   .sigs h3 { grid-column:1 / -1; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin:8px 0 2px; }
@@ -630,8 +635,8 @@
   .cvcol > #cvCard .convo { flex:1 1 0; min-height:0; max-height:none; }
   .bench:has(.launch.collapsed) .cvcol { min-height:620px; margin-bottom:16px; }
   .bench .lbar { padding:10px 14px; gap:8px; } .bench .lbar .q { display:none; }
-  .bench .modes { flex:1 1 200px; min-width:0; } .bench .modes .or { display:none; } .bench .mode b { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .bench .mode { flex:1 1 0; min-width:0; padding:6px 10px 6px 8px; } .bench .mode small { display:none; } .bench .mode b { font-size:13px; }
+  .bench .modes { flex:0 1 auto; min-width:0; } .bench .modes .or { display:none; } .bench .mode b { white-space:nowrap; }
+  .bench .mode { flex:0 0 auto; padding:6px 14px 6px 8px; } .bench .mode small { display:none; } .bench .mode b { font-size:13px; }
   .bench .mode .ic { width:24px; height:24px; flex-basis:24px; font-size:12px; }
   .bench .lbody { padding:12px 14px 14px; }
   .bench .agent { padding:6px 10px; } .bench .agent .meta { display:none; }
@@ -763,26 +768,35 @@
       <div class="scenarios" id="scenarios"></div>
     </div>
     <div class="build hidden" id="mode-build">
-      <div class="sentence" id="bSentence">
-        <span class="w">As</span>
-        <button type="button" class="pickbtn" id="callerBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="callerMenu" title="Who's calling: each caller is one subscription key, and the gateway bills whoever's key makes the call"></button>
-        <span class="w">call</span>
-        <div class="pivot" id="surfacePivot">
+      <div class="bform" id="bSentence">
+        <span class="bl">Caller</span>
+        <div class="bv">
+          <button type="button" class="pickbtn" id="callerBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="callerMenu" title="Who's calling: each caller is one subscription key, and the gateway bills whoever's key makes the call"></button>
+        <div class="callerLine" id="callerLine">Pick who's calling.</div>
+        </div>
+        <span class="bl">Surface</span>
+        <div class="bv">
+          <div class="pivot" id="surfacePivot">
           <button class="active" data-surface="model"><img class="ico" src="/icons/foundry-models.svg" alt=""> AI model</button>
           <button data-surface="tool"><img class="ico" src="/icons/mcp.svg" alt=""> MCP tool</button>
           <button data-surface="agent"><img class="ico" src="/icons/a2a.svg" alt=""> A2A agent</button>
         </div>
-        <span class="tgt" id="pane-model"><select id="model" aria-label="Model requested"></select><span class="w">with</span><select id="preset" aria-label="Prompt preset" title="Puts a ready-made prompt in the conversation box"></select></span>
-        <span class="tgt hidden" id="pane-tool"><select id="tool" aria-label="Tool on the Commerce Tools MCP server"></select></span>
-        <span class="tgt hidden" id="pane-agent"><b>the Sourcing Agent</b> <span class="muted">(A2A: it calls 3 MCP tools and 1 model, billed to you)</span></span>
-      </div>
-      <div class="callerLine" id="callerLine">Pick who's calling.</div>
-      <div class="bextra hidden" id="toolExtra">
-        <label for="toolArgs">Arguments (JSON) <span class="muted">· or type them in the conversation box</span></label>
-        <textarea id="toolArgs"></textarea>
+        </div>
+        <span class="bl" id="bTgtL">Model</span>
+        <div class="bv">
+          <span class="tgt" id="pane-model"><select id="model" aria-label="Model requested"></select></span>
+          <span class="tgt hidden" id="pane-tool"><select id="tool" aria-label="Tool on the Commerce Tools MCP server"></select></span>
+          <span class="tgt hidden" id="pane-agent"><b>Sourcing Agent</b> <span class="muted">· calls 3 MCP tools and 1 model, billed to the caller</span></span>
+        </div>
+        <span class="bl" id="bPromptL">Prompt</span>
+        <div class="bv">
+          <div class="bprow"><div class="bprompt" id="bPrompt"></div><select id="preset" aria-label="Prompt preset" title="Puts a ready-made prompt in the conversation box"></select></div>
+        <div class="bextra hidden" id="toolExtra">
+                <textarea id="toolArgs"></textarea>
         <div class="muted" style="margin-top:4px">The UI acts as an MCP client: <code>initialize</code> then <code>tools/call</code> on <span id="mcpUrl"></span></div>
       </div>
-      <div class="bprompt" id="bPrompt"></div>
+        </div>
+      </div>
       <div class="hidden" aria-hidden="true"><textarea id="prompt" tabindex="-1"></textarea><textarea id="agentTask" tabindex="-1">Source 500 units of SKU-1042 for the Q3 electronics promotion. Recommend a supplier.</textarea></div>
       <details class="adv" id="bAdv"><summary>⚙ Advanced<span class="dot" id="bAdvDot" hidden></span><span class="muted" id="bAdvSum"></span></summary><div>
       <div class="row">
@@ -807,7 +821,7 @@
         <button class="secondary" id="btnBurst">Burst ×N</button>
         <button class="secondary hidden" id="btnList">List tools</button>
         <button class="secondary hidden" id="btnCard">Get agent card</button>
-        <button class="secondary" id="btnSim" title="30 short requests from random agents: AI models and MCP tools, 2 per second">Simulate mixed traffic (30)</button>
+        <button class="secondary quiet" id="btnSim" title="30 short requests from random agents: AI models and MCP tools, 2 per second">Simulate mixed traffic (30)</button>
       </div>
       <div class="callermenu" id="callerMenu" hidden role="dialog" aria-label="Who's calling">
       <div class="muted pickhelp">Each card is <span class="term" tabindex="0" data-primer><b>one subscription key</b></span>, and the gateway bills whoever's key makes the call. So pick an app <i>or</i> a user: a call is never both.</div>
@@ -2483,6 +2497,8 @@ function setSurface(s) {
   document.querySelectorAll("#surfacePivot button").forEach(b => b.classList.toggle("active", b.dataset.surface === s));
   for (const k of ["model", "tool", "agent"]) $("pane-" + k).classList.toggle("hidden", k !== s);
   $("toolExtra").classList.toggle("hidden", s !== "tool");
+  $("bTgtL").textContent = { model: "Model", tool: "Tool", agent: "Agent" }[s]; $("bPromptL").textContent = { model: "Prompt", tool: "Arguments", agent: "Task" }[s];
+  $("preset").classList.toggle("hidden", s !== "model");
   $("btnList").classList.toggle("hidden", s !== "tool"); $("btnCard").classList.toggle("hidden", s !== "agent");
   $("btnBurst").classList.toggle("hidden", s === "agent");
   renderCallerLine();
@@ -2502,7 +2518,7 @@ function renderCallerLine() {
   if (!a) { $("callerLine").textContent = "Pick who's calling in step 1."; return; }
   const who = `<b>${escapeHtml(a.displayName)}</b>`, kind = a.kind === "user" ? "user" : "app";
   const org = a.team ? ` · ${escapeHtml(a.team)}${a.costCenter ? ` (${escapeHtml(a.costCenter)})` : ""}` : "";
-  let html = `Calling as ${who} with the ${kind}'s own key <span class="badge ${a.tier}">${a.tier}</span> → billed to ${who}${org}`;
+  let html = `Uses the ${kind}'s own key → billed to ${who}${org}`;
   if (surface === "agent") html += `<br><span class="muted">The Sourcing Agent's own model and tool calls are billed to ${who} too, on its behalf.</span>`;
   $("callerLine").innerHTML = html;
 }
@@ -2558,7 +2574,7 @@ function advSum() {
   if (eu) x.push("end user " + eu); if ($("cacheScope").value) x.push("cache scope " + $("cacheScope").value);
   if (Number($("maxTokens").value) !== 200) x.push("max_tokens " + $("maxTokens").value);
   $("bAdvDot").hidden = !x.length;
-  $("bAdvSum").textContent = x.length ? "· " + x.join(" · ") : "· session, end user, Entra token, trace, history, streaming, max_tokens, burst size";
+  $("bAdvSum").textContent = x.length ? "· " + x.join(" · ") : "· session, end user, toggles, limits";
 }
 // What Send will send: the conversation box's text, or else the preset / last prompt (the builder has no prompt box of its own)
 function bPrompt() {
@@ -2566,8 +2582,8 @@ function bPrompt() {
   el.classList.toggle("hidden", surface === "tool");
   if (surface === "tool") return;
   const typed = $("cvInput").value.trim(), text = typed || $(surface === "agent" ? "agentTask" : "prompt").value.trim();
-  el.innerHTML = `<span class="l">${surface === "agent" ? "Task" : "Prompt"}</span><span class="q" title="${escapeHtml(text)}">${text ? escapeHtml(text) : "<i>empty</i>"}</span>`
-    + `<a data-ed title="Type or edit it in the conversation box; Enter sends it">${typed ? "typing in the conversation ↓" : "edit in the conversation ↓"}</a>`;
+  el.innerHTML = `<span class="q" title="${escapeHtml(text)}">${text ? escapeHtml(text) : "<i>empty</i>"}</span>`
+    + `<a data-ed title="Type or edit it in the conversation box; Enter sends it">${typed ? "typing below ↓" : "edit ↓"}</a>`;
 }
 function bPromptEdit() {
   const i = $("cvInput");
