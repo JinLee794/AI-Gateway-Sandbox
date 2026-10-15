@@ -291,7 +291,9 @@ class EntraModeAppTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(set(result["docs"]), {"product:gold", "api:inference-api", "api:inference-entra", "fragment:entra-identity",
                                                "fragment:chargeback-record", "fragment:entra-plan-inbound", "fragment:responses-pricing",
-                                               "fragment:semantic-cache-pricing"})
+                                               "fragment:semantic-cache-pricing", "api:commerce-mcp", "api:sourcing-agent", "op:createResponse",
+                                               "fragment:payer-attribution", "fragment:blocked-before-spend", "fragment:safety-ledger"})
+        self.assertIn("apis/inference-api/operations/createResponse/policies", result["docs"]["op:createResponse"])
         self.assertIn("policyFragments/entra-plan-inbound", result["docs"]["fragment:entra-plan-inbound"])
         self.assertEqual(result["namedValues"], {"model-pricing": "gpt-4.1=2/8/0", "budget-epoch": "42"}, "secret and Key Vault values never reach the page")
 

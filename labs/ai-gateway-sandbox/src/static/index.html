@@ -293,6 +293,38 @@
   .pipe .pi { display:flex; align-items:center; gap:4px; flex-wrap:wrap; line-height:1.35; } .pipe .pi code { font-size:11px; } .pipe .pi .k { font-weight:600; }
   .pipe .pi small { flex-basis:100%; color:var(--muted); font-size:11px; }
   .pipe .stage .pat { margin-top:auto; }
+  /* Policy pipeline › scenario breakout: high-level control → deployed policy → customization level */
+  .lvl { display:inline-flex; align-items:center; gap:2px; font-size:11px; font-weight:600; white-space:nowrap; }
+  .lvl i { width:6px; height:11px; border-radius:1.5px; background:#e1dfdd; display:inline-block; } .lvl i:nth-of-type(3) { margin-right:4px; }
+  .lvl.l1 { color:#0b6a0b; } .lvl.l1 i:nth-of-type(-n+1) { background:#107c10; }
+  .lvl.l2 { color:#8a5300; } .lvl.l2 i:nth-of-type(-n+2) { background:#c19c00; }
+  .lvl.l3 { color:#5c2e91; } .lvl.l3 i:nth-of-type(-n+3) { background:#8764b8; }
+  .pmhead { display:flex; align-items:center; gap:10px 16px; flex-wrap:wrap; margin:0 0 12px; font-size:12px; }
+  .pmhead label { margin:0; font-size:12px; } .pmhead select { width:auto; min-width:300px; max-width:460px; height:32px; font-size:13px; }
+  .pmhead .sum { display:flex; gap:12px; flex-wrap:wrap; align-items:center; color:var(--muted); }
+  .pmhead .sum b { color:var(--text); }
+  .pmlegend { display:flex; flex-wrap:wrap; gap:4px 18px; font-size:11.5px; color:var(--muted); margin:-4px 0 12px; } .pmlegend .lvl { margin-right:2px; }
+  .pipe.focus .stage:not(.hit) { opacity:.42; }
+  .pipe .stage.hit { box-shadow:inset 0 0 0 2px #0078d4; }
+  .pipe .stage .pmk { font-size:11px; font-weight:700; color:var(--accent); } .pipe .stage .pmk:empty { display:none; } .pipe .stage .pmk span { font-weight:400; color:var(--muted); }
+  .pipe .pi.on { background:#fff; border-radius:4px; box-shadow:0 0 0 1px #0078d4; padding:2px 4px; margin:-2px -4px; }
+  .pipe .pi .pnum { color:var(--accent); font-weight:700; }
+  .pmrows { margin-top:16px; border-top:1px solid var(--divider); }
+  .pmrow { display:grid; grid-template-columns:26px minmax(170px,1.15fr) minmax(170px,1fr) minmax(240px,2.1fr) 120px; gap:6px 14px; padding:10px 0; border-bottom:1px solid var(--divider); font-size:12.5px; align-items:start; }
+  .pmrow.hd { font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; padding:8px 0 6px; }
+  .pmrow .n { width:22px; height:22px; border-radius:50%; background:var(--accent); color:#fff; display:grid; place-items:center; font-size:11px; font-weight:700; }
+  .pmrow .ctl b { display:block; font-size:13px; line-height:1.3; margin-bottom:3px; } .pmrow .ctl .out { margin-right:3px; }
+  .pmrow .pol code { font-size:11.5px; white-space:normal; } .pmrow .pol small, .pmrow .lvc small { display:block; color:var(--muted); font-size:11px; margin-top:3px; line-height:1.35; }
+  .pmrow .what { line-height:1.45; } .pmrow .what .uses { display:block; margin-top:4px; font-size:11px; color:var(--muted); } .pmrow .what .uses a { margin-right:6px; }
+  .pmrow details { grid-column:2 / -1; } .pmrow details > summary { cursor:pointer; font-size:12px; color:var(--accent); }
+  .pmrow .pmsrc { margin-top:6px; font-size:11px; color:var(--muted); } .pmrow pre.xml { margin-top:4px; max-height:320px; white-space:pre-wrap; word-break:break-word; }
+  .pmrow pre.xml .xl { display:block; padding-left:47px; text-indent:-47px; } /* ARM returns long elements on one line: wrap them under the gutter */
+  .pmrow .nvl { margin-top:6px; font-size:11px; display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+  .pmrow .nvl .nvref { font:600 11px Consolas,monospace; background:#f4effa; color:#5c2e91; border:1px solid #d9c7ee; border-radius:3px; padding:0 3px; }
+  .pmrow .nvl code { font-size:10.5px; background:#fff; border:1px solid var(--divider); border-radius:3px; padding:0 5px; }
+  .pmrow .adopt { margin-top:8px; font-size:12px; background:var(--panel2); border-left:3px solid var(--accent); padding:6px 10px; border-radius:0 4px 4px 0; }
+  .pmgrp { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); padding:14px 0 2px; display:flex; gap:6px; align-items:center; } .pmgrp img { width:16px; height:16px; }
+  @media (max-width:1100px) { .pmrow { grid-template-columns:26px 1fr; } .pmrow > :not(.n) { grid-column:2; } .pmrow.hd { display:none; } }
   .bkpool { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:10px; }
   .bkpool .ph { grid-column:1 / -1; font-size:12px; color:var(--muted); display:flex; gap:6px; align-items:center; }
   .bk { border:1px solid var(--border); border-radius:6px; padding:10px 12px; display:flex; gap:10px; align-items:flex-start; background:#fff; }
@@ -425,6 +457,9 @@
   .scmore { display:flex; flex-direction:column; gap:6px; margin-top:10px; font-size:13px; }
   .scmore > details > summary { cursor:pointer; color:var(--accent); font-weight:600; }
   .scmore #scStory { margin-top:6px; } .scmore #scSteps { margin-top:6px; }
+  .scpol { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:10px; font-size:12px; } .scpol:empty { display:none; }
+  .scpol .pc { display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 9px; background:#fff; color:var(--text); border:1px solid var(--border); border-radius:12px; font-size:12px; font-weight:400; }
+  .scpol .pc:hover:not(:disabled) { background:var(--accent-light); border-color:#c7e0f4; color:var(--text); }
   #scFlow .dgm { max-width:760px; }
   #scFlow .dr > * { opacity:0; animation:scHop .35s ease-out forwards; animation-delay:calc(var(--i, 0) * 140ms); }
   @keyframes scHop { from { opacity:0; transform:translateX(-6px); } to { opacity:1; transform:none; } }
@@ -756,6 +791,7 @@
       <h2 id="scTitle"></h2>
       <div id="scFlow" aria-label="Scenario path"></div>
       <div id="scTakeaway"></div>
+      <div class="scpol" id="scPol" aria-label="Policies behind this scenario"></div>
       <div class="scmore">
         <details id="scMoreBox"><summary>Details <span class="muted">· what the scenario does and how the gateway decides</span></summary>
           <div id="scStory" class="muted" style="font-size:13px"></div><div id="scFlowMore"></div></details>
@@ -2125,11 +2161,17 @@
       </div><!-- /psec plans -->
 
       <div class="psec hidden" data-psec="pipeline">
-      <div class="card">
-        <h2>Request pipeline <span class="info" tabindex="0" data-tip="Policies run in scopes: the product (plan) policy wraps the API policy. A call is rejected by the first policy that fails, before it costs anything. Every response carries x-gw-request-id, the key that finds the same call in the trace and in every Log Analytics table.">i</span>
+      <div class="card" id="polMapCard">
+        <h2>Request pipeline <span class="info" tabindex="0" data-tip="Policies run in scopes: the product (plan) policy wraps the API policy. A call is rejected by the first policy that fails, before it costs anything. Every response carries x-gw-request-id, the key that finds the same call in the trace and in every Log Analytics table. Pick a scenario to see which high-level controls it shows, the exact deployed policy behind each one, and how much of it is out of the box versus custom.">i</span>
           <span class="legend"><span class="out o401">401</span> identity <span class="out o403">403</span> entitlement / $ budget <span class="out o429">429</span> token limit <span class="out dg">↓</span> downgrade</span></h2>
+        <div class="pmhead">
+          <label for="polMapSc">Break it down for</label><select id="polMapSc"></select>
+          <span class="sum" id="polMapSum"></span>
+        </div>
+        <div class="pmlegend" id="polMapLegend"></div>
         <div class="pscopes"><span class="c1">Client</span><span class="c2">Product (plan) scope · inbound</span><span class="c3">API scope · inbound + backend</span><span class="c4">Outbound</span></div>
         <div class="pipe" id="pipe"></div>
+        <div class="pmrows" id="polMap"></div>
       </div>
       <div class="card" style="margin-top:16px">
         <h2><img class="ico lg" src="/icons/backend-pool.svg" alt=""> Backend pool <span class="muted">priority routing · circuit breakers · managed identity</span></h2>
@@ -3635,7 +3677,7 @@ function showRequestCard(run) {
     : `Starts session <span class="sess">${escapeHtml(sid)}</span>. Send again to add to it, or press <b>New session</b> to start a fresh one.`;
   $("scStory").innerHTML = `<b>${escapeHtml(q.action)}</b>${a ? ` as <b>${escapeHtml(a.displayName)}</b> <span class="badge ${a.tier}">${a.tier}</span>` : ""} · ${surfChip(q.surface === "mixed" ? "model" : q.surface)} ${escapeHtml(q.target)}`
     + `${cap != null ? ` · $${cap} per-session cap` : ""} · Entra ID token ${q.token ? "on" : "off"} · policy trace ${q.trace ? "on" : "off"}<br>${sess}`;
-  $("scSteps").innerHTML = ""; $("scTakeaway").innerHTML = "";
+  $("scSteps").innerHTML = ""; $("scTakeaway").innerHTML = ""; $("scPol").innerHTML = "";
   try {
     setScFlow(dg.row(a ? dg.node(escapeHtml(a.displayName), `<span class="badge ${a.tier}">${a.tier}</span>`) : dg.node(escapeHtml(q.who)),
       dg.arrow(q.surface === "mixed" ? "models + tools" : SURFACES[q.surface] || q.surface), dg.gw(sid ? escapeHtml(sid) : "no session"), dg.arrow(), dg.node(escapeHtml(q.target), "", "model")));
@@ -3936,6 +3978,7 @@ function showPsec(name) {
   root.querySelectorAll(".psub button").forEach(b => { b.classList.toggle("on", b.dataset.psec === name); b.setAttribute("aria-selected", b.dataset.psec === name); });
   root.querySelectorAll("div.psec").forEach(x => x.classList.toggle("hidden", x.dataset.psec !== name));
   if (name === "investigate") { renderEvLog(); window.gwFlow?.shown(); }
+  if (name === "pipeline") renderPolMap();
   if (name === "chargeback" && !cbLoaded) { cbLoaded = true; loadChargeback(); }
   if (name === "monitor" && !charts._loaded) { charts._loaded = true; refreshMonitor(); }
 }
@@ -3965,6 +4008,301 @@ const SINKS = [
 $("sinks").innerHTML = SINKS.map(x => `<div class="sink"><div class="h">${ico(x.ico, "", "")}<div class="t">${x.t}<small>${x.by}</small></div><span class="dly${x.d === "instant" ? " now" : ""}">${x.d}</span></div>`
   + `<div class="chips">${x.f.map(f => `<span class="chip">${f}</span>`).join("")}</div><div class="fk">find a call by <span class="chip key">${x.key}</span></div></div>`).join("");
 
+// ---------- Policy pipeline › scenario breakout ----------
+// Each scenario lists the high-level controls it demonstrates (SCENARIOS[i].controls). A control names the policy that
+// implements it, where it is deployed, what it does, how much of it is built in, and an anchor that finds its lines in the
+// deployed XML (read back from ARM by /api/flow-policies, so the line numbers and the rendered plan values are real).
+//   s short label · c control · p policy · st pipeline stage · at where · doc "product" (resolved to a plan) | "api:…" | "fragment:…" | "op:…"
+//   a anchor line · e end line (max lines) or n lines · pre lines before the anchor · l level 1-3 · o outcomes · w what it does · u to use it yourself
+//   nv named values it reads · pi the item it matches in the pipeline diagram · tier the plan whose policy is shown
+const POL_LEVELS = {
+  1: ["Out of the box", "A built-in API Management policy or gateway setting: you only set its attributes."],
+  2: ["Configured", "A built-in policy put to work with your own counter keys, expressions or named values."],
+  3: ["Custom", "Logic written as policy expressions (C#) or a fragment: you own, test and version it."] };
+const lvlHtml = (l, text = true) => `<span class="lvl l${l}" title="${POL_LEVELS[l][0]}: ${POL_LEVELS[l][1]}"><i></i><i></i><i></i>${text ? POL_LEVELS[l][0] : ""}</span>`;
+const STAGE_IX = { client: 0, identity: 1, plan: 2, routing: 3, metering: 4 };
+const circ = (n) => "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"[n - 1] || `(${n})`;
+const XML_END = /\}" \/>\s*$/, TAG_END = /\/>\s*$/;
+const POL_CONTROLS = {
+  "entra": { s: "Entra ID caller", c: "Only approved apps and users can call", p: "validate-azure-ad-token", st: "identity", pi: "validate-azure-ad-token",
+    at: "entra-identity fragment · first in every plan policy", doc: "fragment:entra-identity", a: /<validate-azure-ad-token/, e: /<\/validate-azure-ad-token>/, max: 20, l: 1, o: ["401"],
+    w: "Checks the Microsoft Entra ID token's tenant, audience and client app: no valid token, 401 before anything else runs. The fragment then records who called (user or workload identity) for chargeback.",
+    u: "Add <code>validate-azure-ad-token</code> with your tenant, the API's audience and the client app IDs you allow." },
+  "model-ent": { s: "Model allow-list", c: "Only the models in the plan: downgrade or deny", p: "choose + set-body / return-response", st: "plan", pi: "entitlement",
+    at: "Plan (product) policy · inbound", doc: "product", a: /<!-- 1\. Model governance -->/, n: 6, l: 3, o: ["dg", "403"],
+    w: "Reads the requested model from the body. If the plan doesn't include it, the policy either swaps in the plan's fallback model (downgrade, the app still gets a 200) or answers 403 before Foundry is called.",
+    u: "Copy the block and list each plan's models and fallback. Here <code>main.bicep</code> renders them per plan from <code>sandbox-config.json</code>." },
+  "out-cap": { s: "Output cap", c: "Bounded output per call", p: "set-body (max_tokens)", st: "plan", tier: "bronze",
+    at: "Plan (product) policy · inbound", doc: "product", a: /<!-- 2\. Output token cap/, e: /<\/set-body>/, max: 26, l: 3, o: ["dg"],
+    w: "Rewrites <code>max_tokens</code> / <code>max_completion_tokens</code> / <code>max_output_tokens</code> down to the plan's cap (and adds one when missing), so one request has a bounded worst-case cost. The app's code doesn't change.",
+    u: "Copy the <code>set-body</code> expression and set the cap per plan." },
+  "tpm": { s: "Token limit", c: "Tokens per minute and token quota", p: "llm-token-limit", st: "plan", pi: "llm-token-limit", tier: "bronze",
+    at: "Plan (product) policy · inbound", doc: "product", a: /<llm-token-limit counter-key="@\("tokens-/, e: TAG_END, max: 8, l: 1, o: ["429", "403"],
+    w: "Built-in AI gateway policy: counts prompt + completion tokens per subscription. Over the tokens per minute, 429 with Retry-After; over the token quota, 403. Throttled calls never reach Foundry.",
+    u: "Add <code>llm-token-limit</code> to the product and set <code>tokens-per-minute</code> and <code>token-quota</code>. The budget epoch in the counter key is a sandbox extra so <b>Reset budgets</b> works." },
+  "budget": { s: "Plan $ budget", c: "One $ budget per subscription, across every surface", p: "quota-by-key (subscription-budget)", st: "plan", pi: "quota-by-key",
+    at: "Plan (product) policy · inbound (checked before the call, charged after it)", doc: "product", a: /<quota-by-key id="subscription-budget"/, e: TAG_END, max: 6, l: 2, o: ["403"], nv: ["budget-epoch"],
+    w: "A built-in call quota used as a money meter: the limit is the budget in micro-USD and every successful call adds its price (<code>increment-count</code> = the cost the API policy computed). Models, MCP tools, A2A agents and images all draw from it.",
+    u: "First price every call (see the pricing controls). Then set <code>calls</code> to the budget in micro-USD and <code>increment-count</code> to the price." },
+  "session": { s: "Session id", c: "Group calls into one conversation (session)", p: "set-variable session", st: "plan",
+    at: "Plan (product) policy · inbound", doc: "product", a: /<set-variable name="session" value="@\{/, e: XML_END, max: 16, l: 3,
+    w: "Takes the session from <code>x-session-id</code>, else the MCP <code>Mcp-Session-Id</code>, else the A2A <code>contextId</code> (an agent's downstream calls keep the caller's session). The session cap and every chargeback record use it.",
+    u: "Have your apps send <code>x-session-id</code>; copy the expression if you also need the MCP and A2A fallbacks." },
+  "session-budget": { s: "Session $ cap", c: "$ cap per session (stops runaway loops)", p: "quota-by-key (session-budget)", st: "plan", pi: "quota-by-key",
+    at: "Plan (product) policy · inbound", doc: "product", a: /<quota-by-key id="session-budget"/, e: TAG_END, max: 6, l: 2, o: ["403"],
+    w: "A second quota counter keyed by subscription + session. A runaway conversation or agent loop gets 403 long before it drains the plan budget; a new session starts with a fresh cap.",
+    u: "Same as the plan $ budget, with the session in the counter key." },
+  "eu-budget": { s: "End-user $ budget", c: "$ budget per end user inside one app key", p: "quota-by-key + {{end-user-budgets}}", st: "plan", pi: "quota-by-key",
+    at: "Plan (product) policy · inbound", doc: "product", a: /<quota-by-key calls="1000000"/, e: XML_END, max: 10, l: 3, o: ["403"], nv: ["end-user-budgets"],
+    w: "The app names its user in <code>x-gw-end-user</code>. The policy looks up the user's class or override in the <code>end-user-budgets</code> named value and counts spend in parts per million of that user's own budget, so one fixed quota serves every amount and budgets change without a redeploy.",
+    u: "Copy the block. In production take the user from the Entra ID token's <code>oid</code> instead of a header." },
+  "model-price": { s: "Model pricing", c: "Price every model call", p: "set-variable costMicroUsd", st: "metering",
+    at: "AI models API policy · outbound", doc: "api:inference-api", a: /<set-variable name="costMicroUsd" value="@\{/, e: XML_END, max: 14, l: 3, nv: ["model-pricing"],
+    w: "After the response, multiplies the prompt and completion tokens from the usage block by the served model's prices from the <code>model-pricing</code> rate card. Streams are charged at their ceiling. This price feeds every $ budget, metric and chargeback record.",
+    u: "Keep the rate card in a named value (FinOps changes it without a redeploy) and copy the expression." },
+  "token-metric": { s: "Token metrics", c: "Token usage per agent and model", p: "llm-emit-token-metric", st: "metering", pi: "llm-emit-token-metric",
+    at: "AI models API policy · inbound", doc: "api:inference-api", a: /<llm-emit-token-metric/, e: /<\/llm-emit-token-metric>/, max: 8, l: 1,
+    w: "Built-in: emits prompt, completion and total tokens to Application Insights with up to 5 custom dimensions (here Agent, Tier, Model, Surface and Via).",
+    u: "Add the policy and an Application Insights logger with custom metrics on; pick your dimensions." },
+  "cost-metric": { s: "Cost metric", c: "$ per agent, model and surface in Azure Monitor", p: "emit-metric (CostMicroUSD)", st: "metering", pi: "emit-metric",
+    at: "AI models API policy · outbound", doc: "api:inference-api", a: /<emit-metric name="CostMicroUSD"/, e: /<\/emit-metric>/, max: 8, l: 2,
+    w: "A built-in <code>emit-metric</code> whose value is the computed price, so Azure Monitor can chart and alert on spend per agent and model.",
+    u: "Needs the price variable first; then one <code>emit-metric</code>." },
+  "tool-ent": { s: "Tool allow-list", c: "Only the MCP tools in the plan", p: "choose + return-response", st: "plan", pi: "entitlement",
+    at: "Plan (product) policy · inbound · MCP tools branch", doc: "product", a: /Contains\("," \+ \(string\)context\.Variables\["toolName"\]/, e: /<set-status/, max: 10, l: 3, o: ["403"],
+    w: "The MCP API policy reads the tool name of a JSON-RPC <code>tools/call</code>; the plan policy answers a JSON-RPC error with 403 when the tool isn't in the plan. <code>tools/list</code> stays open.",
+    u: "Copy both halves: the tool-name parse (MCP API policy) and this check (product policy)." },
+  "tool-price": { s: "Tool pricing", c: "Price every tool call", p: "{{tool-pricing}} lookup", st: "metering",
+    at: "MCP server API policy · inbound", doc: "api:commerce-mcp", a: /<set-variable name="costMicroUsd" value="@\{/, pre: 1, e: XML_END, max: 12, l: 3, nv: ["tool-pricing"],
+    w: "Looks up a flat price per tool in the <code>tool-pricing</code> named value; the $ budget adds it after a 200.",
+    u: "Keep tool prices in a named value and copy the lookup." },
+  "tool-rate": { s: "Tool calls/min", c: "Tool calls per minute", p: "rate-limit-by-key", st: "plan",
+    at: "Plan (product) policy · inbound · MCP tools branch", doc: "product", a: /counter-key="@\("toolcalls-/, back: /<rate-limit-by-key/, e: TAG_END, max: 4, l: 1, o: ["429"],
+    w: "Built-in call-rate limit per subscription for <code>tools/call</code>: over the limit, 429 with Retry-After.",
+    u: "Add <code>rate-limit-by-key</code> with <code>calls</code> and <code>renewal-period</code>." },
+  "agent-ent": { s: "Agent allow-list", c: "Only the A2A agents in the plan", p: "choose + return-response", st: "plan", pi: "entitlement", tier: "bronze",
+    at: "Plan (product) policy · inbound · A2A agents branch", doc: "product", a: /Contains\("," \+ \(string\)context\.Variables\["agentId"\]/, e: /<set-status/, max: 10, l: 3, o: ["403"],
+    w: "Only plans that include the agent may send it tasks (403 otherwise, as a JSON-RPC error); the agent card stays readable.",
+    u: "Copy the check and list each plan's agents." },
+  "agent-price": { s: "Task pricing", c: "Fully-loaded A2A task price", p: "{{agent-pricing}} + downstream cost", st: "metering",
+    at: "A2A agent API policy · inbound (fee) + outbound (total)", doc: "api:sourcing-agent", a: /<set-variable name="agentFeeMicroUsd" value="@\{/, pre: 1, e: XML_END, max: 12, l: 3, nv: ["agent-pricing"],
+    w: "Charges the caller the agent's fee from <code>agent-pricing</code> plus what the agent reports it spent downstream (<code>x-agent-downstream-cost-micro-usd</code>), so one task shows its true cost.",
+    u: "Your agent must report its downstream spend in a response header; copy the fee lookup and the outbound sum." },
+  "obo": { s: "On-behalf-of billing", c: "The agent's spend is billed to the caller", p: "set-header x-gw-on-behalf-of*", st: "metering",
+    at: "A2A agent API policy · inbound + payer-attribution fragment", doc: "api:sourcing-agent", a: /<set-header name="x-gw-on-behalf-of" /, n: 12, l: 3,
+    w: "Stamps the caller's subscription, plan and session on the task. The agent passes them on when it calls models and tools through the gateway, and the <code>payer-attribution</code> fragment bills those calls to the original caller (trusted only from the agent-platform product).",
+    u: "Your agent must forward the <code>x-gw-on-behalf-of*</code> headers; copy the headers and the attribution fragment." },
+  "chargeback": { s: "Chargeback record", c: "One chargeback record per billable call", p: "trace (chargeback-record fragment)", st: "metering", pi: "trace",
+    at: "chargeback-record fragment · outbound of every API", doc: "fragment:chargeback-record", a: /<trace source="chargeback"/, e: /<\/trace>/, max: 18, l: 3, nv: ["chargeback-directory"],
+    w: "Writes user, team and cost center (from the <code>chargeback-directory</code> named value), session, surface, item, tokens and cost to Application Insights traces. Records, not metric dimensions, because sessions are unbounded.",
+    u: "Copy the fragment; feed the directory from your HR or CMDB, or derive the user from the token." },
+  "pool": { s: "Backend pool", c: "Priority routing across regions", p: "set-backend-service → backend pool", st: "routing", pi: "set-backend-service",
+    at: "AI models API policy · inbound + a backend pool resource", doc: "api:inference-api", a: /<set-backend-service backend-id=/, n: 1, l: 1,
+    w: "Sends calls to a load-balanced backend pool: the lowest priority number is tried first, equal priorities share load. The pool is an API Management backend resource (Bicep), not policy XML: see <b>Backend pool</b> below.",
+    u: "Create the backend pool (priorities, weights) and point <code>set-backend-service</code> at it." },
+  "retry": { s: "Retry", c: "Fail over to the other region", p: "retry + forward-request", st: "routing", pi: "retry",
+    at: "AI models API policy · backend", doc: "api:inference-api", a: /<retry condition=/, e: /<\/retry>/, max: 12, l: 1,
+    w: "On 429 or 5xx the request is sent again (up to twice, at once). With the throttled region's circuit breaker open, the pool picks the other region and the caller gets a 200. The <code>set-variable</code> lines only record the route for <code>x-gw-route</code>.",
+    u: "Wrap <code>forward-request</code> in <code>retry</code> with your status condition and count." },
+  "cb": { s: "Circuit breaker", c: "Stop sending traffic to a throttled region", p: "backend circuit breaker rule", st: "routing", pi: "circuit breaker",
+    at: "Backend resource (no policy XML)", doc: null, l: 1, live: () => polBackends
+      ? polBackends.filter(b => b.circuitBreaker).map(b => `<div class="pmsrc"><code>${escapeHtml(b.name)}</code>: ${escapeHtml(cbText(b.circuitBreaker))}</div>`).join("") || `<div class="pmsrc">No circuit breaker rules on the deployed backends.</div>`
+      : `<div class="pmsrc">Read from the backend resources: see <b>Backend pool</b> below.</div>`,
+    w: "Each Foundry backend trips after throttling errors and stays open for the Retry-After period, so the pool skips it until it recovers.",
+    u: "Set <code>circuitBreaker.rules</code> on each backend (failure count, interval, trip duration, accept Retry-After)." },
+  "req-id": { s: "Blocked-by + request id", c: "Find one call everywhere, and why it was refused", p: "set-header x-gw-request-id / x-gw-blocked-by", st: "metering", pi: "x-gw-*",
+    at: "Plan (product) policy · outbound + on-error", doc: "product", a: /var source = context\.LastError\?\.Source/, pre: 2, e: /<\/value>/, max: 8, l: 2,
+    w: "Every response carries <code>x-gw-request-id</code> (the CorrelationId in every gateway log table); a refused call also names the policy that stopped it, from <code>context.LastError</code>.",
+    u: "Add the headers in outbound and on-error; strip them at the edge if callers mustn't see them." },
+  "trace": { s: "Request trace", c: "See every policy decision for one call", p: "APIM request tracing", st: "metering",
+    at: "Gateway feature · per-request debug credential (no policy XML)", doc: null, l: 1,
+    w: "The app asks ARM for a short-lived debug credential and sends it as <code>Apim-Debug-Authorization</code>; the gateway records every policy, variable, retry and timing of that one call.",
+    u: "Call <code>listDebugCredentials</code> for the API, send the header, then read the trace by its <code>apim-trace-id</code>." },
+  "gw-logs": { s: "Gateway logs", c: "Gateway, LLM and MCP logs in Log Analytics", p: "diagnostic settings", st: "metering",
+    at: "Service diagnostic setting + API diagnostics (no policy XML)", doc: null, l: 1,
+    w: "<code>ApiManagementGatewayLogs</code>, <code>ApiManagementGatewayLlmLog</code> and <code>ApiManagementGatewayMCPLog</code>, joined on CorrelationId (= <code>x-gw-request-id</code>). They arrive 2-5 minutes after a call.",
+    u: "Turn on the diagnostic setting to a Log Analytics workspace and LLM / MCP logging on the APIs." },
+  "content-safety": { s: "Content safety", c: "Harmful, jailbreak and sensitive prompts never reach a model", p: "llm-content-safety", st: "plan",
+    at: "blocked-before-spend fragment · last in the plan policy's inbound", doc: "fragment:blocked-before-spend", a: /<llm-content-safety /, e: /<\/llm-content-safety>/, max: 12, l: 1, o: ["403"],
+    w: "Built-in: sends the prompt (or tool arguments, or task text) to Azure AI Content Safety for harm categories, Prompt Shields and a blocklist, and answers 403 before any model, tool or agent spend. It runs after the free checks, so throttled calls don't pay for a check.",
+    u: "Add a Content Safety backend (managed identity) and <code>llm-content-safety</code> with your thresholds and blocklists." },
+  "safety-ledger": { s: "Safety check cost", c: "The safety check's own cost is charged", p: "safety-ledger fragment", st: "metering",
+    at: "safety-ledger fragment · outbound and on-error of the plan policy", doc: "fragment:safety-ledger", a: /<trace source="chargeback"/, e: /<\/trace>/, max: 14, l: 3,
+    w: "Content Safety bills per text record, so the fragment estimates the records, adds their price to the $ budget and writes a <code>safety</code> chargeback line, for blocked calls too.",
+    u: "Optional: copy it if the safety check should be charged back." },
+  "suspend": { s: "Suspend on overspend", c: "Switch the subscription off when its budget is spent", p: "send-request → Logic App", st: "plan",
+    at: "Plan (product) policy · on-error, when the $ budget refuses", doc: "product", a: /<send-request mode="new" response-variable-name="suspensionResponse"/, e: /<\/send-request>/, max: 16, l: 3,
+    w: "When <code>quota-by-key</code> refuses a watched subscription, the gateway notifies a Logic App once (a cache entry de-duplicates). The Logic App suspends the subscription with its managed identity; <b>Reset budgets</b> re-activates it.",
+    u: "Deploy the Logic App (or any webhook) and copy the on-error block." },
+  "resp-affinity": { s: "Responses affinity", c: "Stateful Responses calls return to the same region", p: "cache-lookup-value + set-backend-service", st: "routing",
+    at: "Operation policy (createResponse, getResponse, …) · inbound", doc: "op:createResponse", a: /<cache-lookup-value key="@\("resp-"/, e: /<set-backend-service/, max: 26, l: 3,
+    w: "Remembers which backend stored each response id (APIM cache, 30 days) and sends follow-ups (<code>previous_response_id</code>), reads and deletes there. A response owned by another subscription gets 404.",
+    u: "Only needed when a stateful API is load-balanced across regions: copy the operation policy." },
+  "resp-price": { s: "Cached-input pricing", c: "Cached input tokens priced lower", p: "responses-pricing fragment", st: "metering",
+    at: "responses-pricing fragment · AI models API outbound", doc: "fragment:responses-pricing", a: /<set-variable name="cachedSavingsMicroUsd" value="@\{/, e: XML_END, max: 22, l: 3, nv: ["cached-input-pricing"],
+    w: "Reads <code>cached_tokens</code> from the usage block and prices them at the discounted rate from <code>cached-input-pricing</code>; reads of stored responses are free.",
+    u: "Add the cached-input prices to your rate card and copy the fragment." },
+  "img-ent": { s: "Image allow-list", c: "Only the image models and qualities in the plan", p: "choose + return-response", st: "plan", pi: "entitlement",
+    at: "Plan (product) policy · inbound · images branch", doc: "product", a: /<set-variable name="imageDenial"/, e: XML_END, max: 6, l: 3, o: ["403"],
+    w: "Refuses an image model or quality the plan doesn't include (403) before the image is generated.",
+    u: "Copy the check and list each plan's image models and qualities." },
+  "img-price": { s: "Image pricing", c: "Price per image (model × quality × size)", p: "{{image-pricing}} lookup", st: "metering",
+    at: "Image API policy · inbound", doc: "api:image-api", a: /<set-variable name="imageUnitMicroUsd"/, e: XML_END, max: 10, l: 3, nv: ["image-pricing"],
+    w: "Images aren't priced by tokens: the policy applies the default quality and size, prices each image from <code>image-pricing</code> and refuses an unpriced combination (400).",
+    u: "Keep image prices in a named value and copy the lookup." },
+  "img-rate": { s: "Images/min", c: "Images per minute", p: "rate-limit-by-key", st: "plan",
+    at: "Plan (product) policy · inbound · images branch", doc: "product", a: /counter-key="@\("images-/, back: /<rate-limit-by-key/, e: TAG_END, max: 4, l: 1, o: ["429"],
+    w: "Built-in rate limit that counts images, not calls (<code>increment-count</code> = images requested).",
+    u: "Add <code>rate-limit-by-key</code> with an <code>increment-count</code>." },
+  "sem-cache": { s: "Semantic cache", c: "Answer similar questions from a cache", p: "llm-semantic-cache-lookup / -store", st: "routing",
+    at: "AI models API policy · inbound (lookup), outbound (store)", doc: "api:inference-api", a: /<llm-semantic-cache-lookup/, e: /<\/llm-semantic-cache-lookup>/, max: 8, l: 1,
+    w: "Built-in: embeds the prompt, searches Azure Managed Redis by vector distance and, on a hit, returns the stored answer without calling the model. The store policy saves the answer of a miss.",
+    u: "Add an embeddings backend and Azure Managed Redis as the external cache; tune <code>score-threshold</code>." },
+  "sem-scope": { s: "Cache scope", c: "Who may reuse a cached answer", p: "cache partition (session | user | plan)", st: "routing",
+    at: "AI models API policy · inbound, before the lookup", doc: "api:inference-api", a: /<set-variable name="semanticCacheScope"/, e: XML_END, max: 6, l: 3,
+    w: "Partitions the cache by plan, served model, budget epoch, instructions and the scope the app asks for in <code>x-gw-cache-scope</code>, so answers never cross plans, sessions or users unless the app opts in.",
+    u: "Copy the partition expression and decide your default scope." },
+  "sem-price": { s: "Cache-hit pricing", c: "A cache hit is charged the lookup, not the tokens", p: "semantic-cache-pricing fragment", st: "metering",
+    at: "semantic-cache-pricing fragment · AI models API outbound", doc: "fragment:semantic-cache-pricing", a: /<set-variable name="semanticCacheSavedMicroUsd"/, pre: 1, n: 9, l: 3,
+    w: "On a hit the price becomes the embedding lookup only, and the tokens it saved are emitted as a metric.",
+    u: "Optional: copy it if cache hits should be charged back." },
+  "entra-only-token": { s: "Entra token (no key)", c: "No key: the Entra token is the only credential", p: "validate-azure-ad-token (audience + app role)", st: "identity", pi: "validate-azure-ad-token",
+    at: "entra-plan-inbound fragment · key-less models API", doc: "fragment:entra-plan-inbound", a: /<validate-azure-ad-token/, e: /<\/validate-azure-ad-token>/, max: 20, l: 1, o: ["401"],
+    w: "Accepts only tokens issued for the gateway app registration with the <code>Gateway.Invoke</code> app role; no subscription key is read.",
+    u: "Register a gateway app with an app role; set the audience and required role claim." },
+  "entra-group-plan": { s: "Group → plan", c: "The caller's security group picks the plan", p: "{{entra-gateway-groups}} lookup", st: "plan",
+    at: "entra-plan-inbound fragment", doc: "fragment:entra-plan-inbound", a: /<set-variable name="entraGroup" value=/, e: XML_END, max: 20, l: 3, o: ["403"], nv: ["entra-gateway-groups"],
+    w: "Matches the token's <code>groups</code> claim against the <code>entra-gateway-groups</code> named value; the best plan wins. No gateway group, 403.",
+    u: "Put group object ids, plans and budgets in a named value; copy the lookup." },
+  "entra-model-ent": { s: "Group plan models", c: "The group's plan: models and output cap", p: "choose + set-body", st: "plan", pi: "entitlement",
+    at: "entra-plan-inbound fragment", doc: "fragment:entra-plan-inbound", a: /!\("," \+ \(string\)context\.Variables\["entraAllowedModels"\]/, n: 1, l: 3, o: ["dg", "403"],
+    w: "The same model governance and output cap as a plan policy, with the plan chosen from the group instead of the subscription.",
+    u: "Same as the plan's model allow-list." },
+  "entra-tpm": { s: "Member token limit", c: "Tokens per minute per member", p: "llm-token-limit", st: "plan", pi: "llm-token-limit",
+    at: "entra-plan-inbound fragment · one branch per plan", doc: "fragment:entra-plan-inbound", a: /<llm-token-limit counter-key="@\("entra-tokens-/, e: TAG_END, max: 8, l: 1, o: ["429"],
+    w: "Built-in token limit keyed by the caller's <code>oid</code>, with the numbers of the group's plan.",
+    u: "Add <code>llm-token-limit</code> keyed by the token's <code>oid</code>." },
+  "group-budget": { s: "Team $ budget", c: "One $ budget per team (security group)", p: "quota-by-key (group-budget)", st: "plan", pi: "quota-by-key",
+    at: "entra-plan-inbound fragment", doc: "fragment:entra-plan-inbound", a: /<quota-by-key id="group-budget"/, e: XML_END, max: 10, l: 3, o: ["403"],
+    w: "One counter per group, shared by every member, counting parts per million of the group's budget from the named value.",
+    u: "Copy the block; the amounts stay in the named value." },
+  "member-budget": { s: "Member $ cap", c: "$ cap per member inside the team", p: "quota-by-key (member-budget)", st: "plan", pi: "quota-by-key",
+    at: "entra-plan-inbound fragment", doc: "fragment:entra-plan-inbound", a: /<quota-by-key id="member-budget"/, e: XML_END, max: 10, l: 3, o: ["403"],
+    w: "One counter per caller (<code>oid</code>), so one member can't drain the whole team budget.",
+    u: "Copy the block next to the team budget." },
+};
+let polMapSel = null, polDocs = null, polDocsP = null, polBackends = null, polMapToggled = new Set();
+function loadPolDocs() {
+  if (!polDocsP) polDocsP = fetch("/api/flow-policies", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+    .then(x => x.json()).then(d => { polDocs = d && d.docs ? d : { error: (d && d.error) || "no policy documents returned" }; })
+    .catch(e => { polDocs = { error: e.message }; });
+  return polDocsP;
+}
+function polDocLabel(id) {
+  const [k, n] = id.split(":");
+  if (k === "product") return `${(cfg?.tiers || []).find(t => t.name === n)?.displayName || n} plan policy`;
+  return k === "api" ? ({ "inference-api": "AI models API", "commerce-mcp": "MCP server API", "sourcing-agent": "A2A agent API", "image-api": "Image API", "inference-entra": "Entra-only models API" }[n] || n) + " policy"
+    : k === "op" ? `${n} operation policy` : `${n} fragment`;
+}
+function polSnippet(c) {
+  let doc = c.doc;
+  if (doc === "product") { const want = `product:${c.tier || "silver"}`; doc = polDocs.docs[want] ? want : Object.keys(polDocs.docs).find(k => k.startsWith("product:")) || want; }
+  const xml = polDocs.docs[doc]; if (!xml) return { doc };
+  const lines = xml.split(/\r?\n/), at = lines.findIndex(x => c.a.test(x));
+  if (at < 0) return { doc };
+  // back: the element starts on an earlier line in the source but on the anchor's line once ARM reflows the XML
+  let start = Math.max(0, at - (c.pre || 0)), end = at;
+  if (c.back) for (let k = at; k >= Math.max(0, at - 4); k--) if (c.back.test(lines[k])) { start = k; break; }
+  if (c.e) { while (end < lines.length - 1 && end - at < (c.max || 14) && !c.e.test(lines[end])) end++; }
+  else end = Math.min(lines.length - 1, at + (c.n || 1) - 1);
+  return { doc, start, lines: lines.slice(start, end + 1), cut: !!c.e && !c.e.test(lines[end]) };
+}
+function polXml(c) {
+  if (!c.a) return c.live ? c.live() : "";
+  if (!polDocs) return `<div class="pmsrc">Reading the deployed policy from Azure Resource Manager…</div>`;
+  if (polDocs.error) return `<div class="pmsrc">Couldn't read the deployed policies: ${escapeHtml(polDocs.error)}. <a href="#" data-pmretry>Retry</a></div>`;
+  const s = polSnippet(c);
+  if (!s.lines) return `<div class="pmsrc">Not in the deployed ${escapeHtml(polDocLabel(s.doc))}: this feature is off in this sandbox.</div>`;
+  const ind = Math.min(...s.lines.filter(x => x.trim()).map(x => x.match(/^\s*/)[0].length));
+  const nvs = (c.nv || []).map(n => [n, polDocs.namedValues?.[n]]).filter(([, v]) => v != null).map(([n, v]) => {
+    const ents = String(v).split(";").map(x => x.trim()).filter(Boolean);
+    return `<div class="nvl"><span class="nvref">{{${escapeHtml(n)}}}</span><span class="muted">named value:</span>${ents.slice(0, 5).map(x => `<code>${escapeHtml(x.length > 80 ? x.slice(0, 80) + "…" : x)}</code>`).join("")}${ents.length > 5 ? `<span class="muted">+${ents.length - 5} more</span>` : ""}</div>`;
+  }).join("");
+  return `<div class="pmsrc">Deployed <b>${escapeHtml(polDocLabel(s.doc))}</b> · line${s.lines.length > 1 ? `s ${s.start + 1}–${s.start + s.lines.length}` : ` ${s.start + 1}`}${s.cut ? " (excerpt)" : ""} · read back from Azure Resource Manager</div>`
+    + xmlPre(s.lines.map(x => x.slice(ind)).join("\n")).replace(/^<pre class="xml">/, `<pre class="xml" style="counter-reset:xl ${s.start}">`).replace(/\n<span class="xl">/g, `<span class="xl">`) + nvs;
+}
+// the scenarios that show a control (catalog view)
+const polUses = (id) => SCENARIOS.map((s, i) => [s, i]).filter(([s]) => (s.controls || []).includes(id));
+function fillPolMapPicker() {
+  const sel = $("polMapSc"); if (!sel) return;
+  const opt = (s, i) => `<option value="${i}">${i + 1}. ${escapeHtml(s.title)}${s.off ? " (not deployed)" : ""}</option>`, placed = new Set();
+  sel.innerHTML = `<option value="all">Every control (catalog)</option>` + SCENARIO_TOPICS.map(([name, , re]) => {
+    const items = SCENARIOS.map((s, i) => [s, i]).filter(([s, i]) => !placed.has(i) && re.test(s.title));
+    items.forEach(([, i]) => placed.add(i));
+    return items.length ? `<optgroup label="${escapeHtml(name)}">${items.map(([s, i]) => opt(s, i)).join("")}</optgroup>` : "";
+  }).join("") + SCENARIOS.map((s, i) => placed.has(i) ? "" : opt(s, i)).join("");
+  if (polMapSel == null) polMapSel = 0;
+  sel.value = String(polMapSel);
+  sel.onchange = () => { polMapSel = sel.value === "all" ? "all" : Number(sel.value); polMapToggled.clear(); renderPolMap(); };
+}
+function renderPolMap() {
+  const box = $("polMap"); if (!box || !$("polMapSc").options.length) return;
+  const all = polMapSel === "all", sc = all ? null : SCENARIOS[polMapSel];
+  const ids = all ? Object.keys(POL_CONTROLS).sort((a, b) => STAGE_IX[POL_CONTROLS[a].st] - STAGE_IX[POL_CONTROLS[b].st]) : (sc?.controls || []);
+  const ctls = ids.filter(id => POL_CONTROLS[id]).map(id => [id, POL_CONTROLS[id]]);
+  $("polMapSc").value = String(polMapSel);
+  // the pipeline: dim the stages this scenario doesn't touch, number the ones it does (and the policy items they match)
+  const pipe = $("pipe");
+  pipe.classList.toggle("focus", !all);
+  pipe.querySelectorAll(".pnum").forEach(x => x.remove());
+  pipe.querySelectorAll(".pi.on").forEach(x => x.classList.remove("on"));
+  pipe.querySelectorAll(".stage").forEach((st, k) => {
+    const nums = all ? [] : ctls.map(([, c], i) => STAGE_IX[c.st] === k ? circ(i + 1) : "").filter(Boolean);
+    st.classList.toggle("hit", nums.length > 0);
+    let m = st.querySelector(".pmk"); if (!m) { m = document.createElement("div"); m.className = "pmk"; st.querySelector(".hd").after(m); }
+    m.innerHTML = nums.length ? `${nums.join(" ")} <span>in this scenario</span>` : "";
+    if (all) return;
+    st.querySelectorAll(".pi").forEach(pi => {
+      const name = (pi.querySelector("code, .k")?.textContent || "").trim(), hits = ctls.map(([, c], i) => STAGE_IX[c.st] === k && c.pi === name ? circ(i + 1) : "").filter(Boolean);
+      if (hits.length) { pi.classList.add("on"); pi.insertAdjacentHTML("afterbegin", `<span class="pnum">${hits.join("")}</span>`); }
+    });
+  });
+  const n = [1, 2, 3].map(l => ctls.filter(([, c]) => c.l === l).length);
+  $("polMapSum").innerHTML = `<span><b>${ctls.length}</b> control${ctls.length === 1 ? "" : "s"}${sc ? ` in <b>${escapeHtml(sc.title)}</b>` : ""}</span>`
+    + [1, 2, 3].map(l => `<span>${lvlHtml(l)} <b>${n[l - 1]}</b></span>`).join("");
+  $("polMapLegend").innerHTML = [1, 2, 3].map(l => `<span>${lvlHtml(l)} ${POL_LEVELS[l][1]}</span>`).join("");
+  const head = `<div class="pmrow hd"><span></span><span>High-level control</span><span>Policy that does it · where</span><span>What it does here</span><span>Customization</span></div>`;
+  let lastSt = null;
+  box.innerHTML = (ctls.length ? head : `<div class="muted" style="padding:10px 0">This view has no policy breakdown.</div>`) + ctls.map(([id, c], i) => {
+    const grp = all && c.st !== lastSt ? `<div class="pmgrp">${ico(PIPE[STAGE_IX[c.st]].ico, "", "")}${PIPE[STAGE_IX[c.st]].title}</div>` : "";
+    lastSt = c.st;
+    const uses = all ? polUses(id) : [];
+    return grp + `<div class="pmrow" data-ctl="${id}"><span class="n">${i + 1}</span>
+      <div class="ctl"><b>${c.c}</b>${(c.o || []).map(pill).join("")}</div>
+      <div class="pol"><code>${escapeHtml(c.p)}</code><small>${escapeHtml(c.at)}</small></div>
+      <div class="what">${c.w}${uses.length ? `<span class="uses">Shown in: ${uses.map(([s, k]) => `<a href="#" data-pmsc="${k}" title="${escapeHtml(s.title)}">scenario ${k + 1}</a>`).join("")}</span>` : ""}</div>
+      <div class="lvc">${lvlHtml(c.l)}</div>
+      <details data-pmx="${id}"${all === polMapToggled.has(id) ? " open" : ""}><summary>${c.a ? "Deployed policy lines" : "Where it's configured"} · to use it yourself</summary><div class="pmxml"></div><div class="adopt"><b>To use it yourself:</b> ${c.u}</div></details></div>`;
+  }).join("");
+  box.querySelectorAll("details[data-pmx]").forEach(d => d.ontoggle = () => { d.open === all ? polMapToggled.add(d.dataset.pmx) : polMapToggled.delete(d.dataset.pmx); });
+  box.querySelectorAll("[data-pmsc]").forEach(a => a.onclick = (e) => { e.preventDefault(); polMapSel = Number(a.dataset.pmsc); polMapToggled.clear(); renderPolMap(); $("polMapCard").scrollIntoView({ behavior: "smooth", block: "start" }); });
+  fillPolXml();
+  if (!polDocs && ctls.some(([, c]) => c.a)) loadPolDocs().then(fillPolXml);
+}
+function fillPolXml() {
+  document.querySelectorAll("#polMap details[data-pmx]").forEach(d => { d.querySelector(".pmxml").innerHTML = polXml(POL_CONTROLS[d.dataset.pmx]); });
+  document.querySelectorAll("#polMap [data-pmretry]").forEach(a => a.onclick = (e) => { e.preventDefault(); polDocs = null; polDocsP = null; renderPolMap(); });
+}
+// a scenario card's policy strip: one chip per control (coloured by how custom it is) that opens the breakout
+function openPolMap(i) { polMapSel = i; polMapToggled.clear(); showPsec("pipeline"); renderPolMap(); $("polMapCard").scrollIntoView({ behavior: "smooth", block: "start" }); }
+function scPolicyStrip(s) {
+  const i = SCENARIOS.indexOf(s), ids = (s?.controls || []).filter(id => POL_CONTROLS[id]);
+  $("scPol").innerHTML = ids.length ? `<span class="muted">Policies behind it:</span>` + ids.map(id => { const c = POL_CONTROLS[id];
+      return `<button type="button" class="pc" data-sc="${i}" title="${escapeHtml(c.c)}: ${escapeHtml(c.p)} · ${POL_LEVELS[c.l][0]}">${lvlHtml(c.l, false)}${escapeHtml(c.s)}</button>`; }).join("")
+    + `<a href="#" class="pat" data-sc="${i}">How each one is built</a>` : "";
+  $("scPol").querySelectorAll("[data-sc]").forEach(b => b.onclick = (e) => { e.preventDefault(); openPolMap(i); });
+}
+
 async function loadPolicies() {
   const done = [busy($("backendsKv").closest(".card"), "Reading the backend pool…", "Azure API Management"),
                 busy($("deployedPolicies").closest(".card"), "Reading deployed policies…", "Azure API Management")];
@@ -3972,6 +4310,7 @@ async function loadPolicies() {
     const d = await (await fetch("/api/policies", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).json();
     if (d.error) throw new Error(d.error);
     const singles = Object.fromEntries((d.backends || []).filter(b => b.type !== "Pool").map(b => [b.name, b]));
+    polBackends = d.backends || []; fillPolXml();
     const regions = Object.fromEntries((cfg.foundryBackends || []).map(b => [b.name, b.location]));
     $("backendsKv").innerHTML = (d.backends || []).filter(b => b.type === "Pool").map(p => `<div class="ph">pool <code>${escapeHtml(p.name)}</code> · lower priority number is tried first; equal priorities share load</div>`
       + (p.pool || []).map(s => { const n = shortId(s.id), b = singles[n] || {}, pr = s.priority ?? 1, cb = b.circuitBreaker ? cbText(b.circuitBreaker) : "";
@@ -4261,6 +4600,7 @@ const SCENARIOS = [
   { title: "Same question, every model", cost: "4 calls · < $0.002",
     gist: "One prompt on every Foundry model, to compare what each model costs for the same answer.",
     policies: ["llm-emit-token-metric", "emit-metric (cost)"],
+    controls: ["model-price", "token-metric", "cost-metric"],
     preview: () => { const max = Math.max(...cfg.models.map(m => m.inputPrice + m.outputPrice));
       return dg.row(dg.agent("gold"), dg.arrow("same prompt"), dg.gw("meters tokens, prices each call"), dg.arrow(`× ${cfg.models.length} models`), dg.model("Every model"))
         + cfg.models.map((m, i) => dg.bar(m.name, [[100 * (m.inputPrice + m.outputPrice) / max, COLORS[i % COLORS.length]]], `$${m.inputPrice} / $${m.outputPrice} per 1M`)).join("")
@@ -4279,6 +4619,7 @@ const SCENARIOS = [
   { title: "Model governance: downgrade or deny", cost: "2 calls · < $0.001",
     gist: "Agents ask for a premium model their plan does not include. Silver is downgraded to a cheaper model; Bronze is denied.",
     policies: ["model entitlement", "downgrade or 403"],
+    controls: ["model-ent"],
     preview: () => { const p = premiumFor("silver"), s = tierOf(tierAgent("silver"));
       return dg.row(dg.agent("silver"), dg.arrow(`asks ${p}`), dg.gw("plan check"), dg.arrow("downgrade", "warn"), dg.model(s.fallbackModel), dg.code(200))
         + dg.row(dg.agent("bronze"), dg.arrow(`asks ${p}`), dg.gw("plan check"), dg.arrow("deny", "bad"), dg.node("Foundry", "never called · $0", "dim"), dg.code(403)); },
@@ -4299,6 +4640,7 @@ const SCENARIOS = [
   { title: "Output cap", cost: "1 call · < $0.0005",
     gist: "The gateway lowers max_tokens to the plan's output cap, so one runaway request has a bounded worst-case cost.",
     policies: ["set-body (max_tokens cap)"],
+    controls: ["out-cap"],
     preview: () => { const t = tierOf(tierAgent("bronze"));
       return dg.row(dg.agent("bronze"), dg.arrow("max_tokens 4000"), dg.gw("output cap"), dg.arrow(`max_tokens ${t.maxOutputTokens}`, "warn"), dg.model(t.allowedModels[0]), dg.code(200))
         + dg.bar("Asked for", [[100, "#c8c6c4"]], "4,000 tokens") + dg.bar("Allowed", [[100 * t.maxOutputTokens / 4000, "#107c10"]], `${t.maxOutputTokens} tokens (cap)`)
@@ -4313,6 +4655,7 @@ const SCENARIOS = [
   { title: "Tokens-per-minute limit", cost: "≤ 10 calls · < $0.002",
     gist: "Back-to-back long generations exceed the plan's tokens-per-minute limit and get 429 until the window resets.",
     policies: ["llm-token-limit"],
+    controls: ["tpm"],
     preview: () => { const t = tierOf(tierAgent("bronze"));
       return dg.row(dg.agent("bronze"), dg.arrow("long prompts, back to back"), dg.gw("llm-token-limit"), dg.arrow("under the limit", "ok"), dg.model(t.allowedModels[0]))
         + dg.seq([200, 200, 200, 429, 429], `<span style="margin-left:6px">${t.tpm.toLocaleString()} tokens / minute, then 429 + Retry-After</span>`)
@@ -4332,6 +4675,7 @@ const SCENARIOS = [
   { title: "$ budget exhausted", cost: "≤ 12 calls · ≈ $0.01",
     gist: "An agent keeps spending until its plan's $ budget is used up, then the gateway answers 403.",
     policies: ["quota-by-key ($ budget)", "emit-metric (cost)"],
+    controls: ["model-price", "budget", "cost-metric"],
     preview: () => { const t = tierOf(tierAgent("silver"));
       return dg.row(dg.agent("silver"), dg.arrow("long reports"), dg.gw("prices each call"), dg.arrow("", "ok"), dg.model(t.allowedModels[0]))
         + dg.bar("$ budget", [[24, "#107c10"], [24, "#498205"], [26, "#f7630c"], [26, "#d13438"]], `$${t.budgetUsd} used up`)
@@ -4363,6 +4707,7 @@ const SCENARIOS = [
   { title: "MCP tools: priced and entitled per plan", cost: "5 calls · < $0.005",
     gist: "One MCP server for every plan. The gateway checks which tools each plan includes and prices every tools/call.",
     policies: ["tool entitlement → 403", "tool-pricing", "tool calls / minute"],
+    controls: ["tool-ent", "tool-price", "tool-rate", "budget"],
     preview: () => { const tiers = ["gold", "silver", "bronze"].map(n => cfg.tiers.find(t => t.name === n)).filter(Boolean);
       return dg.row(dg.node("Agents", "Gold · Silver · Bronze"), dg.arrow("tools/call"), dg.gw("in plan? price?"), dg.arrow("allowed", "ok"), dg.node("Commerce Tools", "MCP server → REST API", "tool"))
         + `<table class="dmx"><thead><tr><th>Tool</th><th>Price / call</th>${tiers.map(t => `<th><span class="badge ${t.name}">${t.displayName}</span></th>`).join("")}</tr></thead><tbody>`
@@ -4385,6 +4730,7 @@ const SCENARIOS = [
   { title: "A2A agent: task cost, end to end", cost: "2 tasks · < $0.01",
     gist: "Gold delegates a task to an A2A agent. The task fee plus every model and tool call the agent makes are billed back to Gold.",
     policies: ["agent entitlement → 403", "agent-pricing", "on-behalf-of chargeback"],
+    controls: ["agent-ent", "agent-price", "obo", "chargeback"],
     preview: () => { const g = tierAgent("gold");
       return dg.row(dg.agent("gold"), dg.arrow("A2A task"), dg.gw("A2A API"), dg.arrow(), dg.node("Sourcing Agent", "Container Apps", "a2a"))
         + dg.row(dg.node("Sourcing Agent", "own identity", "a2a"), dg.arrow("3 tools + 1 model"), dg.gw("MCP + model APIs"), dg.arrow(), dg.node("Tools + Foundry", "", "tool"))
@@ -4405,6 +4751,7 @@ const SCENARIOS = [
   { title: "One $ budget across models, tools and agents", cost: "≤ 6 calls · ≈ $0.01",
     gist: "Models, MCP tools and A2A agents all draw from the same plan budget. Once it is spent, every surface is blocked.",
     policies: ["quota-by-key ($ budget)"],
+    controls: ["model-price", "tool-price", "agent-price", "budget"],
     preview: () => { const t = tierOf(tierAgent("silver"));
       return dg.row(dg.agent("silver"), dg.col(dg.row(dg.arrow(surfChip("agent"))), dg.row(dg.arrow(surfChip("model"))), dg.row(dg.arrow(surfChip("tool")))),
           dg.gw(`one $${t.budgetUsd} budget`), dg.arrow("spent", "bad"), dg.node("403", "on every surface", "x"))
@@ -4427,6 +4774,7 @@ const SCENARIOS = [
   { title: "Chargeback in Azure Monitor", cost: "0 calls · $0", tab: "monitor",
     gist: "Opens Azure Monitor: cost per agent and tier, split by surface, straight from gateway telemetry. Sends no calls.",
     policies: ["emit-metric", "llm-emit-token-metric"],
+    controls: ["token-metric", "cost-metric", "gw-logs"],
     preview: () => dg.row(dg.gw("every call"), dg.arrow("emit-metric"), dg.node("Application Insights", "customMetrics", "mon"), dg.arrow("KQL"), dg.node("Chargeback", "per agent · surface · via", "mon"))
       + ["gold", "silver", "bronze"].map((n, i) => dg.bar(tierAgent(n)?.displayName || n,
           [[[50, 30, 20][i], SURFACE_COLORS.model], [[25, 15, 0][i], SURFACE_COLORS.tool], [[20, 10, 0][i], SURFACE_COLORS.agent]], `<span class="badge ${n}">${n}</span>`)).join("")
@@ -4439,6 +4787,7 @@ const SCENARIOS = [
   { title: "Chargeback by user & session", cost: "7 calls · < $0.01", tab: "chargeback",
     gist: "Four demo users, each with their own subscription key, work in named sessions. Every priced call is written as a chargeback record by user, team, cost center and session.",
     policies: ["session id (x-session-id)", "chargeback-directory", "chargeback-record trace"],
+    controls: ["session", "chargeback"],
     preview: () => dg.row(dg.user("user-alice"), dg.arrow("key + x-session-id"), dg.gw("who pays? which session?"), dg.arrow("trace"), dg.node("Log Analytics", "AppTraces", "mon"))
       + dg.chips(["subscription key → user", "chargeback-directory → team, cost center", "session header → session", "priced call → record"])
       + ["user-alice", "user-ben", "user-chloe", "user-dev"].map((n, i) => { const a = byName(n);
@@ -4469,6 +4818,7 @@ const SCENARIOS = [
   { title: "Runaway session: per-session $ cap", cost: "≤ 21 calls · ≈ $0.03",
     gist: "One user's session loops on an expensive model. The gateway stops that session at its $ cap, while a new session for the same user still works.",
     policies: ["quota-by-key (session budget)", "quota-by-key ($ budget)"],
+    controls: ["session", "session-budget", "budget"],
     preview: () => { const t = tierOf(byName("user-alice") || tierAgent("gold"));
       return dg.row(dg.user("user-alice"), dg.arrow("same session, in a loop"), dg.gw(`$${t.sessionBudgetUsd ?? "-"} per session`), dg.arrow("cap reached", "bad"), dg.node("403", "session-budget", "x"))
         + dg.seq([200, 200, 200, 200, 200, 200, 200, 200, 403], `<span style="margin-left:6px">then a new session</span>`) + dg.seq([200])
@@ -4496,6 +4846,7 @@ const SCENARIOS = [
   { title: "Zero trust: Microsoft Entra ID", cost: "3 calls · < $0.0005",
     gist: "The subscription key says which plan pays; a Microsoft Entra ID token says who is calling. A key alone is rejected.",
     policies: ["validate-azure-ad-token", "entra-identity fragment"],
+    controls: ["entra"],
     preview: () => { const m = tierOf(tierAgent("gold")).allowedModels.find(x => x !== "gpt-4.1-nano") || tierOf(tierAgent("gold")).allowedModels[0];
       return dg.row(dg.node("Key only", "no token"), dg.arrow(surfChip("model")), dg.gw("Entra ID check"), dg.arrow("rejected", "bad"), dg.node("Foundry", "never called", "dim"), dg.code(401))
         + dg.row(dg.node("Key only", "no token"), dg.arrow(surfChip("tool")), dg.gw("Entra ID check"), dg.arrow("rejected", "bad"), dg.node("MCP server", "never called", "dim"), dg.code(401))
@@ -4517,6 +4868,7 @@ const SCENARIOS = [
   { title: "Load balancing & regional failover", cost: "≤ 8 calls · < $0.002",
     gist: "The primary region runs out of capacity. The retry policy fails over to the secondary region, so the agent still gets 200.",
     policies: ["priority backend pool", "retry", "circuit breaker"],
+    controls: ["pool", "retry", "cb"],
     preview: () => { const b = cfg.foundryBackends || [], p = b.find(x => x.priority === 1) || {}, s = b.find(x => x.priority !== 1) || {};
       return dg.row(dg.agent("gold"), dg.arrow("burst"), dg.gw("priority pool"), dg.col(
           dg.row(dg.arrow("P1", "bad"), dg.node(p.name || "foundry1", `${p.location || "primary"} · 429`, "x")),
@@ -4542,6 +4894,7 @@ const SCENARIOS = [
   { title: "Policy trace & Azure Monitor evidence", cost: "1 call · < $0.0005", tab: "policies",
     gist: "One traced call, then the gateway's policy-by-policy trace and the same request in the Log Analytics tables.",
     policies: ["APIM request tracing", "ApiManagementGatewayLogs", "ApiManagementGatewayLlmLog"],
+    controls: ["trace", "req-id", "gw-logs"],
     preview: () => dg.row(dg.agent("silver"), dg.arrow("traced call"), dg.gw("debug credential"), dg.arrow(), dg.model(premiumFor("silver"), "downgraded"))
       + dg.chips(["Entra ID", "model downgrade", "token limit", "$ budget", "backend pool + retry", "cost metric"])
       + dg.row(dg.node("Policy trace", "instant", "mon"), dg.arrow("same x-gw-request-id"), dg.node("Log Analytics", "2-5 min later", "mon"), dg.arrow("KQL"), dg.node("Azure portal", "same query", "mon")),
@@ -4562,6 +4915,7 @@ const SCENARIOS = [
       : "off · set contentSafety.enabled to try it"; },
     gist: "Compare a clean request with a jailbreak or sensitive data. The gateway screens model prompts, MCP arguments and A2A tasks before calling their backend.",
     policies: ["llm-content-safety", "Prompt Shields", "blocklist (sensitive data)", "safety-ledger fragment"],
+    controls: ["content-safety", "safety-ledger"],
     preview: () => dg.lane("1 · Clean request: screen, then forward", 200,
         dg.node("Clean prompt", "Gold caller"),
         dg.gw("Safety check passes"),
@@ -4595,6 +4949,7 @@ const SCENARIOS = [
   { title: "Over budget, switched off", get off() { return !cfg?.budgetSuspend?.enabled; }, get cost() { return cfg?.budgetSuspend?.enabled ? "≤ 14 calls · ≈ $0.01 · gateway-triggered, runs on its own" : "off · set budgetSuspend.enabled to try it"; }, slow: true,
     gist: "The gateway rejects an over-budget request and directly notifies a Logic App to suspend the watched APIM subscription. No scheduled spend scans.",
     policies: ["quota-by-key ($ budget)", "send-request (gateway notification)", "Logic App + managed identity"],
+    controls: ["budget", "suspend"],
     preview: () => { const b = byName((cfg.budgetSuspend?.subscriptions || ["user-ben"])[0]) || tierAgent("silver"), t = tierOf(b);
       return dg.lane("1 · Immediate: the next over-budget request", 403,
           dg.node(escapeHtml(b.displayName), `Plan budget: $${t.budgetUsd}`),
@@ -4669,6 +5024,7 @@ const SCENARIOS = [
   { title: "Responses API: cached input & sticky state", cost: "4 calls · < $0.003",
     gist: "Create a response, continue on its original backend, then read it without a gateway dollar charge. Only input tokens reported as cached get the discounted rate.",
     policies: ["responses-pricing fragment", "cache-lookup-value (affinity)", "set-backend-service"],
+    controls: ["resp-price", "resp-affinity"],
     preview: () => { const m = respModel(), c = (cfg.cachedInputPrices || {})[m], p = modelInfo(m).inputPrice;
       return dg.lane("1 · Create: save where the response lives", 200,
           dg.node("Gold caller", "POST /responses"),
@@ -4720,6 +5076,7 @@ const SCENARIOS = [
   { title: "Images priced per image", get off() { return !cfg?.images?.enabled; }, get cost() { return cfg?.images?.enabled ? "≤ 5 calls · ≈ $0.02" : "off · set images.enabled to try it"; },
     gist: "Check plan access and quality before generation. Allowed images are charged by count, quality and size to the same dollar budget as models, tools and agents.",
     policies: ["image-pricing named value", "image entitlement", "rate-limit-by-key (images)", "quota-by-key ($ budget)"],
+    controls: ["img-ent", "img-price", "img-rate", "budget"],
     preview: () => { const im = cfg.images || {}, name = im.model?.name || "gpt-image-1-mini";
       const price = im.prices?.[name]?.low?.["1024x1024"];
       return dg.lane("1 · Allowed: generate and debit the shared budget", 200,
@@ -4760,6 +5117,7 @@ const SCENARIOS = [
   { title: "One app, many users: per-user $ budgets", cost: "≤ 16 calls · ≈ $0.03",
     gist: "One app key, one product. The app names the end user in x-gw-end-user and each user gets their own $ budget from a class (or an override). No subscription per user.",
     policies: ["quota-by-key (end-user budget)", "named value end-user-budgets", "quota-by-key ($ budget)"],
+    controls: ["eu-budget", "budget"],
     preview: () => { const g = tierAgent("gold"), b = (u) => endUserBudget(u), fx = (u) => `${b(u).cls} · $${b(u).usd ?? "?"}`;
       return dg.row(dg.col(dg.node("ana.lopez", fx("ana.lopez")), dg.node("raj.iyer", fx("raj.iyer")), dg.node("tom.intern", fx("tom.intern"))),
                     dg.arrow("end user"), dg.agent("gold", "one app key"), dg.arrow(), dg.gw("same product: one counter per user + the plan budget"), dg.arrow(), dg.model("gpt-4.1"))
@@ -4798,6 +5156,7 @@ const SCENARIOS = [
     get cost() { return cfg?.semanticCache?.enabled ? "10 calls · 3 answered from Redis · < $0.012" : "off · set semanticCache.enabled to try it"; },
     gist: "Similar questions get a stored answer from Azure Managed Redis instead of the model. The cache scope decides who may reuse it: the same session (default), the same user, or the whole plan (opt-in). The run proves it with a miss-vs-hit diff and an isolation table.",
     policies: ["llm-semantic-cache-lookup", "llm-semantic-cache-store", "x-gw-cache-scope (session | user | plan)", "Azure Managed Redis (RediSearch)", "semantic-cache-pricing fragment"],
+    controls: ["sem-cache", "sem-scope", "sem-price"],
     preview: () => { const sc = semCfg(), m = semModel(), mi = modelInfo(m), miss = (20 * mi.inputPrice + 120 * mi.outputPrice) / 1e6, lookup = Math.max(1, Math.ceil(20 * sc.price)) / 1e6;
       const cell = (on) => on ? `<span class="yes">hit</span>` : `<span class="deny">miss</span>`;
       const scopes = [["session", [1, 0, 0, 0]], ["user", [1, 1, 0, 0]], ["plan", [1, 1, 1, 0]]].filter(([s]) => sc.allowed.includes(s));
@@ -4893,6 +5252,7 @@ const SCENARIOS = [
     get cost() { return cfg?.entraMode?.enabled ? "4 calls · < $0.001" : "off · set entraMode.enabled to try it"; },
     gist: "No subscription key at all. The token must be for the gateway app and carry Gateway.Invoke; the caller's security group picks the plan.",
     policies: ["validate-azure-ad-token (audience + roles)", "entra-plan-inbound fragment", "named value entra-gateway-groups"],
+    controls: ["entra-only-token", "entra-group-plan"],
     preview: () => { const p = entraPersona(), np = entraPersona(""), m = entraModel(p);
       return dg.row(dg.node(p?.displayName || "persona", "no token"), dg.arrow(surfChip("model")), dg.gw("Entra-only API"), dg.arrow("rejected", "bad"), dg.node("Foundry", "never called", "dim"), dg.code(401))
         + dg.row(dg.node(p?.displayName || "persona", "Foundry-audience token"), dg.arrow(surfChip("model")), dg.gw("wrong audience"), dg.arrow("rejected", "bad"), dg.node("Foundry", "never called", "dim"), dg.code(401))
@@ -4921,6 +5281,7 @@ const SCENARIOS = [
     get cost() { return cfg?.entraMode?.enabled ? "≤ 30 calls · ≈ $0.05 · paced, about 2-3 minutes" : "off · set entraMode.enabled to try it"; },
     gist: "Every member of a security group draws from ONE team $ budget, and each member also has their own cap, so nobody can drain the team's pot alone.",
     policies: ["quota-by-key (member-budget)", "quota-by-key (group-budget)", "named value entra-gateway-groups"],
+    controls: ["entra-group-plan", "group-budget", "member-budget"],
     preview: () => { const [a, b] = entraTeam(), g = entraGroup(a?.group);
       return dg.row(dg.col(dg.node(a?.displayName || "member 1", "member cap $" + microUsd(g?.memberMicroUsd)), dg.node(b?.displayName || "member 2", "member cap $" + microUsd(g?.memberMicroUsd))),
                     dg.arrow("Entra token"), dg.gw(`group ${escapeHtml(g?.displayName || "?")}: team budget $${microUsd(g?.poolMicroUsd)}`), dg.arrow(), dg.model(entraModel(a) || "model"))
@@ -4962,6 +5323,7 @@ const SCENARIOS = [
     get cost() { return cfg?.entraMode?.enabled ? `${(cfg.entraMode.groups || []).length} calls · < $0.003` : "off · set entraMode.enabled to try it"; },
     gist: "The same request for the most expensive model from a member of each security group: served, downgraded or denied by the group's plan.",
     policies: ["entra-plan-inbound fragment (model governance)", "llm-token-limit (per member)"],
+    controls: ["entra-group-plan", "entra-model-ent", "entra-tpm"],
     preview: () => { const m = premiumModel();
       return (cfg.entraMode?.groups || []).map(g => { const t = cfg.tiers.find(x => x.name === g.tier) || {}, ok = (t.allowedModels || []).includes(m);
         return dg.row(dg.node(escapeHtml(g.displayName), `<span class="badge ${g.tier}">${g.tier}</span>`), dg.arrow(m), dg.gw("group → plan"),
@@ -5047,6 +5409,8 @@ async function runScenario(s) {
   $("scenario").dataset.mode = "guided";
   $("scenario").classList.remove("hidden"); $("scSteps").innerHTML = "";
   $("scTitle").textContent = s.title; $("scStory").innerHTML = s.story(); $("scTakeaway").innerHTML = "";
+  scPolicyStrip(s); polMapSel = SCENARIOS.indexOf(s); polMapToggled.clear();
+  if (psec === "pipeline" && curTab === "plans") renderPolMap();
   $("scFlow").innerHTML = ""; $("scFlowMore").innerHTML = "";
   try {
     if (s.preview) {
@@ -5158,6 +5522,8 @@ function renderScenarios() {
     }
     setRunning(false, "Full demo finished.");
   };
+  fillPolMapPicker();
+  if (psec === "pipeline" && curTab === "plans") renderPolMap();
 }
 try { if (localStorage.getItem("sbx.mini")) miniLaunch(true); } catch {}
 init();

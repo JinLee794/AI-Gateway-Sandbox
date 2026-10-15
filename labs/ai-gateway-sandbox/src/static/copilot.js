@@ -254,7 +254,7 @@
     "plans-matrix": ["plans", () => cardOf(byId("plansMatrix"))], "price-list": ["plans", () => cardOf(byId("priceList"))], endpoints: ["plans", () => cardOf(byId("endpoints"))],
     "request-log": ["policies.investigate", () => byId("evLogCard")], "flow-diagram": ["policies.investigate", () => byId("gwFlow")],
     "evidence-panel": ["policies.investigate", () => { const p = byId("evPanel"); return p && !p.classList.contains("hidden") ? p : byId("evLogCard"); }],
-    pipeline: ["policies.pipeline", () => cardOf(byId("pipe"))], "backend-pool": ["policies.pipeline", () => cardOf(byId("backendsKv"))],
+    pipeline: ["policies.pipeline", () => cardOf(byId("pipe"))], "policy-map": ["policies.pipeline", () => byId("polMap")], "backend-pool": ["policies.pipeline", () => cardOf(byId("backendsKv"))],
     "evidence-sinks": ["policies.telemetry", () => cardOf(byId("sinks"))], "policy-evidence": ["policies.telemetry", () => byId("policyEvidenceCard")],
     "deployed-policies": ["policies.deployed", () => cardOf(byId("deployedPolicies"))],
     "monitor-cost": ["monitor", () => cardOf(byId("mCostAgent"))], "monitor-outcomes": ["monitor", () => cardOf(byId("mOutcomes"))],

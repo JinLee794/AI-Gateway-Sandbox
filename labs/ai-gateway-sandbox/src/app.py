@@ -868,7 +868,7 @@ _budget_unused = {"epoch": None, "at": 0.0}  # the epoch this app reset to, whil
 # The gateway flow's policy lens: the deployed XML of every document a call passes through, and the non-secret named
 # values those documents read ({{name}}), so the page can show the exact line a policy decision comes from.
 FLOW_NAMED_VALUES = ("budget-epoch", "model-pricing", "end-user-budgets", "chargeback-directory", "entra-gateway-groups",
-                     "entra-gateway-members", "tool-pricing", "cached-input-pricing")
+                     "entra-gateway-members", "tool-pricing", "cached-input-pricing", "agent-pricing", "image-pricing")
 _flow_cache = {"value": None, "at": 0.0}
 
 
@@ -882,7 +882,16 @@ def flow_policies(payload):
                  "fragment:entra-identity": f"{apim}/policyFragments/entra-identity",
                  "fragment:chargeback-record": f"{apim}/policyFragments/chargeback-record",
                  "fragment:responses-pricing": f"{apim}/policyFragments/responses-pricing",
-                 "fragment:semantic-cache-pricing": f"{apim}/policyFragments/semantic-cache-pricing"})
+                 "fragment:semantic-cache-pricing": f"{apim}/policyFragments/semantic-cache-pricing",
+                 # the Policy pipeline's scenario breakout also shows the MCP, A2A and Responses policies and the safety fragments
+                 "api:commerce-mcp": f"{apim}/apis/commerce-mcp/policies/policy",
+                 "api:sourcing-agent": f"{apim}/apis/sourcing-agent/policies/policy",
+                 "op:createResponse": f"{apim}/apis/inference-api/operations/createResponse/policies/policy",
+                 "fragment:payer-attribution": f"{apim}/policyFragments/payer-attribution",
+                 "fragment:blocked-before-spend": f"{apim}/policyFragments/blocked-before-spend",
+                 "fragment:safety-ledger": f"{apim}/policyFragments/safety-ledger"})
+    if CONFIG.get("imagesBaseUrl"):
+        docs["api:image-api"] = f"{apim}/apis/image-api/policies/policy"
     if entra_mode_config():
         docs.update({"api:inference-entra": f"{apim}/apis/inference-entra/policies/policy",
                      "fragment:entra-plan-inbound": f"{apim}/policyFragments/entra-plan-inbound"})
@@ -1219,7 +1228,7 @@ COPILOT_TARGETS = {"scenarios", "builder", "callers", "surface-picker", "model-s
                    "token-toggle", "send-button", "conversation", "budget-meter", "kpis", "signals", "last-response", "budgets", "budget-burn",
                    "outcomes-chart", "cost-chart", "latency-chart", "live-request-log", "run-history", "chargeback-flow", "chargeback-ledger",
                    "chargeback-monitor", "plans-matrix", "price-list", "endpoints", "request-log", "flow-diagram", "evidence-panel", "pipeline",
-                   "backend-pool", "evidence-sinks", "policy-evidence", "deployed-policies", "monitor-cost", "monitor-outcomes",
+                   "backend-pool", "policy-map", "evidence-sinks", "policy-evidence", "deployed-policies", "monitor-cost", "monitor-outcomes",
                    "monitor-cost-time", "monitor-chargeback", "monitor-resources", "monitor-tokens", "monitor-governance", "portal-links",
                    "reset-budgets", "references"}
 COPILOT_TARGET_KINDS = {"scenario", "caller", "plan", "flow", "stage", "policy", "sink", "deployed", "session"}
@@ -1264,7 +1273,7 @@ UI targets for ui_highlight
 - Plans, policies & chargeback › Chargeback (view chargeback): chargeback-flow, chargeback-ledger, chargeback-monitor, session:<session id> (its row in the Azure Monitor chargeback table)
 - Plans, policies & chargeback › Products & plans (view plans): plans-matrix, plan:<gold|silver|bronze>, price-list, endpoints
 - Evidence & monitoring › Investigate (view policies.investigate): request-log, flow-diagram, flow:<client|entra|plan|api|pool|mi|log|r0|r1|mcp|a2a|la|ai> (the gateway flow; it follows the page's calls while shown), evidence-panel
-- Plans, policies & chargeback › Policy pipeline (view policies.pipeline): pipeline, stage:<client|identity|plan|routing|metering>, policy:<policy element, e.g. llm-token-limit or quota-by-key>, backend-pool
+- Plans, policies & chargeback › Policy pipeline (view policies.pipeline): pipeline, stage:<client|identity|plan|routing|metering>, policy:<policy element, e.g. llm-token-limit or quota-by-key>, policy-map (scenario breakout: each high-level control → the deployed policy lines → out of the box / configured / custom), backend-pool
 - Evidence & monitoring › Logs & telemetry (view policies.telemetry): evidence-sinks, sink:<table, e.g. ApiManagementGatewayLlmLog>, policy-evidence
 - Plans, policies & chargeback › Deployed policies (view policies.deployed): deployed-policies, deployed:<scope name, e.g. Silver or entra-identity>
 - Evidence & monitoring › Azure Monitor (view monitor): monitor-cost, monitor-outcomes, monitor-cost-time, monitor-chargeback, monitor-resources, monitor-tokens, monitor-governance
