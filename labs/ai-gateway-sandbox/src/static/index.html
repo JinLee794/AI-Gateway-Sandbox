@@ -5922,9 +5922,9 @@ async function runScenario(s) {
   $("cacheScope").value = "";                  // ...and their cache scopes
   if (curRun) { snapPart(curPart); curPart = { si: SCENARIOS.indexOf(s), title: s.title, calls: [] }; curRun.parts.push(curPart); }
   if (!s.tab && !(curTab === "happened" && psec === "investigate")) showPsec("investigate");  // scenarios play out in the gateway flow
-  const top = $("scenario").getBoundingClientRect().top;  // bring the results card (and the flow under it) into view, unless it already is
-  $("scenario").style.scrollMarginTop = ($("launch").classList.contains("collapsed") ? $("launch").offsetHeight + 48 : 16) + "px";  // clear the sticky strip (it gains Run again / Next when the run ends)
-  if (top < 0 || top > innerHeight * 0.5) $("scenario").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  // show the collapsed scenarios strip and the conversation under it (the run streams its prompts and answers there)
+  const strip = $("launch").offsetHeight, cv = $("cvCard").getBoundingClientRect().top;  // the strip is sticky: put the conversation just under it
+  if (cv < strip || cv > strip + 160) scrollTo({ top: scrollY + cv - strip - 10, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   try { await s.run(); } catch (e) { info("Scenario failed: " + escapeHtml(e.message)); }
   finally { $("sessionId").value = buildSession; $("endUser").value = buildEndUser; $("cacheScope").value = buildScope; cvCtx(); }
   snapPart(curPart);
