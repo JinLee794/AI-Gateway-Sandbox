@@ -213,8 +213,17 @@
   .scchips button .k { color:var(--muted); font-size:11px; margin-left:4px; font-weight:400; } .scchips button.on .k { color:#005a9e; }
   .scchips .offchk { display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--muted); margin:0 0 0 auto; font-weight:400; cursor:pointer; white-space:nowrap; }
   .scpick { display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:fit-content(42%) minmax(0,1fr); gap:8px; height:clamp(340px, calc(100vh - 300px), 560px); min-height:0; }
+  .sclist { position:relative; }
   .sclist, .scpv { overflow:auto; overscroll-behavior:contain; border:1px solid var(--divider); border-radius:6px; min-height:0; background:#fff; }
   .sclist { padding:4px; } .scpv { padding:12px 14px 0; }
+  /* a narrow panel: one list that fills it, and the selected scenario opens in place under its row */
+  .scpick.inline { grid-template-rows:minmax(0,1fr); } .scpick.inline .scpv { display:none; }
+  .scpick.inline .scrow::after { content:"›"; flex:0 0 10px; color:var(--muted); font-size:15px; line-height:1; text-align:center; transition:transform .15s; }
+  .scpick.inline .scrow[aria-expanded="true"]::after { transform:rotate(90deg); color:var(--accent); }
+  .scexp { margin:0 4px 6px 38px; padding:2px 2px 0; }
+  .scexp .meta { margin-left:0 !important; } .scexp .dgm { margin-top:6px; }
+  .scdg { margin-top:6px; } .scdg > summary { cursor:pointer; font-size:12px; font-weight:600; color:var(--accent); width:max-content; }
+  .scexp .scpol { margin-top:6px; } .scexp .scacts { margin-top:6px; padding:8px 0; }
   @container (min-width:700px) { .scpick { grid-template-columns:minmax(250px,5fr) 7fr; grid-template-rows:minmax(0,1fr); } }
   .scrow { display:flex; align-items:center; gap:8px; width:100%; height:auto; min-height:32px; padding:4px 8px; text-align:left; background:transparent; color:var(--text);
            border:0; border-radius:4px; font-weight:400; font-size:13px; }
@@ -226,18 +235,18 @@
   .scrow .t { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .scrow .c { flex:0 0 auto; color:var(--muted); font-size:11px; font-weight:400; }
   .scrow.off { color:#8a8886; } .scrow.off .t { text-decoration:line-through; text-decoration-color:#a19f9d; } .scrow.off .n { background:#e1dfdd; color:#8a8886; }
-  .scrow .offtag, .scpv .offtag { flex:0 0 auto; font-size:10px; font-weight:700; letter-spacing:.06em; padding:1px 6px; border-radius:10px; background:#edebe9; color:#605e5c; border:1px solid #c8c6c4; }
+  .scrow .offtag, .scpv .offtag, .scexp .offtag { flex:0 0 auto; font-size:10px; font-weight:700; letter-spacing:.06em; padding:1px 6px; border-radius:10px; background:#edebe9; color:#605e5c; border:1px solid #c8c6c4; }
   .sclist .sctopic { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin:10px 8px 2px; }
   .sclist .sctopic:first-child { margin-top:4px; }
   .scempty { padding:16px; color:var(--muted); font-size:13px; }
-  .scpv .ph { display:flex; gap:10px; align-items:flex-start; } .scpv .ph .n { width:26px; height:26px; flex-basis:26px; font-size:12px; }
-  .scpv .ph b { font-size:15px; } .scpv .gist { color:var(--muted); font-size:12.5px; line-height:1.5; margin-top:2px; }
-  .scpv .meta { font-size:12px; color:var(--muted); margin:8px 0 0 36px; display:flex; flex-wrap:wrap; gap:2px 12px; }
-  .scpv .meta .tour { color:#005a9e; font-weight:600; }
-  .scpv .scacts { display:flex; flex-wrap:wrap; gap:6px; align-items:center; position:sticky; bottom:0; background:#fff; padding:10px 0; margin-top:10px; border-top:1px solid var(--divider); }
-  .scpv .scacts button { height:30px; font-size:12px; padding:0 12px; }
-  .scpv .offnote { font-size:12px; color:var(--muted); }
-  .scpv .fine { font-size:11px; color:var(--muted); padding:0 0 10px; }
+  :is(.scpv, .scexp) .ph { display:flex; gap:10px; align-items:flex-start; } .scpv .ph .n { width:26px; height:26px; flex-basis:26px; font-size:12px; }
+  :is(.scpv, .scexp) .ph b { font-size:15px; } :is(.scpv, .scexp) .gist { color:var(--muted); font-size:12.5px; line-height:1.5; margin-top:2px; }
+  :is(.scpv, .scexp) .meta { font-size:12px; color:var(--muted); margin:8px 0 0 36px; display:flex; flex-wrap:wrap; gap:2px 12px; }
+  :is(.scpv, .scexp) .meta .tour { color:#005a9e; font-weight:600; }
+  :is(.scpv, .scexp) .scacts { display:flex; flex-wrap:wrap; gap:6px; align-items:center; position:sticky; bottom:0; background:#fff; padding:10px 0; margin-top:10px; border-top:1px solid var(--divider); }
+  :is(.scpv, .scexp) .scacts button { height:30px; font-size:12px; padding:0 12px; }
+  :is(.scpv, .scexp) .offnote { font-size:12px; color:var(--muted); }
+  :is(.scpv, .scexp) .fine { font-size:11px; color:var(--muted); padding:0 0 10px; }
   .gwmode { display:inline-flex; border:1px solid var(--border); border-radius:4px; overflow:hidden; flex:0 0 auto; }
   .gwmode button { background:#fff; color:var(--text); border:0; border-radius:0; height:28px; padding:0 10px; font-weight:500; font-size:12px; }
   .gwmode button + button { border-left:1px solid var(--border); }
@@ -6020,42 +6029,68 @@ function scRender() {
     : `The full demo: ≈ ${99 + (cfg.contentSafety?.enabled ? 5 : 0) + (cfg.images?.enabled ? 5 : 0) + (cfg.semanticCache?.enabled ? 10 : 0)} calls · demo prices · about 10 minutes`;
   scPane();
 }
-function scPane() {
-  const pv = $("scPv"), i = scSel, s = SCENARIOS[i];
-  if (!s) { pv.innerHTML = `<div class="scempty">Pick a scenario to see what it shows.</div>`; return; }
+const scInline = () => $("scenarios").clientWidth < 700;  // same threshold as the side-by-side container query
+let scExpanded = true, scDiagram = false;  // in the inline layout: whether the selected row is open, and its diagram
+function scPaneHtml(i, inline) {
+  const s = SCENARIOS[i];
   let dgm = "";
   try { if (s.preview) dgm = `<div class="dgm">${s.preview()}</div>`; } catch (e) { console.warn("scenario preview failed", e); }
+  if (inline && dgm) dgm = `<details class="scdg"${scDiagram ? " open" : ""}><summary>Diagram</summary>${dgm}</details>`;  // compact rows: the diagram opens on demand
   const tour = scTour(), k = tour.indexOf(i), flow = scFlowDemo(s), chips = scPolChips(s);
-  pv.innerHTML = `<div class="ph"><span class="n">${i + 1}</span><div><b>${s.title}</b><div class="gist">${s.gist || ""}</div></div></div>
-    <div class="meta"><span>${escapeHtml(s.cost)}</span><span>${escapeHtml(scTopicOf(i))}</span>${k >= 0 ? `<span class="tour">★ Start here · step ${k + 1} of ${tour.length}</span>` : ""}</div>
+  return (inline ? `<div class="gist">${s.gist || ""}</div>` : `<div class="ph"><span class="n">${i + 1}</span><div><b>${s.title}</b><div class="gist">${s.gist || ""}</div></div></div>`)
+    + `<div class="meta"><span>${escapeHtml(s.cost)}</span><span>${escapeHtml(scTopicOf(i))}</span>${k >= 0 ? `<span class="tour">★ Start here · step ${k + 1} of ${tour.length}</span>` : ""}</div>
     ${dgm}${chips ? `<div class="scpol"><span class="muted">Policies behind it:</span>${chips}</div>` : ""}
     <div class="scacts">${s.off ? `<span class="offtag">OFF</span><span class="offnote">Not deployed in this sandbox: ${escapeHtml(s.cost.replace(/^off · /, ""))}</span>`
       : `<button type="button" class="scrun" data-i="${i}"${running ? " disabled" : ""}>▶ Run${s.slow ? " (takes minutes)" : ""}</button>`}
-      ${scTry(s) ? `<button type="button" class="secondary" data-act="custom" title="Fill in the request builder with this scenario's caller, target and prompt; change anything, then send it yourself">✎ Customize in the builder</button>` : ""}
-      ${flow ? `<button type="button" class="secondary" data-act="play" data-flow="${flow}" title="Play the matching example in the gateway flow, without sending a call">▶ Example in the flow</button>` : ""}</div>
-    <div class="fine">Every scenario sends a small, fixed number of real calls through the gateway to Foundry. Call counts and costs are upper bounds.</div>`;
-  const run = pv.querySelector(".scrun");
+      ${scTry(s) ? `<button type="button" class="secondary" data-act="custom" title="Fill in the request builder with this scenario's caller, target and prompt; change anything, then send it yourself">✎ Customize${inline ? "" : " in the builder"}</button>` : ""}
+      ${flow ? `<button type="button" class="secondary" data-act="play" data-flow="${flow}" title="Play the matching example in the gateway flow, without sending a call">▶ Example in the flow</button>` : ""}</div>`
+    + (inline ? "" : `<div class="fine">Every scenario sends a small, fixed number of real calls through the gateway to Foundry. Call counts and costs are upper bounds.</div>`);
+}
+function scPane() {
+  const inline = scInline(), pv = $("scPv"), list = $("scList"), i = scSel, s = SCENARIOS[i];
+  $("scPick").classList.toggle("inline", inline);
+  list.querySelector(".scexp")?.remove();
+  list.querySelectorAll(".scrow").forEach(r => inline ? r.setAttribute("aria-expanded", Number(r.dataset.i) === i && scExpanded) : r.removeAttribute("aria-expanded"));
+  let box = pv;
+  if (inline) {
+    pv.innerHTML = "";
+    const row = s && list.querySelector(`.scrow[data-i="${i}"]`);
+    if (!row || !scExpanded) return;
+    row.insertAdjacentHTML("afterend", `<div class="scexp" id="scExp" role="region" aria-label="Scenario ${i + 1}"></div>`);
+    box = row.nextElementSibling;
+  }
+  if (!s) { box.innerHTML = `<div class="scempty">Pick a scenario to see what it shows.</div>`; return; }
+  box.innerHTML = scPaneHtml(i, inline);
+  box.querySelector(".scdg")?.addEventListener("toggle", e => { scDiagram = e.target.open; scReveal(i); });
+  const run = box.querySelector(".scrun");
   if (run) run.onclick = async () => {
     if (running) return;
     const sc = SCENARIOS[run.dataset.i];
     setRunning(true, `Running “${sc.title}”…`); await runScenario(sc); setRunning(false, "Scenario finished.");
   };
 }
+// keep the selected row (and, when there's room, its open details) in view inside the list
+function scReveal(i) {
+  const L = $("scList"), row = L.querySelector(`.scrow[data-i="${i}"]`); if (!row) return;
+  const exp = row.nextElementSibling?.classList.contains("scexp") ? row.nextElementSibling : row;
+  const top = row.offsetTop - 4, bottom = exp.offsetTop + exp.offsetHeight + 4;
+  if (top < L.scrollTop) L.scrollTop = top;
+  else if (bottom > L.scrollTop + L.clientHeight) L.scrollTop = Math.min(top, bottom - L.clientHeight);
+}
 function scSelect(i, focus = false) {
   if (i == null || !SCENARIOS[i]) return;
   scSel = i;
   $("scList").querySelectorAll(".scrow").forEach(r => { const on = Number(r.dataset.i) === i; r.classList.toggle("sel", on); r.setAttribute("aria-selected", on); r.tabIndex = on ? 0 : -1; });
   scPane();
-  const row = $("scList").querySelector(`.scrow[data-i="${i}"]`);
-  row?.scrollIntoView({ block: "nearest" });
-  if (focus) row?.focus();
+  scReveal(i);
+  if (focus) $("scList").querySelector(`.scrow[data-i="${i}"]`)?.focus({ preventScroll: true });
 }
 function scOpen(i) {  // shows one scenario in the picker, ready to run
   setMode("guided"); collapseLaunch(false); miniLaunch(false);
   window.scFocus(i);
   $("launch").scrollIntoView({ behavior: "smooth", block: "start" });
 }
-function scRun(i) { scSelect(i); $("scPv").querySelector(".scrun")?.click(); }
+function scRun(i) { scExpanded = true; scSelect(i); $("scPick").querySelector(".scrun")?.click(); }
 function scNext(si) {  // { i, tour, k, of } of the next runnable scenario after si, or null
   const tour = scTour(), lists = [scTopic === "start" && !scQ.trim() ? tour : scOrder(), tour, SCENARIOS.map((s, i) => i).filter(i => scVisible(SCENARIOS[i]))];
   const list = lists.find(l => l.includes(si)), i = list?.slice(list.indexOf(si) + 1).find(j => !SCENARIOS[j].off && !SCENARIOS[j].slow);
@@ -6066,7 +6101,7 @@ function scNext(si) {  // { i, tour, k, of } of the next runnable scenario after
 window.scFocus = (i) => {
   if (!SCENARIOS[i]) return null;
   if (!scOrder().includes(i)) { scQ = ""; $("scSearch").value = ""; scTopic = "all"; if (SCENARIOS[i].off) scShowOff = true; scRender(); }
-  scSelect(i);
+  scExpanded = true; scSelect(i);
   const row = $("scList").querySelector(`.scrow[data-i="${i}"]`);
   return row && row.getClientRects().length ? row : $("scPv");
 };
@@ -6084,21 +6119,28 @@ function renderScenarios() {
     });
     $("scChips").addEventListener("click", e => { const b = e.target.closest("button[data-topic]"); if (!b) return; scTopic = b.dataset.topic; scQ = $("scSearch").value = ""; scRender(); });
     $("scChips").addEventListener("change", e => { if (e.target.id === "scOff") { scShowOff = e.target.checked; scRender(); } });
-    $("scList").addEventListener("click", e => { const r = e.target.closest(".scrow"); if (r) scSelect(Number(r.dataset.i)); });
+    $("scList").addEventListener("click", e => {
+      const r = e.target.closest(".scrow"); if (!r) return;
+      const i = Number(r.dataset.i);
+      if (scInline() && i === scSel) { scExpanded = !scExpanded; scPane(); scReveal(i); }  // click the open row again to fold it
+      else { scExpanded = true; scSelect(i); }
+    });
     $("scList").addEventListener("dblclick", e => { const r = e.target.closest(".scrow"); if (r && !SCENARIOS[r.dataset.i].off) scRun(Number(r.dataset.i)); });
     $("scList").addEventListener("keydown", e => {
+      if (!e.target.closest(".scrow")) return;  // keys on the open details' buttons are theirs
       const order = scOrder(), k = order.indexOf(scSel);
       if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); scSelect(order[Math.max(0, Math.min(order.length - 1, k + (e.key === "ArrowDown" ? 1 : -1)))], true); }
       else if (e.key === "Home" || e.key === "End") { e.preventDefault(); scSelect(order[e.key === "Home" ? 0 : order.length - 1], true); }
       else if (e.key === "Enter" && scSel != null && !e.target.closest(".scrow")?.classList.contains("off")) { e.preventDefault(); if (!running) scRun(scSel); }
     });
-    $("scPv").addEventListener("click", e => {
-      const b = e.target.closest("[data-act], [data-ctl]"); if (!b) return;
+    $("scPick").addEventListener("click", e => {
+      const b = e.target.closest(".scpv [data-act], .scpv [data-ctl], .scexp [data-act], .scexp [data-ctl]"); if (!b) return;
       e.preventDefault();
       if (b.dataset.ctl) openPolMap(Number(b.dataset.sc), b.dataset.ctl);
       else if (b.dataset.act === "custom") scCustomize(SCENARIOS[scSel]);
       else if (b.dataset.act === "play") scPlay(b.dataset.flow);
     });
+    new ResizeObserver(() => { if (scInline() !== $("scPick").classList.contains("inline")) { scPane(); scReveal(scSel); } }).observe($("scenarios"));
     $("btnAll").onclick = async () => {
       setRunning(true, gwMode === "entra" ? "Running the Entra-only demo…" : "Running the full demo…");
       const quick = SCENARIOS.filter(s => !s.slow && !s.off && scVisible(s)); // slow scenarios (minutes of Azure Monitor latency) run on their own; off ones aren't deployed
