@@ -860,6 +860,7 @@
         #gwfSvg .fn.tool rect { fill:#e8f5f6; stroke:#7fc8cd; } #gwfSvg .fn.tool .t { fill:#00666d; }
         #gwfSvg .fn.agent rect { fill:#f4effa; stroke:#b9a4d8; } #gwfSvg .fn.agent .t { fill:#5c2e91; }
         #gwfSvg .fn.sink rect { fill:#fff; stroke:#c3b3e0; } #gwfSvg .fn.sink .t { fill:#5c2e91; }
+        #gwfSvg .fn.cache rect { fill:#fdf6f6; stroke:#e8a2a4; } #gwfSvg .fn.cache .t { fill:#a4262c; }
         #gwfSvg .fn:hover rect, #gwfSvg .fn:focus-visible rect { stroke:#0078d4; stroke-dasharray:4 2; }
         #gwfSvg .fn.on rect { stroke:#0078d4; stroke-width:2.5; stroke-dasharray:none; filter:drop-shadow(0 0 5px rgba(0,120,212,.45)); }
         #gwfSvg .fn.ok rect { stroke:#107c10; stroke-width:2.2; stroke-dasharray:none; }
@@ -1150,6 +1151,8 @@
           metering: { title: "Metering & logging", items: [
             ["token-metrics-emitting", "Token metrics", "llm-emit-token-metric and emit-metric send tokens and cost per agent, plan and model to Application Insights.", REPO + "/labs/token-metrics-emitting"],
             ["built-in-logging", "Built-in logging", "The APIM logger and diagnostic settings send gateway, LLM and MCP logs to Log Analytics.", REPO + "/labs/built-in-logging"]] },
+          caching: { title: "Caching", items: [
+            ["semantic-caching", "Semantic caching", "llm-semantic-cache-lookup embeds the prompt and returns a stored answer to a similar question from Azure Managed Redis, so the model isn't called; llm-semantic-cache-store keeps new answers.", REPO + "/labs/semantic-caching"]] },
         };
         const PAT_KEYS = Object.keys(PATTERNS);
         // The lightbox is opened from other tabs and Policies sub-views, so it must not live inside a hidden one.
@@ -1196,6 +1199,7 @@
           entra: { x: 194, y: 120, w: 126, h: 64, t: "entra-identity", s: "fragment · Entra ID", cls: "gw", pat: "identity" },
           plan: { x: 336, y: 120, w: 128, h: 64, t: "Product policy", s: "entitlement · limits · $", cls: "gw", pat: "plan" },
           api: { x: 496, y: 120, w: 110, h: 64, t: "API policy", s: "route · meter", cls: "gw", pat: "routing" },
+          cache: { x: 496, y: 36, w: 240, h: 44, t: "Semantic cache", s: "Azure Managed Redis · embeddings", cls: "cache", pat: "caching" },
           pool: { x: 622, y: 120, w: 116, h: 64, t: "Backend pool", s: "circuit breaker", cls: "gw", pat: "routing:2" },
           mi: { x: 752, y: 30, w: 112, h: 52, t: "Managed identity", s: "token for Foundry", cls: "gw", pat: "identity" },
           log: { x: 496, y: 232, w: 242, h: 52, t: "Logger · diagnostic settings", s: "emit-metric · trace · LLM / MCP logs", cls: "gw", pat: "metering:1" },
@@ -1207,10 +1211,10 @@
           ai: { x: 632, y: 322, w: 184, h: 50, t: "Application Insights", s: "metrics · chargeback traces", cls: "sink", pat: "metering" },
         };
         const P = (k) => ({ x: NODES[k].x + NODES[k].w / 2, y: NODES[k].y + NODES[k].h / 2 });
-        const EDGES = [["client", "entra"], ["entra", "plan"], ["plan", "api"], ["api", "pool"], ["pool", "mi"], ["mi", "r0"], ["mi", "r1"], ["pool", "mcp"], ["pool", "a2a"], ["api", "log"], ["log", "la"], ["log", "ai"]];
+        const EDGES = [["client", "entra"], ["entra", "plan"], ["plan", "api"], ["api", "cache"], ["api", "pool"], ["pool", "mi"], ["mi", "r0"], ["mi", "r1"], ["pool", "mcp"], ["pool", "a2a"], ["api", "log"], ["log", "la"], ["log", "ai"]];
         const mk = (tag, attrs = {}, parent = svg) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); parent.appendChild(n); return n; };
         const nodeEl = {}, edgeEl = {}, layer = {};
-        const ICON = { client: "users", entra: "entra-id", plan: "plan", api: "api", pool: "backend-pool", mi: "managed-identity", log: "diagnostic-settings",
+        const ICON = { client: "users", entra: "entra-id", plan: "plan", api: "api", cache: "managed-redis", pool: "backend-pool", mi: "managed-identity", log: "diagnostic-settings",
                        r0: "foundry-models", r1: "foundry-models", mcp: "mcp", a2a: "a2a", la: "log-analytics", ai: "app-insights" };
         const ctx2d = document.createElement("canvas").getContext("2d");
         // shrinks a label until it fits its node (down to 9px), then ellipsizes
@@ -1444,10 +1448,18 @@
           if (!cost) return "";
           let how = `<b>${usd(cost)}</b>`;
           if (surf === "model") {
+            if (h["x-gw-semantic-cache"] === "hit") {
+              const bs = buckets(r);
+              return `Price: <b>semantic cache hit</b>, so no model call: charged the embedding lookup <b>${usd(cost)}</b> instead of the <b>${usd(h["x-gw-cache-saved-usd"])}</b> the tokens would have cost. <code>quota-by-key</code> adds it to ${bs.length > 1 ? "<b>every</b> bucket at once" : "the bucket"}: ${bucketList(bs)}.`;
+            }
             const m = (C().models || []).find(x => x.name === h["x-gw-model-served"]), pt = Number(h["x-gw-prompt-tokens"]), ct = Number(h["x-gw-completion-tokens"]);
-            const calc = m && Number.isFinite(pt) && Number.isFinite(ct) ? (pt * m.inputPrice + ct * m.outputPrice) / 1e6 : null;
-            how = calc != null && Math.abs(calc - cost) < 2e-6
-              ? `${pt} prompt × $${m.inputPrice}/1M + ${ct} completion × $${m.outputPrice}/1M = <b>${usd(cost)}</b> (<code>model-pricing</code>)`
+            const cached = Number(h["x-gw-cached-tokens"] || 0), save = Number(h["x-gw-cached-savings-usd"] || 0), lookup = h["x-gw-semantic-cache"] === "miss" ? Number(h["x-gw-cache-lookup-usd"] || 0) : 0;
+            const cp = (C().cachedInputPrices || {})[h["x-gw-model-served"]];
+            const calc = m && Number.isFinite(pt) && Number.isFinite(ct) ? (pt * m.inputPrice + ct * m.outputPrice) / 1e6 - save + lookup : null;
+            how = calc != null && Math.abs(calc - cost) < 3e-6
+              ? `${pt} prompt × $${m.inputPrice}/1M + ${ct} completion × $${m.outputPrice}/1M`
+                + (cached ? ` − ${cached} cached × ($${m.inputPrice}${cp != null ? ` − $${cp}` : " − cached price"})/1M` : "")
+                + (lookup ? ` + ${usd(lookup)} semantic cache lookup` : "") + ` = <b>${usd(cost)}</b> (<code>model-pricing</code>${cached ? ", <code>cached-input-pricing</code>" : ""})`
               : `<b>${usd(cost)}</b> from <code>model-pricing</code>${h["x-gw-pricing-rule"] ? ` (rule <code>${esc(h["x-gw-pricing-rule"])}</code>)` : " (cached input tokens are priced lower)"}`;
           } else if (surf === "tool") how = `<b>${usd(cost)}</b>, a flat price per call (<code>tool-pricing</code>)`;
           else if (surf === "agent") return `Price: <b>${usd(cost)}</b> = agent fee ${usd(h["x-gw-agent-fee-usd"])} + what the agent spent downstream ${usd(h["x-gw-downstream-cost-usd"])}, all billed to the caller.`;
@@ -1456,7 +1468,8 @@
         }
         const label = (r) => r.surface === "tool" ? (r.tool || (r.action === "list" ? "tools/list" : "tool")) : r.surface === "agent" ? (r.action === "card" ? "agent card" : "task") : (r.requestedModel || "model");
         const HDR_ORDER = ["x-gw-tier", "x-gw-group", "x-gw-group-budget-usd", "x-gw-member-budget-usd", "x-gw-caller", "x-gw-billed-to", "x-gw-session", "x-gw-end-user", "x-gw-model-requested", "x-gw-model-served", "x-gw-governance", "x-gw-tool", "x-gw-prompt-tokens", "x-gw-completion-tokens",
-          "x-gw-cost-usd", "x-gw-agent-fee-usd", "x-gw-downstream-cost-usd", "x-gw-safety-cost-usd", "x-gw-remaining-tpm", "x-gw-remaining-quota-tokens", "x-gw-remaining-tool-calls", "x-gw-remaining-agent-calls",
+          "x-gw-cost-usd", "x-gw-pricing-rule", "x-gw-cached-tokens", "x-gw-cached-savings-usd", "x-gw-semantic-cache", "x-gw-cache-scope", "x-gw-cache-partition", "x-gw-cache-saved-usd", "x-gw-cache-lookup-usd",
+          "x-gw-agent-fee-usd", "x-gw-downstream-cost-usd", "x-gw-safety-cost-usd", "x-gw-remaining-tpm", "x-gw-remaining-quota-tokens", "x-gw-remaining-tool-calls", "x-gw-remaining-agent-calls",
           "x-gw-route", "x-gw-blocked-by", "x-gw-block-reason", "retry-after", "x-gw-request-id", "apim-trace-id"];
         async function showHeaders(r, g) {
           const h = r.headers || {}, keys = HDR_ORDER.filter(k => h[k] !== undefined && h[k] !== "" && h[k] !== null);
@@ -1588,8 +1601,8 @@
             setText("client", r.agent || "Client", tier ? `plan: ${tier}` : "agent / app");
             if (tier) { layer.scope.textContent = `PRODUCT (PLAN) SCOPE · ${tier.toUpperCase()}`; setText("plan", `${tier[0].toUpperCase()}${tier.slice(1)} plan policy`); }
           }
-          for (const k of ["mi", "r0", "r1", "mcp", "a2a"]) mark(k, "dim");
-          if (surf === "model") { mark("mi", null); mark("r0", null); mark("r1", null); } else mark(surf === "tool" ? "mcp" : "a2a", null);
+          for (const k of ["mi", "r0", "r1", "mcp", "a2a", "cache"]) mark(k, "dim");
+          if (surf === "model") { if (h["x-gw-semantic-cache"] !== "hit") { mark("mi", null); mark("r0", null); mark("r1", null); } } else mark(surf === "tool" ? "mcp" : "a2a", null);
           const tok = token(color, label(r), P("client"));
           mark("client", "on");
           const what = surf === "tool" ? `an MCP <code>tools/call</code> for <b>${esc(label(r))}</b>` : surf === "agent" ? `an A2A task to <b>sourcing-agent</b>` : `a chat completion for <b>${esc(label(r))}</b>`;
@@ -1631,9 +1644,34 @@
           mark("api", "ok");
           if (surf === "model") await lens({ title: "Read the price list for the served model", chip: "Price list", doc: apiDoc(r), anchor: /<set-variable name="modelPricing" value=/, lines: 1, hit: /model-pricing/,
             mark: served ? `${served}` : "read", nv: [priceNv(h)] }, g);
-          await go(tok, ["api", "pool"], g);
+          // semantic cache (llm-semantic-cache-lookup in the API policy): a hit answers from Azure Managed Redis and skips the model
+          const sem = surf === "model" ? String(h["x-gw-semantic-cache"] || "") : "", semHit = sem === "hit";
+          if (sem === "hit" || sem === "miss") {
+            mark("cache", null);
+            await go(tok, ["api", "cache"], g);
+            await lens({ title: "Semantic cache: was a similar question answered before, in this partition?", chip: `Semantic cache ${sem}`, verdict: semHit ? "ok" : "note",
+              doc: apiDoc(r), anchor: /<llm-semantic-cache-lookup/, end: /<\/llm-semantic-cache-lookup>/, max: 8, hit: /semanticCachePartition/,
+              mark: semHit ? `hit · scope ${h["x-gw-cache-scope"] || "?"}` : "miss: on to the model",
+              note: `The prompt is embedded and compared, by vector distance, with the answers stored under the same plan, served model, budget epoch and partition <code>${esc(h["x-gw-cache-partition"] || "")}</code> (scope <code>${esc(h["x-gw-cache-scope"] || "")}</code>).` }, g);
+            if (semHit) {
+              mark("cache", "ok"); badge("cache", `hit · saved $${Number(h["x-gw-cache-saved-usd"] || 0).toFixed(6)}`, "#107c10");
+              say(`<code>llm-semantic-cache-lookup</code> found a similar answered question in Azure Managed Redis (scope <code>${esc(h["x-gw-cache-scope"] || "")}</code>): the stored answer is returned and <b>the model is never called</b>. The ${esc(h["x-gw-cache-saved-tokens"] || "")} tokens it would have cost (${usd(h["x-gw-cache-saved-usd"])}) are saved; only the embedding lookup (${usd(h["x-gw-cache-lookup-usd"])}) is charged.`, "ok",
+                `Semantic cache <b>hit</b>: answered from Redis, no model call · saved <b>${usd(h["x-gw-cache-saved-usd"])}</b>`);
+              await wait(600, g);
+            } else {
+              badge("cache", "miss", "#605e5c");
+              say(`<code>llm-semantic-cache-lookup</code> found no similar answer in this partition (a <b>miss</b>): the call goes on to the model, and <code>llm-semantic-cache-store</code> keeps its answer on the way back.`, "", "Semantic cache <b>miss</b>: on to the model; its answer is stored on the way back");
+              await go(tok, ["cache", "api"], g, { quiet: true });
+            }
+          } else if (sem === "bypass") {
+            stage("semcache", "Semantic cache bypass", "note");
+            say(`Semantic cache bypassed: only single-turn, non-streamed chat completions of the opted-in plans are looked up.`, "", "Semantic cache bypassed (not eligible: multi-turn, stream or plan)");
+          }
+          if (!semHit) await go(tok, ["api", "pool"], g);
           let target, last = "pool";
-          if (surf === "model") {
+          if (semHit) {
+            target = "cache";
+          } else if (surf === "model") {
             const hops = parseRoute(h["x-gw-route"]);
             if (!hops.length) hops.push({ name: h["x-gw-backend"] || backends()[0]?.name || "foundry1", code: st });
             say(`API policy: <code>set-backend-service</code> → priority pool, <code>authentication-managed-identity</code> gets a token for Foundry (the caller's token is never forwarded).`, "", "Routing to the Foundry pool with the gateway's managed identity");
@@ -1651,6 +1689,15 @@
                 mark(rk, "ok"); badge(rk, `${code || 200} ${served || ""}`.trim(), "#107c10");
                 say(`<b>${esc(hop.name)}</b>${hop.region ? ` (${esc(hop.region)})` : ""} serves <b>${esc(served || label(r))}</b>${h["x-gw-prompt-tokens"] ? `: ${esc(h["x-gw-prompt-tokens"])} prompt + ${esc(h["x-gw-completion-tokens"])} completion tokens` : ""}.`, "ok");
                 stage(`hop${i}`, `${hop.name}${hop.region ? " · " + hop.region : ""}`, "ok");
+                // Foundry's prompt cache: a repeated prompt prefix (1,024+ tokens) is served from the backend's cache
+                const pc = Number(h["x-gw-cached-tokens"] || 0);
+                if (finalHop && pc > 0) {
+                  badge(rk, `⚡ ${pc.toLocaleString()} of ${Number(h["x-gw-prompt-tokens"] || 0).toLocaleString()} input cached`, "#8764b8", true);
+                  stage("pcache", `Prompt cache ${pc.toLocaleString()} tok`, "ok");
+                  say(`Foundry's <b>prompt cache</b> served <b>${pc.toLocaleString()}</b> of the ${esc(h["x-gw-prompt-tokens"] || "")} input tokens (an identical prompt prefix of 1,024+ tokens it processed recently). The model still runs; those tokens are billed at the cached-input price.`, "ok",
+                    `Foundry prompt cache: <b>${pc.toLocaleString()}</b> input tokens reused, billed at the cached price`);
+                  await wait(700, g);
+                }
               }
               target = rk;
             }
@@ -1667,13 +1714,21 @@
           // response path: outbound metering on the way back, evidence into Azure Monitor
           const okResp = st === 200;
           recolor(tok, okResp ? "#107c10" : "#d13438", okResp ? (h["x-gw-cost-usd"] ? `$${Number(h["x-gw-cost-usd"]).toFixed(6)}` : "200") : String(st));
-          await go(tok, surf === "model" ? [target, last, "pool", "api"] : [target, "pool", "api"], g, { edge: okResp ? "ok" : "bad", mark: okResp ? "ok" : "bad", quiet: true });
+          await go(tok, semHit ? ["cache", "api"] : surf === "model" ? [target, last, "pool", "api"] : [target, "pool", "api"], g, { edge: okResp ? "ok" : "bad", mark: okResp ? "ok" : "bad", quiet: true });
           mark("api", "ok");
           const costTxt = h["x-gw-cost-usd"] ? ` · cost <b>$${esc(h["x-gw-cost-usd"])}</b>` : "";
           say(`Outbound: ${surf === "model" ? "<code>llm-emit-token-metric</code> + " : ""}<code>emit-metric</code> meter the call${costTxt}${h["x-gw-billed-to"] ? ` billed to <b>${esc(h["x-gw-billed-to"])}</b>` : ""}; a chargeback <code>trace</code> record and the gateway logs flow to Azure Monitor.`, "ok", `Metered${costTxt}${h["x-gw-billed-to"] ? ` · billed to <b>${esc(h["x-gw-billed-to"])}</b>` : ""}`);
           const price = priceText(r); if (price) { say(price, "ok", `Priced <b>${usd(h["x-gw-cost-usd"])}</b> and added to every $ bucket`); showBuckets(r, "charge"); }
-          if (surf === "model" && h["x-gw-cost-usd"]) await lens({ title: "Price the call from the tokens the model used", chip: `Price ${usd(h["x-gw-cost-usd"])}`, doc: apiDoc(r), anchor: /<set-variable name="costMicroUsd" value=/, end: /\}" \/>/, max: 14,
+          if (semHit) await lens({ title: "Semantic cache hit: charge the lookup, not the tokens", chip: `Price ${usd(h["x-gw-cost-usd"])} (lookup)`, doc: "fragment:semantic-cache-pricing",
+            anchor: /semanticCacheResult"\] == "hit"/, end: /pricingRule" value="semantic-cache-hit"/, max: 10, hit: /name="costMicroUsd"/, mark: `$${Number(h["x-gw-cost-usd"]).toFixed(6)} instead of $${Number(h["x-gw-cache-saved-usd"] || 0).toFixed(6)}` }, g);
+          if (surf === "model" && h["x-gw-cost-usd"] && !semHit) await lens({ title: "Price the call from the tokens the model used", chip: `Price ${usd(h["x-gw-cost-usd"])}`, doc: apiDoc(r), anchor: /<set-variable name="costMicroUsd" value=/, end: /\}" \/>/, max: 14,
             hit: /Math\.Ceiling/, mark: `$${Number(h["x-gw-cost-usd"]).toFixed(6)}`, nv: [priceNv(h)], note: "This variable is the <code>increment-count</code> of every <code>quota-by-key</code> bucket checked on the way in." }, g);
+          if (!semHit && Number(h["x-gw-cached-tokens"] || 0) > 0) await lens({ title: "Cached input tokens are billed at the cached price", chip: `Cached input −${usd(h["x-gw-cached-savings-usd"])}`,
+            doc: "fragment:responses-pricing", anchor: /<set-variable name="cachedSavingsMicroUsd" value="@\{/, end: /\}" \/>/, max: 24, hit: /Math\.Floor/, mark: `−$${Number(h["x-gw-cached-savings-usd"] || 0).toFixed(6)}`,
+            nv: [{ name: "cached-input-pricing", match: (e) => (e.split("=")[0] || "").toLowerCase() === String(h["x-gw-model-served"] || "").toLowerCase(), why: "&lt;model&gt;=&lt;USD per 1M cached input tokens&gt;" }],
+            note: `Foundry reports <code>cached_tokens</code> in the usage block; the <code>responses-pricing</code> fragment takes cached tokens × (input price − cached price) off the cost.` }, g);
+          if (sem === "miss") await lens({ title: "Semantic cache store: keep this answer for similar questions", chip: "Stored in cache", verdict: "note", doc: apiDoc(r), anchor: /<llm-semantic-cache-store/, lines: 1, hit: /llm-semantic-cache-store/,
+            mark: `partition ${h["x-gw-cache-scope"] || ""}` }, g);
           if (h["x-gw-billed-to"]) await lens({ title: "Who pays: the chargeback record", chip: `Billed to ${h["x-gw-billed-to"]}`, doc: "fragment:chargeback-record", anchor: /<set-variable name="chargebackDirectory" value=/, lines: 1, hit: /chargeback-directory/,
             mark: h["x-gw-billed-to"], nv: [{ name: "chargeback-directory", match: (e) => e.startsWith(h["x-gw-billed-to"] + "="), why: "&lt;payer&gt;=&lt;display name&gt;|&lt;team&gt;|&lt;cost center&gt;|&lt;kind&gt;" }] }, g);
           mark("log", "on"); edge("api", "log", "on");
@@ -1745,7 +1800,23 @@
                 headers: H({ "x-gw-tier": "gold", "x-gw-caller": "you@contoso.com", "x-gw-agent-fee-usd": "0.005000", "x-gw-downstream-cost-usd": "0.002410", "x-gw-cost-usd": "0.007410", "x-gw-remaining-agent-calls": "9", "x-gw-billed-to": ag("gold") }) } },
             { id: "noauth", label: "401 no token", code: 401, r: { status: 401, surface: "model", agent: ag("gold"), tier: "gold", requestedModel: small,
                 headers: H({ "x-gw-blocked-by": "validate-azure-ad-token", "x-gw-block-reason": "Microsoft Entra ID token missing or invalid." }) } },
+            ...cacheDemos(c, H, ok, ag, small),
             ...entraDemos(c, H, ok, small),
+          ];
+        }
+        // caching examples: the gateway's semantic cache (answer reused, no model call) and Foundry's prompt cache (cheaper input)
+        function cacheDemos(c, H, ok, ag, small) {
+          const m = (c.models || []).find(x => x.name === small) || { inputPrice: 0.4, outputPrice: 1.6 }, cp = (c.cachedInputPrices || {})[small] ?? m.inputPrice / 4;
+          const pt = 1200, ct = 96, cached = 1024, base = Math.ceil(pt * m.inputPrice + ct * m.outputPrice), save = Math.floor(cached * (m.inputPrice - cp));
+          const f = (micro) => (micro / 1e6).toFixed(6);
+          return [
+            { id: "semcache", label: "Semantic cache hit", code: 200, r: { status: 200, surface: "model", agent: ag("gold"), tier: "gold", requestedModel: small,
+                headers: H(ok("gold", small, { "x-gw-route": "", "x-gw-prompt-tokens": "0", "x-gw-completion-tokens": "0", "x-gw-cost-usd": "0.000001", "x-gw-pricing-rule": "semantic-cache-hit",
+                  "x-gw-semantic-cache": "hit", "x-gw-cache-scope": "session", "x-gw-cache-partition": `session:${ag("gold")}/demo-session/sys:none`, "x-gw-cache-lookup-usd": "0.000001",
+                  "x-gw-cache-saved-usd": "0.000163", "x-gw-cache-saved-tokens": "120" })) } },
+            { id: "promptcache", label: "Prompt cache: cheaper input", code: 200, r: { status: 200, surface: "model", agent: ag("gold"), tier: "gold", requestedModel: small,
+                headers: H(ok("gold", small, { "x-gw-prompt-tokens": String(pt), "x-gw-completion-tokens": String(ct), "x-gw-cached-tokens": String(cached),
+                  "x-gw-cached-savings-usd": f(save), "x-gw-cost-usd": f(Math.max(0, base - save)), "x-gw-pricing-rule": "tokens+cached", "x-gw-semantic-cache": "bypass" })) } },
           ];
         }
         // Entra-only mode examples: no key; the caller's security group picks the plan and the two $ buckets

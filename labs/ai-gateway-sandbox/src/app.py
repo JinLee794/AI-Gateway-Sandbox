@@ -868,7 +868,7 @@ _budget_unused = {"epoch": None, "at": 0.0}  # the epoch this app reset to, whil
 # The gateway flow's policy lens: the deployed XML of every document a call passes through, and the non-secret named
 # values those documents read ({{name}}), so the page can show the exact line a policy decision comes from.
 FLOW_NAMED_VALUES = ("budget-epoch", "model-pricing", "end-user-budgets", "chargeback-directory", "entra-gateway-groups",
-                     "entra-gateway-members", "tool-pricing")
+                     "entra-gateway-members", "tool-pricing", "cached-input-pricing")
 _flow_cache = {"value": None, "at": 0.0}
 
 
@@ -880,7 +880,9 @@ def flow_policies(payload):
     docs = {f"product:{t['name']}": f"{apim}/products/{t['name']}/policies/policy" for t in CONFIG.get("tiers", [])}
     docs.update({"api:inference-api": f"{apim}/apis/inference-api/policies/policy",
                  "fragment:entra-identity": f"{apim}/policyFragments/entra-identity",
-                 "fragment:chargeback-record": f"{apim}/policyFragments/chargeback-record"})
+                 "fragment:chargeback-record": f"{apim}/policyFragments/chargeback-record",
+                 "fragment:responses-pricing": f"{apim}/policyFragments/responses-pricing",
+                 "fragment:semantic-cache-pricing": f"{apim}/policyFragments/semantic-cache-pricing"})
     if entra_mode_config():
         docs.update({"api:inference-entra": f"{apim}/apis/inference-entra/policies/policy",
                      "fragment:entra-plan-inbound": f"{apim}/policyFragments/entra-plan-inbound"})
