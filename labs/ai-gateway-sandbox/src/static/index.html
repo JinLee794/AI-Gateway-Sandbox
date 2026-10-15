@@ -663,6 +663,12 @@
     .bench .launch:not(.collapsed):not(.mini) #mode-guided { flex:1 1 0; min-height:0; display:flex; flex-direction:column; }
     .bench .launch:not(.collapsed):not(.mini) #mode-guided .scenarios { flex:1 1 0; }
     .bench .launch:not(.collapsed):not(.mini) #mode-guided .scpick { flex:1 1 0; height:auto; }
+    /* the request builder fills the panel and keeps Send / Burst at its bottom, in view while ⚙ Advanced scrolls */
+    .bench .launch:not(.collapsed):not(.mini) .lbody:has(> #mode-build:not(.hidden)) { display:flex; flex-direction:column; padding-bottom:0; }
+    .bench .launch:not(.collapsed):not(.mini) #mode-build { flex:1 0 auto; display:flex; flex-direction:column; }
+    .bench .launch:not(.collapsed):not(.mini) #mode-build .actions { margin-top:auto; position:sticky; bottom:0; z-index:2; background:var(--panel);
+      padding:12px 0 14px; border-top:1px solid var(--divider); }
+    .bench .launch:not(.collapsed):not(.mini) #mode-build .adv { margin-bottom:16px; }
     .bench:has(.launch.collapsed) .cvcol { min-height:clamp(440px, calc(100vh - 210px), 620px); }
     .launch.mini .lbody, .launch.mini .lsum, .launch.mini #runStatus, .launch.mini #btnToggle, .launch.mini .sp, .launch.mini .mode > span:not(.ic), .launch.mini #btnAgain .lbl { display:none; }
     .launch.mini .lbar { flex-direction:column; flex-wrap:nowrap; height:100%; padding:8px 0; gap:8px; border-bottom:0; }
