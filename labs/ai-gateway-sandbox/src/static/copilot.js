@@ -70,15 +70,15 @@
   }
 
   // ---------- What the copilot can see: the user's view, session and the calls this page sent ----------
-  const TAB_NAMES = { live: "Live session", evidence: "Evidence & monitoring", plans: "Plans, policies & chargeback" };
-  const PSEC_NAMES = { investigate: "Investigate a request", telemetry: "Logs & telemetry", monitor: "Azure Monitor", plans: "Products & plans",
-    explorer: "Policy explorer", chargeback: "Chargeback" };
+  const TAB_NAMES = { happened: "What happened", why: "Why: policies", cost: "What it cost", proof: "Proof: logs & monitoring" };
+  const PSEC_NAMES = { investigate: "Gateway flow", live: "Session overview", explorer: "Policy explorer", spend: "Budgets & spend", plans: "Plans & prices",
+    chargeback: "Chargeback", telemetry: "Logs & telemetry", monitor: "Azure Monitor" };
   function viewLabel() {
-    const tab = typeof curTab !== "undefined" ? curTab : "live", sub = typeof psec !== "undefined" ? psec : "";
+    const tab = typeof curTab !== "undefined" ? curTab : "happened", sub = typeof psec !== "undefined" ? psec : "";
     let s = TAB_NAMES[tab] || tab;
-    if (tab === "live" && typeof viewRun !== "undefined" && viewRun != null) s += ` (showing the report of run #${viewRun} instead of the live session)`;
-    if (tab !== "live" && sub) {
+    if (sub) {
       s += ` › ${PSEC_NAMES[sub] || sub}`;
+      if (sub === "live" && typeof viewRun !== "undefined" && viewRun != null) s += ` (showing the report of run #${viewRun} instead of the live session)`;
       if (sub === "investigate" && typeof evIndex !== "undefined" && evIndex >= 0 && !byId("evPanel")?.classList.contains("hidden")) s += ` (evidence of call #${evIndex + 1} open)`;
     }
     const m = typeof mode !== "undefined" ? mode : "";
@@ -219,15 +219,16 @@
   }
 
   // ---------- UI actions streamed by the agent ----------
-  const VIEW_NAMES = { scenarios: "Guided scenarios", builder: "Request builder", conversation: "Conversation", live: "Live session", runs: "Live session › Run history",
-    chargeback: "Plans › Chargeback", plans: "Plans › Products & plans", "policies.investigate": "Evidence › Investigate", "policies.pipeline": "Plans › Policy explorer",
-    "policies.telemetry": "Evidence › Logs & telemetry", "policies.deployed": "Plans › Policy explorer (by document)", monitor: "Evidence › Azure Monitor" };
+  const VIEW_NAMES = { scenarios: "Guided scenarios", builder: "Request builder", conversation: "Conversation", live: "What happened › Session overview", runs: "What happened › Run history",
+    "policies.investigate": "What happened › Gateway flow", "policies.pipeline": "Why: policies › Policy explorer", "policies.deployed": "Why: policies › Policy explorer (by document)",
+    spend: "What it cost › Budgets & spend", plans: "What it cost › Plans & prices", chargeback: "What it cost › Chargeback",
+    "policies.telemetry": "Proof › Logs & telemetry", monitor: "Proof › Azure Monitor" };
   function flash(el) { if (!el) return; el.classList.remove("cop-flash"); void el.offsetWidth; el.classList.add("cop-flash"); setTimeout(() => el.classList.remove("cop-flash"), 1500); }
   function goView(view) {
     if (!view) return null;
     if (view === "scenarios" || view === "builder") { page("setMode")(view === "builder" ? "build" : "guided"); page("collapseLaunch")(false); return byId("launch"); }
     if (view === "conversation") return byId("cvCard");
-    // view names predate the three tabs; showTab / showPsec map them (runs -> Live, chargeback -> Plans, monitor -> Evidence, ...)
+    // view names predate the four tabs; showTab / showPsec map them (runs -> What happened, chargeback -> What it cost, monitor -> Proof, ...)
     const [tab, sub] = view.split(".");
     page("showTab")(tab); if (sub) page("showPsec")(sub);
     if (tab === "runs" && byId("tab-runs")) byId("tab-runs").open = true;
@@ -244,9 +245,9 @@
     "send-button": ["builder", () => byId("btnSend")],
     conversation: ["conversation", () => byId("cvCard")],
     "budget-meter": ["conversation", () => { const m = byId("cvMeter"); return m && !m.classList.contains("hidden") ? m : byId("cvCard"); }],
-    kpis: ["live", () => q("#tab-live .kpis")], signals: ["live", () => cardOf(byId("sigs"))], "last-response": ["live", () => cardOf(byId("last"))],
-    budgets: ["live", () => { const d = byId("bDetails"); if (d) d.open = true; return d; }], "budget-burn": ["live", () => cardOf(byId("cBurn"))],
-    "outcomes-chart": ["live", () => cardOf(byId("cOutcomes"))], "cost-chart": ["live", () => cardOf(byId("cCostAgent"))],
+    kpis: ["live", () => byId("kpiBar")], signals: ["live", () => cardOf(byId("sigs"))], "last-response": ["live", () => cardOf(byId("last"))],
+    budgets: ["spend", () => { const d = byId("bDetails"); if (d) d.open = true; return d; }], "budget-burn": ["spend", () => cardOf(byId("cBurn"))],
+    "outcomes-chart": ["live", () => cardOf(byId("cOutcomes"))], "cost-chart": ["spend", () => cardOf(byId("cCostAgent"))],
     "latency-chart": ["live", () => cardOf(byId("cLatency"))], "live-request-log": ["live", () => cardOf(byId("log"))],
     "run-history": ["runs", () => byId("tab-runs")],
     "chargeback-flow": ["chargeback", () => q("#tab-chargeback > .card")], "chargeback-ledger": ["chargeback", () => cardOf(byId("cbLedger"))],
