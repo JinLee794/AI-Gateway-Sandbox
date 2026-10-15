@@ -251,7 +251,7 @@
     "chargeback-flow": ["chargeback", () => q("#tab-chargeback > .card")], "chargeback-ledger": ["chargeback", () => cardOf(byId("cbLedger"))],
     "chargeback-monitor": ["chargeback", () => cardOf(byId("cbMonitor"))],
     "plans-matrix": ["plans", () => cardOf(byId("plansMatrix"))], "price-list": ["plans", () => cardOf(byId("priceList"))], endpoints: ["plans", () => cardOf(byId("endpoints"))],
-    "request-log": ["policies.investigate", () => byId("evLogCard")], "flow-diagram": ["live", () => byId("gwFlow")],
+    "request-log": ["policies.investigate", () => byId("evLogCard")], "flow-diagram": ["policies.investigate", () => byId("gwFlow")],
     "evidence-panel": ["policies.investigate", () => { const p = byId("evPanel"); return p && !p.classList.contains("hidden") ? p : byId("evLogCard"); }],
     pipeline: ["policies.pipeline", () => cardOf(byId("pipe"))], "backend-pool": ["policies.pipeline", () => cardOf(byId("backendsKv"))],
     "evidence-sinks": ["policies.telemetry", () => cardOf(byId("sinks"))], "policy-evidence": ["policies.telemetry", () => byId("policyEvidenceCard")],
@@ -281,7 +281,7 @@
       case "scenario": return { view: "scenarios", find: () => q(`.scenarios button[data-i="${(parseInt(arg, 10) || 0) - 1}"]`) };
       case "caller": return { view: "builder", find: () => all(".agent[data-agent]").find((e) => e.dataset.agent === arg) };
       case "plan": return { view: "plans", find: () => planColumn(arg)?.th, rect: () => planColumn(arg)?.rect(), prep: () => planColumn(arg)?.tint() };
-      case "flow": return { view: "live", find: () => q(`#gwfSvg g[data-node="${CSS.escape(arg)}"]`) };
+      case "flow": return { view: "policies.investigate", find: () => q(`#gwfSvg g[data-node="${CSS.escape(arg)}"]`) };
       case "stage": return { view: "policies.pipeline", find: () => (STAGES[arg] ? q(`#pipe .stage:nth-child(${STAGES[arg]})`) : null) };
       case "sink": return { view: "policies.telemetry", find: () => all("#sinks .sink").find((e) => (e.querySelector(".t")?.firstChild?.textContent || "").trim().toLowerCase().startsWith(arg.toLowerCase())) };
       case "deployed": return { view: "policies.deployed", fallback: "deployed-policies",
@@ -340,7 +340,7 @@
   function openCall(n) {
     const r = pageCalls()[n - 1];
     if (!r || typeof window.showEvidence !== "function") return false;
-    window.showEvidence(n - 1); window.gwFlow?.fromCall(r, n - 1);  // trace + logs on Evidence; the replay waits on Live session
+    window.showEvidence(n - 1);  // replays it in the flow and loads its trace and log rows
     return true;
   }
   async function act(a, b) {
@@ -358,10 +358,10 @@
       addChip(b, `Evidence of #${a.call}`, () => openCall(a.call), !ok);
       await sleep(900);
     } else if (a.type === "play_flow") {
-      goView("live"); await sleep(60);
+      goView("policies.investigate"); await sleep(60);
       byId("gwFlow")?.scrollIntoView({ behavior: smooth(), block: "center" });
       window.gwFlow?.play(a.example);
-      addChip(b, `▶ Flow: ${a.example}`, () => { goView("live"); byId("gwFlow")?.scrollIntoView({ behavior: smooth(), block: "center" }); window.gwFlow?.play(a.example); });
+      addChip(b, `▶ Flow: ${a.example}`, () => { goView("policies.investigate"); byId("gwFlow")?.scrollIntoView({ behavior: smooth(), block: "center" }); window.gwFlow?.play(a.example); });
       await sleep(600);
     } else if (a.type === "policy_flow") {
       renderFlow(b, a);

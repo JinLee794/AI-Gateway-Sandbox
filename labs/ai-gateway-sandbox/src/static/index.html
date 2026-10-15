@@ -460,7 +460,7 @@
   .build .agents { grid-template-columns:repeat(3,minmax(0,1fr)); } .build .agrp, .build .users { grid-column:1 / -1; }
   .build .users { grid-template-columns:repeat(4,minmax(0,1fr)); }
   .build .form { border-left:1px solid var(--divider); padding-left:24px; }
-  #sessionArea.idle #tab-live > :not(.idlehint):not(.bdetails):not(#gwFlowSection) { opacity:.45; filter:grayscale(.5); }
+  #sessionArea.idle #tab-live > :not(.idlehint):not(.bdetails) { opacity:.45; filter:grayscale(.5); }
   .sigs { display:grid; grid-template-columns:1fr 1fr; gap:4px 14px; }
   .sigs h3 { grid-column:1 / -1; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin:8px 0 2px; }
   .sigs h3:first-child { margin-top:0; }
@@ -764,6 +764,53 @@
           <h2>Last response</h2>
           <div id="last" class="muted">Send a request to see what the gateway did.</div>
         </div>
+      </div>
+      <details class="card bdetails" id="bDetails" style="margin-top:16px">
+        <summary><h2>$ budget left by tier and subscription <span class="muted" style="font-weight:400;font-size:12px">· also live in the chat's budget meter</span> <span class="info" tabindex="0" data-tip="Each user and agent has its own subscription key on a Gold, Silver or Bronze plan, and the gateway's quota-by-key counts every call's cost against that subscription's $ budget. API Management can't read that counter back, so this sums the chargeback records the gateway writes for each subscription's own calls since the last reset, and adds this page's newer calls until their records land.">i</span></h2></summary>
+          <div id="budgets"></div>
+      </details>
+      <div class="card" style="margin-top:16px"><h2>Budget burn: % of each key's $ budget, call by call <span class="info" tabindex="0" data-tip="Cumulative cost of this page's calls since the last budget reset, as a share of each subscription key's $ budget (the plan sizes it, so Gold and Bronze compare fairly). ✕ marks a call the gateway stopped: red for a $ budget 403, orange for 429, grey for other blocks. The dashed line is the budget.">i</span></h2>
+        <div style="position:relative;height:240px"><canvas id="cBurn"></canvas></div></div>
+      <div class="grid3" style="margin-top:16px">
+        <div class="card"><h2>What the gateway did, by subscription key <span class="info" tabindex="0" data-tip="Every call by the reason it was allowed, changed or stopped, from x-gw-blocked-by and x-gw-governance. Governed = allowed but the plan changed it: model downgraded, output capped, failover or a stream charged at its ceiling.">i</span></h2><canvas id="cOutcomes"></canvas></div>
+        <div class="card"><h2>Who paid for what (USD) <span class="info" tabindex="0" data-tip="Each subscription key's spend from this page, split by what it bought: model tokens, MCP tool calls, A2A agent fees, images and content safety checks. This is the chargeback view.">i</span></h2><canvas id="cCostAgent"></canvas></div>
+        <div class="card"><h2>Latency by backend <span class="info" tabindex="0" data-tip="End-to-end latency of each call measured by app.py, coloured by the backend (x-gw-backend) that answered. Triangles went through failover (x-gw-route a > b); grey calls were stopped at the gateway before any backend.">i</span></h2><canvas id="cLatency"></canvas></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2>Request log <span class="muted" id="logFilter" style="font-weight:400;font-size:12px"></span></h2>
+        <div class="scroll"><table>
+          <thead><tr><th>Time</th><th>Agent / user</th><th>Session</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Signals</th><th>Tokens</th><th>Cost USD</th><th>Billed to</th><th>Backend</th><th>Latency</th><th>Detail</th><th>Evidence</th></tr></thead>
+          <tbody id="log"></tbody>
+        </table></div>
+      </div>
+      <details class="card bdetails runsbox" id="tab-runs" style="margin-top:16px">
+        <summary><h2>Run history <span class="pill" id="runCount">0</span> <span class="muted" style="font-weight:400;font-size:12px">· every scenario, full demo and request you sent: its calls, cost and gateway decisions</span></h2></summary>
+      <div class="runs">
+        <div class="card rlist"><h2>Runs <span class="muted" id="runScope">(this page session, newest first)</span> <button class="secondary hidden" id="btnClearHist" onclick="clearHistory()" title="Delete the run history saved for you" style="float:right;padding:2px 10px;font-size:12px">Clear</button></h2><div id="runList"></div></div>
+        <div id="runDetail"></div>
+      </div>
+      </details>
+    </div>
+
+    <div id="tab-evidence" class="hidden">
+      <div class="psub" role="tablist" aria-label="Evidence and monitoring views" style="grid-template-columns:repeat(3,1fr)">
+        <button class="on" data-psec="investigate" role="tab"><img class="ico" src="/icons/trace.svg" alt=""><span><b>Investigate a request</b><small>log · flow · trace · logs</small></span></button>
+        <button data-psec="telemetry" role="tab"><img class="ico" src="/icons/log-analytics.svg" alt=""><span><b>Logs &amp; telemetry</b><small>where evidence lands · live KQL</small></span></button>
+        <button data-psec="monitor" role="tab"><img class="ico" src="/icons/app-insights.svg" alt=""><span><b>Azure Monitor</b><small>App Insights cost, outcomes, tokens</small></span></button>
+      </div>
+      <div class="psec" data-psec="investigate">
+      <div class="card" id="evLogCard">
+        <div class="evlbar">
+          <h2>Request log <span class="muted" id="evLogCount"></span> <span class="info" tabindex="0" data-tip="Every call from this page session, newest first. Click a request (or use ↑ / ↓) to replay it in the flow below and load its policy trace and Log Analytics rows, without leaving this tab.">i</span></h2>
+          <select id="evRunFilter" aria-label="Show requests from"></select>
+          <label class="evlchk"><input type="checkbox" id="evBlockedOnly"/> Blocked only</label>
+          <button class="secondary" id="evPrev" title="Previous request (↑)">↑ Previous</button>
+          <button class="secondary" id="evNext" title="Next request (↓)">Next ↓</button>
+        </div>
+        <div class="scroll" id="evLogWrap" tabindex="0" aria-label="Request log: use the up and down arrow keys to step through the requests"><table>
+          <thead><tr><th>#</th><th>Time · run</th><th>Agent / user</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Gateway decision</th><th>Backend</th><th>Tokens</th><th>Cost USD</th><th>Latency</th><th>Evidence</th></tr></thead>
+          <tbody id="evLog"></tbody>
+        </table></div>
       </div>
       <!-- ================= Gateway flow animation + "See the pattern" lightbox (self-contained: style, markup, script) =================
            window.gwFlow.fromCall(r, i)        replays one recorded call from its x-gw-* response headers (called by showEvidence)
@@ -1686,17 +1733,21 @@
           const tid = h["apim-trace-id"] || null;
           return run({ title: `call #${i + 1} · ${r.agent} · ${r.surface || "model"} · HTTP ${r.status}`, r, traceId: tid, trace: tid && current?.traceId === tid ? current.trace : null });
         }
-        // Follow mode: replay the page's calls as they land. A replay plays to the end; calls that land meanwhile collapse
-        // into the newest one, so a fast scenario shows its latest decision instead of a growing backlog.
+        // Follow mode: replay the page's calls as they land, while the flow is on screen. A replay plays to the end; calls that
+        // land meanwhile (or while the flow is hidden) collapse into the newest one, which plays when it's next shown.
         let following = null, followBusy = false;
         const followOn = () => el("gwfFollow")?.checked !== false;
-        async function follow(r, i) {
+        const onScreen = () => !!el("gwFlow")?.offsetParent;
+        function follow(r, i) {
           if (!followOn() || !r || !r.status || looping) return;
           following = { r, i };
+          if (onScreen()) drain();
+        }
+        async function drain() {
           if (followBusy) return;
           followBusy = true;
           try {
-            while (following && followOn()) {
+            while (following && followOn() && onScreen()) {
               const f = following; following = null;
               const tid = (f.r.headers || {})["apim-trace-id"] || null;
               const ok = await run({ title: `call #${f.i + 1} · ${f.r.agent} · ${f.r.surface || "model"} · HTTP ${f.r.status}`, r: f.r, traceId: tid,
@@ -1730,7 +1781,7 @@
             ${row("Reset", "<b>Reset budgets</b> changes <code>budget-epoch</code>, which is part of every counter key, so every bucket starts again at $0", "the same: both counters include <code>budget-epoch</code>")}
             </tbody></table></div>`;
         }
-        function shown() { budgetPrimer(); loadDocs(); setTimeout(() => { if (!played) runDemo("happy"); }, 0); }
+        function shown() { budgetPrimer(); loadDocs(); setTimeout(() => { if (following && followOn()) drain(); else if (!played) runDemo("happy"); }, 0); }
 
         draw(); resetDiagram(); renderDemos(null);
         el("gwfSrc").innerHTML = "· pick an example, or open the evidence of a call";
@@ -1762,53 +1813,6 @@
       </script>
       </div>
       <!-- ================= end of gateway flow section ================= -->
-      <details class="card bdetails" id="bDetails" style="margin-top:16px">
-        <summary><h2>$ budget left by tier and subscription <span class="muted" style="font-weight:400;font-size:12px">· also live in the chat's budget meter</span> <span class="info" tabindex="0" data-tip="Each user and agent has its own subscription key on a Gold, Silver or Bronze plan, and the gateway's quota-by-key counts every call's cost against that subscription's $ budget. API Management can't read that counter back, so this sums the chargeback records the gateway writes for each subscription's own calls since the last reset, and adds this page's newer calls until their records land.">i</span></h2></summary>
-          <div id="budgets"></div>
-      </details>
-      <div class="card" style="margin-top:16px"><h2>Budget burn: % of each key's $ budget, call by call <span class="info" tabindex="0" data-tip="Cumulative cost of this page's calls since the last budget reset, as a share of each subscription key's $ budget (the plan sizes it, so Gold and Bronze compare fairly). ✕ marks a call the gateway stopped: red for a $ budget 403, orange for 429, grey for other blocks. The dashed line is the budget.">i</span></h2>
-        <div style="position:relative;height:240px"><canvas id="cBurn"></canvas></div></div>
-      <div class="grid3" style="margin-top:16px">
-        <div class="card"><h2>What the gateway did, by subscription key <span class="info" tabindex="0" data-tip="Every call by the reason it was allowed, changed or stopped, from x-gw-blocked-by and x-gw-governance. Governed = allowed but the plan changed it: model downgraded, output capped, failover or a stream charged at its ceiling.">i</span></h2><canvas id="cOutcomes"></canvas></div>
-        <div class="card"><h2>Who paid for what (USD) <span class="info" tabindex="0" data-tip="Each subscription key's spend from this page, split by what it bought: model tokens, MCP tool calls, A2A agent fees, images and content safety checks. This is the chargeback view.">i</span></h2><canvas id="cCostAgent"></canvas></div>
-        <div class="card"><h2>Latency by backend <span class="info" tabindex="0" data-tip="End-to-end latency of each call measured by app.py, coloured by the backend (x-gw-backend) that answered. Triangles went through failover (x-gw-route a > b); grey calls were stopped at the gateway before any backend.">i</span></h2><canvas id="cLatency"></canvas></div>
-      </div>
-      <div class="card" style="margin-top:16px">
-        <h2>Request log <span class="muted" id="logFilter" style="font-weight:400;font-size:12px"></span></h2>
-        <div class="scroll"><table>
-          <thead><tr><th>Time</th><th>Agent / user</th><th>Session</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Signals</th><th>Tokens</th><th>Cost USD</th><th>Billed to</th><th>Backend</th><th>Latency</th><th>Detail</th><th>Evidence</th></tr></thead>
-          <tbody id="log"></tbody>
-        </table></div>
-      </div>
-      <details class="card bdetails runsbox" id="tab-runs" style="margin-top:16px">
-        <summary><h2>Run history <span class="pill" id="runCount">0</span> <span class="muted" style="font-weight:400;font-size:12px">· every scenario, full demo and request you sent: its calls, cost and gateway decisions</span></h2></summary>
-      <div class="runs">
-        <div class="card rlist"><h2>Runs <span class="muted" id="runScope">(this page session, newest first)</span> <button class="secondary hidden" id="btnClearHist" onclick="clearHistory()" title="Delete the run history saved for you" style="float:right;padding:2px 10px;font-size:12px">Clear</button></h2><div id="runList"></div></div>
-        <div id="runDetail"></div>
-      </div>
-      </details>
-    </div>
-
-    <div id="tab-evidence" class="hidden">
-      <div class="psub" role="tablist" aria-label="Evidence and monitoring views" style="grid-template-columns:repeat(3,1fr)">
-        <button class="on" data-psec="investigate" role="tab"><img class="ico" src="/icons/trace.svg" alt=""><span><b>Investigate a request</b><small>log · flow · trace · logs</small></span></button>
-        <button data-psec="telemetry" role="tab"><img class="ico" src="/icons/log-analytics.svg" alt=""><span><b>Logs &amp; telemetry</b><small>where evidence lands · live KQL</small></span></button>
-        <button data-psec="monitor" role="tab"><img class="ico" src="/icons/app-insights.svg" alt=""><span><b>Azure Monitor</b><small>App Insights cost, outcomes, tokens</small></span></button>
-      </div>
-      <div class="psec" data-psec="investigate">
-      <div class="card" id="evLogCard">
-        <div class="evlbar">
-          <h2>Request log <span class="muted" id="evLogCount"></span> <span class="info" tabindex="0" data-tip="Every call from this page session, newest first. Click a request (or use ↑ / ↓) to replay it in the flow below and load its policy trace and Log Analytics rows, without leaving this tab.">i</span></h2>
-          <select id="evRunFilter" aria-label="Show requests from"></select>
-          <label class="evlchk"><input type="checkbox" id="evBlockedOnly"/> Blocked only</label>
-          <button class="secondary" id="evPrev" title="Previous request (↑)">↑ Previous</button>
-          <button class="secondary" id="evNext" title="Next request (↓)">Next ↓</button>
-        </div>
-        <div class="scroll" id="evLogWrap" tabindex="0" aria-label="Request log: use the up and down arrow keys to step through the requests"><table>
-          <thead><tr><th>#</th><th>Time · run</th><th>Agent / user</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Gateway decision</th><th>Backend</th><th>Tokens</th><th>Cost USD</th><th>Latency</th><th>Evidence</th></tr></thead>
-          <tbody id="evLog"></tbody>
-        </table></div>
-      </div>
       <div class="card hidden" id="evPanel">
         <h2>Evidence for one request <span class="muted" id="evTitle"></span>
           <span class="evnav"><span class="muted" id="evPos"></span><button class="secondary" id="evPrev2" title="Previous request in the log">↑ Previous</button><button class="secondary" id="evNext2" title="Next request in the log">Next ↓</button></span></h2>
@@ -2093,7 +2097,6 @@ async function init() {
   renderPlans();
   renderScenarios();
   initGwMode();
-  window.gwFlow?.shown();  // the flow lives on the Live session tab: intro example now, then it follows the page's calls
 }
 
 function setSurface(s) {
@@ -3435,11 +3438,10 @@ async function clearHistory() {
   selRun = null; $("btnClearHist").classList.add("hidden"); renderRuns(); toast("Saved run history cleared.");
 }
 function openRun(n) { selRun = n; selCall = null; showTab("runs"); $("tab-runs").scrollIntoView({ block: "start" }); scrollBy(0, -80); }
-// Replays one recorded call in the gateway flow on the Live session tab
+// Replays one recorded call in the gateway flow (Evidence & monitoring › Investigate a request), with its trace and logs
 function flowCall(i) {
-  const r = session.calls[i]; if (!r) return;
-  showTab("live"); window.gwFlow?.fromCall(r, i);
-  if (r.headers?.["apim-trace-id"]) loadTrace(r.headers["apim-trace-id"]).catch(() => {});  // adds the APIM trace summary under the flow
+  if (!session.calls[i]) return;
+  showEvidence(i, 0, { scroll: false });
   $("gwFlow").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 $("tab-runs").addEventListener("toggle", () => { if ($("tab-runs").open) renderRuns(); });
@@ -3628,7 +3630,7 @@ function showTab(tab) {
   document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("active", x.dataset.tab === top));
   curTab = top;
   for (const t of ["live", "evidence", "plans"]) $("tab-" + t).classList.toggle("hidden", top !== t);
-  if (top === "live") { window.gwFlow?.shown(); if (tab === "runs") { $("tab-runs").open = true; renderRuns(); } }
+  if (top === "live" && tab === "runs") { $("tab-runs").open = true; renderRuns(); }
   if ((top === "evidence" || top === "plans") && !policiesLoaded) { policiesLoaded = true; loadPolicies(); loadPolicyEvidence(); }
   if (sec) showPsec(sec); else showPsec(document.querySelector(`#tab-${top} .psub button.on`)?.dataset.psec || "");
 }
@@ -3652,7 +3654,7 @@ function showPsec(name) {
   const root = $("tab-" + top);
   root.querySelectorAll(".psub button").forEach(b => { b.classList.toggle("on", b.dataset.psec === name); b.setAttribute("aria-selected", b.dataset.psec === name); });
   root.querySelectorAll("div.psec").forEach(x => x.classList.toggle("hidden", x.dataset.psec !== name));
-  if (name === "investigate") renderEvLog();
+  if (name === "investigate") { renderEvLog(); window.gwFlow?.shown(); }
   if (name === "chargeback" && !cbLoaded) { cbLoaded = true; loadChargeback(); }
   if (name === "monitor" && !charts._loaded) { charts._loaded = true; refreshMonitor(); }
 }
@@ -3860,11 +3862,12 @@ async function showEvidence(i, attempt = 0, opts = {}) {
   if (!attempt) {
     if (!evLogIdxs().includes(i)) { evFilterRun = "all"; evBlockedOnly = false; } // opened from another tab: make sure the call is visible in the log
     showTab("policies"); showPsec("investigate"); $("evPanel").classList.remove("hidden");
-    $("evTitle").innerHTML = `· #${i + 1} · ${escapeHtml(r.agent)} · ${escapeHtml(r.surface)} · HTTP ${r.status} · <a class="ev" onclick="flowCall(${i})" title="Replay this call in the gateway flow on the Live session tab">▶ replay in the flow</a>`;
+    $("evTitle").textContent = `· #${i + 1} · ${r.agent} · ${r.surface} · HTTP ${r.status}`;
     $("evTrace").innerHTML = h["apim-trace-id"] ? `<div class="muted">Fetching the trace…</div>`
       : `<div class="muted">This call was not traced. Tick <b>Trace policies</b> before sending to record a policy-by-policy trace.</div>`;
     $("evLogs").innerHTML = `<div class="muted">Querying Log Analytics for request <code>${escapeHtml(h["x-gw-request-id"] || "-")}</code>…</div>`;
     if (opts.scroll !== false) $("evLogCard").scrollIntoView({ behavior: "smooth" });
+    window.gwFlow?.fromCall(r, i);
     if (h["apim-trace-id"]) { const done = busy($("evTrace").parentElement, "Fetching the policy trace…", "APIM request tracing");
       loadTrace(h["apim-trace-id"]).then(html => { if (run === evRun) $("evTrace").innerHTML = html; }).finally(done); }
   }
