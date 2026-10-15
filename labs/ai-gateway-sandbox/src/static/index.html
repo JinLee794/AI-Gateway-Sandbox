@@ -659,9 +659,9 @@
   .preview .ptip .hint { font-size:11px; color:var(--muted); margin-top:8px; border-top:1px solid var(--divider); padding-top:6px; }
   /* Minimized: the launch panel shrinks to a slim rail (side by side only) and the conversation takes the width */
   .rlab { display:none; }
-  #btnMini { display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px 0 10px; font-size:13px; font-weight:600; border-color:#8a8886; }
-  #btnMini .mi { font-size:17px; line-height:1; margin-top:-2px; }
-  #btnMini:hover:not(:disabled) { background:var(--accent-light); border-color:var(--accent); color:#005a9e; }
+  #btnMini, #btnToggle { display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px 0 10px; font-size:13px; font-weight:600; border-color:#8a8886; }
+  #btnMini .mi, #btnToggle .mi { font-size:17px; line-height:1; margin-top:-2px; } #btnToggle .mi { font-size:12px; margin-top:0; }
+  #btnMini:hover:not(:disabled), #btnToggle:hover:not(:disabled) { background:var(--accent-light); border-color:var(--accent); color:#005a9e; }
   @media (min-width:1101px) {
     .launch:not(.collapsed) #btnToggle { display:none; }  /* side by side, « (minimize to a rail) collapses the open panel; a run shrinks it to the strip */
     .bench:has(.launch.mini) { grid-template-columns:52px minmax(0,1fr); }
@@ -778,7 +778,7 @@
       <button class="secondary hidden" id="btnStop">Stop</button>
       <button class="secondary hidden" id="btnAgain" title="Run again">↻<span class="lbl"> Run again</span></button>
       <button class="hidden" id="btnNext"></button>
-      <button class="secondary" id="btnToggle">Collapse ▴</button>
+      <button class="secondary" id="btnToggle" title="Fold this panel to a one-line bar, so the results get the room"><span class="mi">▴</span><span class="ml">Hide</span></button>
       <button class="rlab" id="rlab" title="Expand the panel">Scenarios &amp; request builder</button>
       <button class="secondary" id="btnMini" title="Hide this panel to a slim rail, so the conversation gets the full width" aria-expanded="true"><span class="mi">«</span><span class="ml">Hide</span></button>
     </div>
@@ -3806,8 +3806,8 @@ function rememberRun(label) {
 }
 function updateLaunch() {
   const collapsed = $("launch").classList.contains("collapsed");
-  $("btnToggle").textContent = collapsed ? "Change ▾" : "Collapse ▴";
-  $("btnToggle").classList.toggle("hidden", !collapsed && !lastRun);
+  $("btnToggle").innerHTML = collapsed ? `<span class="mi">▾</span><span class="ml">Show</span>` : `<span class="mi">▴</span><span class="ml">Hide</span>`;
+  $("btnToggle").title = collapsed ? "Show the scenarios and request builder again" : "Fold this panel to a one-line bar, so the results get the room";
   $("btnAgain").classList.toggle("hidden", running || !lastRun);
   $("lsum").classList.toggle("hidden", !collapsed || !lastRun);
   if (lastRun) {
