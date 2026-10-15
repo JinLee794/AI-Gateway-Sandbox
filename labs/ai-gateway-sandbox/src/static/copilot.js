@@ -446,8 +446,10 @@
       .replace(/\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
       .replace(/(^|[\s(>])#(\d{1,4})\b/g, '$1<a class="cop-call" data-call="$2" title="Open the evidence of call #$2">#$2</a>');
     const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
+    const unesc = (s) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+    const fencePre = (lines) => { const raw = unesc(lines.join("\n")); return /^\s*</.test(raw) && typeof xmlPre === "function" ? xmlPre(raw, "xmlhl") : `<pre>${lines.join("\n")}</pre>`; };
     for (const raw of esc(text).split("\n")) {
-      if (/^\s*```/.test(raw)) { if (fence) { out.push(`<pre>${fence.join("\n")}</pre>`); fence = null; } else { close(); fence = []; } continue; }
+      if (/^\s*```/.test(raw)) { if (fence) { out.push(fencePre(fence)); fence = null; } else { close(); fence = []; } continue; }
       if (fence) { fence.push(raw); continue; }
       const li = raw.match(/^\s*(?:[-*•]|(\d+)[.)])\s+(.*)$/);
       if (li) { const tag = li[1] ? "ol" : "ul"; if (list !== tag) { close(); out.push(`<${tag}>`); list = tag; } out.push(`<li>${inline(li[2])}</li>`); continue; }
@@ -455,7 +457,7 @@
       const h = raw.match(/^\s*#{1,4}\s+(.*)$/);
       if (h) out.push(`<div class="cop-h">${inline(h[1])}</div>`); else if (raw.trim()) out.push(`<p>${inline(raw)}</p>`);
     }
-    if (fence) out.push(`<pre>${fence.join("\n")}</pre>`);
+    if (fence) out.push(fencePre(fence));
     close();
     return out.join("");
   }

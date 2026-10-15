@@ -307,6 +307,7 @@
   .polgrp { margin-top:14px; } .polgrp:first-child { margin-top:4px; } .polgrp h3 { font-size:13px; margin:0 0 6px; display:flex; align-items:center; gap:6px; }
   .polgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); gap:10px; }
   .polcard { border:1px solid var(--border); border-radius:6px; padding:10px 12px; background:#fff; min-width:0; }
+  .polcard:has(details[open]) { grid-column:1 / -1; } .polcard details[open] pre.xml { max-height:520px; }
   .polcard .nm { font-weight:600; font-size:13px; display:flex; align-items:center; gap:6px; margin-bottom:6px; }
   .polcard .sr { display:flex; gap:6px; align-items:flex-start; margin-top:4px; } .polcard .sr > span { flex:0 0 62px; font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; padding-top:2px; }
   .polcard details { margin-top:6px; } .polcard summary { cursor:pointer; font-size:12px; color:var(--accent); }
@@ -325,7 +326,15 @@
   .evsrc { border:1px solid var(--border); border-radius:6px; padding:8px 12px; margin-bottom:10px; background:#fff; }
   .evsrc h3 { font-size:13px; margin:0; display:flex; gap:6px; align-items:center; } .evsrc h3 a { margin-left:auto; font-weight:400; font-size:12px; }
   @media (max-width:1200px) { .psub, .sinks { grid-template-columns:repeat(2,1fr); } .kqgrid { grid-template-columns:1fr; } .pipe, .pscopes { grid-template-columns:1fr; } .pscopes { display:none; } .pipe .stage:not(:first-child)::before { display:none; } }
-  pre.xml { background:#faf9f8; border:1px solid var(--divider); border-radius:4px; padding:10px 12px; font:12px/1.45 Consolas,monospace; max-height:360px; overflow:auto; white-space:pre; margin:8px 0 0; }
+  pre.xml { background:#faf9f8; border:1px solid var(--divider); border-radius:4px; padding:10px 12px 10px 0; font:12px/1.5 Consolas,monospace; max-height:360px; overflow:auto; white-space:pre; margin:8px 0 0; counter-reset:xl; }
+  pre.xml .xl::before, pre.xmlhl .xl::before { counter-increment:xl; content:counter(xl); display:inline-block; width:3.2em; padding-right:10px; margin-right:8px; text-align:right; color:#a19f9d; border-right:1px solid var(--divider); user-select:none; }
+  pre.xmlhl { counter-reset:xl; padding-left:0; white-space:pre; overflow:auto; }
+  pre.xml, pre.xmlhl, .gwf-lens .code { tab-size:2; -moz-tab-size:2; }
+  /* policy XML highlighting (xmlHl): VS Code light colours */
+  .x-p { color:#800000; } .x-t { color:#800000; font-weight:600; } .x-a { color:#e50000; } .x-v { color:#0451a5; }
+  .x-c { color:#008000; font-style:italic; } .x-at { color:#af00db; font-weight:700; } .x-e, .x-x { color:#1f1f1f; }
+  .x-k { color:#0000ff; } .x-s { color:#a31515; } .x-n { color:#098658; } .x-ty { color:#267f99; }
+  .x-nv { font-weight:600; background:#f4effa; color:#5c2e91; border:1px solid #d9c7ee; border-radius:3px; padding:0 2px; }
   details.pol { border:1px solid var(--divider); border-radius:4px; padding:6px 10px; margin-top:6px; } details.pol summary { cursor:pointer; font-size:13px; }
   .evtbl { margin-top:14px; } .evtbl h3 { font-size:13px; margin:0 0 2px; display:flex; gap:10px; align-items:baseline; } .evtbl h3 a { font-weight:400; font-size:12px; }
   .src { font-family:Consolas,monospace; font-size:12px; } .src.key { color:var(--accent); font-weight:600; } .src.err { color:var(--bad); font-weight:600; }
@@ -923,6 +932,71 @@
         </div>
       </div>
       <script>
+      // Policy XML syntax highlighting, shared by the policy lens, Deployed policies and chat code blocks: tags, attributes,
+      // comments, C# policy expressions (@(...) / @{...}) and {{named values}}. APIM policy XML isn't strict XML (expressions
+      // hold unescaped quotes and < >), so this is a small scanner, not a parser. No span ever spans a newline, so callers
+      // can split the HTML into lines.
+      function xmlHl(src) {
+        const s = String(src ?? ""), out = [];
+        const E = (t) => t.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+        const put = (cls, t) => { if (t) out.push(t.split("\n").map(p => p ? (cls ? `<span class="${cls}">${E(p)}</span>` : E(p)) : "").join("\n")); };
+        const putNv = (cls, t) => { let k = 0; for (const m of t.matchAll(/\{\{[A-Za-z0-9._-]+\}\}/g)) { put(cls, t.slice(k, m.index)); put("x-nv", m[0]); k = m.index + m[0].length; } put(cls, t.slice(k)); };
+        const KW = /^(var|return|if|else|foreach|for|while|in|new|null|true|false|string|int|long|double|bool|decimal|object|break|continue|is|as|out)$/;
+        const isExpr = (i) => s[i] === "@" && (s[i + 1] === "(" || s[i + 1] === "{");
+        function exprEnd(i) {  // end (exclusive) of the expression whose @ is at i, skipping C# string and char literals
+          const open = s[i + 1], close = open === "(" ? ")" : "}";
+          for (let j = i + 1, d = 0; j < s.length; j++) {
+            const c = s[j];
+            if (c === '"' || c === "'") { j++; while (j < s.length && s[j] !== c) { if (s[j] === "\\") j++; j++; } continue; }
+            if (c === open) d++; else if (c === close && --d === 0) return j + 1;
+          }
+          return s.length;
+        }
+        function putExpr(a, b) {
+          put("x-at", "@");
+          const t = s.slice(a + 1, b); let k = 0;
+          for (const m of t.matchAll(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\{\{[A-Za-z0-9._-]+\}\}|\b\d+(?:\.\d+)?L?\b|\b[A-Za-z_]\w*\b|\/\/[^\n]*/g)) {
+            put("x-e", t.slice(k, m.index));
+            const w = m[0];
+            if (w[0] === '"' || w[0] === "'") putNv("x-s", w);
+            else put(w.startsWith("{{") ? "x-nv" : /^\d/.test(w) ? "x-n" : w.startsWith("//") ? "x-c" : KW.test(w) ? "x-k" : /^[A-Z]/.test(w) ? "x-ty" : "x-e", w);
+            k = m.index + w.length;
+          }
+          put("x-e", t.slice(k));
+        }
+        let i = 0;
+        while (i < s.length) {
+          if (s.startsWith("<!--", i)) { const e = s.indexOf("-->", i + 4), j = e < 0 ? s.length : e + 3; putNv("x-c", s.slice(i, j)); i = j; continue; }
+          if (s[i] === "<" && /[A-Za-z\/?!]/.test(s[i + 1] || "")) {
+            const closing = s[i + 1] === "/"; put("x-p", closing ? "</" : "<"); i += closing ? 2 : 1;
+            const nm = /^[\w:.?!-]+/.exec(s.slice(i, i + 80)); if (nm) { put("x-t", nm[0]); i += nm[0].length; }
+            while (i < s.length && s[i] !== ">" && !s.startsWith("/>", i)) {
+              const ws = /^\s+/.exec(s.slice(i, i + 200)); if (ws) { put(null, ws[0]); i += ws[0].length; continue; }
+              const an = /^[\w:.-]+/.exec(s.slice(i, i + 80));
+              if (!an) { put(null, s[i]); i++; continue; }
+              put("x-a", an[0]); i += an[0].length;
+              if (s[i] === "=") { put("x-p", "="); i++; }
+              if (s[i] === '"' || s[i] === "'") {
+                const q = s[i]; put("x-v", q); i++;
+                if (isExpr(i)) { const e = exprEnd(i); putExpr(i, e); i = e; }
+                const e2 = s.indexOf(q, i), j = e2 < 0 ? s.length : e2;
+                putNv("x-v", s.slice(i, j)); if (e2 >= 0) put("x-v", q); i = j + 1;
+              }
+            }
+            if (s.startsWith("/>", i)) { put("x-p", "/>"); i += 2; } else if (s[i] === ">") { put("x-p", ">"); i++; }
+            continue;
+          }
+          if (isExpr(i)) { const e = exprEnd(i); putExpr(i, e); i = e; continue; }
+          let j = i + 1;
+          while (j < s.length && !(s[j] === "<" && /[A-Za-z\/?!]/.test(s[j + 1] || "")) && !isExpr(j)) j++;
+          putNv("x-x", s.slice(i, j)); i = j;
+        }
+        return out.join("");
+      }
+      // A <pre> of highlighted XML with a line-number gutter
+      const xmlPre = (src, cls = "xml") => `<pre class="${cls}">${xmlHl(String(src ?? "").replace(/\r\n?/g, "\n")).split("\n").map(l => `<span class="xl">${l}</span>`).join("\n")}</pre>`;
+      </script>
+      <script>
       window.gwFlow = (() => {
         const el = (id) => document.getElementById(id), NS = "http://www.w3.org/2000/svg";
         const RM = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -1299,11 +1373,11 @@
           const s = snippet(spec), box = el("gwfLens");
           if (!s) return;
           const ind = Math.min(...s.lines.filter(l => l.trim()).map(l => l.match(/^\s*/)[0].length));
-          const verdict = spec.verdict || "ok";
+          const verdict = spec.verdict || "ok", hl = xmlHl(s.lines.map(l => l.slice(ind)).join("\n")).split("\n");
           box.hidden = false;
           box.className = `gwf-lens ${verdict}`;
           box.innerHTML = `<div class="lh"><span class="dot"></span><b>${esc(spec.title)}</b><span class="muted">${esc(DOC_LABEL(spec.doc))} · line ${s.start + 1}${s.lines.length > 1 ? "–" + (s.start + s.lines.length) : ""}</span></div>
-            <div class="code">${s.lines.map((l, i) => `<div class="ln" title="${esc(l.trim())}"><span class="no">${s.start + i + 1}</span><span class="tx">${nvChip(esc(l.slice(ind)))}</span><span class="mk"></span></div>`).join("")}</div>
+            <div class="code">${s.lines.map((l, i) => `<div class="ln" title="${esc(l.trim())}"><span class="no">${s.start + i + 1}</span><span class="tx">${hl[i] || ""}</span><span class="mk"></span></div>`).join("")}</div>
             <div class="nvs"></div>${spec.note ? `<div class="lnote">${spec.note}</div>` : ""}`;
           const rows = [...box.querySelectorAll(".ln")];
           for (const row of rows) { row.classList.add("in"); await wait(28, g); }
@@ -2299,7 +2373,7 @@ function cvClip(text, n = 600) {
   return t.length <= n ? escapeHtml(t) : `${escapeHtml(t.slice(0, n))}… <details><summary>show all ${t.length.toLocaleString()} characters</summary>${escapeHtml(t)}</details>`;
 }
 function cvMd(text) {  // just enough markdown for model answers: code fences, inline code, bold, headings (escaped first)
-  return String(text).split(/```[\w-]*\n?/).map((p, i) => i % 2 ? `<pre class="cv-pre">${escapeHtml(p.replace(/\n$/, ""))}</pre>`
+  return String(text).split(/```[\w-]*\n?/).map((p, i) => i % 2 ? (/^\s*</.test(p) ? xmlPre(p.replace(/\n$/, ""), "cv-pre xmlhl") : `<pre class="cv-pre">${escapeHtml(p.replace(/\n$/, ""))}</pre>`)
     : escapeHtml(p).replace(/`([^`\n]+)`/g, "<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>").replace(/^#{1,4} (.+)$/gm, "<b>$1</b>")).join("");
 }
 function cvJson(s) { try { const v = JSON.parse(s); return v && typeof v === "object" ? JSON.stringify(v, null, 2) : null; } catch { return null; } }
@@ -3630,7 +3704,7 @@ async function loadPolicies() {
       + list.map(p => { const el = polElements(p.xml);
           return `<div class="polcard"><div class="nm">${escapeHtml(p.name)}</div>` + Object.entries(el).map(([sec, names]) => `<div class="sr"><span>${sec}</span><div class="chips">`
             + names.map(n => `<span class="chip${KEY_SOURCES.test(n) ? " key" : ""}">${n}</span>`).join("") + `</div></div>`).join("")
-            + `<details><summary>View XML</summary><pre class="xml">${escapeHtml(p.xml)}</pre></details></div>`; }).join("") + `</div></div>`).join("");
+            + `<details><summary>View XML</summary>${xmlPre(p.xml)}</details></div>`; }).join("") + `</div></div>`).join("");
   } catch (e) { $("deployedPolicies").textContent = "Failed to read policies: " + e.message; }
   finally { done.forEach(f => f()); }
 }
