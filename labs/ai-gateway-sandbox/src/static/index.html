@@ -51,6 +51,17 @@
   .tabs button { background:transparent; color:var(--text); border:0; border-radius:0; padding:0 2px; height:40px; font-weight:400; position:relative; }
   .tabs button:hover:not(:disabled) { background:transparent; color:var(--accent); border:0; }
   .tabs button.active { font-weight:600; } .tabs button.active::after { content:""; position:absolute; left:0; right:0; bottom:-1px; height:3px; border-radius:2px; background:var(--accent); }
+  .tabs .tabsp { flex:1; }
+  .tabs .viewsel { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); white-space:nowrap; }
+  .tabs .viewsel select { height:28px; max-width:420px; font-size:12.5px; }
+  .tabs .viewsel.run select { border-color:#e0b000; background:#fff8e6; font-weight:600; }
+  /* Viewing an earlier run: its report replaces the Live session content until "Back to the live session" */
+  #tab-live.runmode > :not(#tab-runs):not(#runBanner) { display:none !important; }
+  #tab-live.runmode #tab-runs { margin-top:0 !important; border:0; padding:0; background:transparent; box-shadow:none; }
+  #tab-live.runmode #tab-runs > summary, #tab-live.runmode #tab-runs .rlist { display:none; }
+  #tab-live.runmode #tab-runs .runs { grid-template-columns:minmax(0, 1fr); }
+  .runbanner { display:flex; gap:12px; align-items:center; flex-wrap:wrap; padding:8px 12px; margin-bottom:12px; border-radius:6px; background:#fff8e6; border:1px solid #f2d58a; font-size:13px; }
+  .runbanner[hidden] { display:none; } .runbanner .sp { flex:1; } .runbanner button { height:28px; padding:0 12px; font-size:12px; }
   .agents { display:grid; gap:8px; }
   .agent { border:1px solid var(--border); border-radius:6px; padding:10px 12px; cursor:pointer; background:#fff; transition:border-color .15s, background .15s; }
   .agent:hover { border-color:#8a8886; }
@@ -460,7 +471,7 @@
   .build .agents { grid-template-columns:repeat(3,minmax(0,1fr)); } .build .agrp, .build .users { grid-column:1 / -1; }
   .build .users { grid-template-columns:repeat(4,minmax(0,1fr)); }
   .build .form { border-left:1px solid var(--divider); padding-left:24px; }
-  #sessionArea.idle #tab-live > :not(.idlehint):not(.bdetails) { opacity:.45; filter:grayscale(.5); }
+  #sessionArea.idle #tab-live > :not(.idlehint):not(.bdetails):not(.runbanner) { opacity:.45; filter:grayscale(.5); }
   .sigs { display:grid; grid-template-columns:1fr 1fr; gap:4px 14px; }
   .sigs h3 { grid-column:1 / -1; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin:8px 0 2px; }
   .sigs h3:first-child { margin-top:0; }
@@ -742,9 +753,12 @@
       <button class="active" data-tab="live">Live session</button>
       <button data-tab="evidence">Evidence &amp; monitoring</button>
       <button data-tab="plans">Plans, policies &amp; chargeback</button>
+      <span class="tabsp"></span>
+      <label class="viewsel" title="Show the live session, or the report of an earlier run (its calls, cost and gateway decisions)">Viewing <select id="viewSel" aria-label="Show the live session or an earlier run"><option value="live">● Live session</option></select></label>
     </div>
 
     <div id="tab-live">
+      <div class="runbanner" id="runBanner" hidden></div>
       <div class="idlehint">Results show up here. Run a guided scenario, <i>or</i> build your own request and press <b>Send</b>, <i>or</i> just type a message in the conversation.</div>
       <div class="kpis">
         <div class="kpi"><div class="l">Requests</div><div class="v" id="kCalls">0</div></div>
@@ -3432,8 +3446,44 @@ const runs = []; let curRun = null, curPart = null, stopRequested = false, selRu
 const newId = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
 function startRun(run) {
   curRun = Object.assign(run, { id: newId(), n: runs.length ? runs[runs.length - 1].n + 1 : 1, started: Date.now(), ended: null, status: "running", calls: [], parts: [] });
+  if (viewRun != null) { viewRun = null; $("tab-live").classList.remove("runmode"); renderRunBanner(); }  // a new run is live: show it
   runs.push(curRun); curPart = null; stopRequested = false; selRun = null; selCall = null; renderRuns();
 }
+// The "Viewing" selector next to the tabs: the live session, or one run's report in its place (null = live)
+let viewRun = null;
+function setView(n) {
+  viewRun = n == null || n === "live" ? null : Number(n);
+  if (viewRun != null && !runs.some(r => r.n === viewRun)) viewRun = null;
+  $("tab-live").classList.toggle("runmode", viewRun != null);
+  if (viewRun != null) { selRun = viewRun; selCall = null; $("tab-runs").open = true; }
+  if (curTab !== "live") showTab("live");
+  renderRuns(); renderRunBanner();
+  if (viewRun != null) { $("tab-live").scrollIntoView({ block: "start" }); scrollBy(0, -120); }
+}
+function fillViewSel() {
+  const sel = $("viewSel"); if (!sel) return;
+  const when = (t) => new Date(t).toDateString() === new Date().toDateString() ? new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const opt = (r) => { const cost = r.calls.reduce((s, i) => s + callCost(session.calls[i] || {}), 0), t = String(r.title || "");
+    return `<option value="${r.n}">#${r.n} · ${escapeHtml(t.length > 46 ? t.slice(0, 45) + "…" : t)} · ${when(r.started)} · ${r.calls.length} call${r.calls.length === 1 ? "" : "s"} · ${fmtUsd(cost)}${r.status === "running" ? " · running" : ""}</option>`; };
+  const now = runs.filter(r => !r.past).reverse(), saved = runs.filter(r => r.past).reverse();
+  sel.innerHTML = `<option value="live">● Live session</option>`
+    + (now.length ? `<optgroup label="This visit">${now.map(opt).join("")}</optgroup>` : "")
+    + (saved.length ? `<optgroup label="Saved runs">${saved.map(opt).join("")}</optgroup>` : "");
+  sel.value = viewRun != null ? String(viewRun) : "live";
+  sel.closest(".viewsel").classList.toggle("run", viewRun != null);
+}
+function renderRunBanner() {
+  const b = $("runBanner"), run = viewRun != null && runs.find(r => r.n === viewRun);
+  b.hidden = !run;
+  if (!run) return;
+  const i = runs.indexOf(run), older = runs[i - 1], newer = runs[i + 1];
+  b.innerHTML = `<span>📼 Viewing run <b>#${run.n}</b> · ${escapeHtml(run.title || "")}${run.past ? " · saved from an earlier visit" : ""} · started ${new Date(run.started).toLocaleString()}</span><span class="sp"></span>
+    <button class="secondary" onclick="setView(${older ? older.n : "null"})" ${older ? "" : "disabled"} title="Older run">‹ Older</button>
+    <button class="secondary" onclick="setView(${newer ? newer.n : "null"})" ${newer ? "" : "disabled"} title="Newer run">Newer ›</button>
+    <button onclick="setView(null)">← Back to the live session</button>`;
+}
+$("viewSel").onchange = (e) => setView(e.target.value);
 function snapPart(p) { if (p) Object.assign(p, { story: $("scStory").innerHTML, steps: $("scSteps").innerHTML, takeaway: $("scTakeaway").innerHTML }); }
 // Build-your-own runs get their own results card (instead of whatever scenario ran last), scoped to the x-session-id they add to
 function sessionTotals(sid) {
@@ -3521,7 +3571,7 @@ async function clearHistory() {
   for (const r of runs) saveRun(r);  // keep this page's runs saved
   selRun = null; $("btnClearHist").classList.add("hidden"); renderRuns(); toast("Saved run history cleared.");
 }
-function openRun(n) { selRun = n; selCall = null; showTab("runs"); $("tab-runs").scrollIntoView({ block: "start" }); scrollBy(0, -80); }
+function openRun(n) { setView(n); }
 // Replays one recorded call in the gateway flow (Evidence & monitoring › Investigate a request), with its trace and logs
 function flowCall(i) {
   if (!session.calls[i]) return;
@@ -3559,6 +3609,8 @@ function runStats(run) {
 }
 function renderRuns() {
   $("runCount").textContent = runs.length;
+  if (viewRun != null && !runs.some(r => r.n === viewRun)) { viewRun = null; $("tab-live").classList.remove("runmode"); renderRunBanner(); }  // e.g. history cleared
+  fillViewSel();
   renderEvLog();
   if (curTab !== "live" || !$("tab-runs").open) return;
   if (!runs.length) {

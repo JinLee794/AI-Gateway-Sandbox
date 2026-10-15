@@ -76,6 +76,7 @@
   function viewLabel() {
     const tab = typeof curTab !== "undefined" ? curTab : "live", sub = typeof psec !== "undefined" ? psec : "";
     let s = TAB_NAMES[tab] || tab;
+    if (tab === "live" && typeof viewRun !== "undefined" && viewRun != null) s += ` (showing the report of run #${viewRun} instead of the live session)`;
     if (tab !== "live" && sub) {
       s += ` › ${PSEC_NAMES[sub] || sub}`;
       if (sub === "investigate" && typeof evIndex !== "undefined" && evIndex >= 0 && !byId("evPanel")?.classList.contains("hidden")) s += ` (evidence of call #${evIndex + 1} open)`;
