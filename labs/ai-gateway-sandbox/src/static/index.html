@@ -855,7 +855,30 @@
         #gwfSvg .tok text, #gwfSvg .call text { font-size:11px; font-weight:600; text-anchor:middle; paint-order:stroke; stroke:#fff; stroke-width:3px; stroke-linejoin:round; }
         #gwfSvg .tok circle, #gwfSvg .drop { stroke:#fff; stroke-width:2; }
         #gwfSvg .call rect { stroke-width:1; } #gwfSvg .call text { stroke:none; font-size:10.5px; }
-        .gwf-now { min-height:22px; font-size:13px; margin-top:10px; }
+        .gwf-now { min-height:22px; font-size:13.5px; margin-top:10px; padding:6px 10px; border-radius:6px; background:#f3f9fd; border:1px solid #deecf9; }
+        .gwf-now:empty { display:none; }
+        .gwf-stages { display:flex; flex-wrap:wrap; align-items:center; gap:4px 0; margin-top:8px; }
+        .gwf-stages:empty { display:none; }
+        .gwf-stages .st { display:inline-flex; align-items:center; gap:5px; height:26px; padding:0 10px; border-radius:13px; font-size:12px; font-weight:600; background:#fff;
+          color:var(--text); border:1px solid var(--border); cursor:default; animation:gwfIn .25s both; }
+        .gwf-stages .st.lens { cursor:pointer; } .gwf-stages .st.lens:hover { border-color:var(--accent); }
+        .gwf-stages .st + .st { margin-left:18px; position:relative; }
+        .gwf-stages .st + .st::before { content:"›"; position:absolute; left:-13px; color:#a19f9d; font-weight:400; }
+        .gwf-stages .st .i { font-size:11px; }
+        .gwf-stages .st.ok { background:#f1faf1; border-color:#9fd89f; color:#0b6a0b; } .gwf-stages .st.bad { background:#fdf3f4; border-color:#f1bbbc; color:#a4262c; }
+        .gwf-stages .st.warn { background:#fff8e6; border-color:#f2d58a; color:#8a3707; } .gwf-stages .st.cur { box-shadow:0 0 0 2px rgba(0,120,212,.35); }
+        .gwf-buckets { margin-top:8px; display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:8px; animation:gwfIn .25s both; }
+        .gwf-buckets[hidden] { display:none; }
+        .gwf-buckets .bhd { grid-column:1 / -1; font-size:12px; color:var(--muted); }
+        .gwf-buckets .bkt { border:1px solid var(--border); border-radius:6px; padding:7px 10px; background:#fff; font-size:12px; }
+        .gwf-buckets .bkt .bt { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .gwf-buckets .bkt .bv { font-size:15px; font-weight:600; margin-top:2px; }
+        .gwf-buckets .bkt .bb { height:6px; border-radius:3px; background:#edebe9; margin:5px 0 3px; overflow:hidden; } .gwf-buckets .bkt .bb i { display:block; height:100%; background:#0078d4; transition:width .5s; }
+        .gwf-buckets .bkt.ok { border-color:#9fd89f; } .gwf-buckets .bkt.ok .bb i { background:#107c10; }
+        .gwf-buckets .bkt.bad { border-color:#f1bbbc; background:#fdf3f4; } .gwf-buckets .bkt.bad .bb i { background:#d13438; } .gwf-buckets .bkt.bad .bs { color:#a4262c; font-weight:600; }
+        .gwf-buckets .bkt .bkey { font-size:11px; margin-top:2px; }
+        .gwf-more { display:flex; flex-wrap:wrap; gap:6px 18px; margin-top:10px; font-size:12.5px; }
+        .gwf-more > details { flex:1 1 320px; min-width:0; } .gwf-more summary { cursor:pointer; color:var(--accent); font-weight:600; }
+        .gwf-more .gwf-steps { margin-top:6px; } .gwf-more .gwf-hdrs { margin-top:6px; }
         .gwf-grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:16px; margin-top:4px; }
         .gwf-steps { font-size:12.5px; line-height:1.55; margin:0; padding-left:20px; max-height:210px; overflow:auto; }
         .gwf-steps li.ok::marker { color:var(--ok); } .gwf-steps li.bad { color:var(--bad); } .gwf-steps li.warn { color:var(--warn); }
@@ -959,13 +982,16 @@
           <button class="secondary" id="gwfStop" disabled>■ Stop</button>
         </div>
         <svg id="gwfSvg" viewBox="0 0 1100 384" role="img" aria-label="Request flow through Azure API Management"></svg>
-        <div class="gwf-lens" id="gwfLens" hidden aria-live="polite"></div>
         <div class="gwf-now" id="gwfNow" aria-live="polite"></div>
-        <div class="gwf-grid">
-          <ol class="gwf-steps" id="gwfSteps"></ol>
-          <div><div class="gwf-hdrs" id="gwfHdrs"></div><div class="gwf-trace" id="gwfTrace"></div></div>
+        <div class="gwf-stages" id="gwfStages" aria-label="What the gateway decided, step by step (click a step to see its policy lines)"></div>
+        <div class="gwf-lens" id="gwfLens" hidden aria-live="polite"></div>
+        <div class="gwf-buckets" id="gwfBuckets" hidden></div>
+        <div class="gwf-more">
+          <details id="gwfStepsBox"><summary>Narration <span class="muted" id="gwfStepCount"></span></summary><ol class="gwf-steps" id="gwfSteps"></ol></details>
+          <details id="gwfHdrBox"><summary>Response headers <span class="muted" id="gwfHdrCount"></span></summary><div class="gwf-hdrs" id="gwfHdrs"></div></details>
         </div>
-        <details class="gwf-bud" id="gwfBud" open><summary>How the $ budgets are calculated: <b>API key</b> vs <b>Entra only</b></summary><div id="gwfBudBody"></div></details>
+        <div class="gwf-trace" id="gwfTrace"></div>
+        <details class="gwf-bud" id="gwfBud"><summary>How the $ budgets are calculated: <b>API key</b> vs <b>Entra only</b></summary><div id="gwfBudBody"></div></details>
       </div>
       <div class="gwlb" id="gwLb" hidden role="dialog" aria-modal="true" aria-labelledby="gwLbTitle">
         <div class="gwlb-box">
@@ -1240,6 +1266,7 @@
           setText("client", "Client", "agent / app"); setText("entra", "entra-identity", "fragment · Entra ID"); setText("plan", "Product policy", "entitlement · limits · $"); setText("pool", null, "circuit breaker");
           layer.scope.textContent = "PRODUCT (PLAN) SCOPE";
           el("gwfSteps").innerHTML = ""; el("gwfHdrs").innerHTML = ""; el("gwfTrace").innerHTML = ""; el("gwfNow").innerHTML = "";
+          el("gwfStages").innerHTML = ""; el("gwfBuckets").hidden = true; el("gwfBuckets").innerHTML = ""; el("gwfStepCount").textContent = ""; el("gwfHdrCount").textContent = "";
           el("gwfLens").hidden = true; el("gwfLens").innerHTML = "";
         }
         const backends = () => (C().foundryBackends || []).slice().sort((a, b) => (a.priority ?? 1) - (b.priority ?? 1));
@@ -1292,7 +1319,40 @@
           await Promise.all([run("la"), run("ai")]);
         }
         const SURF = { model: "#0078d4", tool: "#00b7c3", agent: "#8764b8" };
-        function say(html, cls = "") { el("gwfNow").innerHTML = html; el("gwfSteps").insertAdjacentHTML("beforeend", `<li class="${cls}">${html}</li>`); el("gwfSteps").scrollTop = 1e6; }
+        // the caption shows a short line (cap); the full sentence goes to the collapsed narration
+        function say(html, cls = "", cap) {
+          el("gwfNow").innerHTML = cap ?? html; el("gwfSteps").insertAdjacentHTML("beforeend", `<li class="${cls}">${html}</li>`); el("gwfSteps").scrollTop = 1e6;
+          el("gwfStepCount").textContent = `(${el("gwfSteps").children.length} steps)`;
+        }
+        // the stage strip: one chip per decision, coloured by outcome; chips with policy lines reopen them in the lens
+        function stage(key, text, verdict = "ok", spec = null) {
+          const box = el("gwfStages"); let c = [...box.children].find(x => x.dataset.k === key);
+          if (!c) { c = document.createElement("button"); c.type = "button"; c.dataset.k = key; box.appendChild(c); }
+          c.className = `st ${verdict}${spec ? " lens" : ""}`; c._spec = spec;
+          c.innerHTML = `<span class="i">${verdict === "bad" ? "✗" : verdict === "warn" ? "↷" : verdict === "ok" ? "✓" : "•"}</span>${esc(text)}`;
+          c.title = spec ? `${spec.title}: click to see the policy lines` : text;
+          c.onclick = () => { if (c._spec) { showLens(c._spec); box.querySelectorAll(".st").forEach(x => x.classList.toggle("cur", x === c)); } };
+          box.querySelectorAll(".st").forEach(x => x.classList.toggle("cur", x === c));
+        }
+        // the buckets a call is checked against (check), charged to (charge) or refused by (blocked)
+        const BUCKET_BLOCK = { key: /subscription-budget|^quota-by-key$/, session: /session-budget/, eu: /end-user-budget/, team: /group-budget/, member: /member-budget/ };
+        const BUCKET_ICON = { key: "🔑", session: "💬", eu: "👤", team: "👥", member: "👤" };
+        function showBuckets(r, phase) {
+          const bs = buckets(r), box = el("gwfBuckets");
+          if (!bs.length) { box.hidden = true; return; }
+          const h = r.headers || {}, cost = Number(h["x-gw-cost-usd"] || 0), by = String(h["x-gw-blocked-by"] || "");
+          const head = phase === "charge" ? `<b>${usd(cost)}</b> added to every bucket at once` : phase === "blocked" ? "Refused before any spend: a bucket was already full" : "$ buckets checked before the call (the price is added after it)";
+          box.hidden = false;
+          box.innerHTML = `<div class="bhd">${head}</div>` + bs.map(b => {
+            const full = phase === "blocked" && BUCKET_BLOCK[b.k]?.test(by), pct = b.usd ? Math.min(100, 100 * cost / b.usd) : 0;
+            const w = full ? 100 : phase === "charge" ? Math.max(2, pct) : 0;
+            const note = full ? "full · 403" : phase === "charge" ? `+${usd(cost)} · ${pct > 0 && pct < 0.1 ? "<0.1" : pct.toFixed(pct < 1 ? 1 : 0)}% of it` : phase === "blocked" ? "not reached" : "room left";
+            return `<div class="bkt${full ? " bad" : phase === "charge" ? " ok" : ""}"><div class="bt">${BUCKET_ICON[b.k] || ""} ${b.label}</div>
+              <div class="bv">${b.usd != null ? usd(b.usd) : "by class"}</div><div class="bb"><i style="width:0%" data-w="${w}"></i></div>
+              <div class="bs">${note}</div><div class="bkey muted">counter: ${b.by}</div></div>`;
+          }).join("");
+          requestAnimationFrame(() => box.querySelectorAll(".bb i").forEach(i => { i.style.width = i.dataset.w + "%"; }));
+        }
 
         // ---- reading a call: everything below comes from the response (x-gw-* headers, status) or the agent's step list
         function parseRoute(route) {
@@ -1385,7 +1445,8 @@
           "x-gw-route", "x-gw-blocked-by", "x-gw-block-reason", "retry-after", "x-gw-request-id", "apim-trace-id"];
         async function showHeaders(r, g) {
           const h = r.headers || {}, keys = HDR_ORDER.filter(k => h[k] !== undefined && h[k] !== "" && h[k] !== null);
-          el("gwfHdrs").innerHTML = `<h3>Response headers the client receives (HTTP ${esc(r.status)})</h3>`;
+          el("gwfHdrs").innerHTML = "";
+          el("gwfHdrCount").textContent = `(${keys.length} x-gw-* headers, HTTP ${r.status})`;
           for (const k of keys) {
             const cls = /blocked|block-reason|retry-after/.test(k) ? "bad" : k === "x-gw-governance" && h[k] !== "none" ? "warn" : "";
             el("gwfHdrs").insertAdjacentHTML("beforeend", `<span class="${cls}" title="${esc(k)}: ${esc(h[k])}">${esc(k)}: ${esc(String(h[k]).slice(0, 60))}</span>`);
@@ -1414,11 +1475,11 @@
           else end = Math.min(lines.length - 1, start + (spec.lines || 1) - 1);
           return { start, lines: lines.slice(start, end + 1) };
         }
-        const nvChip = (s) => s.replace(/\{\{([a-z0-9-]+)\}\}/gi, `<span class="nvref">{{$1}}</span>`);
-        async function lens(spec, g) {
-          if (!lensOn() || !flowDocs) return;
+                // draws the lens for spec and returns its pieces; finishLens stamps the hit lines and opens the named values
+        function paintLens(spec) {
+          if (!lensOn() || !flowDocs) return null;
           const s = snippet(spec), box = el("gwfLens");
-          if (!s) return;
+          if (!s) return null;
           const ind = Math.min(...s.lines.filter(l => l.trim()).map(l => l.match(/^\s*/)[0].length));
           const verdict = spec.verdict || "ok", hl = xmlHl(s.lines.map(l => l.slice(ind)).join("\n")).split("\n");
           box.hidden = false;
@@ -1427,23 +1488,40 @@
             <div class="code">${s.lines.map((l, i) => `<div class="ln" title="${esc(l.trim())}"><span class="no">${s.start + i + 1}</span><span class="tx">${hl[i] || ""}</span><span class="mk"></span></div>`).join("")}</div>
             <div class="nvs"></div>${spec.note ? `<div class="lnote">${spec.note}</div>` : ""}`;
           const rows = [...box.querySelectorAll(".ln")];
-          for (const row of rows) { row.classList.add("in"); await wait(28, g); }
-          const hits = rows.filter((_, i) => spec.hit.test(s.lines[i]));
-          for (const row of rows) { row.classList.add("scan"); await wait(70, g); row.classList.remove("scan"); if (hits.includes(row)) break; }
-          for (const row of (hits.length ? hits : rows.slice(0, 1))) {
+          return { box, s, rows, verdict, hits: rows.filter((_, i) => spec.hit.test(s.lines[i])) };
+        }
+        function stamp(p, spec) {
+          for (const row of (p.hits.length ? p.hits : p.rows.slice(0, 1))) {
             row.classList.add("hit");
-            row.querySelector(".mk").textContent = (verdict === "bad" ? "✗ " : verdict === "warn" ? "↷ " : "✓ ") + (spec.mark || (verdict === "bad" ? "stops here" : "passes"));
+            row.querySelector(".mk").textContent = (p.verdict === "bad" ? "✗ " : p.verdict === "warn" ? "↷ " : "✓ ") + (spec.mark || (p.verdict === "bad" ? "stops here" : "passes"));
           }
+        }
+        function nvRow(p, nv) {
+          const v = flowDocs.namedValues?.[nv.name]; if (v == null) return false;
+          const entries = String(v).split(";").map(e => e.trim()).filter(Boolean), m = entries.filter(nv.match || (() => entries.length === 1));
+          const shown = [...m, ...entries.filter(e => !m.includes(e))].slice(0, 6);
+          p.box.querySelector(".nvs").insertAdjacentHTML("beforeend", `<div class="nvrow"><span class="nvref">{{${esc(nv.name)}}}</span> <span class="muted">named value${nv.why ? ` · ${nv.why}` : ""}</span>
+            <div class="nvents">${shown.map(e => `<code data-m="${m.includes(e) ? 1 : 0}">${esc(e.length > 96 ? e.slice(0, 96) + "…" : e)}</code>`).join("")}${entries.length > shown.length ? `<span class="muted">+${entries.length - shown.length} more</span>` : ""}</div></div>`);
+          return true;
+        }
+        // a stage chip was clicked: show its lens at once, no animation
+        function showLens(spec) {
+          const p = paintLens(spec); if (!p) return;
+          p.rows.forEach(r => r.classList.add("in")); stamp(p, spec);
+          for (const nv of spec.nv || []) if (nvRow(p, nv)) p.box.querySelectorAll('.nvrow:last-child code[data-m="1"]').forEach(c => c.classList.add("m"));
+        }
+        async function lens(spec, g) {
+          if (spec.chip) stage(spec.key || spec.chip, spec.chip, spec.verdict || "ok", lensOn() && flowDocs && snippet(spec) ? spec : null);
+          const p = paintLens(spec); if (!p) return;
+          for (const row of p.rows) { row.classList.add("in"); await wait(28, g); }
+          for (const row of p.rows) { row.classList.add("scan"); await wait(70, g); row.classList.remove("scan"); if (p.hits.includes(row)) break; }
+          stamp(p, spec);
           for (const nv of spec.nv || []) {
-            const v = flowDocs.namedValues?.[nv.name]; if (v == null) continue;
-            const entries = String(v).split(";").map(e => e.trim()).filter(Boolean), m = entries.filter(nv.match || (() => entries.length === 1));
-            const shown = [...m, ...entries.filter(e => !m.includes(e))].slice(0, 6);
-            box.querySelector(".nvs").insertAdjacentHTML("beforeend", `<div class="nvrow"><span class="nvref">{{${esc(nv.name)}}}</span> <span class="muted">named value${nv.why ? ` · ${nv.why}` : ""}</span>
-              <div class="nvents">${shown.map(e => `<code data-m="${m.includes(e) ? 1 : 0}">${esc(e.length > 96 ? e.slice(0, 96) + "…" : e)}</code>`).join("")}${entries.length > shown.length ? `<span class="muted">+${entries.length - shown.length} more</span>` : ""}</div></div>`);
+            if (!nvRow(p, nv)) continue;
             await wait(250, g);
-            box.querySelectorAll('.nvrow:last-child code[data-m="1"]').forEach(c => c.classList.add("m"));
+            p.box.querySelectorAll('.nvrow:last-child code[data-m="1"]').forEach(c => c.classList.add("m"));
           }
-          await wait(verdict === "bad" ? 1500 : 950, g);
+          await wait(p.verdict === "bad" ? 1500 : 950, g);
         }
         // the plan stage: each decision the plan makes, in policy order, stopping at the one that refused the call
         async function planLens(r, g) {
@@ -1454,24 +1532,24 @@
           const steps = [];
           if (isEntra(r)) {
             const grp = entraGrp(r), doc = "fragment:entra-plan-inbound";
-            steps.push({ title: "Which gateway group is the caller in?", doc, anchor: /<set-variable name="entraGroup" value=/, end: /\}" \/>/, max: 16, hit: /entra-gateway-groups/, fail: /^entra-group/,
+            steps.push({ title: "Which gateway group is the caller in?", chip: grp ? `${grp.displayName} → ${grp.tier}` : "No gateway group", doc, anchor: /<set-variable name="entraGroup" value=/, end: /\}" \/>/, max: 16, hit: /entra-gateway-groups/, fail: /^entra-group/,
               mark: grp ? `${grp.displayName} → ${grp.tier} plan` : "no gateway group",
               nv: [{ name: "entra-gateway-groups", match: (e) => !!grp && (e.split("=")[1] || "").startsWith(grp.name + "|"), why: "&lt;group object id&gt;=&lt;name&gt;|&lt;tier&gt;|&lt;rank&gt;|&lt;team µ$&gt;|&lt;member µ$&gt;; matched against the token's <code>groups</code> claim" }] });
             if (grp) {
-              steps.push({ title: `The ${grp.tier} plan: models, output cap, tokens per minute per member`, doc, anchor: new RegExp(`entraTier"\\] == "${grp.tier}"`), end: /<\/when>/, hit: /tokens-per-minute/, fail: /llm-token-limit/ });
-              if (surf === "model") steps.push({ title: "Is the model in the group's plan?", doc, anchor: /entraAllowedModels"\] \+ ","\)\.Contains/, lines: 1, hit: /Contains/, fail: /model-entitlement/, warn: down });
-              steps.push({ title: `Team $ budget: ${grp.displayName}, shared by every member`, doc, anchor: /<quota-by-key id="group-budget"/, end: /\}" \/>/, hit: /counter-key/, fail: /group-budget/, mark: "room left", note: later, nv: [epoch] });
-              steps.push({ title: `Member $ cap: ${personaName(r)}`, doc, anchor: /<quota-by-key id="member-budget"/, end: /\}" \/>/, hit: /counter-key/, fail: /member-budget/, mark: "room left", note: later, nv: [epoch] });
+              steps.push({ title: `The ${grp.tier} plan: models, output cap, tokens per minute per member`, chip: "Plan limits", doc, anchor: new RegExp(`entraTier"\\] == "${grp.tier}"`), end: /<\/when>/, hit: /tokens-per-minute/, fail: /llm-token-limit/ });
+              if (surf === "model") steps.push({ title: "Is the model in the group's plan?", chip: down ? `Model → ${served}` : "Model", doc, anchor: /entraAllowedModels"\] \+ ","\)\.Contains/, lines: 1, hit: /Contains/, fail: /model-entitlement/, warn: down });
+              steps.push({ title: `Team $ budget: ${grp.displayName}, shared by every member`, chip: "Team $", doc, anchor: /<quota-by-key id="group-budget"/, end: /\}" \/>/, hit: /counter-key/, fail: /group-budget/, mark: "room left", note: later, nv: [epoch] });
+              steps.push({ title: `Member $ cap: ${personaName(r)}`, chip: "Member $", doc, anchor: /<quota-by-key id="member-budget"/, end: /\}" \/>/, hit: /counter-key/, fail: /member-budget/, mark: "room left", note: later, nv: [epoch] });
             }
           } else {
             const doc = `product:${h["x-gw-tier"] || r.tier}`;
             if (surf === "model") {
-              steps.push({ title: "Is the model in the plan?", doc, anchor: /<!-- 1\. Model governance -->/, lines: 5, hit: /Contains\("," \+ model/, fail: /model-entitlement/, warn: down });
-              steps.push({ title: "Tokens per minute and token quota", doc, anchor: /<llm-token-limit counter-key="@\("tokens-/, end: /\/>\s*$/, max: 8, hit: /tokens-per-minute/, fail: /llm-token-limit/ });
+              steps.push({ title: "Is the model in the plan?", chip: down ? `Model → ${served}` : "Model", doc, anchor: /<!-- 1\. Model governance -->/, lines: 5, hit: /Contains\("," \+ model/, fail: /model-entitlement/, warn: down });
+              steps.push({ title: "Tokens per minute and token quota", chip: "Tokens/min", doc, anchor: /<llm-token-limit counter-key="@\("tokens-/, end: /\/>\s*$/, max: 8, hit: /tokens-per-minute/, fail: /llm-token-limit/ });
             }
-            steps.push({ title: "Subscription key $ budget", doc, anchor: /<quota-by-key id="subscription-budget"/, end: /\/>\s*$/, max: 6, hit: /counter-key/, fail: /subscription-budget|^quota-by-key$/, mark: "room left", note: later, nv: [epoch] });
-            if (h["x-gw-session"] && h["x-gw-session"] !== "no-session") steps.push({ title: `Session $ cap: ${h["x-gw-session"]}`, doc, anchor: /<quota-by-key id="session-budget"/, end: /\/>\s*$/, max: 6, hit: /counter-key/, fail: /session-budget/, mark: "room left", note: later });
-            if (h["x-gw-end-user"]) steps.push({ title: `End-user $ budget: ${h["x-gw-end-user"]}`, doc, anchor: /foreach \(var entry in "\{\{end-user-budgets\}\}"/, lines: 1, hit: /end-user-budgets/, fail: /end-user-budget/,
+            steps.push({ title: "Subscription key $ budget", chip: "Key $", doc, anchor: /<quota-by-key id="subscription-budget"/, end: /\/>\s*$/, max: 6, hit: /counter-key/, fail: /subscription-budget|^quota-by-key$/, mark: "room left", note: later, nv: [epoch] });
+            if (h["x-gw-session"] && h["x-gw-session"] !== "no-session") steps.push({ title: `Session $ cap: ${h["x-gw-session"]}`, chip: "Session $", doc, anchor: /<quota-by-key id="session-budget"/, end: /\/>\s*$/, max: 6, hit: /counter-key/, fail: /session-budget/, mark: "room left", note: later });
+            if (h["x-gw-end-user"]) steps.push({ title: `End-user $ budget: ${h["x-gw-end-user"]}`, chip: "End user $", doc, anchor: /foreach \(var entry in "\{\{end-user-budgets\}\}"/, lines: 1, hit: /end-user-budgets/, fail: /end-user-budget/,
               nv: [{ name: "end-user-budgets", match: (e) => e.startsWith("@" + h["x-gw-end-user"] + "=") || e.startsWith("default=") }] });
           }
           for (const s of steps) {
@@ -1502,18 +1580,19 @@
           const what = surf === "tool" ? `an MCP <code>tools/call</code> for <b>${esc(label(r))}</b>` : surf === "agent" ? `an A2A task to <b>sourcing-agent</b>` : `a chat completion for <b>${esc(label(r))}</b>`;
           say(entra
             ? `<b>${esc(personaName(r))}</b> sends ${what} to the key-less <code>entra/inference</code> API with <b>no <code>api-key</code></b>: its own Entra ID token is the only credential. It says who calls <b>and</b>, through the caller's security group, which plan and budgets apply.`
-            : `<b>${esc(r.agent || "The client")}</b> sends ${what} with an <code>api-key</code> (which plan pays) and an Entra ID token (who calls).`);
+            : `<b>${esc(r.agent || "The client")}</b> sends ${what} with an <code>api-key</code> (which plan pays) and an Entra ID token (who calls).`, "",
+            entra ? `<b>${esc(personaName(r))}</b> → ${what} · <b>no key</b>, Entra token only` : `<b>${esc(r.agent || "The client")}</b> → ${what} · <code>api-key</code> + Entra token`);
           await wait(500, g);
 
           await go(tok, ["client", "entra"], g);
-          await lens({ title: entra ? "Is the token for this gateway, with the app role?" : "Is the Entra ID token valid, from an approved app?",
+          await lens({ title: entra ? "Is the token for this gateway, with the app role?" : "Is the Entra ID token valid, from an approved app?", chip: entra ? "Entra token" : "Key + token",
             doc: entra ? "fragment:entra-plan-inbound" : "fragment:entra-identity", anchor: /<validate-azure-ad-token/, end: /<\/validate-azure-ad-token>/, max: 20,
             hit: entra ? /<audience>|<value>Gateway\.Invoke/ : /<audience>/, verdict: blocker === "entra" ? "bad" : "ok", mark: blocker === "entra" ? `${st} · no valid token` : "valid" }, g);
           if (blocker === "entra") return blocked(r, tok, "entra", g);
           mark("entra", "ok");
           say(entra
             ? `<code>entra-plan-inbound</code>: <code>validate-azure-ad-token</code> accepts the token (audience = the gateway app registration, app role <code>Gateway.Invoke</code>)${h["x-gw-caller"] ? ` → caller <b>${esc(h["x-gw-caller"])}</b>` : ""}.`
-            : `<code>entra-identity</code> fragment: <code>validate-azure-ad-token</code> accepts the token${h["x-gw-caller"] ? ` → caller <b>${esc(h["x-gw-caller"])}</b>` : ""}.`, "ok");
+            : `<code>entra-identity</code> fragment: <code>validate-azure-ad-token</code> accepts the token${h["x-gw-caller"] ? ` → caller <b>${esc(h["x-gw-caller"])}</b>` : ""}.`, "ok", `Token accepted${h["x-gw-caller"] ? ` · <b>${esc(h["x-gw-caller"])}</b>` : ""}`);
           await wait(350, g);
 
           await go(tok, ["entra", "plan"], g);
@@ -1522,27 +1601,27 @@
           const gov = String(h["x-gw-governance"] || ""), served = h["x-gw-model-served"], asked = h["x-gw-model-requested"] || r.requestedModel;
           if (surf === "model" && served && asked && served !== asked) {
             mark("plan", "warn"); recolor(tok, "#ca5010", served); badge("plan", `${asked} → ${served}`, "#ca5010");
-            say(`Plan policy: <b>${esc(asked)}</b> is not in the <b>${esc(tier)}</b> plan, so the gateway <b>downgrades</b> it to <b>${esc(served)}</b> (<code>${esc(gov || "model-downgraded")}</code>).`, "warn");
+            say(`Plan policy: <b>${esc(asked)}</b> is not in the <b>${esc(tier)}</b> plan, so the gateway <b>downgrades</b> it to <b>${esc(served)}</b> (<code>${esc(gov || "model-downgraded")}</code>).`, "warn", `<b>${esc(asked)}</b> isn't in the <b>${esc(tier)}</b> plan → downgraded to <b>${esc(served)}</b>`);
             await wait(700, g); recolor(tok, color);
           } else {
             mark("plan", "ok");
             const left = h["x-gw-remaining-tpm"] ? ` · ${esc(h["x-gw-remaining-tpm"])} tokens/min left` : h["x-gw-remaining-tool-calls"] ? ` · ${esc(h["x-gw-remaining-tool-calls"])} tool calls/min left` : h["x-gw-remaining-agent-calls"] ? ` · ${esc(h["x-gw-remaining-agent-calls"])} agent calls/min left` : "";
-            say(`${entra ? `Plan of the caller's group${grp ? ` <b>${esc(grp.displayName)}</b>` : ""}` : "Plan policy"}${tier ? ` (<b>${esc(tier)}</b>)` : ""}: entitlement ✓ · ${surf === "model" ? "<code>llm-token-limit</code>" : "<code>rate-limit-by-key</code>"} ✓ · <code>quota-by-key</code> $ budget ✓${left}.`, "ok");
+            say(`${entra ? `Plan of the caller's group${grp ? ` <b>${esc(grp.displayName)}</b>` : ""}` : "Plan policy"}${tier ? ` (<b>${esc(tier)}</b>)` : ""}: entitlement ✓ · ${surf === "model" ? "<code>llm-token-limit</code>" : "<code>rate-limit-by-key</code>"} ✓ · <code>quota-by-key</code> $ budget ✓${left}.`, "ok", `Plan checks passed${tier ? ` · <b>${esc(tier)}</b>` : ""}${left}`);
           }
-          const bin = budgetIn(r); if (bin) say(bin);
+          const bin = budgetIn(r); if (bin) { say(bin, "", "$ budgets checked: room left in every bucket"); showBuckets(r, "check"); }
           await wait(300, g);
 
           await go(tok, ["plan", "api"], g);
           if (blocker === "api") return blocked(r, tok, "api", g);
           mark("api", "ok");
-          if (surf === "model") await lens({ title: "Read the price list for the served model", doc: apiDoc(r), anchor: /<set-variable name="modelPricing" value=/, lines: 1, hit: /model-pricing/,
+          if (surf === "model") await lens({ title: "Read the price list for the served model", chip: "Price list", doc: apiDoc(r), anchor: /<set-variable name="modelPricing" value=/, lines: 1, hit: /model-pricing/,
             mark: served ? `${served}` : "read", nv: [priceNv(h)] }, g);
           await go(tok, ["api", "pool"], g);
           let target, last = "pool";
           if (surf === "model") {
             const hops = parseRoute(h["x-gw-route"]);
             if (!hops.length) hops.push({ name: h["x-gw-backend"] || backends()[0]?.name || "foundry1", code: st });
-            say(`API policy: <code>set-backend-service</code> → priority pool, <code>authentication-managed-identity</code> gets a token for Foundry (the caller's token is never forwarded).`);
+            say(`API policy: <code>set-backend-service</code> → priority pool, <code>authentication-managed-identity</code> gets a token for Foundry (the caller's token is never forwarded).`, "", "Routing to the Foundry pool with the gateway's managed identity");
             for (let i = 0; i < hops.length; i++) {
               const hop = hops[i], rk = regionNode(hop.name), finalHop = i === hops.length - 1;
               await go(tok, ["pool", "mi", rk], g); mark("mi", "ok");
@@ -1550,11 +1629,13 @@
               if (code && code !== 200) {
                 mark(rk, "bad"); badge(rk, `${code}${code === 429 ? " throttled" : ""}`, "#d13438");
                 say(`<b>${esc(hop.name)}</b>${hop.region ? ` (${esc(hop.region)})` : ""} answers <b>${code}</b>${finalHop ? "." : ": the <code>retry</code> policy sends the same request to the next backend, and the circuit breaker counts the failure against that region."}`, "bad");
+                stage(`hop${i}`, `${hop.name} ${code}`, "bad");
                 await wait(650, g);
                 if (!finalHop) { recolor(tok, "#d13438"); await go(tok, [rk, "mi", "pool"], g, { edge: "bad", quiet: true }); recolor(tok, color); badge("pool", "retry → next region", "#ca5010", true); mark("pool", "warn"); continue; }
               } else {
                 mark(rk, "ok"); badge(rk, `${code || 200} ${served || ""}`.trim(), "#107c10");
                 say(`<b>${esc(hop.name)}</b>${hop.region ? ` (${esc(hop.region)})` : ""} serves <b>${esc(served || label(r))}</b>${h["x-gw-prompt-tokens"] ? `: ${esc(h["x-gw-prompt-tokens"])} prompt + ${esc(h["x-gw-completion-tokens"])} completion tokens` : ""}.`, "ok");
+                stage(`hop${i}`, `${hop.name}${hop.region ? " · " + hop.region : ""}`, "ok");
               }
               target = rk;
             }
@@ -1574,17 +1655,18 @@
           await go(tok, surf === "model" ? [target, last, "pool", "api"] : [target, "pool", "api"], g, { edge: okResp ? "ok" : "bad", mark: okResp ? "ok" : "bad", quiet: true });
           mark("api", "ok");
           const costTxt = h["x-gw-cost-usd"] ? ` · cost <b>$${esc(h["x-gw-cost-usd"])}</b>` : "";
-          say(`Outbound: ${surf === "model" ? "<code>llm-emit-token-metric</code> + " : ""}<code>emit-metric</code> meter the call${costTxt}${h["x-gw-billed-to"] ? ` billed to <b>${esc(h["x-gw-billed-to"])}</b>` : ""}; a chargeback <code>trace</code> record and the gateway logs flow to Azure Monitor.`, "ok");
-          const price = priceText(r); if (price) say(price, "ok");
-          if (surf === "model" && h["x-gw-cost-usd"]) await lens({ title: "Price the call from the tokens the model used", doc: apiDoc(r), anchor: /<set-variable name="costMicroUsd" value=/, end: /\}" \/>/, max: 14,
+          say(`Outbound: ${surf === "model" ? "<code>llm-emit-token-metric</code> + " : ""}<code>emit-metric</code> meter the call${costTxt}${h["x-gw-billed-to"] ? ` billed to <b>${esc(h["x-gw-billed-to"])}</b>` : ""}; a chargeback <code>trace</code> record and the gateway logs flow to Azure Monitor.`, "ok", `Metered${costTxt}${h["x-gw-billed-to"] ? ` · billed to <b>${esc(h["x-gw-billed-to"])}</b>` : ""}`);
+          const price = priceText(r); if (price) { say(price, "ok", `Priced <b>${usd(h["x-gw-cost-usd"])}</b> and added to every $ bucket`); showBuckets(r, "charge"); }
+          if (surf === "model" && h["x-gw-cost-usd"]) await lens({ title: "Price the call from the tokens the model used", chip: `Price ${usd(h["x-gw-cost-usd"])}`, doc: apiDoc(r), anchor: /<set-variable name="costMicroUsd" value=/, end: /\}" \/>/, max: 14,
             hit: /Math\.Ceiling/, mark: `$${Number(h["x-gw-cost-usd"]).toFixed(6)}`, nv: [priceNv(h)], note: "This variable is the <code>increment-count</code> of every <code>quota-by-key</code> bucket checked on the way in." }, g);
-          if (h["x-gw-billed-to"]) await lens({ title: "Who pays: the chargeback record", doc: "fragment:chargeback-record", anchor: /<set-variable name="chargebackDirectory" value=/, lines: 1, hit: /chargeback-directory/,
+          if (h["x-gw-billed-to"]) await lens({ title: "Who pays: the chargeback record", chip: `Billed to ${h["x-gw-billed-to"]}`, doc: "fragment:chargeback-record", anchor: /<set-variable name="chargebackDirectory" value=/, lines: 1, hit: /chargeback-directory/,
             mark: h["x-gw-billed-to"], nv: [{ name: "chargeback-directory", match: (e) => e.startsWith(h["x-gw-billed-to"] + "="), why: "&lt;payer&gt;=&lt;display name&gt;|&lt;team&gt;|&lt;cost center&gt;|&lt;kind&gt;" }] }, g);
           mark("log", "on"); edge("api", "log", "on");
           await drops("log", g); mark("log", "ok");
           await go(tok, ["api", "plan", "entra", "client"], g, { edge: okResp ? "ok" : "bad", quiet: true });
           mark("client", okResp ? "ok" : "bad"); badge("client", `HTTP ${st}`, okResp ? "#107c10" : "#d13438", true);
-          say(`The client receives <b>HTTP ${st}</b> with the <code>x-gw-*</code> headers below; <code>x-gw-request-id</code> finds the same call in the trace and in every Log Analytics table.`, okResp ? "ok" : "bad");
+          say(`The client receives <b>HTTP ${st}</b> with the <code>x-gw-*</code> headers below; <code>x-gw-request-id</code> finds the same call in the trace and in every Log Analytics table.`, okResp ? "ok" : "bad", `<b>HTTP ${st}</b> to the client · <code>x-gw-request-id</code> finds it in every log table`);
+          stage("http", `HTTP ${st}`, okResp ? "ok" : "bad");
           await showHeaders(r, g);
         }
         async function agentSteps(r, g) {
@@ -1602,12 +1684,14 @@
         async function blocked(r, tok, at, g) {
           const h = r.headers || {}, st = Number(r.status);
           mark(at, "bad"); recolor(tok, "#d13438", String(st)); badge(at, `${st} · ${h["x-gw-blocked-by"] || (at === "entra" ? "validate-azure-ad-token" : "blocked")}`, "#d13438");
-          say(`<b>Blocked with ${st}</b>: ${blockText(r)}. The request never reaches a backend, so it costs nothing.`, "bad");
+          say(`<b>Blocked with ${st}</b>: ${blockText(r)}. The request never reaches a backend, so it costs nothing.`, "bad", `<b>Blocked with ${st}</b>: ${blockText(r)}`);
+          stage("http", `HTTP ${st} · ${h["x-gw-blocked-by"] || "blocked"}`, "bad");
+          if (/quota-by-key/.test(h["x-gw-blocked-by"] || "")) showBuckets(r, "blocked");
           if (h["x-gw-block-reason"]) say(`<code>on-error</code> returns <code>x-gw-blocked-by</code> and <code>x-gw-block-reason</code>: ${esc(String(h["x-gw-block-reason"]).slice(0, 160))}`, "bad");
           await wait(900, g);
           mark("log", "on"); edge(at, "log", "on"); const p = P(at), q = P("log");
           const d = mk("circle", { r: 5, fill: "#d13438", class: "drop" }, layer.fx); place(d, p); await tween(d, q, g, 1.4); d.remove();
-          say(`The blocked call is still logged: <code>ApiManagementGatewayLogs</code> records the status and the policy that failed (<code>LastErrorSource</code>), and the governance event goes to App Insights.`);
+          say(`The blocked call is still logged: <code>ApiManagementGatewayLogs</code> records the status and the policy that failed (<code>LastErrorSource</code>), and the governance event goes to App Insights.`, "", `Still logged: <code>ApiManagementGatewayLogs</code> records the policy that refused it`);
           await drops("log", g, "#d13438"); mark("log", "ok");
           const back = at === "entra" ? ["entra", "client"] : at === "api" ? ["api", "plan", "entra", "client"] : ["plan", "entra", "client"];
           await go(tok, back, g, { edge: "bad", quiet: true });
