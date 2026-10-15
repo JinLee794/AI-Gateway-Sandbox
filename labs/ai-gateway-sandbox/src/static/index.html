@@ -1003,6 +1003,27 @@
         .primer-pop[hidden] { display:none; }
         .primer-pop .ph { display:flex; align-items:baseline; gap:8px; margin-bottom:8px; } .primer-pop .ph b { font-size:13px; flex:1; } .primer-pop .ph a { font-size:12px; }
         @media (max-width:1100px) { .gwf-grid { grid-template-columns:1fr; } }
+        /* Policies at work: beside the diagram, the controls the replayed call went through (or its scenario's, with tallies) */
+        .gwf-split { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; align-items:start; }
+        .gwf-split.on { grid-template-columns:minmax(0,1fr) 260px; }
+        .gwf-paw { border:1px solid #d9c7ee; border-left:4px solid #8764b8; border-radius:6px; background:#fcfaff; padding:10px 10px 8px; font-size:12px; animation:gwfIn .25s both; }
+        .gwf-paw[hidden] { display:none; }
+        .gwf-paw .ph { font-weight:700; font-size:12.5px; color:#3b1a5e; } .gwf-paw .ph small { display:block; font-weight:400; color:var(--muted); font-size:11px; margin-top:1px; }
+        .gwf-paw .pr { display:flex; align-items:center; gap:6px; width:100%; height:auto; min-height:28px; padding:3px 6px; margin-top:4px; border:1px solid transparent; border-radius:5px;
+          background:transparent; color:var(--text); font-size:12px; font-weight:400; text-align:left; transition:background .2s, border-color .2s; }
+        .gwf-paw .pr:hover:not(:disabled) { background:#fff; border-color:#d9c7ee; color:var(--text); }
+        .gwf-paw .pr .nb { flex:0 0 18px; height:18px; border-radius:50%; background:#8764b8; color:#fff; font-size:10px; font-weight:700; display:grid; place-items:center; }
+        .gwf-paw .pr .lab { flex:1; min-width:0; } .gwf-paw .pr .lvl { flex:0 0 auto; }
+        .gwf-paw .pr .ct { font:600 11px Consolas,monospace; white-space:nowrap; display:flex; gap:5px; }
+        .gwf-paw .ct .ok { color:#107c10; } .gwf-paw .ct .wn { color:#8a5300; } .gwf-paw .ct .bad { color:#a4262c; } .gwf-paw .ct .no { color:#a19f9d; }
+        .gwf-paw .pr.now { background:#fff; border-color:#8764b8; box-shadow:0 0 0 2px rgba(135,100,184,.22); animation:pawHit .7s both; }
+        .gwf-paw .pr.now.bad { border-color:#d13438; box-shadow:0 0 0 2px rgba(209,52,56,.22); } .gwf-paw .pr.now.warn { border-color:#ca5010; box-shadow:0 0 0 2px rgba(202,80,16,.2); }
+        @keyframes pawHit { 0% { transform:translateX(-4px); } 100% { transform:none; } }
+        .gwf-paw .pf { margin-top:8px; padding-top:6px; border-top:1px solid #e8dff5; color:var(--muted); display:flex; flex-wrap:wrap; gap:4px 10px; font-size:11px; align-items:center; }
+        .gwf-paw .pf a { font-weight:600; font-size:12px; }
+        .gwf-lens .lctl { margin-left:auto; display:inline-flex; gap:8px; align-items:center; white-space:nowrap; font-size:11.5px; } .gwf-lens .lctl a { font-weight:600; }
+        @media (max-width:1100px) { .gwf-split.on { grid-template-columns:1fr; }
+          .gwf-paw { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); column-gap:6px; } .gwf-paw .ph, .gwf-paw .pf { grid-column:1 / -1; } }
         @media (prefers-reduced-motion: reduce) { #gwfSvg *, .gwf-hdrs > span { transition:none !important; animation:none !important; } }
       </style>
       <div class="card" id="gwFlow">
@@ -1016,7 +1037,8 @@
           <button class="secondary" id="gwfReplay" title="Play the current flow again">↻ Replay</button>
           <button class="secondary" id="gwfStop" disabled>■ Stop</button>
         </div>
-        <svg id="gwfSvg" viewBox="0 0 1100 384" role="img" aria-label="Request flow through Azure API Management"></svg>
+        <div class="gwf-split" id="gwfSplit"><svg id="gwfSvg" viewBox="0 0 1100 384" role="img" aria-label="Request flow through Azure API Management"></svg>
+          <aside class="gwf-paw" id="gwfPaw" hidden aria-live="polite" aria-label="Policies at work"></aside></div>
         <div class="gwf-now" id="gwfNow" aria-live="polite"></div>
         <div class="gwf-stages" id="gwfStages" aria-label="What the gateway decided, step by step (click a step to see its policy lines)"></div>
         <div class="gwf-lens" id="gwfLens" hidden aria-live="polite"></div>
@@ -1531,9 +1553,10 @@
           if (!s) return null;
           const ind = Math.min(...s.lines.filter(l => l.trim()).map(l => l.match(/^\s*/)[0].length));
           const verdict = spec.verdict || "ok", hl = xmlHl(s.lines.map(l => l.slice(ind)).join("\n")).split("\n");
+          const ctl = window.lensControl?.(spec);  // the Policy explorer's control for these lines: its level and a link to it
           box.hidden = false;
           box.className = `gwf-lens ${verdict}`;
-          box.innerHTML = `<div class="lh"><span class="dot"></span><b>${esc(spec.title)}</b><span class="muted">${esc(DOC_LABEL(spec.doc))} · line ${s.start + 1}${s.lines.length > 1 ? "–" + (s.start + s.lines.length) : ""}</span></div>
+          box.innerHTML = `<div class="lh"><span class="dot"></span><b>${esc(spec.title)}</b><span class="muted">${esc(DOC_LABEL(spec.doc))} · line ${s.start + 1}${s.lines.length > 1 ? "–" + (s.start + s.lines.length) : ""}</span>${ctl ? `<span class="lctl">${ctl.badge}<a href="#" data-pawc="${ctl.id}">in the policy explorer →</a></span>` : ""}</div>
             <div class="code">${s.lines.map((l, i) => `<div class="ln" title="${esc(l.trim())}"><span class="no">${s.start + i + 1}</span><span class="tx">${hl[i] || ""}</span><span class="mk"></span></div>`).join("")}</div>
             <div class="nvs"></div>${spec.note ? `<div class="lnote">${spec.note}</div>` : ""}`;
           const rows = [...box.querySelectorAll(".ln")];
@@ -1896,6 +1919,7 @@
         function setBusy(on) { el("gwfStop").disabled = !on; }
         async function run(item) {
           resetDiagram(); budgetPrimer(); const g = gen; current = item; played = true; setBusy(true);
+          window.onFlowPlay?.(item.r);  // the page's "Policies at work" panel follows the replayed call
           renderDemos(item.demo || null);
           el("gwfSrc").innerHTML = item.demo ? `· example: <b>${esc(item.title)}</b> (illustrative values)`
             : item.follow ? `· following <b>${esc(item.follow)}</b> · ${esc(item.title)}` : `· replaying <b>${esc(item.title)}</b> from its <code>x-gw-*</code> response headers`;
@@ -3352,6 +3376,7 @@ function record(r) {
   const h = r.headers || {}, cost = callCost(r); r.at = Date.now(); r.run = curRun?.n;
   const tokens = r.usage ? (r.usage.total_tokens || 0) : (r.steps || []).reduce((s, x) => s + (x.tokens || 0), 0);
   r.tokens = tokens;
+  if (curPart && curPart.si >= 0 && SCENARIOS[curPart.si]) { curPart.pid ||= newId(); r.si = curPart.si; r.pid = curPart.pid; }  // which scenario run it belongs to (Policies at work)
   const idx = session.calls.push(r) - 1; if (curRun) { curRun.calls.push(idx); curPart?.calls.push(idx); }
   session.totalCost = (session.totalCost || 0) + cost; session.tokens = (session.tokens || 0) + tokens;
   session.costByAgent[r.agent] = (session.costByAgent[r.agent] || 0) + cost;
@@ -4451,6 +4476,111 @@ function scPolicyStrip(s) {
     + `<a href="#" class="pat" data-sc="${i}">How each one is built</a>` : "";
   $("scPol").querySelectorAll("[data-sc]").forEach(b => b.onclick = (e) => { e.preventDefault(); openPolMap(i, b.dataset.ctl); });
 }
+
+// ---------- Policies at work: beside the gateway flow, what each control did to the replayed call ----------
+// polHit(id, r): "pass" (applied, call went on), "warn" (applied and changed the call), "stop" (refused it), or null (not involved),
+// read from the call's x-gw-* response headers and status.
+function polHit(id, r) {
+  if (!r) return null;
+  const h = r.headers || {}, st = Number(r.status) || 0, by = String(h["x-gw-blocked-by"] || "").toLowerCase(), surf = r.surface || "model";
+  const gov = String(h["x-gw-governance"] || ""), cost = Number(h["x-gw-cost-usd"] || 0), ok = st === 200, route = String(h["x-gw-route"] || "");
+  const entra = r.mode === "entra" || !!h["x-gw-group"] || /^entra-/.test(by), stop = (re) => re.test(by), sem = h["x-gw-semantic-cache"];
+  const sess = h["x-gw-session"] && h["x-gw-session"] !== "no-session";
+  switch (id) {
+    case "entra": return entra ? null : st === 401 || stop(/validate|jwt/) ? "stop" : h["x-gw-caller"] || ok ? "pass" : null;
+    case "entra-only-token": return !entra ? null : st === 401 ? "stop" : "pass";
+    case "entra-group-plan": return !entra ? null : stop(/^entra-group/) ? "stop" : h["x-gw-group"] ? "pass" : null;
+    case "model-ent": case "entra-model-ent":
+      if ((id === "entra-model-ent") !== entra || surf !== "model") return null;
+      return stop(/model-entitlement/) ? "stop" : /model-downgraded/.test(gov) ? "warn" : ok ? "pass" : null;
+    case "out-cap": return surf !== "model" ? null : /output-capped/.test(gov) ? "warn" : ok ? "pass" : null;
+    case "tpm": case "entra-tpm":
+      if ((id === "entra-tpm") !== entra || surf !== "model") return null;
+      return stop(/llm-token-limit/) ? "stop" : ok ? "pass" : null;
+    case "budget": return entra ? null : stop(/subscription-budget|^quota-by-key$/) ? "stop" : cost > 0 ? "pass" : null;
+    case "session-budget": return entra ? null : stop(/session-budget/) ? "stop" : sess && cost > 0 ? "pass" : null;
+    case "eu-budget": return stop(/end-user-budget/) ? "stop" : h["x-gw-end-user"] && cost > 0 ? "pass" : null;
+    case "group-budget": return !entra ? null : stop(/group-budget/) ? "stop" : cost > 0 ? "pass" : null;
+    case "member-budget": return !entra ? null : stop(/member-budget/) ? "stop" : cost > 0 ? "pass" : null;
+    case "session": return sess ? "pass" : null;
+    case "model-price": return surf === "model" && cost > 0 ? "pass" : null;
+    case "token-metric": return surf === "model" && ok ? "pass" : null;
+    case "cost-metric": return cost > 0 ? "pass" : null;
+    case "chargeback": return ok && cost > 0 ? "pass" : null;
+    case "tool-ent": return surf !== "tool" ? null : stop(/tool-entitlement/) ? "stop" : ok && (r.tool || h["x-gw-tool"]) ? "pass" : null;
+    case "tool-price": return surf === "tool" && cost > 0 ? "pass" : null;
+    case "tool-rate": return surf !== "tool" ? null : stop(/rate-limit/) ? "stop" : h["x-gw-remaining-tool-calls"] ? "pass" : null;
+    case "agent-ent": return surf !== "agent" ? null : stop(/agent-entitlement/) ? "stop" : ok ? "pass" : null;
+    case "agent-price": case "obo": return surf === "agent" && ok && cost > 0 ? "pass" : null;
+    case "pool": return route || h["x-gw-backend"] ? "pass" : null;
+    case "retry": case "cb": return route.includes(" > ") ? "warn" : route ? "pass" : null;
+    case "req-id": return h["x-gw-request-id"] ? "pass" : null;
+    case "trace": return h["apim-trace-id"] ? "pass" : null;
+    case "gw-logs": return h["x-gw-request-id"] && h["x-gw-request-id"] !== "example" ? "pass" : null;
+    case "content-safety": return stop(/llm-content-safety|purview/) ? "stop" : h["x-gw-safety-cost-usd"] ? "pass" : null;
+    case "safety-ledger": return h["x-gw-safety-cost-usd"] ? "pass" : null;
+    case "suspend": return stop(/subscription-budget|^quota-by-key$/) ? "stop" : null;
+    case "resp-affinity": return stop(/response-ownership/) ? "stop" : /sticky/.test(h["x-gw-affinity"] || "") ? "warn" : /new/.test(h["x-gw-affinity"] || "") ? "pass" : null;
+    case "resp-price": return Number(h["x-gw-cached-tokens"] || 0) > 0 ? "warn" : null;
+    case "img-ent": return surf !== "image" ? null : stop(/image-/) ? "stop" : ok ? "pass" : null;
+    case "img-price": return surf === "image" && cost > 0 ? "pass" : null;
+    case "img-rate": return surf !== "image" ? null : stop(/rate-limit/) ? "stop" : ok ? "pass" : null;
+    case "sem-cache": case "sem-scope": return sem === "hit" ? "warn" : sem === "miss" ? "pass" : null;
+    case "sem-price": return sem === "hit" ? "warn" : null;
+  }
+  return null;
+}
+const PAW_MARK = { pass: ["ok", "✓"], warn: ["wn", "↷"], stop: ["bad", "✗"] };
+let pawLast = null;
+function renderPaw(r) {
+  const box = $("gwfPaw"), split = $("gwfSplit"); if (!box) return;
+  pawLast = r || null;
+  const si = r && Number.isInteger(r.si) && SCENARIOS[r.si] ? r.si : null;
+  let ids, head, tally = null;
+  if (si != null) {
+    // a scenario's call: its controls in order, with what each did across the scenario's calls so far
+    ids = (SCENARIOS[si].controls || []).filter(id => POL_CONTROLS[id]);
+    const calls = session.calls.filter(c => c.pid === r.pid && (c.at || 0) <= (r.at || 0));
+    tally = Object.fromEntries(ids.map(id => [id, { pass: 0, warn: 0, stop: 0 }]));
+    for (const c of calls) for (const id of ids) { const v = polHit(id, c); if (v) tally[id][v]++; }
+    head = `Policies at work<small>scenario ${si + 1} · ${escapeHtml(SCENARIOS[si].title)} · call ${calls.length}</small>`;
+  } else {
+    // any other call (an example, your own request): the controls it went through, in pipeline order (bookkeeping that applies
+    // to every call is left out, and failover only shows when it happened)
+    const quiet = new Set(["req-id", "gw-logs", "trace", "session"]);
+    ids = Object.keys(POL_CONTROLS).filter(id => { const v = polHit(id, r); return v && !quiet.has(id) && !((id === "retry" || id === "cb") && v !== "warn"); })
+      .sort((a, b) => STAGE_IX[POL_CONTROLS[a].st] - STAGE_IX[POL_CONTROLS[b].st]);
+    head = `Policies on this call<small>${r?.headers?.["x-gw-request-id"] === "example" ? "example call · " : ""}what each control did, from its x-gw-* headers</small>`;
+  }
+  if (!r || !ids.length) { box.hidden = true; split.classList.remove("on"); return; }
+  const n = [1, 2, 3].map(l => ids.filter(id => POL_CONTROLS[id].l === l).length);
+  box.innerHTML = `<div class="ph">${head}</div>` + ids.map((id, i) => {
+    const c = POL_CONTROLS[id], now = polHit(id, r), t = tally?.[id], lit = t ? now : now !== "pass" ? now : null;  // outline what this call hit (per call: only changes and stops)
+    const ct = t ? (["pass", "warn", "stop"].filter(k => t[k]).map(k => `<span class="${PAW_MARK[k][0]}">${PAW_MARK[k][1]}${t[k]}</span>`).join("") || `<span class="no">–</span>`)
+      : now ? `<span class="${PAW_MARK[now][0]}">${PAW_MARK[now][1]}${now === "stop" ? " " + escapeHtml(r.status) : ""}</span>` : "";
+    return `<button type="button" class="pr${lit ? " now" : ""}${lit === "stop" ? " bad" : lit === "warn" ? " warn" : ""}" data-pawc="${id}"${si != null ? ` data-sc="${si}"` : ""} title="${escapeHtml(c.c)}: ${escapeHtml(c.p)} · ${POL_LEVELS[c.l][0]}. Click to see it in the policy explorer.">`
+      + `${si != null ? `<span class="nb">${i + 1}</span>` : ""}${lvlHtml(c.l, false)}<span class="lab">${escapeHtml(c.s)}</span><span class="ct">${ct}</span></button>`;
+  }).join("") + `<div class="pf">${[1, 2, 3].filter(l => n[l - 1]).map(l => `<span>${lvlHtml(l, false)}${n[l - 1]} ${POL_LEVELS[l][0].toLowerCase()}</span>`).join("")}`
+    + `<a href="#" data-pawc="${ids[0]}"${si != null ? ` data-sc="${si}"` : ""}>Open in the policy explorer →</a></div>`;
+  box.hidden = false; split.classList.add("on");
+}
+window.onFlowPlay = renderPaw;
+// the gateway flow's policy lens shows a control's lines: name the control so the lens can link to it
+const LENS_CTL = [[/validate-azure-ad-token/, (s) => s.doc === "fragment:entra-plan-inbound" ? "entra-only-token" : "entra"], [/entraGroup/, "entra-group-plan"], [/entraTier/, "entra-tpm"],
+  [/entraAllowedModels/, "entra-model-ent"], [/group-budget/, "group-budget"], [/member-budget/, "member-budget"], [/Model governance/, "model-ent"], [/llm-token-limit/, "tpm"],
+  [/subscription-budget/, "budget"], [/session-budget/, "session-budget"], [/end-user-budgets/, "eu-budget"], [/modelPricing|costMicroUsd/, "model-price"],
+  [/llm-semantic-cache/, "sem-cache"], [/semanticCache(Saved|Lookup)/, "sem-price"], [/cachedSavings|cachedTokens|cached-input/, "resp-price"], [/chargebackDirectory/, "chargeback"]];
+window.lensControl = (spec) => {
+  const src = String(spec?.anchor?.source || ""), m = LENS_CTL.find(([re]) => re.test(src));
+  const id = m && (typeof m[1] === "function" ? m[1](spec) : m[1]), c = id && POL_CONTROLS[id];
+  return c ? { id, badge: lvlHtml(c.l) } : null;
+};
+// "Policies at work" rows and the lens link open the control in the Policy explorer (on the scenario, if the call had one)
+document.addEventListener("click", (e) => {
+  const a = e.target.closest("[data-pawc]"); if (!a || !POL_CONTROLS[a.dataset.pawc]) return;
+  e.preventDefault();
+  openPolMap(a.dataset.sc != null ? Number(a.dataset.sc) : (Number.isInteger(pawLast?.si) ? pawLast.si : polMapSel ?? "all"), a.dataset.pawc);
+});
 
 async function loadPolicies() {
   const done = [busy($("backendsKv").closest(".card"), "Reading the backend pool…", "Azure API Management"),
