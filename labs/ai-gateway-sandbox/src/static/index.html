@@ -355,6 +355,24 @@
   .polcard .nm { font-weight:600; font-size:13px; display:flex; align-items:center; gap:6px; margin-bottom:6px; }
   .polcard .sr { display:flex; gap:6px; align-items:flex-start; margin-top:4px; } .polcard .sr > span { flex:0 0 62px; font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; padding-top:2px; }
   .polcard details { margin-top:6px; } .polcard summary { cursor:pointer; font-size:12px; color:var(--accent); }
+  .polcard .pdm { margin-left:auto; font-weight:400; font-size:11px; color:var(--muted); white-space:nowrap; }
+  .polcard .pur { font-size:12px; color:var(--muted); margin:-2px 0 8px; line-height:1.4; }
+  .polcard .pctl { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:4px; } .polcard .pctl .none { font-size:11.5px; color:var(--muted); }
+  .polcard .elh { font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; margin-top:8px; }
+  .polcard .pcx { border-left:3px solid var(--accent); background:var(--panel2); padding:8px 10px; margin:6px 0; font-size:12px; border-radius:0 4px 4px 0; line-height:1.45; }
+  .polcard .pcx .h { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:3px; } .polcard .pcx .h b { font-size:12.5px; }
+  .polcard .pcx pre.xml { margin-top:4px; max-height:320px; white-space:pre-wrap; word-break:break-word; } .polcard .pcx pre.xml .xl { display:block; padding-left:47px; text-indent:-47px; }
+  .polcard .pcx .pmsrc { margin-top:6px; font-size:11px; color:var(--muted); } .polcard .pcx .adopt { margin-top:6px; }
+  .polcard .pcx .nvl { margin-top:6px; font-size:11px; display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+  .polcard .pcx .nvl code { font-size:10.5px; background:#fff; border:1px solid var(--divider); border-radius:3px; padding:0 5px; }
+  .polcard:has(.pcx) { grid-column:1 / -1; }
+  .polcard .pref { font-size:11px; color:var(--muted); display:flex; flex-wrap:wrap; gap:4px 6px; align-items:center; margin-top:8px; }
+  .nvref { font:600 11px Consolas,monospace; background:#f4effa; color:#5c2e91; border:1px solid #d9c7ee; border-radius:3px; padding:0 3px; }
+  #deployedPolicies.focus .polcard:not(.hit) { opacity:.42; } #deployedPolicies .polcard.hit { box-shadow:inset 0 0 0 2px #0078d4; }
+  #deployedPolicies .polcard.flash { animation:lensHit 1.2s both; }
+  .pc { display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 9px; background:#fff; color:var(--text); border:1px solid var(--border); border-radius:12px; font-size:12px; font-weight:400; }
+  .pc:hover:not(:disabled) { background:var(--accent-light); border-color:#c7e0f4; color:var(--text); }
+  .pc.on { border-color:#0078d4; box-shadow:inset 0 0 0 1px #0078d4; } .pc[aria-expanded="true"] { background:var(--accent-light); border-color:#0078d4; font-weight:600; }
   .evh { font-size:13px; margin:0 0 8px; display:flex; align-items:center; gap:6px; } .evh .muted { font-weight:400; }
   .tl { display:flex; height:22px; border-radius:4px; overflow:hidden; margin:4px 0 2px; font-size:10.5px; font-weight:600; color:#fff; }
   .tl > div { display:flex; align-items:center; justify-content:center; min-width:0; white-space:nowrap; overflow:hidden; padding:0 4px; }
@@ -458,8 +476,6 @@
   .scmore > details > summary { cursor:pointer; color:var(--accent); font-weight:600; }
   .scmore #scStory { margin-top:6px; } .scmore #scSteps { margin-top:6px; }
   .scpol { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:10px; font-size:12px; } .scpol:empty { display:none; }
-  .scpol .pc { display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 9px; background:#fff; color:var(--text); border:1px solid var(--border); border-radius:12px; font-size:12px; font-weight:400; }
-  .scpol .pc:hover:not(:disabled) { background:var(--accent-light); border-color:#c7e0f4; color:var(--text); }
   #scFlow .dgm { max-width:760px; }
   #scFlow .dr > * { opacity:0; animation:scHop .35s ease-out forwards; animation-delay:calc(var(--i, 0) * 140ms); }
   @keyframes scHop { from { opacity:0; transform:translateX(-6px); } to { opacity:1; transform:none; } }
@@ -2180,8 +2196,13 @@
       </div><!-- /psec pipeline -->
 
       <div class="psec hidden" data-psec="deployed">
-      <div class="card">
-        <h2>Deployed policies <span class="muted">read back from Azure Resource Manager</span> <span class="info" tabindex="0" data-tip="In the portal: API Management › APIs › (API) › All operations › Inbound processing › Policy code editor; Products › (plan) › Policies; APIs › Policy fragments; Backends.">i</span></h2>
+      <div class="card" id="polDepCard">
+        <h2>Deployed policies <span class="muted">read back from Azure Resource Manager</span> <span class="info" tabindex="0" data-tip="Every policy document on the gateway, with what it is for, the high-level controls it implements (click one to see its lines), the named values it reads and the fragments it includes. In the portal: API Management › Products › (plan) › Policies; APIs › (API) › All operations › Policy code editor; APIs › Policy fragments; Backends.">i</span></h2>
+        <div class="pmhead">
+          <label for="polDepSc">Highlight a scenario</label><select id="polDepSc"></select>
+          <span class="sum" id="polDepSum"></span>
+        </div>
+        <div class="pmlegend" id="polDepLegend"></div>
         <div id="deployedPolicies" class="muted" style="margin-top:8px">Loading…</div>
       </div>
       </div><!-- /psec deployed -->
@@ -4204,18 +4225,32 @@ function polDocLabel(id) {
   return k === "api" ? ({ "inference-api": "AI models API", "commerce-mcp": "MCP server API", "sourcing-agent": "A2A agent API", "image-api": "Image API", "inference-entra": "Entra-only models API" }[n] || n) + " policy"
     : k === "op" ? `${n} operation policy` : `${n} fragment`;
 }
-function polSnippet(c) {
-  let doc = c.doc;
-  if (doc === "product") { const want = `product:${c.tier || "silver"}`; doc = polDocs.docs[want] ? want : Object.keys(polDocs.docs).find(k => k.startsWith("product:")) || want; }
-  const xml = polDocs.docs[doc]; if (!xml) return { doc };
-  const lines = xml.split(/\r?\n/), at = lines.findIndex(x => c.a.test(x));
-  if (at < 0) return { doc };
+// the lines of one control in one policy document (xml), or null when the anchor isn't there
+function polCut(c, xml) {
+  const lines = String(xml || "").split(/\r?\n/), at = lines.findIndex(x => c.a.test(x));
+  if (at < 0) return null;
   // back: the element starts on an earlier line in the source but on the anchor's line once ARM reflows the XML
   let start = Math.max(0, at - (c.pre || 0)), end = at;
   if (c.back) for (let k = at; k >= Math.max(0, at - 4); k--) if (c.back.test(lines[k])) { start = k; break; }
   if (c.e) { while (end < lines.length - 1 && end - at < (c.max || 14) && !c.e.test(lines[end])) end++; }
   else end = Math.min(lines.length - 1, at + (c.n || 1) - 1);
-  return { doc, start, lines: lines.slice(start, end + 1), cut: !!c.e && !c.e.test(lines[end]) };
+  return { start, lines: lines.slice(start, end + 1), cut: !!c.e && !c.e.test(lines[end]) };
+}
+function polSnippet(c) {
+  let doc = c.doc;
+  if (doc === "product") { const want = `product:${c.tier || "silver"}`; doc = polDocs.docs[want] ? want : Object.keys(polDocs.docs).find(k => k.startsWith("product:")) || want; }
+  const s = polDocs.docs[doc] ? polCut(c, polDocs.docs[doc]) : null;
+  return s ? { doc, ...s } : { doc };
+}
+// the excerpt: where it is, the highlighted lines with their real line numbers, and the named values it reads (when known)
+function polExcerpt(c, s) {
+  const ind = Math.min(...s.lines.filter(x => x.trim()).map(x => x.match(/^\s*/)[0].length));
+  const nvs = (c.nv || []).map(n => [n, polDocs?.namedValues?.[n]]).filter(([, v]) => v != null).map(([n, v]) => {
+    const ents = String(v).split(";").map(x => x.trim()).filter(Boolean);
+    return `<div class="nvl"><span class="nvref">{{${escapeHtml(n)}}}</span><span class="muted">named value:</span>${ents.slice(0, 5).map(x => `<code>${escapeHtml(x.length > 80 ? x.slice(0, 80) + "…" : x)}</code>`).join("")}${ents.length > 5 ? `<span class="muted">+${ents.length - 5} more</span>` : ""}</div>`;
+  }).join("");
+  return `<div class="pmsrc">Deployed <b>${escapeHtml(polDocLabel(s.doc))}</b> · line${s.lines.length > 1 ? `s ${s.start + 1}–${s.start + s.lines.length}` : ` ${s.start + 1}`}${s.cut ? " (excerpt)" : ""} · read back from Azure Resource Manager</div>`
+    + xmlPre(s.lines.map(x => x.slice(ind)).join("\n")).replace(/^<pre class="xml">/, `<pre class="xml" style="counter-reset:xl ${s.start}">`).replace(/\n<span class="xl">/g, `<span class="xl">`) + nvs;
 }
 function polXml(c) {
   if (!c.a) return c.live ? c.live() : "";
@@ -4223,27 +4258,23 @@ function polXml(c) {
   if (polDocs.error) return `<div class="pmsrc">Couldn't read the deployed policies: ${escapeHtml(polDocs.error)}. <a href="#" data-pmretry>Retry</a></div>`;
   const s = polSnippet(c);
   if (!s.lines) return `<div class="pmsrc">Not in the deployed ${escapeHtml(polDocLabel(s.doc))}: this feature is off in this sandbox.</div>`;
-  const ind = Math.min(...s.lines.filter(x => x.trim()).map(x => x.match(/^\s*/)[0].length));
-  const nvs = (c.nv || []).map(n => [n, polDocs.namedValues?.[n]]).filter(([, v]) => v != null).map(([n, v]) => {
-    const ents = String(v).split(";").map(x => x.trim()).filter(Boolean);
-    return `<div class="nvl"><span class="nvref">{{${escapeHtml(n)}}}</span><span class="muted">named value:</span>${ents.slice(0, 5).map(x => `<code>${escapeHtml(x.length > 80 ? x.slice(0, 80) + "…" : x)}</code>`).join("")}${ents.length > 5 ? `<span class="muted">+${ents.length - 5} more</span>` : ""}</div>`;
-  }).join("");
-  return `<div class="pmsrc">Deployed <b>${escapeHtml(polDocLabel(s.doc))}</b> · line${s.lines.length > 1 ? `s ${s.start + 1}–${s.start + s.lines.length}` : ` ${s.start + 1}`}${s.cut ? " (excerpt)" : ""} · read back from Azure Resource Manager</div>`
-    + xmlPre(s.lines.map(x => x.slice(ind)).join("\n")).replace(/^<pre class="xml">/, `<pre class="xml" style="counter-reset:xl ${s.start}">`).replace(/\n<span class="xl">/g, `<span class="xl">`) + nvs;
+  return polExcerpt(c, s);
 }
 // the scenarios that show a control (catalog view)
 const polUses = (id) => SCENARIOS.map((s, i) => [s, i]).filter(([s]) => (s.controls || []).includes(id));
 function fillPolMapPicker() {
-  const sel = $("polMapSc"); if (!sel) return;
   const opt = (s, i) => `<option value="${i}">${i + 1}. ${escapeHtml(s.title)}${s.off ? " (not deployed)" : ""}</option>`, placed = new Set();
-  sel.innerHTML = `<option value="all">Every control (catalog)</option>` + SCENARIO_TOPICS.map(([name, , re]) => {
+  const html = `<option value="all">Every control (catalog)</option>` + SCENARIO_TOPICS.map(([name, , re]) => {
     const items = SCENARIOS.map((s, i) => [s, i]).filter(([s, i]) => !placed.has(i) && re.test(s.title));
     items.forEach(([, i]) => placed.add(i));
     return items.length ? `<optgroup label="${escapeHtml(name)}">${items.map(([s, i]) => opt(s, i)).join("")}</optgroup>` : "";
   }).join("") + SCENARIOS.map((s, i) => placed.has(i) ? "" : opt(s, i)).join("");
   if (polMapSel == null) polMapSel = 0;
-  sel.value = String(polMapSel);
-  sel.onchange = () => { polMapSel = sel.value === "all" ? "all" : Number(sel.value); polMapToggled.clear(); renderPolMap(); };
+  // the Policy pipeline and Deployed policies pickers share one selection
+  for (const sel of [$("polMapSc"), $("polDepSc")]) {
+    sel.innerHTML = html; sel.value = String(polMapSel);
+    sel.onchange = () => { polMapSel = sel.value === "all" ? "all" : Number(sel.value); polMapToggled.clear(); renderPolMap(); };
+  }
 }
 function renderPolMap() {
   const box = $("polMap"); if (!box || !$("polMapSc").options.length) return;
@@ -4288,6 +4319,7 @@ function renderPolMap() {
   box.querySelectorAll("[data-pmsc]").forEach(a => a.onclick = (e) => { e.preventDefault(); polMapSel = Number(a.dataset.pmsc); polMapToggled.clear(); renderPolMap(); $("polMapCard").scrollIntoView({ behavior: "smooth", block: "start" }); });
   fillPolXml();
   if (!polDocs && ctls.some(([, c]) => c.a)) loadPolDocs().then(fillPolXml);
+  renderPolDeployedFocus();
 }
 function fillPolXml() {
   document.querySelectorAll("#polMap details[data-pmx]").forEach(d => { d.querySelector(".pmxml").innerHTML = polXml(POL_CONTROLS[d.dataset.pmx]); });
@@ -4301,6 +4333,99 @@ function scPolicyStrip(s) {
       return `<button type="button" class="pc" data-sc="${i}" title="${escapeHtml(c.c)}: ${escapeHtml(c.p)} · ${POL_LEVELS[c.l][0]}">${lvlHtml(c.l, false)}${escapeHtml(c.s)}</button>`; }).join("")
     + `<a href="#" class="pat" data-sc="${i}">How each one is built</a>` : "";
   $("scPol").querySelectorAll("[data-sc]").forEach(b => b.onclick = (e) => { e.preventDefault(); openPolMap(i); });
+}
+
+// ---------- Deployed policies: every policy document with its purpose, size, the controls it implements (click one for its
+// lines in that document), the named values it reads and the fragments it includes; the scenario picker highlights the
+// documents a scenario relies on
+const POL_DOC_PURPOSE = {
+  "product": "The plan's contract: which models, tools and agents a subscriber may use, its limits and its $ budgets. One copy per plan, rendered from one template.",
+  "api:inference-api": "Every model call: routes it to the backend pool with failover, meters its tokens, prices it and writes its chargeback record.",
+  "api:commerce-mcp": "Exposes the Commerce Tools REST API as an MCP server: reads the tool of each <code>tools/call</code> and prices it.",
+  "api:sourcing-agent": "Publishes the Sourcing Agent (A2A): charges the task fee plus the agent's downstream spend, billed to the caller.",
+  "api:image-api": "Image generation: applies the defaults and prices every image by model, quality and size.",
+  "api:inference-entra": "The key-less models API: the caller's Entra ID security group picks the plan and pays.",
+  "op:createResponse": "Responses API operations: follow-ups, reads and deletes of a stored response go to the region that stored it.",
+  "fragment:entra-identity": "Validates the Microsoft Entra ID token and names the caller (user or workload identity) for chargeback.",
+  "fragment:payer-attribution": "Decides who pays: the caller, or the subscription an A2A agent is working for (on behalf of).",
+  "fragment:chargeback-record": "Writes one chargeback record per billable call to Application Insights.",
+  "fragment:blocked-before-spend": "Screens prompts, tool arguments and tasks with Azure AI Content Safety before anything is spent.",
+  "fragment:safety-ledger": "Charges the content safety check and records it, for blocked calls too.",
+  "fragment:responses-pricing": "Prices the cached input tokens of a call at the discounted rate; reads of stored responses are free.",
+  "fragment:semantic-cache-pricing": "Charges a semantic cache hit the embedding lookup instead of the model tokens.",
+  "fragment:entra-plan-inbound": "Entra-only mode: validates the token, maps the caller's group to a plan and enforces its limits, team budget and member cap.",
+  "fragment:entra-plan-outbound": "Entra-only mode: the <code>x-gw-*</code> response headers (caller, group, budgets, blocking policy).",
+};
+const POL_SCOPES = { Product: ["plan", "Product (plan) policies", "wrap every API the plan includes"], API: ["api", "API policies", "run inside the plan policy, for every plan"],
+  Operation: ["api", "Operation policies", "one operation of an API"], Fragment: ["policy", "Policy fragments", "shared blocks the policies above include"] };
+const polDocHas = (c, doc) => !!c?.a && (c.doc === doc || (c.doc === "product" && doc.startsWith("product:")));
+const polStat = (xml) => ({ lines: xml.split(/\r?\n/).length, expr: (xml.match(/@[({]/g) || []).length,
+  nv: [...new Set([...xml.matchAll(/\{\{([A-Za-z0-9._-]+)\}\}/g)].map(m => m[1]))], inc: [...new Set([...xml.matchAll(/<include-fragment fragment-id="([^"]+)"/g)].map(m => m[1]))] });
+let polDeployed = null;
+function renderPolDeployed() {
+  const box = $("deployedPolicies"), list = polDeployed || [], groups = {};
+  for (const p of list) (groups[p.scope] ||= []).push(p);
+  const card = (p) => {
+    const s = polStat(p.xml), doc = p.doc || "", ctls = Object.entries(POL_CONTROLS).filter(([, c]) => polDocHas(c, doc)), el = polElements(p.xml);
+    const purpose = POL_DOC_PURPOSE[doc.startsWith("product:") ? "product" : doc] || "";
+    return `<div class="polcard" data-doc="${escapeHtml(doc)}"><div class="nm">${escapeHtml(p.name)}<span class="pdm" title="Lines of deployed XML · C# policy expressions (@(…) / @{…}): a rough measure of how much custom logic it holds">${s.lines} lines · ${s.expr} C# expression${s.expr === 1 ? "" : "s"}</span></div>`
+      + (purpose ? `<div class="pur">${purpose}</div>` : "")
+      + `<div class="pctl">${ctls.length ? ctls.map(([id, c]) => `<button type="button" class="pc" data-pcx="${id}" aria-expanded="false" title="${escapeHtml(c.c)}: ${escapeHtml(c.p)} · ${POL_LEVELS[c.l][0]}">${lvlHtml(c.l, false)}${escapeHtml(c.s)}</button>`).join("")
+          : `<span class="none">No mapped control: supporting logic for the policies that include it.</span>`}</div>`
+      + `<div class="elh">Policy elements</div>` + Object.entries(el).map(([sec, names]) => `<div class="sr"><span>${sec}</span><div class="chips">`
+        + names.map(n => `<span class="chip${KEY_SOURCES.test(n) ? " key" : ""}">${n}</span>`).join("") + `</div></div>`).join("")
+      + (s.nv.length || s.inc.length ? `<div class="pref">${s.nv.length ? `reads ${s.nv.map(n => `<span class="nvref">{{${escapeHtml(n)}}}</span>`).join("")}` : ""}${s.nv.length && s.inc.length ? "<span>·</span>" : ""}`
+        + `${s.inc.length ? `<span>includes ${s.inc.map(f => `<a href="#" data-frag="${escapeHtml(f)}">${escapeHtml(f)}</a>`).join(", ")}</span>` : ""}</div>` : "")
+      + `<details><summary>View XML</summary>${xmlPre(p.xml)}</details></div>`;
+  };
+  box.classList.remove("muted");
+  box.innerHTML = Object.keys(POL_SCOPES).filter(k => groups[k]).map(sc => `<div class="polgrp"><h3>${ico(POL_SCOPES[sc][0], "", "")}${POL_SCOPES[sc][1]} <span class="cnt">${groups[sc].length}</span> <span class="muted" style="font-weight:400">· ${POL_SCOPES[sc][2]}</span></h3><div class="polgrid">`
+    + groups[sc].map(card).join("") + `</div></div>`).join("") || `<div class="muted">No policies found.</div>`;
+  $("polDepLegend").innerHTML = [1, 2, 3].map(l => `<span>${lvlHtml(l)} ${POL_LEVELS[l][1]}</span>`).join("");
+  box.onclick = (e) => {
+    const b = e.target.closest("[data-pcx]"), f = e.target.closest("[data-frag]"), o = e.target.closest("[data-pmopen]");
+    if (b) togglePolCtl(b);
+    if (f) { e.preventDefault(); const t = box.querySelector(`.polcard[data-doc="fragment:${CSS.escape(f.dataset.frag)}"]`);
+      if (t) { t.scrollIntoView({ behavior: "smooth", block: "center" }); t.classList.remove("flash"); void t.offsetWidth; t.classList.add("flash"); } }
+    if (o) { e.preventDefault(); const id = o.dataset.pmopen, cur = SCENARIOS[polMapSel]?.controls || [], uses = polUses(id);
+      openPolMap(cur.includes(id) ? polMapSel : uses.length ? uses[0][1] : "all"); }
+  };
+  renderPolDeployedFocus();
+}
+// a control chip in a policy card: what the control does and its lines in THIS document (each plan shows its own values)
+function togglePolCtl(b) {
+  const card = b.closest(".polcard"), id = b.dataset.pcx, open = b.getAttribute("aria-expanded") === "true";
+  card.querySelector(".pcx")?.remove();
+  card.querySelectorAll("[data-pcx]").forEach(x => x.setAttribute("aria-expanded", "false"));
+  if (open) return;
+  b.setAttribute("aria-expanded", "true");
+  const c = POL_CONTROLS[id], doc = card.dataset.doc, xml = (polDeployed || []).find(p => p.doc === doc)?.xml, s = xml ? polCut(c, xml) : null;
+  const paint = () => `<div class="h"><b>${c.c}</b>${(c.o || []).map(pill).join("")}${lvlHtml(c.l)}</div><div>${c.w}</div>`
+    + (s ? polExcerpt(c, { doc, ...s }) : `<div class="pmsrc">Not found in this document.</div>`)
+    + `<div class="adopt"><b>To use it yourself:</b> ${c.u}</div><a href="#" class="pat" data-pmopen="${id}">See it in the policy pipeline</a>`;
+  card.querySelector(".pctl").insertAdjacentHTML("afterend", `<div class="pcx" data-for="${id}">${paint()}</div>`);
+  if (!polDocs && c.nv) loadPolDocs().then(() => { const x = card.querySelector(`.pcx[data-for="${id}"]`); if (x) x.innerHTML = paint(); });  // named values come with the flow documents
+}
+function renderPolDeployedFocus() {
+  if (!polDeployed || !$("polDepSc").options.length) return;
+  const box = $("deployedPolicies"), all = polMapSel === "all", sc = all ? null : SCENARIOS[polMapSel], ids = sc?.controls || [];
+  $("polDepSc").value = String(polMapSel);
+  box.classList.toggle("focus", !all);
+  let hit = 0;
+  box.querySelectorAll(".polcard").forEach(card => {
+    const on = ids.filter(id => polDocHas(POL_CONTROLS[id], card.dataset.doc));
+    card.classList.toggle("hit", on.length > 0); if (on.length) hit++;
+    card.querySelectorAll("[data-pcx]").forEach(b => b.classList.toggle("on", on.includes(b.dataset.pcx)));
+  });
+  if (all) {
+    const st = polDeployed.map(p => polStat(p.xml)), n = [1, 2, 3].map(l => Object.values(POL_CONTROLS).filter(c => c.l === l).length);
+    $("polDepSum").innerHTML = `<span><b>${polDeployed.length}</b> policy documents · <b>${st.reduce((a, x) => a + x.lines, 0).toLocaleString()}</b> lines · <b>${st.reduce((a, x) => a + x.expr, 0).toLocaleString()}</b> C# expressions</span>`
+      + [1, 2, 3].map(l => `<span>${lvlHtml(l)} <b>${n[l - 1]}</b></span>`).join("");
+  } else {
+    const noXml = ids.map(id => POL_CONTROLS[id]).filter(c => c && !c.a);
+    $("polDepSum").innerHTML = `<span><b>${hit}</b> of ${polDeployed.length} documents implement <b>${escapeHtml(sc?.title || "")}</b>${hit ? "" : " (its features are off in this sandbox)"}</span>`
+      + (noXml.length ? `<span>not in policy XML: ${noXml.map(c => `<b>${escapeHtml(c.s)}</b> (${escapeHtml(c.at)})`).join(", ")}</span>` : "");
+  }
 }
 
 async function loadPolicies() {
@@ -4318,15 +4443,7 @@ async function loadPolicies() {
             + `<div class="chips" style="margin-top:6px">${ico("managed-identity", "sm", "managed identity")}${cb ? `<span class="chip" title="${escapeHtml(cb)}">${ico("circuit-breaker", "", "")}circuit breaker</span>` : ""}</div></div>`
             + `<span class="pr${pr === 1 ? " p1" : ""}">priority ${pr}</span></div>`; }).join("")).join("")
       || `<div class="muted">No backend pool found.</div>`;
-    const SCOPE = { API: ["api", "API policies"], Fragment: ["policy", "Policy fragments"], Product: ["plan", "Product (plan) policies"] };
-    const groups = {};
-    for (const p of d.policies || []) (groups[p.scope] ||= []).push(p);
-    $("deployedPolicies").classList.remove("muted");
-    $("deployedPolicies").innerHTML = Object.entries(groups).map(([sc, list]) => `<div class="polgrp"><h3>${ico((SCOPE[sc] || ["policy"])[0], "", "")}${(SCOPE[sc] || [, sc])[1]} <span class="cnt">${list.length}</span></h3><div class="polgrid">`
-      + list.map(p => { const el = polElements(p.xml);
-          return `<div class="polcard"><div class="nm">${escapeHtml(p.name)}</div>` + Object.entries(el).map(([sec, names]) => `<div class="sr"><span>${sec}</span><div class="chips">`
-            + names.map(n => `<span class="chip${KEY_SOURCES.test(n) ? " key" : ""}">${n}</span>`).join("") + `</div></div>`).join("")
-            + `<details><summary>View XML</summary>${xmlPre(p.xml)}</details></div>`; }).join("") + `</div></div>`).join("");
+    polDeployed = d.policies || []; renderPolDeployed();
   } catch (e) { $("deployedPolicies").textContent = "Failed to read policies: " + e.message; }
   finally { done.forEach(f => f()); }
 }
@@ -4335,7 +4452,7 @@ const POL_SKIP = new Set(["policies", "fragment", "inbound", "backend", "outboun
   "openid-config", "audiences", "audience", "issuers", "issuer", "required-claims", "claim", "client-application-ids", "application-id", "header", "parameter", "set-body", "dimension", "backend-pool", "message"]);
 function polElements(xml) {
   const out = {}, seen = new Set(); let sec = "fragment";
-  for (const m of String(xml || "").matchAll(/<(\/?)([a-z][a-z0-9-]*)/g)) {
+  for (const m of String(xml || "").replace(/<!--[\s\S]*?-->/g, "").matchAll(/<(\/?)([a-z][a-z0-9-]*)/g)) {
     const [, close, n] = m;
     if (["inbound", "backend", "outbound", "on-error"].includes(n)) { if (!close) sec = n; continue; }
     if (close || POL_SKIP.has(n) || seen.has(sec + n)) continue;
@@ -5410,7 +5527,7 @@ async function runScenario(s) {
   $("scenario").classList.remove("hidden"); $("scSteps").innerHTML = "";
   $("scTitle").textContent = s.title; $("scStory").innerHTML = s.story(); $("scTakeaway").innerHTML = "";
   scPolicyStrip(s); polMapSel = SCENARIOS.indexOf(s); polMapToggled.clear();
-  if (psec === "pipeline" && curTab === "plans") renderPolMap();
+  if (psec === "pipeline" && curTab === "plans") renderPolMap(); else renderPolDeployedFocus();
   $("scFlow").innerHTML = ""; $("scFlowMore").innerHTML = "";
   try {
     if (s.preview) {
@@ -5523,7 +5640,7 @@ function renderScenarios() {
     setRunning(false, "Full demo finished.");
   };
   fillPolMapPicker();
-  if (psec === "pipeline" && curTab === "plans") renderPolMap();
+  if (psec === "pipeline" && curTab === "plans") renderPolMap(); else renderPolDeployedFocus();
 }
 try { if (localStorage.getItem("sbx.mini")) miniLaunch(true); } catch {}
 init();

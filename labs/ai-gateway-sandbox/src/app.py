@@ -833,26 +833,34 @@ def trace(payload):
 
 
 def policies(_payload):
-    """The policies and backends deployed on the gateway, read back from Azure Resource Manager."""
+    """The policies and backends deployed on the gateway, read back from Azure Resource Manager. Each policy carries the
+    doc id the page uses for its control map (the same ids as /api/flow-policies)."""
     apim = f"{ARM}{CONFIG['apimServiceId']}"
     headers = {"Authorization": f"Bearer {az_token(ARM)}"}
-    items = [("API", "AI models (inference-api)", f"{apim}/apis/inference-api/policies/policy"),
-             ("API", "MCP server (commerce-mcp)", f"{apim}/apis/commerce-mcp/policies/policy"),
-             ("API", "A2A agent (sourcing-agent)", f"{apim}/apis/sourcing-agent/policies/policy"),
-             ("Fragment", "entra-identity", f"{apim}/policyFragments/entra-identity"),
-             ("Fragment", "payer-attribution", f"{apim}/policyFragments/payer-attribution"),
-             ("Fragment", "chargeback-record", f"{apim}/policyFragments/chargeback-record"),
-             ("Fragment", "blocked-before-spend", f"{apim}/policyFragments/blocked-before-spend"),
-             ("Fragment", "safety-ledger", f"{apim}/policyFragments/safety-ledger"),
-             ("Fragment", "responses-pricing", f"{apim}/policyFragments/responses-pricing")]
+    items = [("Product", f"{t['displayName']} ({t['name']})", f"product:{t['name']}", f"{apim}/products/{t['name']}/policies/policy") for t in CONFIG.get("tiers", [])]
+    items += [("API", "AI models (inference-api)", "api:inference-api", f"{apim}/apis/inference-api/policies/policy"),
+              ("API", "MCP server (commerce-mcp)", "api:commerce-mcp", f"{apim}/apis/commerce-mcp/policies/policy"),
+              ("API", "A2A agent (sourcing-agent)", "api:sourcing-agent", f"{apim}/apis/sourcing-agent/policies/policy")]
     if CONFIG.get("imagesBaseUrl"):
-        items.append(("API", "Image generation (image-api)", f"{apim}/apis/image-api/policies/policy"))
-    items += [("Product", f"{t['displayName']} ({t['name']})", f"{apim}/products/{t['name']}/policies/policy") for t in CONFIG.get("tiers", [])]
-    result = []
-    for scope, name, url in items:
+        items.append(("API", "Image generation (image-api)", "api:image-api", f"{apim}/apis/image-api/policies/policy"))
+    if entra_mode_config():
+        items.append(("API", "Entra-only models (inference-entra)", "api:inference-entra", f"{apim}/apis/inference-entra/policies/policy"))
+    items.append(("Operation", "Responses API (createResponse, getResponse, …)", "op:createResponse", f"{apim}/apis/inference-api/operations/createResponse/policies/policy"))
+    fragments = ["entra-identity", "payer-attribution", "chargeback-record", "blocked-before-spend", "safety-ledger", "responses-pricing", "semantic-cache-pricing"]
+    if entra_mode_config():
+        fragments += ["entra-plan-inbound", "entra-plan-outbound"]
+    items += [("Fragment", f, f"fragment:{f}", f"{apim}/policyFragments/{f}") for f in fragments]
+
+    def read(item):
+        scope, name, doc, url = item
         status, _, text, _ = http("GET", f"{url}?api-version=2024-05-01&format=rawxml", None, headers, timeout=60)
+        if status == 404 and scope in ("Operation", "Fragment"):
+            return None  # optional documents (Responses affinity, a fragment of a feature that isn't deployed)
         xml = json.loads(text).get("properties", {}).get("value", "") if status == 200 else f"<!-- HTTP {status}: {text[:200]} -->"
-        result.append({"scope": scope, "name": name, "xml": xml})
+        return {"scope": scope, "name": name, "doc": doc, "xml": xml}
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        result = [p for p in pool.map(read, items) if p]
     status, _, text, _ = http("GET", f"{apim}/backends?api-version=2024-06-01-preview", None, headers, timeout=60)
     backends = []
     for backend in (json.loads(text).get("value", []) if status == 200 else []):
