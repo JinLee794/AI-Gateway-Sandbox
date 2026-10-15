@@ -62,6 +62,7 @@
   #tab-live.runmode #tab-runs .runs { grid-template-columns:minmax(0, 1fr); }
   .runbanner { display:flex; gap:12px; align-items:center; flex-wrap:wrap; padding:8px 12px; margin-bottom:12px; border-radius:6px; background:#fff8e6; border:1px solid #f2d58a; font-size:13px; }
   .runbanner[hidden] { display:none; } .runbanner .sp { flex:1; } .runbanner button { height:28px; padding:0 12px; font-size:12px; }
+  .histwarn { color:#8a3707; font-weight:600; }
   .agents { display:grid; gap:8px; }
   .agent { border:1px solid var(--border); border-radius:6px; padding:10px 12px; cursor:pointer; background:#fff; transition:border-color .15s, background .15s; }
   .agent:hover { border-color:#8a8886; }
@@ -3469,7 +3470,8 @@ function fillViewSel() {
   const now = runs.filter(r => !r.past).reverse(), saved = runs.filter(r => r.past).reverse();
   sel.innerHTML = `<option value="live">● Live session</option>`
     + (now.length ? `<optgroup label="This visit">${now.map(opt).join("")}</optgroup>` : "")
-    + (saved.length ? `<optgroup label="Saved runs">${saved.map(opt).join("")}</optgroup>` : "");
+    + (saved.length ? `<optgroup label="${hist.ephemeral ? "Saved runs (kept until the app is redeployed)" : "Saved runs"}">${saved.map(opt).join("")}</optgroup>` : "");
+  sel.title = hist.ephemeral ? "Hosted run history is kept on the demo app's container: it survives a reload, not a redeploy or restart." : "";
   sel.value = viewRun != null ? String(viewRun) : "live";
   sel.closest(".viewsel").classList.toggle("run", viewRun != null);
 }
@@ -3551,8 +3553,11 @@ async function loadHistory() {
   try { hist = await (await fetch("/api/history")).json(); } catch { hist = { enabled: false }; }
   const lbl = $("runScope");
   if (!hist.enabled) { lbl.textContent = "(this page session, newest first)"; return; }
-  lbl.innerHTML = `· saved for <b>${escapeHtml(hist.user)}</b>`;
-  lbl.title = `Finished runs are stored by the demo app per signed-in user (${hist.store}), so they're still here after a reload.`;
+  hist.ephemeral = /ephemeral/.test(hist.store || "");
+  lbl.innerHTML = `· saved for <b>${escapeHtml(hist.user)}</b>${hist.ephemeral ? ` · <span class="histwarn">until the demo app is redeployed or restarts</span>` : ""}`;
+  lbl.title = hist.ephemeral
+    ? "Finished runs are kept by the demo app per signed-in user, on the container's own disk: they survive a page reload, but a redeploy or a container restart starts a new, empty history (Container Apps has no persistent disk here)."
+    : `Finished runs are stored by the demo app per signed-in user (${hist.store}), so they're still here after a reload.`;
   for (const saved of hist.runs || []) {
     if (runs.some(r => r.id === saved.id)) continue;
     const base = session.calls.length, n = runs.length ? runs[runs.length - 1].n + 1 : 1;
