@@ -389,8 +389,8 @@ def gateway_auth(agent, payload, surface):
         headers["x-session-id"] = payload["session"]
     if valid_end_user(payload.get("endUser")):
         headers["x-gw-end-user"] = payload["endUser"]
-    if surface == "model" and payload.get("cacheScope") in ("session", "user", "plan"):
-        headers["x-gw-cache-scope"] = payload["cacheScope"]  # semantic cache: who may reuse the answer
+    if surface == "model" and payload.get("cacheScope") in ("session", "user", "plan", "off"):
+        headers["x-gw-cache-scope"] = payload["cacheScope"]  # semantic cache: who may reuse the answer (off: skip the cache)
     if not payload.get("noToken"):
         headers["Authorization"] = f"Bearer {az_token(GATEWAY_AUDIENCE)}"
     if payload.get("trace"):
@@ -1277,7 +1277,7 @@ Sandbox facts
 - Product (plan) policy, inbound: entra-identity, model entitlement (downgrade to the fallback model or deny 403), output token cap, llm-token-limit (tokens per minute 429, token quota 403), MCP tool and A2A agent entitlement and rate limits, quota-by-key $ budgets (per subscription, per session from x-session-id, per end user from x-gw-end-user; 403), and optionally llm-content-safety before any spend (blocked-before-spend fragment).
 - API policies: inference-api (models: backend pool with priority failover across Foundry regions, retry, circuit breaker, managed identity to Foundry, prices tokens from the model-pricing named value; optional semantic cache: llm-semantic-cache-lookup / llm-semantic-cache-store with Azure Managed Redis (RediSearch) as the APIM external cache, single-turn chat completions of the opted-in plans, partitioned by plan, served model and budget epoch, a hit charged only the embedding lookup), commerce-mcp (MCP tools/call priced per call), sourcing-agent (A2A: per-task fee plus the agent's downstream spend billed to the caller via x-gw-on-behalf-of), image-api (optional).
 - Fragments: entra-identity, payer-attribution, chargeback-record (writes one AppTraces record per billable call), blocked-before-spend, safety-ledger, responses-pricing, semantic-cache-pricing.
-- Response headers x-gw-*: tier, caller, session, model-requested, model-served, governance, prompt-tokens, completion-tokens, cost-usd, blocked-by, block-reason, route, backend, request-id (= CorrelationId in the gateway log tables), semantic-cache (hit | miss), cache-scope (session | user | plan, picked per request with the x-gw-cache-scope request header), cache-partition (who may reuse the answer), cache-saved-usd, cache-lookup-usd.
+- Response headers x-gw-*: tier, caller, session, model-requested, model-served, governance, prompt-tokens, completion-tokens, cost-usd, blocked-by, block-reason, route, backend, request-id (= CorrelationId in the gateway log tables), semantic-cache (hit | miss), cache-scope (session | user | plan, picked per request with the x-gw-cache-scope request header; off skips the cache and the response says x-gw-semantic-cache: bypass; the guided scenarios send off unless they demonstrate the cache), cache-partition (who may reuse the answer), cache-saved-usd, cache-lookup-usd.
 - Reset budgets changes the budget-epoch named value, which is part of every counter key.
 - get_chargeback and get_session_activity say which scenario, run or tool created each session (CreatedBy): use it as is, never guess.
 

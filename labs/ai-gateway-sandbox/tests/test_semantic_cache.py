@@ -150,6 +150,7 @@ class SemanticCacheUiTests(unittest.TestCase):
         agent = {"name": "user-alice", "key": "k"}
         for scope in ("session", "user", "plan"):
             self.assertEqual(app.gateway_auth(agent, {"noToken": True, "cacheScope": scope}, "model")["x-gw-cache-scope"], scope)
+        self.assertEqual(app.gateway_auth(agent, {"noToken": True, "cacheScope": "off"}, "model")["x-gw-cache-scope"], "off")
         self.assertNotIn("x-gw-cache-scope", app.gateway_auth(agent, {"noToken": True, "cacheScope": "everyone"}, "model"))
         self.assertNotIn("x-gw-cache-scope", app.gateway_auth(agent, {"noToken": True}, "model"))
         self.assertNotIn("x-gw-cache-scope", app.gateway_auth(agent, {"noToken": True, "cacheScope": "plan"}, "tool"))

@@ -106,6 +106,9 @@ public static class SemanticCachePolicyTests {
         c.Request.Headers["x-gw-cache-scope"] = "plan"; Assert(Scope(c) == "plan", "plan scope is allowed");
         c.Request.Headers["x-gw-cache-scope"] = "everyone"; Assert(Scope(c) == "session", "Unknown scope must fall back to the default");
         c.Request.Headers["x-gw-cache-scope"] = ""; Assert(Scope(c) == "session", "Empty scope must fall back to the default");
+        c.Request.Headers["x-gw-cache-scope"] = " OFF "; Assert(Scope(c) == "off", "off turns the cache off for this request");
+        c = Call(one); c.Variables["semanticCacheScope"] = "off"; Assert(!Eligible(c), "Scope off must bypass the cache");
+        c = Call(one); c.Variables["semanticCacheScope"] = "plan"; Assert(Eligible(c), "Other scopes keep the cache");
 
         // Partition: who may reuse the answer
         Func<string, string, string, string, string> part = (scope, endUser, sessionId, messages) => {

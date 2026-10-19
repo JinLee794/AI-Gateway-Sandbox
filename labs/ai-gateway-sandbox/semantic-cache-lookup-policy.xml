@@ -11,7 +11,9 @@
     - llm-semantic-cache-lookup embeds the prompt with the "embeddings-backend" (APIM managed identity) and searches
       Azure Managed Redis (RediSearch). score-threshold is a vector DISTANCE: lower is stricter.
     - Cache SCOPE decides who may reuse an answer. The app picks one of {semantic-cache-allowed-scopes} per request with the
-      x-gw-cache-scope header (removed before the backend); anything else gets {semantic-cache-default-scope}:
+      x-gw-cache-scope header (removed before the backend); anything else gets {semantic-cache-default-scope}.
+      x-gw-cache-scope: off skips the cache for that request (x-gw-semantic-cache: bypass), e.g. for a demo or test that
+      must reach the model every time (the guided scenarios send it unless they demonstrate the cache):
         session  same subscription + end user (x-gw-end-user) + session (x-session-id): nothing leaks between sessions
         user     same subscription + end user, any session
         plan     every caller of the plan (an opt-in shared FAQ cache)
@@ -28,6 +30,7 @@
 -->
 <set-variable name="semanticCacheScope" value="@{
             var requested = context.Request.Headers.GetValueOrDefault("x-gw-cache-scope", "").Trim().ToLowerInvariant();
+            if (requested == "off") { return "off"; }
             return requested != "" && (",{semantic-cache-allowed-scopes},").Contains("," + requested + ",") ? requested : "{semantic-cache-default-scope}";
         }" />
         <set-header name="x-gw-cache-scope" exists-action="delete" />
@@ -36,6 +39,7 @@
         <set-variable name="semanticCacheEligible" value="@{
             if (context.Request.Method != "POST" || !context.Request.OriginalUrl.Path.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase)) { return false; }
             if (context.Variables.GetValueOrDefault<bool>("streamRequested", false)) { return false; }
+            if (context.Variables.GetValueOrDefault<string>("semanticCacheScope", "") == "off") { return false; }
             if (!(",{semantic-cache-tiers},").Contains("," + (context.Product?.Id ?? "") + ",")) { return false; }
             var messages = context.Request.Body?.As<JObject>(preserveContent: true)?["messages"] as JArray;
             if (messages == null) { return false; }

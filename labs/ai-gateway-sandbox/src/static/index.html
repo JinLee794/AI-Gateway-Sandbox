@@ -826,7 +826,7 @@
         <div><label title="Sent as the x-session-id header. The gateway caps spend per session and tags every chargeback record with it.">Session id <span class="muted">(x-session-id: per-session $ cap + chargeback key)</span></label><input id="sessionId" /></div>
         <button class="secondary" id="btnNewSession" style="flex:0 0 auto">New session</button>
         <div><label title="Sent as the x-gw-end-user header: the app names the person it is acting for, and the gateway gives that person their own $ budget inside the app's key (the app's plan budget still caps the total). Leave empty for the app's own calls.">End user <span class="muted">(optional · x-gw-end-user: per-user $ budget inside this key)</span></label><input id="endUser" list="endUserList" placeholder="e.g. raj.iyer" autocomplete="off" /><datalist id="endUserList"></datalist></div>
-        <div id="cacheScopeBox" class="hidden" style="flex:0 0 150px"><label title="Sent as the x-gw-cache-scope header on model calls: who may reuse a semantic cache answer. session: only this session of this key and end user. user: this key and end user, any session. plan: every caller of the plan (a shared FAQ cache). Default: the gateway's defaultScope.">Cache scope <span class="muted">(x-gw-cache-scope)</span></label><select id="cacheScope"></select></div>
+        <div id="cacheScopeBox" class="hidden" style="flex:0 0 150px"><label title="Sent as the x-gw-cache-scope header on model calls: who may reuse a semantic cache answer. session: only this session of this key and end user. user: this key and end user, any session. plan: every caller of the plan (a shared FAQ cache). off: skip the cache, so the call always reaches the model. Default: the gateway's defaultScope.">Cache scope <span class="muted">(x-gw-cache-scope)</span></label><select id="cacheScope"></select></div>
       </div>
       <div class="toggles">
         <label title="Microsoft Entra ID token from your az login, validated by validate-azure-ad-token"><input type="checkbox" id="useToken" checked /> Send Entra ID token</label>
@@ -2772,7 +2772,8 @@ function fillEndUsers() {
   const sc = cfg.semanticCache || {};  // the cache scope picker only matters when the semantic cache is deployed
   $("cacheScopeBox").classList.toggle("hidden", !sc.enabled);
   $("cacheScope").innerHTML = `<option value="">default (${escapeHtml(sc.defaultScope || "session")})</option>`
-    + (sc.allowedScopes || ["session", "user", "plan"]).map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}${s === "plan" ? " (shared)" : ""}</option>`).join("");
+    + (sc.allowedScopes || ["session", "user", "plan"]).map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}${s === "plan" ? " (shared)" : ""}</option>`).join("")
+    + `<option value="off">off (skip the cache)</option>`;
 }
 function newSessionId(prefix = "s") { return `${prefix}-${new Date().toISOString().slice(5, 16).replace(/[-T:]/g, "")}-${Math.random().toString(36).slice(2, 6)}`; }
 async function post(path, body) {
@@ -5919,7 +5920,7 @@ async function runScenario(s) {
   const buildSession = $("sessionId").value, buildEndUser = $("endUser").value, buildScope = $("cacheScope").value;  // the builder's session, end user and cache scope are restored afterwards, so build-your-own requests keep aggregating onto them
   $("sessionId").value = newSessionId("demo"); // every scenario runs in its own session, so per-session caps never carry over
   $("endUser").value = "";                     // scenarios name their end users explicitly
-  $("cacheScope").value = "";                  // ...and their cache scopes
+  $("cacheScope").value = cfg.semanticCache?.enabled && !(s.controls || []).some(c => c.startsWith("sem-")) ? "off" : "";  // ...and their cache scopes: off unless the scenario demonstrates the cache, so repeated prompts reach the model, its limits and budgets
   if (curRun) { snapPart(curPart); curPart = { si: SCENARIOS.indexOf(s), title: s.title, calls: [] }; curRun.parts.push(curPart); }
   if (!s.tab && !(curTab === "happened" && psec === "investigate")) showPsec("investigate");  // scenarios play out in the gateway flow
   // show the collapsed scenarios strip and the conversation under it (the run streams its prompts and answers there)
