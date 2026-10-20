@@ -111,6 +111,7 @@
   .convo:empty::before { content:"Run a scenario or send a request: the prompts, tool calls and answers appear here as a conversation."; color:var(--muted); font-size:13px; }
   .cv-div { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin:8px 0 0; }
   .cv-div::before, .cv-div::after { content:""; flex:1; border-top:1px solid var(--divider); } .cv-div b { color:var(--text); font-weight:600; }
+  .cv-sys { align-self:center; display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); text-align:center; }
   .cv-turn { display:flex; flex-direction:column; gap:6px; }
   .cv-u, .cv-a { max-width:min(78%, 900px); padding:8px 12px; font-size:13px; }
   .cv-u { align-self:flex-end; background:var(--accent-light); border:1px solid #c7e0f4; border-radius:12px 12px 2px 12px; }
@@ -445,8 +446,11 @@
   .dn.mon { border-color:#c3b3e0; } .dn.x { border-color:#e8a3a7; background:var(--bad-bg); } .dn.x b { color:var(--bad); }
   .dn.dim { border-style:dashed; color:var(--muted); }
   /* arrow: label above a line that stays level with the middle of the boxes; long labels wrap instead of running over the boxes */
-  .da { --c:#8a8886; flex:1 1 0; min-width:40px; align-self:stretch; display:grid; grid-template-rows:1fr auto 1fr; justify-items:center; font-size:10px; color:var(--muted); padding:0 4px; text-align:center; line-height:1.2; }
+  .da { --c:#8a8886; flex:1 1 0; min-width:40px; align-self:stretch; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:1fr auto 1fr; justify-items:center; font-size:10px; color:var(--muted); padding:0 4px; text-align:center; line-height:1.2; }
   .da > span { align-self:end; margin-bottom:3px; max-width:100%; text-wrap:balance; overflow-wrap:break-word; }
+  /* surface chips (AI model, MCP tool…) on an arrow wrap to its width instead of overflowing under the next box */
+  .da .surf { display:inline-block; white-space:normal; text-align:center; max-width:100%; padding:1px 4px; font-size:10px; line-height:1.2; }
+  .da .surf img.ico.sm { width:11px; height:11px; margin-right:2px; vertical-align:-1px; }
   .da i { display:block; width:100%; height:2px; background:var(--c); position:relative; grid-row:2; }
   .dc .da:only-child { grid-template-rows:auto auto; }
   .da i::after { content:""; position:absolute; right:-2px; top:-4px; border:5px solid transparent; border-left:7px solid var(--c); border-right:0; }
@@ -4180,14 +4184,66 @@ $("btnSim").onclick = async () => {
 };
 $("btnStop").onclick = () => { running = false; stopRequested = true; releaseRunBusy(); };
 let resetSkipped = false;
-async function resetBudgets(force = false) {  // scenarios skip the reset when nothing was spent since the last one; the Reset button forces it
-  const r = await (await fetch("/api/reset-budgets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ifUsed: !force }) })).json();
-  if (r.error) { toast("Reset failed: " + r.error); return false; }
-  resetSkipped = !!r.skipped;
-  if (r.skipped) { info(escapeHtml(r.message)); return true; }
+// A budget reset takes Azure 15-35 s to apply (app.py waits for the budget-epoch named value). So when a run finishes, the
+// next reset starts in the background: the next scenario usually finds the budgets already fresh and starts at once.
+let resetAhead = null, resetAheadAt = 0, resetAheadEpoch = null;
+const postReset = (ifUsed) => fetch("/api/reset-budgets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ifUsed }) })
+  .then(res => res.json()).catch(e => ({ error: e.message }));
+function budgetsWereReset(r) {
   session.costByAgent = {}; budgetLive.resetAt = Number(r.epoch) * 1000 || Date.now(); renderBudgets(); renderLiveCharts();
+  setTimeout(() => refreshBudgets(true), 1500);
+}
+function resetBudgetsAhead() {
+  if (resetAhead) return;
+  resetAhead = postReset(true).then(r => { if (r.epoch && !r.skipped && !r.error) { resetAheadAt = Date.now(); resetAheadEpoch = r.epoch; budgetsWereReset(r); } return r; })
+    .finally(() => { resetAhead = null; });
+}
+// While a run waits for a reset: a line in the conversation and the status bar, with the seconds so far (shown after a moment, so skipped resets don't flash)
+function resetWaitNote(what) {
+  if (!running) return () => {};
+  const t0 = Date.now(), sid = $("sessionId").value.trim(), prev = $("runStatus").textContent;
+  const ov = $("sessionArea").querySelector(":scope > .busy small"), ovPrev = ov?.textContent;
+  let el = null, timer = 0;
+  const tick = () => {
+    const s = Math.round((Date.now() - t0) / 1000), msg = `${what}: Azure usually takes 15–35 s to apply the new budget epoch · ${s} s`;
+    $("runStatus").textContent = msg;
+    if (ov?.isConnected) { ov.textContent = msg; ov.hidden = false; }
+    if (!el && cvShows(sid)) {
+      const box = $("convo"), g = cvGroup({ session: sid });
+      cvDivider(box, g.key, g.label, sid);
+      el = document.createElement("div"); el.className = "cv-sys"; el.setAttribute("role", "status");
+      box.append(el); box.scrollTop = box.scrollHeight;
+    }
+    if (el) el.innerHTML = `<span class="spin sm" aria-hidden="true"></span>${escapeHtml(msg)}`;
+  };
+  const first = setTimeout(() => { tick(); timer = setInterval(tick, 1000); }, 700);
+  return (text) => {
+    clearTimeout(first); clearInterval(timer);
+    if ($("runStatus").textContent.startsWith(what)) $("runStatus").textContent = prev;
+    if (ov?.isConnected && ov.textContent.startsWith(what)) ov.textContent = ovPrev;
+    if (el) el.textContent = text || `Budgets reset in ${Math.round((Date.now() - t0) / 1000)} s.`;
+  };
+}
+// a run never starts while a background reset is still applying: the budget epoch would change between its calls
+const resetNote = (r) => r?.error ? "The budget reset failed." : r?.skipped ? "Budgets were already fresh." : "";
+async function awaitResetAhead() {
+  if (!resetAhead) return;
+  const done = resetWaitNote("Finishing the budget reset started after the last run");
+  let r = null;
+  try { r = await resetAhead; } finally { done(resetNote(r)); }
+}
+async function resetBudgets(force = false) {  // scenarios skip the reset when nothing was spent since the last one; the Reset button forces it
+  await awaitResetAhead();
+  const done = resetWaitNote("Resetting budgets");
+  let r = {};
+  try { r = await postReset(!force); } finally { done(resetNote(r)); }
+  if (r.error) { toast("Reset failed: " + r.error); return false; }
+  // a background reset that finished moments ago still needs the gateway to pick up the new epoch (resetSettle, entraEpochApplied)
+  resetSkipped = !!r.skipped && Date.now() - resetAheadAt > 60000;
+  if (r.skipped) { info(escapeHtml(r.epoch && r.epoch === resetAheadEpoch ? "Budgets are already fresh: they were reset in the background after the last run." : r.message)); return true; }
+  budgetsWereReset(r);
   toast(r.applied === false ? "Budget reset is still applying in Azure; the first calls may hit the old budget." : r.message);
-  setTimeout(() => refreshBudgets(true), 1500); return true;
+  return true;
 }
 $("btnReset").onclick = async () => {
   if (confirm("Reset every agent's $ budget and token quota?")) await resetBudgets(true);
@@ -5926,7 +5982,7 @@ async function runScenario(s) {
   // show the collapsed scenarios strip and the conversation under it (the run streams its prompts and answers there)
   const strip = $("launch").offsetHeight, cv = $("cvCard").getBoundingClientRect().top;  // the strip is sticky: put the conversation just under it
   if (cv < strip || cv > strip + 160) scrollTo({ top: scrollY + cv - strip - 10, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-  try { await s.run(); } catch (e) { info("Scenario failed: " + escapeHtml(e.message)); }
+  try { await awaitResetAhead(); if (running) await s.run(); } catch (e) { info("Scenario failed: " + escapeHtml(e.message)); }
   finally { $("sessionId").value = buildSession; $("endUser").value = buildEndUser; $("cacheScope").value = buildScope; cvCtx(); }
   snapPart(curPart);
 }
@@ -6098,6 +6154,7 @@ function scPane() {
     if (running) return;
     const sc = SCENARIOS[run.dataset.i];
     setRunning(true, `Running “${sc.title}”…`); await runScenario(sc); setRunning(false, "Scenario finished.");
+    resetBudgetsAhead();
   };
 }
 // keep the selected row (and, when there's room, its open details) in view inside the list
@@ -6180,6 +6237,7 @@ function renderScenarios() {
         await runScenario(s); await sleep(4000);
       }
       setRunning(false, "Full demo finished.");
+      resetBudgetsAhead();
     };
   }
   scRender();

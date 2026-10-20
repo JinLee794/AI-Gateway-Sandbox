@@ -383,7 +383,7 @@ def debug_token(surface):
 
 def gateway_auth(agent, payload, surface):
     """Subscription key (which plan pays) + Entra ID token (who is calling) + session id + optional request tracing."""
-    _budget_unused.update(epoch=None)  # any gateway call may spend budget or tokens, so the next scenario must reset
+    _budget_unused.update(epoch=None, used=time.time())  # any gateway call may spend budget or tokens, so the next scenario must reset
     headers = {"api-key": agent["key"]}
     if valid_session(payload.get("session")):
         headers["x-session-id"] = payload["session"]
@@ -405,7 +405,7 @@ def gateway_auth(agent, payload, surface):
 def entra_gateway_auth(persona, payload):
     """Entra-only mode: no subscription key. tokenAs picks the credential: persona (its own token for the gateway app,
     default), foundry (the UI's usual Foundry-audience token, which the key-less API must reject) or none."""
-    _budget_unused.update(epoch=None)
+    _budget_unused.update(epoch=None, used=time.time())
     headers = {}
     if valid_session(payload.get("session")):
         headers["x-session-id"] = payload["session"]
@@ -871,7 +871,7 @@ def policies(_payload):
     return 200, {"policies": result, "backends": backends}
 
 
-_budget_unused = {"epoch": None, "at": 0.0}  # the epoch this app reset to, while no gateway call has gone out since
+_budget_unused = {"epoch": None, "at": 0.0, "used": 0.0}  # the epoch this app reset to, while no gateway call has gone out since (used: the last call)
 
 # The gateway flow's policy lens: the deployed XML of every document a call passes through, and the non-secret named
 # values those documents read ({{name}}), so the page can show the exact line a policy decision comes from.
@@ -924,7 +924,8 @@ def flow_policies(payload):
 
 def reset_budgets(payload):
     """Starts a new budget epoch. Scenarios pass ifUsed: when nothing has called the gateway through this app since the
-    last reset (and it was under 30 minutes ago), the budgets are still full and the ~10 s ARM round trip is skipped."""
+    last reset (and it was under 30 minutes ago), the budgets are still full and the 15-35 s ARM round trip is skipped."""
+    begun = time.time()
     unused = _budget_unused["epoch"]
     if (payload or {}).get("ifUsed") and unused and time.time() - _budget_unused["at"] < 1800:
         return 200, {"epoch": unused, "applied": True, "skipped": True, "reactivated": [], "reactivateErrors": [],
@@ -939,7 +940,8 @@ def reset_budgets(payload):
     _epoch_cache.update(value=epoch, at=time.time())
     # Queued gateway notifications from older epochs are ignored by the Logic App.
     reactivated, errors = reactivate_suspended(token)
-    if applied and not errors:
+    # a call made while the reset was applying may already have spent from the new epoch, so the next scenario must reset again
+    if applied and not errors and _budget_unused.get("used", 0.0) < begun:
         _budget_unused.update(epoch=epoch, at=time.time())
     message = "Budgets and token quotas reset (named value budget-epoch updated). It can take a few seconds to apply."
     if reactivated:
