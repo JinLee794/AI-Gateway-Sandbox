@@ -47,6 +47,16 @@ module uiIdentity 'ui-identity.bicep' = {
   }
 }
 
+// VNet of the Container Apps environment, so the UI reaches its run-history Storage through a private endpoint
+module network 'network.bicep' = {
+  name: 'network'
+  scope: rg
+  params: {
+    location: lab.agentLocation
+    tags: tags
+  }
+}
+
 module sandbox '../main.bicep' = {
   name: 'sandbox'
   scope: rg
@@ -76,6 +86,7 @@ module sandbox '../main.bicep' = {
     entraModeConfig: lab.?entraModeConfig ?? { enabled: false }
     deployerPrincipalId: principalId
     serviceManagementReference: serviceManagementReference
+    containerAppsSubnetId: network.outputs.containerAppsSubnetId
   }
 }
 
@@ -108,6 +119,8 @@ module ui 'ui.bicep' = {
     location: lab.agentLocation
     registryLocation: location
     containerAppsEnvironmentId: sandbox.outputs.containerAppsEnvironmentId
+    privateEndpointSubnetId: network.outputs.privateEndpointSubnetId
+    blobPrivateDnsZoneId: network.outputs.blobPrivateDnsZoneId
     identityName: uiIdentity.outputs.name
     extraIdentityIds: sandbox.outputs.entraPersonaIdentityIds
     imageName: uiImageName

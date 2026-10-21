@@ -84,6 +84,9 @@ param deployerPrincipalId string = ''
 @description('Service tree ID for Entra ID app registrations, required by some tenants (leave empty otherwise)')
 param serviceManagementReference string = ''
 
+@description('Subnet (delegated to Microsoft.App/environments) for the Container Apps environment (optional). azd sets it so the demo UI reaches its run-history Storage through a private endpoint; empty = no VNet, as in the notebook.')
+param containerAppsSubnetId string = ''
+
 // ------------------
 //    VARIABLES
 // ------------------
@@ -744,7 +747,7 @@ resource commerceMcpDiagnostics 'Microsoft.ApiManagement/service/apis/diagnostic
 resource agentEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: 'aca-env-${resourceSuffix}'
   location: agentLocation
-  properties: {
+  properties: union({
     appLogsConfiguration: {
       destination: 'log-analytics'
       logAnalyticsConfiguration: {
@@ -752,7 +755,12 @@ resource agentEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' = {
         sharedKey: lawModule.outputs.primarySharedKey
       }
     }
-  }
+  }, empty(containerAppsSubnetId) ? {} : {
+    // VNet-integrated (workload profiles, external ingress): apps keep public endpoints but reach private endpoints.
+    // The VNet can't be added to an existing environment: delete it (and its apps) before redeploying.
+    vnetConfiguration: { infrastructureSubnetId: containerAppsSubnetId, internal: false }
+    workloadProfiles: [ { name: 'Consumption', workloadProfileType: 'Consumption' } ]
+  })
 }
 
 // The agent calls models and tools through the gateway with this platform identity (internal agent-platform product)

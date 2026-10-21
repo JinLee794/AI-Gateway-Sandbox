@@ -4,6 +4,12 @@ param registryLocation string
 param containerAppsEnvironmentId string
 param identityName string
 
+@description('Subnet of the run-history Storage private endpoint (the Container Apps environment\'s VNet)')
+param privateEndpointSubnetId string
+
+@description('privatelink.blob private DNS zone linked to that VNet')
+param blobPrivateDnsZoneId string
+
 @description('Entra-only mode persona identities (user-assigned managed identity resource IDs) the UI calls the key-less API as')
 param extraIdentityIds array = []
 
@@ -59,7 +65,8 @@ resource rgRoles 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for rol
 }]
 
 // Run history: the container's disk is wiped by every deploy, revision or restart, so each signed-in user's runs are
-// blobs here (run-history/<Entra object id>/<run id>.json), written by the UI's managed identity. Entra ID auth only.
+// blobs here (run-history/<Entra object id>/<run id>.json), written by the UI's managed identity. Entra ID auth only,
+// and private: the UI reaches it through a private endpoint in the Container Apps environment's VNet.
 resource historyStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: 'sthist${resourceSuffix}'
   location: location
@@ -72,6 +79,27 @@ resource historyStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     defaultToOAuthAuthentication: true
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
+    publicNetworkAccess: 'Disabled'
+  }
+}
+
+resource historyEndpoint 'Microsoft.Network/privateEndpoints@2024-01-01' = {
+  name: 'pe-${historyStorage.name}-blob'
+  location: location
+  tags: tags
+  properties: {
+    subnet: { id: privateEndpointSubnetId }
+    privateLinkServiceConnections: [
+      { name: 'blob', properties: { privateLinkServiceId: historyStorage.id, groupIds: [ 'blob' ] } }
+    ]
+  }
+}
+
+resource historyEndpointDns 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-01-01' = {
+  parent: historyEndpoint
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [ { name: 'blob', properties: { privateDnsZoneId: blobPrivateDnsZoneId } } ]
   }
 }
 
@@ -143,7 +171,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
       scale: { minReplicas: 1, maxReplicas: 1 }
     }
   }
-  dependsOn: [acrPull, historyRole]
+  dependsOn: [acrPull, historyRole, historyEndpointDns]
 }
 
 output name string = app.name
