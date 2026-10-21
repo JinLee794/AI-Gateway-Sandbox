@@ -15,9 +15,10 @@ The config file is written by the lab notebook (step 3) and contains the APIM su
 so it is git-ignored (*.private.config). With 'azd up', the config comes from the DEMO_CONFIG environment variable
 (a Container App secret) instead.
 """
-import argparse, base64, collections, gzip, json, os, re, shutil, subprocess, sys, threading, time, urllib.error, urllib.parse, urllib.request
+import argparse, base64, collections, email.utils, gzip, json, os, re, shutil, subprocess, sys, threading, time, urllib.error, urllib.parse, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from xml.etree import ElementTree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(HERE, "static")
@@ -1132,14 +1133,19 @@ def budgets(payload):
                  "query": query, "portalLink": portal_logs_link(query, "P31D" if now - since > 86400 else "P1D")}
 
 
-# Run history: one append-only JSON Lines log per user. Hosted, the user is the Easy Auth Entra ID object id and the log lives in
-# App Service's persistent /home share; locally it is the OS user and src/.history (git-ignored). Container Apps has no persistent
-# disk here, so its history lasts until the replica restarts. Set HISTORY_DIR to override.
+# Run history: the runs of each signed-in user. Hosted, the user is the Easy Auth Entra ID object id. Three stores:
+# - Azure Blob Storage when HISTORY_BLOB_URL is set (azd / Container Apps: infra/ui.bicep): one blob per run,
+#   <container>/<user id>/<run id>.json, read and written with the app's managed identity (Entra ID, no keys);
+# - otherwise an append-only JSON Lines file per user: App Service's persistent /home share, or src/.history locally
+#   (git-ignored). Without HISTORY_BLOB_URL a Container Apps replica keeps it only until its next restart or deploy.
+# Set HISTORY_DIR to override the file location.
+HISTORY_BLOB_URL = os.environ.get("HISTORY_BLOB_URL", "").rstrip("/")
 HISTORY_DIR = os.environ.get("HISTORY_DIR") or ("/home/data/sandbox-history" if os.environ.get("WEBSITE_SITE_NAME") and os.path.isdir("/home")
                                                 else os.path.join(HERE, ".history"))
-HISTORY_KEEP = 50  # runs returned per user; older lines are compacted away
+HISTORY_KEEP = 50  # runs returned per user; older lines (or blobs) are compacted away
 HISTORY_MAX_RUN_BYTES = 3_000_000
 _history_lock = threading.Lock()
+STORAGE_AUDIENCE = "https://storage.azure.com/"
 
 
 def history_user(headers):
@@ -1175,13 +1181,75 @@ def _history_read(path):
     return sorted(runs.values(), key=lambda r: r.get("started") or 0)[-HISTORY_KEEP:]
 
 
+def _history_store():
+    if HISTORY_BLOB_URL:
+        return "Azure Blob Storage"
+    return "App Service /home" if HISTORY_DIR.startswith("/home/") else "local" if not HOSTED else "container (ephemeral)"
+
+
+def _blob(method, name="", query="", body=None, timeout=60):
+    """One Blob Storage REST call with the app's Entra ID token (Storage Blob Data Contributor on the container)."""
+    url = HISTORY_BLOB_URL + (f"/{urllib.parse.quote(name)}" if name else "") + (f"?{query}" if query else "")
+    headers = {"Authorization": "Bearer " + az_token(STORAGE_AUDIENCE), "x-ms-version": "2023-11-03",
+               "x-ms-date": email.utils.formatdate(usegmt=True)}
+    if body is not None:
+        headers.update({"x-ms-blob-type": "BlockBlob", "Content-Type": "application/json"})
+    request = urllib.request.Request(url, data=body.encode("utf-8") if body is not None else None, method=method, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.status, response.read().decode("utf-8-sig", "replace")  # list results start with a BOM
+    except urllib.error.HTTPError as error:
+        return error.code, error.read().decode("utf-8-sig", "replace")
+
+
+def _blob_list(prefix):
+    """[(blob name, last modified epoch seconds)] under prefix, oldest first."""
+    out, marker = [], ""
+    while True:
+        status, text = _blob("GET", query="restype=container&comp=list&prefix=" + urllib.parse.quote(prefix)
+                             + (f"&marker={urllib.parse.quote(marker)}" if marker else ""))
+        if status != 200:
+            raise RuntimeError(f"listing the run history failed (HTTP {status}): {text[:200]}")
+        root = ElementTree.fromstring(text)
+        for blob in root.iter("Blob"):
+            modified = blob.findtext("Properties/Last-Modified")
+            out.append((blob.findtext("Name"), email.utils.parsedate_to_datetime(modified).timestamp() if modified else 0.0))
+        marker = root.findtext("NextMarker") or ""
+        if not marker:
+            return sorted(out, key=lambda b: b[1])
+
+
+def _blob_runs(uid):
+    names = [name for name, _ in _blob_list(uid + "/")][-HISTORY_KEEP:]
+
+    def read(name):
+        status, text = _blob("GET", name)
+        if status != 200:
+            return None  # deleted meanwhile
+        try:
+            run = json.loads(text).get("run")
+        except ValueError:
+            return None
+        return run if isinstance(run, dict) and run.get("id") else None
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        runs = [r for r in pool.map(read, names) if r]
+    return sorted(runs, key=lambda r: r.get("started") or 0)
+
+
 def history(headers):
     who = history_user(headers)
     if not who:
         return 200, {"enabled": False, "reason": "No signed-in user (Easy Auth) on this request."}
+    result = {"enabled": True, "user": who[1], "store": _history_store()}
+    if HISTORY_BLOB_URL:
+        try:
+            return 200, {**result, "runs": _blob_runs(who[0])}
+        except Exception as error:  # the page shows it and retries, instead of an empty history that looks like a lost one
+            return 200, {**result, "runs": [], "error": scrub(str(error))}
     with _history_lock:
         runs = _history_read(_history_path(who[0]))
-    return 200, {"enabled": True, "user": who[1], "store": "App Service /home" if HISTORY_DIR.startswith("/home/") else "local" if not HOSTED else "container (ephemeral)", "runs": runs}
+    return 200, {**result, "runs": runs}
 
 
 def history_save(headers, payload):
@@ -1194,6 +1262,17 @@ def history_save(headers, payload):
     line = json.dumps({"at": time.time(), "user": who[1], "run": run}, separators=(",", ":"))
     if len(line) > HISTORY_MAX_RUN_BYTES:
         return 413, {"error": "run too large to save"}
+    if HISTORY_BLOB_URL:
+        status, text = _blob("PUT", f"{who[0]}/{run['id']}.json", body=line)
+        if status not in (200, 201):
+            return 502, {"error": f"Blob Storage answered HTTP {status}: {scrub(text[:200])}"}
+        try:  # compact: keep the newest runs (a little slack, so this doesn't run on every save)
+            blobs = _blob_list(who[0] + "/")
+            for name, _ in blobs[:-HISTORY_KEEP] if len(blobs) > HISTORY_KEEP + 10 else []:
+                _blob("DELETE", name)
+        except Exception:
+            pass
+        return 200, {"saved": run["id"]}
     path = _history_path(who[0])
     with _history_lock:
         os.makedirs(HISTORY_DIR, exist_ok=True)
@@ -1211,6 +1290,13 @@ def history_clear(headers):
     who = history_user(headers)
     if not who:
         return 403, {"error": "No signed-in user"}
+    if HISTORY_BLOB_URL:
+        try:
+            for name, _ in _blob_list(who[0] + "/"):
+                _blob("DELETE", name)
+        except Exception as error:
+            return 502, {"error": scrub(str(error))}
+        return 200, {"cleared": True}
     with _history_lock:
         if os.path.exists(_history_path(who[0])):
             os.remove(_history_path(who[0]))

@@ -626,8 +626,16 @@
   .rpart + .rpart { margin-top:10px; } .rpart summary { cursor:pointer; font-weight:600; font-size:13px; padding:4px 0; } .rpart summary .muted { font-weight:400; }
   .rkv { grid-template-columns:130px 1fr; }
   #runDetail tr.click.sel td { background:var(--accent-light); }
-  /* Policies & evidence: request log */
-  #evLogCard { scroll-margin-top:84px; }
+  /* Policies & evidence: request log (under the scenario card, above the gateway flow) */
+  #evLogCard { scroll-margin-top:84px; margin-bottom:16px; } #evLogCard[hidden] { display:none; }
+  .evwho b { font-weight:600; } .evwho .badge { font-size:9.5px; padding:0 6px; margin-left:2px; } .evwho small { display:block; color:var(--muted); font-size:11px; }
+  #evLog td.tgt { white-space:nowrap; }
+  /* scenario card: the dropdown of this session's scenario runs stands in for the title */
+  .schead { display:flex; align-items:center; gap:8px; margin:0 0 12px; } .schead h2 { margin:0; }
+  #scRunSel { width:auto; max-width:100%; min-height:34px; font-size:16px; font-weight:600; color:var(--text); border-color:transparent; background-color:transparent; padding:4px 8px; margin-left:-8px; cursor:pointer; }
+  #scRunSel:hover:not(:disabled), #scRunSel:focus-visible { border-color:#8a8886; background-color:#fff; } #scRunSel:disabled { opacity:1; cursor:default; }
+  #scRunSel option, #scRunSel optgroup { font-size:13px; font-weight:400; }
+  .schead:has(#scRunSel:not([hidden])) h2 { display:none; }
   .evlbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px; } .evlbar h2 { margin:0; flex:1; min-width:180px; }
   .evlbar select { width:auto; max-width:320px; height:28px; font-size:12px; } .evlbar button { height:28px; padding:0 12px; font-size:12px; }
   .evlchk { display:inline-flex; align-items:center; gap:4px; font-size:12px; white-space:nowrap; }
@@ -875,7 +883,8 @@
 
   <section class="idle" id="sessionArea">
     <div class="card hidden" id="scenario">
-      <h2 id="scTitle"></h2>
+      <div class="schead"><h2 id="scTitle"></h2>
+        <select id="scRunSel" hidden aria-label="Scenario runs in this session: pick one to see its diagram, takeaway and steps, and its calls in the request log"></select></div>
       <div id="scFlow" aria-label="Scenario path"></div>
       <div id="scTakeaway"></div>
       <div class="scpol" id="scPol" aria-label="Policies behind this scenario"></div>
@@ -884,6 +893,19 @@
           <div id="scStory" class="muted" style="font-size:13px"></div><div id="scFlowMore"></div></details>
         <details id="scStepsBox"><summary>Steps <span class="muted" id="scStepCount"></span></summary><ol id="scSteps"></ol></details>
       </div>
+    </div>
+    <div class="card" id="evLogCard" hidden>
+      <div class="evlbar">
+        <h2>Request log <span class="muted" id="evLogCount"></span> <span class="info" tabindex="0" data-tip="The calls of the scenario picked above (or every call from this page session), newest first, with who sent each one. Click a request (or use ↑ / ↓) to replay it in the gateway flow below and load its policy trace and Log Analytics rows.">i</span></h2>
+        <select id="evRunFilter" aria-label="Show requests from"></select>
+        <label class="evlchk"><input type="checkbox" id="evBlockedOnly"/> Blocked only</label>
+        <button class="secondary" id="evPrev" title="Previous request (↑)">↑ Previous</button>
+        <button class="secondary" id="evNext" title="Next request (↓)">Next ↓</button>
+      </div>
+      <div class="scroll" id="evLogWrap" tabindex="0" aria-label="Request log: use the up and down arrow keys to step through the requests"><table>
+        <thead><tr><th>#</th><th>Time · run</th><th>Requested by</th><th>Target</th><th>Status</th><th>Gateway decision</th><th>Backend</th><th>Tokens</th><th>Cost USD</th><th>Latency</th><th>Evidence</th></tr></thead>
+        <tbody id="evLog"></tbody>
+      </table></div>
     </div>
     <div class="kpis" id="kpiBar">
       <div class="kpi"><div class="l">Requests</div><div class="v" id="kCalls">0</div></div>
@@ -926,46 +948,83 @@
         .gwf-chips button .c { display:inline-block; font-size:10px; font-weight:600; padding:0 5px; border-radius:8px; margin-left:4px; }
         .gwf-src { font-size:12px; color:var(--muted); font-weight:400; }
         .gwf-src b { color:var(--text); }
-        #gwfSvg { width:100%; height:auto; display:block; background:var(--panel2); border:1px solid var(--divider); border-radius:6px; }
-        #gwfSvg text { font-family:"Segoe UI","Segoe UI Web (West European)",-apple-system,BlinkMacSystemFont,Roboto,sans-serif; }
-        #gwfSvg .apim { fill:#fff; stroke:#c7e0f4; stroke-width:1.5; }
-        #gwfSvg .scope { fill:none; stroke:#9fc5ea; stroke-dasharray:5 4; }
-        #gwfSvg .lbl { font-size:10px; font-weight:600; fill:#605e5c; letter-spacing:.6px; }
-        #gwfSvg .lbl.apiml { fill:#005a9e; font-size:11px; }
-        #gwfSvg .edge { stroke:#c8c6c4; stroke-width:1.5; fill:none; transition:stroke .25s, stroke-width .25s; }
-        #gwfSvg .edge.on { stroke:#0078d4; stroke-width:2.5; } #gwfSvg .edge.ok { stroke:#107c10; stroke-width:2.5; } #gwfSvg .edge.bad { stroke:#d13438; stroke-width:2.5; }
-        #gwfSvg .fn { cursor:pointer; outline:none; }
-        #gwfSvg .fn rect { fill:#fff; stroke:#c8c6c4; stroke-width:1.2; transition:fill .25s, stroke .25s, stroke-width .25s; }
-        #gwfSvg .fn .t { font-size:12px; font-weight:600; fill:#323130; } #gwfSvg .fn .s { font-size:10.5px; fill:#605e5c; }
-        #gwfSvg .fn.gw rect { fill:#f3f9fd; stroke:#9fc5ea; } #gwfSvg .fn.gw .t { fill:#005a9e; }
-        #gwfSvg .fn.model rect { fill:#eff6fc; stroke:#9fc5ea; } #gwfSvg .fn.model .t { fill:#005a9e; }
-        #gwfSvg .fn.tool rect { fill:#e8f5f6; stroke:#7fc8cd; } #gwfSvg .fn.tool .t { fill:#00666d; }
-        #gwfSvg .fn.agent rect { fill:#f4effa; stroke:#b9a4d8; } #gwfSvg .fn.agent .t { fill:#5c2e91; }
-        #gwfSvg .fn.sink rect { fill:#fff; stroke:#c3b3e0; } #gwfSvg .fn.sink .t { fill:#5c2e91; }
-        #gwfSvg .fn.cache rect { fill:#fdf6f6; stroke:#e8a2a4; } #gwfSvg .fn.cache .t { fill:#a4262c; }
-        #gwfSvg .fn.safety rect { fill:#fdf6ec; stroke:#f0b78f; } #gwfSvg .fn.safety .t { fill:#8e3a0b; }
-        #gwfSvg .fn:hover rect, #gwfSvg .fn:focus-visible rect { stroke:#0078d4; stroke-dasharray:4 2; }
-        #gwfSvg .fn.on rect { stroke:#0078d4; stroke-width:2.5; stroke-dasharray:none; filter:drop-shadow(0 0 5px rgba(0,120,212,.45)); }
-        #gwfSvg .fn.ok rect { stroke:#107c10; stroke-width:2.2; stroke-dasharray:none; }
-        #gwfSvg .fn.warn rect { stroke:#ca5010; stroke-width:2.5; fill:#fff4ce; stroke-dasharray:none; }
-        #gwfSvg .fn.bad rect { stroke:#d13438; stroke-width:2.5; fill:#fde7e9; stroke-dasharray:none; filter:drop-shadow(0 0 5px rgba(209,52,56,.45)); }
-        #gwfSvg .fn.dim rect { fill:#faf9f8; stroke:#e1dfdd; stroke-dasharray:3 3; } #gwfSvg .fn.dim text, #gwfSvg .fn.dim image { opacity:.45; }
+        #gwfSvg { width:100%; height:auto; display:block; background:linear-gradient(180deg,#fbfcfe,#f2f5f9); border:1px solid var(--divider); border-radius:10px;
+          box-shadow:inset 0 1px 0 #fff, 0 1px 2px rgba(0,0,0,.04); transition:box-shadow .4s, border-color .4s; }
+        #gwFlow.playing #gwfSvg { border-color:#b4d3f0; box-shadow:inset 0 1px 0 #fff, 0 0 0 3px rgba(0,120,212,.08), 0 6px 20px rgba(0,90,158,.08); }
+        #gwfSvg text { font-family:"Segoe UI Variable Text","Segoe UI","Segoe UI Web (West European)",-apple-system,BlinkMacSystemFont,Roboto,sans-serif; }
+        #gwfSvg .grid { fill:url(#gwfDots); }
+        #gwfSvg .apim { fill:url(#gwfApim); stroke:#bcd8f1; stroke-width:1.25; filter:drop-shadow(0 8px 22px rgba(0,90,158,.08)) drop-shadow(0 1px 2px rgba(0,0,0,.05)); }
+        #gwfSvg .scope { fill:rgba(0,120,212,.025); stroke:#a9cdee; stroke-dasharray:4 4; }
+        #gwfSvg .lbl { font-size:9.5px; font-weight:700; fill:#8a8886; letter-spacing:.9px; }
+        #gwfSvg .lbl.apiml { fill:#0f6cbd; font-size:10.5px; letter-spacing:1px; }
+        #gwfSvg .edge { stroke:#cdd5de; stroke-width:1.5; fill:none; stroke-linecap:round; stroke-dasharray:1 1; transition:stroke .35s, stroke-width .35s;
+          animation:gwfEdgeIn .9s cubic-bezier(.3,.7,.3,1) backwards; animation-delay:var(--d, 0s); }
+        #gwfSvg .edge.on { stroke:#0078d4; stroke-width:2.25; } #gwfSvg .edge.ok { stroke:#13a10e; stroke-width:2.25; } #gwfSvg .edge.bad { stroke:#d13438; stroke-width:2.25; } #gwfSvg .edge.log { stroke:#8764b8; stroke-width:2; }
+        #gwfSvg .trail { fill:none; stroke:currentColor; color:#0078d4; stroke-width:4.5; stroke-linecap:round; filter:drop-shadow(0 0 3px currentColor); transition:opacity .55s ease; }
+        #gwfSvg .trail.ok { color:#13a10e; } #gwfSvg .trail.bad { color:#d13438; } #gwfSvg .trail.log { color:#8764b8; } #gwfSvg .trail.fade { opacity:0; }
+        #gwfSvg .ripple { fill:none; stroke:#0078d4; pointer-events:none; animation:gwfRipple .9s cubic-bezier(.2,.7,.3,1) forwards; }
+        #gwfSvg .ripple.ok { stroke:#13a10e; } #gwfSvg .ripple.bad { stroke:#d13438; } #gwfSvg .ripple.warn { stroke:#ca5010; }
+        #gwfSvg .fn { cursor:pointer; outline:none; transition:transform .2s ease; animation:gwfNodeIn .55s cubic-bezier(.2,.8,.3,1) backwards; animation-delay:var(--d, 0s); }
+        #gwfSvg .fn:hover { transform:translateY(-1.5px); }
+        #gwfSvg .fn > rect { fill:url(#gwfG-base); stroke:#d2d0ce; stroke-width:1; transition:fill .3s, stroke .3s, stroke-width .3s, filter .3s;
+          filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.07)) drop-shadow(0 3px 8px rgba(0,0,0,.04)); }
+        #gwfSvg .fn .t { font-size:12px; font-weight:600; fill:#242424; } #gwfSvg .fn .s { font-size:10.5px; fill:#616161; }
+        #gwfSvg .fn.gw > rect { fill:url(#gwfG-gw); stroke:#a9cdee; } #gwfSvg .fn.gw .t { fill:#0f548c; }
+        #gwfSvg .fn.model > rect { fill:url(#gwfG-model); stroke:#a9cdee; } #gwfSvg .fn.model .t { fill:#0f548c; }
+        #gwfSvg .fn.tool > rect { fill:url(#gwfG-tool); stroke:#8ccfd4; } #gwfSvg .fn.tool .t { fill:#00666d; }
+        #gwfSvg .fn.agent > rect { fill:url(#gwfG-agent); stroke:#c3b1df; } #gwfSvg .fn.agent .t { fill:#5c2e91; }
+        #gwfSvg .fn.sink > rect { fill:url(#gwfG-sink); stroke:#cdbfe6; } #gwfSvg .fn.sink .t { fill:#5c2e91; }
+        #gwfSvg .fn.cache > rect { fill:url(#gwfG-cache); stroke:#eeb1b3; } #gwfSvg .fn.cache .t { fill:#a4262c; }
+        #gwfSvg .fn.safety > rect { fill:url(#gwfG-safety); stroke:#f2c39f; } #gwfSvg .fn.safety .t { fill:#8e3a0b; }
+        #gwfSvg .fn:hover > rect { stroke:#0078d4; filter:drop-shadow(0 2px 3px rgba(0,0,0,.08)) drop-shadow(0 8px 16px rgba(0,90,158,.12)); }
+        #gwfSvg .fn:focus-visible > rect { stroke:#0078d4; stroke-width:2; stroke-dasharray:4 2; }
+        #gwfSvg .fn.on > rect { stroke:#0078d4; stroke-width:2; stroke-dasharray:none; filter:drop-shadow(0 0 7px rgba(0,120,212,.4)) drop-shadow(0 2px 6px rgba(0,0,0,.06)); }
+        #gwfSvg .fn.ok > rect { stroke:#13a10e; stroke-width:1.75; stroke-dasharray:none; }
+        #gwfSvg .fn.warn > rect { stroke:#ca5010; stroke-width:2; fill:#fff8e6; stroke-dasharray:none; filter:drop-shadow(0 0 7px rgba(202,80,16,.3)); }
+        #gwfSvg .fn.bad > rect { stroke:#d13438; stroke-width:2; fill:#fdecee; stroke-dasharray:none; filter:drop-shadow(0 0 8px rgba(209,52,56,.4)); }
+        #gwfSvg .fn.dim > rect { fill:#f7f7f8; stroke:#e3e3e6; stroke-dasharray:3 3; filter:none; } #gwfSvg .fn.dim text, #gwfSvg .fn.dim image { opacity:.4; }
+        #gwfSvg .fn text, #gwfSvg .fn image { transition:opacity .3s; }
+        #gwfSvg .ng { transform-box:fill-box; transform-origin:center; animation:gwfPop .4s cubic-bezier(.2,1.5,.4,1) both; }
+        #gwfSvg .ng circle { stroke:#fff; stroke-width:1.5; filter:drop-shadow(0 1px 2px rgba(0,0,0,.2)); }
+        #gwfSvg .ng.ok circle { fill:#13a10e; } #gwfSvg .ng.bad circle { fill:#d13438; } #gwfSvg .ng.warn circle { fill:#ca5010; }
+        #gwfSvg .ng path { fill:none; stroke:#fff; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
         #gwfSvg image { pointer-events:none; }
-        #gwfSvg .tok text, #gwfSvg .call text { font-size:11px; font-weight:600; text-anchor:middle; paint-order:stroke; stroke:#fff; stroke-width:3px; stroke-linejoin:round; }
-        #gwfSvg .tok circle, #gwfSvg .drop { stroke:#fff; stroke-width:2; }
-        #gwfSvg .call rect { stroke-width:1; } #gwfSvg .call text { stroke:none; font-size:10.5px; }
-        .gwf-now { min-height:22px; font-size:13.5px; margin-top:10px; padding:6px 10px; border-radius:6px; background:#f3f9fd; border:1px solid #deecf9; }
+        #gwfSvg .tok .halo { opacity:.2; transform-box:fill-box; transform-origin:center; animation:gwfHalo 1.5s ease-in-out infinite; }
+        #gwfSvg .tok .core { stroke:#fff; stroke-width:2; filter:drop-shadow(0 1px 3px rgba(0,0,0,.28)); }
+        #gwfSvg .tok .lp rect { fill:#fff; stroke-width:1.25; filter:drop-shadow(0 1px 2px rgba(0,0,0,.14)); }
+        #gwfSvg .tok .lp text { font-size:10.5px; font-weight:600; text-anchor:middle; }
+        #gwfSvg .drop { stroke:#fff; stroke-width:1.5; filter:drop-shadow(0 0 4px rgba(135,100,184,.65)); }
+        #gwfSvg .call { transform-box:fill-box; transform-origin:center; animation:gwfPop .38s cubic-bezier(.2,1.4,.4,1) both; }
+        #gwfSvg .call rect { stroke:#fff; stroke-width:1.5; filter:drop-shadow(0 2px 4px rgba(0,0,0,.18)); }
+        #gwfSvg .call text { font-size:10.5px; font-weight:600; text-anchor:middle; }
+        @keyframes gwfPop { from { transform:scale(.55); opacity:0; } to { transform:none; opacity:1; } }
+        @keyframes gwfHalo { 0%, 100% { transform:scale(.8); opacity:.28; } 50% { transform:scale(1.3); opacity:.08; } }
+        @keyframes gwfRipple { from { stroke-width:2; stroke-opacity:.55; } to { stroke-width:26; stroke-opacity:0; } }
+        @keyframes gwfNodeIn { from { opacity:0; transform:translateY(6px); } }
+        @keyframes gwfEdgeIn { from { stroke-dashoffset:1; } to { stroke-dashoffset:0; } }
+        .gwf-now { position:relative; min-height:22px; font-size:13.5px; margin-top:10px; padding:8px 12px 8px 16px; border-radius:8px;
+          background:linear-gradient(90deg,#eef6fd,#f7fbff 55%,#fff); border:1px solid #d6e7f7; box-shadow:0 1px 2px rgba(0,90,158,.06); }
+        .gwf-now::before { content:""; position:absolute; left:6px; top:7px; bottom:7px; width:3px; border-radius:2px; background:#0078d4; }
+        .gwf-now.ok { background:linear-gradient(90deg,#effaef,#f7fcf7 55%,#fff); border-color:#cfeccf; } .gwf-now.ok::before { background:#13a10e; }
+        .gwf-now.bad { background:linear-gradient(90deg,#fdf0f1,#fef8f8 55%,#fff); border-color:#f3cfd1; } .gwf-now.bad::before { background:#d13438; }
+        .gwf-now.warn { background:linear-gradient(90deg,#fff6e6,#fffbf3 55%,#fff); border-color:#f4dfb3; } .gwf-now.warn::before { background:#ca5010; }
+        .gwf-now.in { animation:gwfNow .35s cubic-bezier(.2,.8,.3,1) both; }
+        @keyframes gwfNow { from { opacity:.2; transform:translateY(3px); } }
         .gwf-now:empty { display:none; }
         .gwf-stages { display:flex; flex-wrap:wrap; align-items:center; gap:4px 0; margin-top:8px; }
         .gwf-stages:empty { display:none; }
-        .gwf-stages .st { display:inline-flex; align-items:center; gap:5px; height:26px; padding:0 10px; border-radius:13px; font-size:12px; font-weight:600; background:#fff;
-          color:var(--text); border:1px solid var(--border); cursor:default; animation:gwfIn .25s both; }
-        .gwf-stages .st.lens { cursor:pointer; } .gwf-stages .st.lens:hover { border-color:var(--accent); }
+        .gwf-stages .st { display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 10px 0 5px; border-radius:13px; font-size:12px; font-weight:600; background:#fff;
+          color:var(--text); border:1px solid var(--border); cursor:default; box-shadow:0 1px 2px rgba(0,0,0,.05); animation:gwfChip .34s cubic-bezier(.2,1.3,.4,1) both;
+          transition:box-shadow .2s, border-color .2s, transform .2s; }
+        .gwf-stages .st.lens { cursor:pointer; } .gwf-stages .st.lens:hover { border-color:var(--accent); transform:translateY(-1px); box-shadow:0 3px 8px rgba(0,0,0,.08); }
         .gwf-stages .st + .st { margin-left:18px; position:relative; }
-        .gwf-stages .st + .st::before { content:"›"; position:absolute; left:-13px; color:#a19f9d; font-weight:400; }
-        .gwf-stages .st .i { font-size:11px; }
-        .gwf-stages .st.ok { background:#f1faf1; border-color:#9fd89f; color:#0b6a0b; } .gwf-stages .st.bad { background:#fdf3f4; border-color:#f1bbbc; color:#a4262c; }
-        .gwf-stages .st.warn { background:#fff8e6; border-color:#f2d58a; color:#8a3707; } .gwf-stages .st.cur { box-shadow:0 0 0 2px rgba(0,120,212,.35); }
+        .gwf-stages .st + .st::before { content:""; position:absolute; left:-14px; top:50%; width:10px; height:1.5px; background:linear-gradient(90deg,#d2d0ce,#a19f9d); border-radius:1px; }
+        .gwf-stages .st .i { display:inline-grid; place-items:center; width:17px; height:17px; border-radius:50%; font-size:10px; line-height:1; color:#fff; background:#8a8886; flex:0 0 17px; }
+        .gwf-stages .st.ok { background:linear-gradient(180deg,#f6fcf6,#ecf8ec); border-color:#a8dca8; color:#0b6a0b; } .gwf-stages .st.ok .i { background:#13a10e; }
+        .gwf-stages .st.bad { background:linear-gradient(180deg,#fef7f7,#fbecee); border-color:#f1bbbc; color:#a4262c; } .gwf-stages .st.bad .i { background:#d13438; }
+        .gwf-stages .st.warn { background:linear-gradient(180deg,#fffaf0,#fff2d9); border-color:#f2d58a; color:#8a3707; } .gwf-stages .st.warn .i { background:#ca5010; }
+        .gwf-stages .st.cur { box-shadow:0 0 0 3px rgba(0,120,212,.22), 0 2px 6px rgba(0,0,0,.06); }
+        @keyframes gwfChip { from { opacity:0; transform:translateY(4px) scale(.9); } }
         .gwf-buckets { margin-top:8px; display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:8px; animation:gwfIn .25s both; }
         .gwf-buckets[hidden] { display:none; }
         .gwf-iso { margin-top:8px; border:1px solid #f0c9ca; border-left:4px solid #d13438; border-radius:6px; background:#fffafa; padding:8px 12px; font-size:12px; animation:gwfIn .25s both; }
@@ -1005,17 +1064,44 @@
         .gwf-bud { margin-top:12px; border-top:1px solid var(--divider); padding-top:8px; }
         .gwf-lt { display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--muted); margin-right:6px; cursor:pointer; white-space:nowrap; }
         .gwf-lt input { width:14px; height:14px; margin:0; flex:0 0 auto; }
-        .gwf-lens { margin-top:6px; border:1px solid var(--divider); border-left:4px solid #0078d4; border-radius:6px; background:#fbfcfe; padding:8px 10px; font-size:12px; animation:gwfIn .25s both; }
+        .gwf-lens { margin-top:8px; border:1px solid #dfe3e8; border-left:4px solid #0078d4; border-radius:10px; background:linear-gradient(180deg,#fbfdff,#f6f9fc); padding:10px 12px; font-size:12px;
+          animation:gwfIn .25s both; box-shadow:0 1px 2px rgba(0,0,0,.04), 0 6px 18px rgba(0,40,90,.05); --vc:#0078d4; }
         .gwf-lens[hidden] { display:none; }
-        .gwf-lens.ok { border-left-color:#107c10; } .gwf-lens.bad { border-left-color:#d13438; } .gwf-lens.warn { border-left-color:#ca5010; }
-        .gwf-lens .lh { display:flex; gap:8px; align-items:baseline; margin-bottom:6px; } .gwf-lens .lh b { font-size:12.5px; }
-        .gwf-lens .dot { width:8px; height:8px; border-radius:50%; background:currentColor; flex:0 0 8px; align-self:center; color:#0078d4; }
-        .gwf-lens.ok .dot { color:#107c10; } .gwf-lens.bad .dot { color:#d13438; } .gwf-lens.warn .dot { color:#ca5010; }
-        .gwf-lens .code { font:11.5px/1.55 Consolas,monospace; background:#fff; border:1px solid var(--divider); border-radius:4px; max-height:230px; overflow:auto; padding:2px 0; }
-        .gwf-lens .ln { display:flex; opacity:0; transform:translateX(-6px); transition:opacity .18s, transform .18s, background .15s; white-space:pre; }
+        .gwf-lens.ok { border-left-color:#13a10e; --vc:#13a10e; } .gwf-lens.bad { border-left-color:#d13438; --vc:#d13438; } .gwf-lens.warn { border-left-color:#ca5010; --vc:#ca5010; }
+        .gwf-lens .lh { display:flex; flex-wrap:wrap; gap:4px 8px; align-items:center; margin-bottom:6px; } .gwf-lens .lh b { font-size:12.5px; }
+        .gwf-lens .dot { width:8px; height:8px; border-radius:50%; background:var(--vc); flex:0 0 8px; box-shadow:0 0 0 3px color-mix(in srgb, var(--vc) 18%, transparent); }
+        .gwf-lens .lsrc { display:inline-flex; align-items:center; gap:7px; color:var(--muted); }
+        .gwf-lens .lmap { position:relative; width:72px; height:6px; border-radius:3px; background:#e6e9ee; overflow:hidden; box-shadow:inset 0 1px 1px rgba(0,0,0,.06); }
+        .gwf-lens .lmap i { position:absolute; top:0; bottom:0; min-width:3px; border-radius:3px; background:var(--vc); }
+        .gwf-lens .lbar { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:0 0 6px; }
+        .gwf-lens .crumb { display:flex; flex-wrap:wrap; align-items:center; gap:3px; font:11px Consolas,monospace; min-width:0; }
+        .gwf-lens .crumb span { padding:0 6px; line-height:18px; border-radius:9px; background:#f1f3f5; border:1px solid #e3e6ea; color:#605e5c; }
+        .gwf-lens .crumb span.sec { background:#eef6fd; border-color:#c7e0f4; color:#0f548c; font-weight:600; }
+        .gwf-lens .crumb span.me { background:#fff; border-color:var(--vc); color:#242424; font-weight:600; box-shadow:0 0 0 2px color-mix(in srgb, var(--vc) 14%, transparent); }
+        .gwf-lens .crumb i { font-style:normal; color:#c8c6c4; }
+        .gwf-lens .lbar .sp { flex:1; }
+        .gwf-lens .lbtn { height:22px; padding:0 9px; font:600 11px "Segoe UI",sans-serif; color:#0f6cbd; background:#fff; border:1px solid #d6e3f0; border-radius:11px; cursor:pointer;
+          display:inline-flex; align-items:center; gap:4px; transition:background .15s, border-color .15s, box-shadow .15s; }
+        .gwf-lens .lbtn:hover { background:#eef6fd; border-color:#9fc5ea; box-shadow:0 1px 3px rgba(0,90,158,.12); }
+        .gwf-lens .lbtn.on { background:#0f6cbd; border-color:#0f6cbd; color:#fff; }
+        .gwf-lens .code { position:relative; font:11.5px/1.6 Consolas,monospace; background:#fff; border:1px solid #e3e6ea; border-radius:6px; max-height:270px; overflow:auto; padding:3px 0;
+          box-shadow:inset 0 1px 2px rgba(0,0,0,.03); transition:max-height .35s ease; }
+        .gwf-lens.full .code { max-height:min(70vh, 680px); }
+        .gwf-lens .ln, .gwf-lens .cx { display:flex; white-space:pre; }
+        .gwf-lens .ln { opacity:0; transform:translateX(-6px); transition:opacity .18s, transform .18s, background .15s; box-shadow:inset 3px 0 0 color-mix(in srgb, var(--vc) 35%, transparent); }
         .gwf-lens .ln.in { opacity:1; transform:none; }
-        .gwf-lens .ln .no { flex:0 0 40px; text-align:right; padding-right:10px; color:#a19f9d; user-select:none; }
-        .gwf-lens .ln .tx { flex:1; min-width:0; white-space:pre-wrap; word-break:break-all; }
+        .gwf-lens .cx { opacity:.48; filter:grayscale(1); transition:opacity .15s, filter .15s; }
+        .gwf-lens .cx:hover { opacity:.9; filter:none; }
+        .gwf-lens.full .cx { opacity:.6; }
+        .gwf-lens .cx.far { display:none; }
+        .gwf-lens.full .cx.far, .gwf-lens.oa .cx.far.a, .gwf-lens.ob .cx.far.b { display:flex; }
+        .gwf-lens .fold { display:flex; align-items:center; gap:6px; padding:1px 10px 1px 50px; font:600 11px/20px "Segoe UI",sans-serif; color:#0f6cbd; cursor:pointer; user-select:none;
+          background:repeating-linear-gradient(135deg,#f8fafc 0 6px,#f1f4f8 6px 12px); border-block:1px dashed #e1e5ea; }
+        .gwf-lens .fold:hover { color:#004578; background:#eef6fd; }
+        .gwf-lens.full .fold, .gwf-lens.oa .fold.a, .gwf-lens.ob .fold.b { display:none; }
+        .gwf-lens .ln .no, .gwf-lens .cx .no { flex:0 0 40px; text-align:right; padding-right:10px; color:#a19f9d; user-select:none; }
+        .gwf-lens .ln .tx, .gwf-lens .cx .tx { flex:1; min-width:0; overflow:hidden; white-space:pre-wrap; word-break:break-all;
+          padding-left:calc((max(var(--li, 0) - var(--ind, 0), 0) + 2) * 1ch); text-indent:calc((var(--li, 0) + 2) * -1ch); }
         .gwf-lens .ln .mk { flex:0 0 auto; padding:0 10px; font:600 11.5px "Segoe UI",sans-serif; }
         .gwf-lens .ln.scan { background:#eff6fc; }
         .gwf-lens .ln.hit { animation:lensHit .7s both; }
@@ -1116,10 +1202,10 @@
         @media (max-width:1100px) { .gwf-split.on, .gwf-split.on.min { grid-template-columns:1fr; }
           .gwf-paw { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); column-gap:6px; } .gwf-paw .ph, .gwf-paw .pf { grid-column:1 / -1; }
           .gwf-paw.min .pmax { flex-direction:row; justify-content:flex-start; min-height:34px; padding:0 12px; } .gwf-paw.min .pmax .vl { writing-mode:horizontal-tb; transform:none; } }
-        @media (prefers-reduced-motion: reduce) { #gwfSvg *, .gwf-hdrs > span { transition:none !important; animation:none !important; } }
+        @media (prefers-reduced-motion: reduce) { #gwfSvg, #gwfSvg *, .gwf-hdrs > span, .gwf-stages .st, .gwf-now { transition:none !important; animation:none !important; } }
       </style>
       <div class="card" id="gwFlow">
-        <h2>How a call flows through the gateway <span class="info" tabindex="0" data-tip="Follow one request through API Management: the components it touches, the policy that stops it, the region that serves it and the evidence it leaves. Pick a request in the log below (or 'evidence' on any call) to replay that exact call from its x-gw-* headers and APIM trace, or play an example. Click a component to see its AI Gateway lab pattern.">i</span> <span class="gwf-src" id="gwfSrc"></span></h2>
+        <h2>How a call flows through the gateway <span class="info" tabindex="0" data-tip="Follow one request through API Management: the components it touches, the policy that stops it, the region that serves it and the evidence it leaves. Pick a request in the request log above (or 'evidence' on any call) to replay that exact call from its x-gw-* headers and APIM trace, or play an example. Click a component to see its AI Gateway lab pattern.">i</span> <span class="gwf-src" id="gwfSrc"></span></h2>
         <div class="gwf-bar">
           <div class="gwf-chips" id="gwfDemos" role="group" aria-label="Example flows"></div>
           <span class="sp"></span>
@@ -1218,6 +1304,41 @@
       }
       // A <pre> of highlighted XML with a line-number gutter
       const xmlPre = (src, cls = "xml") => `<pre class="${cls}">${xmlHl(String(src ?? "").replace(/\r\n?/g, "\n")).split("\n").map(l => `<span class="xl">${l}</span>`).join("\n")}</pre>`;
+      // The element names open at offset pos of policy XML (outermost first), e.g. ["policies", "inbound", "choose", "when"].
+      // Same tolerant scan as xmlHl: comments and C# expressions (which may hold < > and quotes) are skipped.
+      function xmlAncestors(src, pos) {
+        const s = String(src ?? "").slice(0, pos), st = [];
+        const exprEnd = (i) => {
+          const open = s[i + 1], close = open === "(" ? ")" : "}";
+          for (let j = i + 1, d = 0; j < s.length; j++) {
+            const c = s[j];
+            if (c === '"' || c === "'") { j++; while (j < s.length && s[j] !== c) { if (s[j] === "\\") j++; j++; } continue; }
+            if (c === open) d++; else if (c === close && --d === 0) return j + 1;
+          }
+          return s.length;
+        };
+        const isExpr = (i) => s[i] === "@" && (s[i + 1] === "(" || s[i + 1] === "{");
+        let i = 0;
+        while (i < s.length) {
+          if (s.startsWith("<!--", i)) { const e = s.indexOf("-->", i + 4); i = e < 0 ? s.length : e + 3; continue; }
+          if (isExpr(i)) { i = exprEnd(i); continue; }
+          if (s[i] === "<" && /[A-Za-z\/]/.test(s[i + 1] || "")) {
+            const closing = s[i + 1] === "/", nm = /^[\w:.-]+/.exec(s.slice(i + (closing ? 2 : 1), i + 80));
+            let j = i + 1;
+            while (j < s.length && s[j] !== ">") {
+              if (s[j] === '"' || s[j] === "'") { const q = s[j++]; if (isExpr(j)) j = exprEnd(j); const e = s.indexOf(q, j); j = e < 0 ? s.length : e + 1; continue; }
+              j++;
+            }
+            if (nm && j < s.length) {
+              if (closing) { const k = st.lastIndexOf(nm[0]); if (k >= 0) st.length = k; }
+              else if (s[j - 1] !== "/" && !/^[?!]/.test(nm[0])) st.push(nm[0]);
+            }
+            i = j + 1; continue;
+          }
+          i++;
+        }
+        return st;
+      }
       </script>
       <script>
       window.gwFlow = (() => {
@@ -1348,7 +1469,26 @@
           ai: { x: 632, y: 322, w: 184, h: 50, t: "Application Insights", s: "metrics · chargeback traces", cls: "sink", pat: "metering" },
         };
         const P = (k) => ({ x: NODES[k].x + NODES[k].w / 2, y: NODES[k].y + NODES[k].h / 2 });
-        const EDGES = [["client", "entra"], ["entra", "plan"], ["plan", "cs"], ["plan", "api"], ["api", "cache"], ["api", "pool"], ["pool", "mi"], ["mi", "r0"], ["mi", "r1"], ["pool", "mcp"], ["pool", "a2a"], ["api", "log"], ["log", "la"], ["log", "ai"]];
+        // [from, to, "v"]: "v" edges leave/enter through the top or bottom, the others through the sides
+        const EDGES = [["client", "entra"], ["entra", "plan"], ["plan", "cs", "v"], ["plan", "api"], ["api", "cache", "v"], ["api", "pool"], ["pool", "mi", "v"], ["mi", "r0"], ["mi", "r1"],
+                       ["pool", "mcp"], ["pool", "a2a"], ["api", "log", "v"], ["log", "la", "v"], ["log", "ai", "v"]];
+        const VERT = new Set(EDGES.filter(e => e[2] === "v").flatMap(([a, b]) => [a + "-" + b, b + "-" + a]));
+        // port of a → a smooth S-curve → port of b. `from` (where a riding token is docked) is prepended, so the token
+        // crosses node a to its exit port and docks at b's entry port, leaving b's label readable.
+        function route(a, b, from = null) {
+          const A = NODES[a], B = NODES[b], p = P(a), q = P(b), v = VERT.has(a + "-" + b), f = (n) => n.toFixed(1);
+          let s, t, c;
+          if (v) {
+            const up = q.y < p.y; s = { x: p.x, y: up ? A.y : A.y + A.h }; t = { x: q.x, y: up ? B.y + B.h : B.y };
+            const k = Math.max(Math.abs(t.y - s.y) / 2, 14) * (up ? -1 : 1); c = `C${f(s.x)},${f(s.y + k)} ${f(t.x)},${f(t.y - k)} ${f(t.x)},${f(t.y)}`;
+          } else {
+            const right = q.x > p.x; s = { x: right ? A.x + A.w : A.x, y: p.y }; t = { x: right ? B.x : B.x + B.w, y: q.y };
+            const k = Math.max(Math.abs(t.x - s.x) / 2, 14) * (right ? 1 : -1); c = `C${f(s.x + k)},${f(s.y)} ${f(t.x - k)},${f(t.y)} ${f(t.x)},${f(t.y)}`;
+          }
+          return { d: `${from ? `M${f(from.x)},${f(from.y)} L` : "M"}${f(s.x)},${f(s.y)} ${c}`, end: t };
+        }
+        const GRAD = { base: ["#ffffff", "#f5f6f8"], gw: ["#fbfdff", "#e9f2fb"], model: ["#f7fbff", "#e1edf9"], tool: ["#f6fcfc", "#dcf0f1"], agent: ["#fcf9ff", "#ebe2f6"],
+                       sink: ["#fdfbff", "#f0eaf9"], cache: ["#fffafa", "#fae8e9"], safety: ["#fffbf6", "#fbebd8"] };
         const mk = (tag, attrs = {}, parent = svg) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); parent.appendChild(n); return n; };
         const nodeEl = {}, edgeEl = {}, layer = {};
         const ICON = { client: "users", entra: "entra-id", plan: "plan", api: "api", cache: "managed-redis", cs: "policy", pool: "backend-pool", mi: "managed-identity", log: "diagnostic-settings",
@@ -1365,20 +1505,25 @@
         }
         function draw() {
           svg.innerHTML = "";
-          mk("rect", { x: 172, y: 6, width: 702, height: 300, rx: 10, class: "apim" });
+          mk("defs").innerHTML = `<pattern id="gwfDots" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r=".9" fill="#d3dbe4"/></pattern>
+            <linearGradient id="gwfApim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f5f9fe"/></linearGradient>
+            ${Object.entries(GRAD).map(([k, [a, b]]) => `<linearGradient id="gwfG-${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`).join("")}`;
+          mk("rect", { x: 0, y: 0, width: 1100, height: 384, class: "grid" });
+          mk("rect", { x: 172, y: 6, width: 702, height: 300, rx: 12, class: "apim" });
           mk("image", { href: "/icons/apim.svg", x: 184, y: 12, width: 18, height: 18 });
-          mk("text", { x: 208, y: 26, class: "lbl apiml" }).textContent = "AZURE API MANAGEMENT · AI GATEWAY";
-          mk("rect", { x: 184, y: 92, width: 290, height: 114, rx: 8, class: "scope" });
-          layer.scope = mk("text", { x: 194, y: 108, class: "lbl" }); layer.scope.textContent = "PRODUCT (PLAN) SCOPE";
-          mk("rect", { x: 488, y: 92, width: 260, height: 114, rx: 8, class: "scope" });
-          mk("text", { x: 498, y: 108, class: "lbl" }).textContent = "API SCOPE";
+          mk("text", { x: 208, y: 25.5, class: "lbl apiml" }).textContent = "AZURE API MANAGEMENT · AI GATEWAY";
+          mk("rect", { x: 184, y: 92, width: 290, height: 114, rx: 9, class: "scope" });
+          layer.scope = mk("text", { x: 194, y: 110, class: "lbl" }); layer.scope.textContent = "PRODUCT (PLAN) SCOPE";
+          mk("rect", { x: 488, y: 92, width: 260, height: 114, rx: 9, class: "scope" });
+          mk("text", { x: 498, y: 110, class: "lbl" }).textContent = "API SCOPE";
           mk("text", { x: 892, y: 300, class: "lbl" }).textContent = "BACKENDS";
-          mk("image", { href: "/icons/monitor.svg", x: 418, y: 304, width: 14, height: 14 });
-          mk("text", { x: 436, y: 316, class: "lbl" }).textContent = "AZURE MONITOR";
-          for (const [a, b] of EDGES) { const p = P(a), q = P(b); edgeEl[a + "-" + b] = mk("line", { x1: p.x, y1: p.y, x2: q.x, y2: q.y, class: "edge" }); }
-          for (const [k, n] of Object.entries(NODES)) {
-            const g = mk("g", { class: `fn ${n.cls || ""}`, tabindex: 0, role: "button", "data-node": k, "aria-label": `${n.t}: see the pattern` });
-            mk("rect", { x: n.x, y: n.y, width: n.w, height: n.h, rx: 6 }, g);
+          mk("image", { href: "/icons/monitor.svg", x: 300, y: 340, width: 14, height: 14 });
+          mk("text", { x: 318, y: 351, class: "lbl" }).textContent = "AZURE MONITOR";
+          EDGES.forEach(([a, b], i) => { edgeEl[a + "-" + b] = mk("path", { d: route(a, b).d, pathLength: 1, class: "edge", style: `--d:${(.25 + i * .04).toFixed(2)}s` }); });
+          layer.lit = mk("g", {});  // trails and arrival ripples: above the wires, under the nodes
+          Object.entries(NODES).forEach(([k, n], i) => {
+            const g = mk("g", { class: `fn ${n.cls || ""}`, tabindex: 0, role: "button", "data-node": k, "aria-label": `${n.t}: see the pattern`, style: `--d:${(i * .03).toFixed(2)}s` });
+            mk("rect", { x: n.x, y: n.y, width: n.w, height: n.h, rx: 8 }, g);
             const tall = n.h >= 60, stacked = n.w < 150;  // narrow nodes: icon above the label; wide nodes: icon on the left
             const is = stacked ? (tall ? 18 : 15) : 22;
             const ix = stacked ? n.x + n.w / 2 - is / 2 : n.x + 12, iy = stacked ? n.y + (tall ? 9 : 5) : n.y + n.h / 2 - is / 2;
@@ -1393,7 +1538,7 @@
             g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); g.dispatchEvent(new Event("click")); } });
             nodeEl[k] = { g, t, s, ttl, maxW, small: stacked && !tall };
             setText(k, n.t, n.s);
-          }
+          });
           layer.badges = mk("g", {}); layer.fx = mk("g", {});
         }
         function setText(k, t, s) {
@@ -1402,20 +1547,38 @@
           if (s != null) fit(ne.s, s, ne.small ? 10 : 10.5, 400, ne.maxW);
           ne.ttl.textContent = `${ne.t.getAttribute("data-full") || ne.t.textContent} · ${ne.s.getAttribute("data-full") || ne.s.textContent}\nClick to see the pattern`;
         }
-        function mark(k, state) { const g = nodeEl[k]?.g; if (!g) return; g.classList.remove("on", "ok", "warn", "bad", "dim"); if (state) g.classList.add(state); }
-        function edge(a, b, state) { const e = edgeEl[a + "-" + b] || edgeEl[b + "-" + a]; if (!e) return; e.classList.remove("on", "ok", "bad"); if (state) e.classList.add(state); }
+        // node state: its outline colour, a ✓ / ✗ / ! glyph on the corner, and a ripple when the state changes
+        const GLYPH = { ok: "M-3,.3 L-.9,2.4 L3.1,-2.1", bad: "M-2.3,-2.3 L2.3,2.3 M2.3,-2.3 L-2.3,2.3", warn: "M0,-2.9 L0,.5 M0,2.7 L0,2.8" };
+        function mark(k, state) {
+          const ne = nodeEl[k]; if (!ne) return;
+          ne.g.classList.remove("on", "ok", "warn", "bad", "dim"); if (state) ne.g.classList.add(state);
+          if ((ne.state || null) === (state || null)) return;
+          ne.state = state; ne.glyph?.remove(); ne.glyph = null;
+          const n = NODES[k];
+          if (GLYPH[state]) {
+            ne.glyph = mk("g", { transform: `translate(${n.x + n.w - 3},${n.y + 3})` }, ne.g);
+            const i = mk("g", { class: `ng ${state}` }, ne.glyph); mk("circle", { r: 7 }, i); mk("path", { d: GLYPH[state] }, i);
+          }
+          if (state && state !== "dim" && !instant() && layer.lit) {
+            const rp = mk("rect", { x: n.x, y: n.y, width: n.w, height: n.h, rx: 8, class: `ripple ${state}` }, layer.lit);
+            setTimeout(() => rp.remove(), 950);
+          }
+        }
+        const EDGE_ST = ["on", "ok", "bad", "log"];
+        function edge(a, b, state) { const e = edgeEl[a + "-" + b] || edgeEl[b + "-" + a]; if (!e) return; e.classList.remove(...EDGE_ST); if (state) e.classList.add(state); }
+        const textW = (s, px = 10.5, wt = 600) => { ctx2d.font = `${wt} ${px}px "Segoe UI", sans-serif`; return ctx2d.measureText(String(s)).width; };
         // a pill straddling the node's top border (default) or just below the node
         function badge(k, text, color, below = false) {
-          const n = NODES[k], w = Math.min(260, 12 + text.length * 6.3), x = Math.min(1094 - w, Math.max(6, n.x + n.w / 2 - w / 2)), y = below ? n.y + n.h + 4 : n.y - 10;
+          const n = NODES[k], w = Math.min(260, Math.ceil(textW(text)) + 18), x = Math.min(1094 - w, Math.max(6, n.x + n.w / 2 - w / 2)), y = below ? n.y + n.h + 3 : n.y - 9;
           const g = mk("g", { class: "call" }, layer.badges);
-          mk("rect", { x, y, width: w, height: 18, rx: 9, fill: color, stroke: "#fff" }, g);
-          const t = mk("text", { x: x + w / 2, y: y + 13, fill: "#fff" }, g); t.textContent = text;
+          mk("rect", { x, y, width: w, height: 17, rx: 8.5, fill: color }, g);
+          const t = mk("text", { x: x + w / 2, y: y + 12.3, fill: "#fff" }, g); t.textContent = text;
           return g;
         }
         function resetDiagram() {
-          gen++; layer.badges.innerHTML = ""; layer.fx.innerHTML = "";
+          gen++; layer.badges.innerHTML = ""; layer.fx.innerHTML = ""; layer.lit.innerHTML = "";
           for (const k of Object.keys(NODES)) mark(k, null);
-          for (const k of Object.keys(edgeEl)) edgeEl[k].classList.remove("on", "ok", "bad");
+          for (const k of Object.keys(edgeEl)) edgeEl[k].classList.remove(...EDGE_ST);
           const b = backends();
           setText("r0", `Foundry · ${b[0]?.location || "region 1"}`, `${b[0]?.name || "foundry1"} · priority ${b[0]?.priority ?? 1}`);
           setText("r1", `Foundry · ${b[1]?.location || "region 2"}`, `${b[1]?.name || "foundry2"} · priority ${b[1]?.priority ?? 2}`);
@@ -1436,49 +1599,77 @@
           return new Promise((res, rej) => { if (g !== gen) return rej(CANCEL); if (instant() && !always) return res(); setTimeout(() => g === gen ? res() : rej(CANCEL), ms); });
         }
         function place(node, p) { node.setAttribute("transform", `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`); node._p = p; }
-        function tween(node, to, g, speed = 1) {
+        // moves node to `to` in a straight line, or along `path` when given (onStep gets the eased progress 0..1)
+        function tween(node, to, g, speed = 1, path = null, onStep = null) {
           const from = node._p;
           return new Promise((res, rej) => {
             if (g !== gen) return rej(CANCEL);
-            const ms = Math.max(160, Math.min(700, Math.hypot(to.x - from.x, to.y - from.y) * 2.4)) / speed;
-            if (instant()) { place(node, to); return res(); }
+            const L = path ? path.getTotalLength() : Math.hypot(to.x - from.x, to.y - from.y);
+            const ms = Math.max(180, Math.min(760, L * 2.3)) / speed;
+            if (instant()) { place(node, to); onStep?.(1); return res(); }
             const t0 = performance.now();
             const f = (now) => {
               if (g !== gen) return rej(CANCEL);
-              const k = Math.min(1, (now - t0) / ms), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
-              place(node, { x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e });
+              const k = Math.min(1, (now - t0) / ms), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+              if (path && k < 1) { const pt = path.getPointAtLength(e * L); place(node, { x: pt.x, y: pt.y }); }
+              else place(node, k < 1 ? { x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e } : to);
+              onStep?.(e);
               k < 1 ? requestAnimationFrame(f) : res();
             };
             requestAnimationFrame(f);
           });
         }
+        // rides the wire a → b: a glowing trail draws in behind the node, then the wire keeps the state colour
+        async function ride(node, a, b, g, speed = 1, state = "on") {
+          if (!(edgeEl[a + "-" + b] || edgeEl[b + "-" + a])) { edge(a, b, state); return tween(node, P(b), g, speed); }
+          const rt = route(a, b, node._p);
+          if (instant()) { edge(a, b, state); return tween(node, rt.end, g, speed); }
+          const tr = mk("path", { d: rt.d, class: `trail ${state}` }, layer.lit), L = tr.getTotalLength();
+          tr.style.strokeDasharray = `${L} ${L}`; tr.style.strokeDashoffset = L;
+          try { await tween(node, rt.end, g, speed, tr, (k) => { tr.style.strokeDashoffset = L * (1 - k); }); }
+          catch (x) { tr.remove(); throw x; }
+          edge(a, b, state);
+          tr.classList.add("fade"); setTimeout(() => tr.remove(), 650);
+        }
         function token(color, label, at, r = 9) {
           const g = mk("g", { class: "tok" }, layer.fx);
-          g._c = mk("circle", { r, fill: color }, g);
-          g._t = mk("text", { y: -r - 6, fill: color }, g); g._t.textContent = label;
+          g._h = mk("circle", { r: r + 7, fill: color, class: "halo" }, g);
+          g._c = mk("circle", { r, fill: color, class: "core" }, g);
+          mk("circle", { r: r * .38, cx: -r * .28, cy: -r * .3, fill: "#fff", "fill-opacity": .5 }, g);
+          g._lp = mk("g", { class: "lp" }, g);
+          g._r = mk("rect", { y: -r - 23, height: 16, rx: 8 }, g._lp);
+          g._t = mk("text", { y: -r - 11.6 }, g._lp);
+          tokLabel(g, color, label);
           place(g, at); return g;
         }
-        function recolor(tok, color, label) { tok._c.setAttribute("fill", color); tok._t.setAttribute("fill", color); if (label != null) tok._t.textContent = label; }
-        // moves the token through a list of nodes (or {x,y} points), lighting nodes and edges as it goes
+        function tokLabel(tok, color, label) {
+          if (label != null) tok._t.textContent = label;
+          const s = tok._t.textContent, w = Math.ceil(textW(s)) + 14;
+          tok._lp.style.display = s ? "" : "none";
+          tok._r.setAttribute("x", -w / 2); tok._r.setAttribute("width", w); tok._r.setAttribute("stroke", color); tok._t.setAttribute("fill", color);
+        }
+        function recolor(tok, color, label) { tok._c.setAttribute("fill", color); tok._h.setAttribute("fill", color); tokLabel(tok, color, label); }
+        // moves the token through a list of nodes (or {x,y} points), lighting nodes and wires as it goes
         async function go(tok, keys, g, opt = {}) {
           for (let i = 1; i < keys.length; i++) {
             const a = keys[i - 1], b = keys[i];
-            if (typeof a === "string" && typeof b === "string") edge(a, b, opt.edge || "on");
-            await tween(tok, typeof b === "string" ? P(b) : b, g, opt.speed);
+            if (typeof a === "string" && typeof b === "string") await ride(tok, a, b, g, opt.speed, opt.edge || "on");
+            else await tween(tok, typeof b === "string" ? P(b) : b, g, opt.speed);
             if (typeof b === "string" && !opt.quiet) mark(b, opt.mark || "on");
           }
         }
         async function drops(from, g, color = "#8764b8") {
           const run = async (to) => {
             const d = mk("circle", { r: 5, fill: color, class: "drop" }, layer.fx); place(d, P(from));
-            edge(from, to, "on"); await tween(d, P(to), g, 1.4); mark(to, "ok"); d.remove();
+            await ride(d, from, to, g, 1.4, color === "#d13438" ? "bad" : "log"); mark(to, "ok"); d.remove();
           };
           await Promise.all([run("la"), run("ai")]);
         }
         const SURF = { model: "#0078d4", tool: "#00b7c3", agent: "#8764b8" };
         // the caption shows a short line (cap); the full sentence goes to the collapsed narration
         function say(html, cls = "", cap) {
-          el("gwfNow").innerHTML = cap ?? html; el("gwfSteps").insertAdjacentHTML("beforeend", `<li class="${cls}">${html}</li>`); el("gwfSteps").scrollTop = 1e6;
+          const now = el("gwfNow"); now.innerHTML = cap ?? html; now.className = `gwf-now ${cls}`; void now.offsetWidth; now.classList.add("in");
+          el("gwfSteps").insertAdjacentHTML("beforeend", `<li class="${cls}">${html}</li>`); el("gwfSteps").scrollTop = 1e6;
           el("gwfStepCount").textContent = `(${el("gwfSteps").children.length} steps)`;
         }
         // the stage strip: one chip per decision, coloured by outcome; chips with policy lines reopen them in the lens
@@ -1646,27 +1837,99 @@
           else end = Math.min(lines.length - 1, start + (spec.lines || 1) - 1);
           return { start, lines: lines.slice(start, end + 1) };
         }
-                // draws the lens for spec and returns its pieces; finishLens stamps the hit lines and opens the named values
+        // the whole document, highlighted once per text: its lines, their HTML and the indent (columns, tab = 2) of a line
+        const docCache = new Map();
+        const indCols = (l) => { let c = 0; for (const ch of l) { if (ch === " ") c++; else if (ch === "\t") c += 2; else break; } return c; };
+        const minInd = (ls) => { const v = ls.filter(l => l.trim()).map(indCols); return v.length ? Math.min(...v) : 0; };
+        function docView(xml) {
+          let d = docCache.get(xml);
+          if (!d) {
+            const norm = xml.replace(/\r\n?/g, "\n"), lines = norm.split("\n");
+            d = { norm, lines, hl: xmlHl(norm).split("\n"), ind: minInd(lines) };
+            if (docCache.size > 24) docCache.clear();
+            docCache.set(xml, d);
+          }
+          return d;
+        }
+        const CTX = 3;  // greyed lines of the surrounding policy shown above and below the lit ones
+        let lensFull = false;  // the reader asked for the whole policy: kept for the next steps of the replay
+        // the left gutter trims the deepest common indent of what is visible, so nested snippets don't drift right
+        function lensInd(box) {
+          const p = box._p; if (!p) return;
+          const all = lensFull || box.classList.contains("oa") || box.classList.contains("ob");
+          p.code.style.setProperty("--ind", all ? p.d.ind : p.winInd);
+        }
+        function revealRow(code, row, frac = .25) {
+          if (!row) return;
+          const top = row.offsetTop, h = row.offsetHeight;
+          if (top < code.scrollTop || top + h > code.scrollTop + code.clientHeight) code.scrollTop = Math.max(0, top - code.clientHeight * frac);
+        }
+        // draws the lens for spec and returns its pieces; stamp() marks the hit lines and nvRow() opens the named values
         function paintLens(spec) {
           if (!lensOn() || !flowDocs) return null;
           const s = snippet(spec), box = el("gwfLens");
           if (!s) return null;
-          const ind = Math.min(...s.lines.filter(l => l.trim()).map(l => l.match(/^\s*/)[0].length));
-          const verdict = spec.verdict || "ok", hl = xmlHl(s.lines.map(l => l.slice(ind)).join("\n")).split("\n");
+          const d = docView(flowDocs.docs[spec.doc]), n = d.lines.length, a = s.start, b = s.start + s.lines.length - 1;
+          const w0 = Math.max(0, a - CTX), w1 = Math.min(n - 1, b + CTX);
+          const winInd = minInd(d.lines.slice(w0, w1 + 1));
+          const verdict = spec.verdict || "ok";
           const ctl = window.lensControl?.(spec);  // the Policy explorer's control for these lines: its level and a link to it
+          // where the lines sit: the elements open around them, then the element they start
+          const off = a ? d.lines.slice(0, a).join("\n").length + 1 : 0, own = /^\s*<([\w:.-]+)/.exec(d.lines[a])?.[1];
+          const crumbs = xmlAncestors(d.norm, off).map(t => `<span class="${/^(inbound|backend|outbound|on-error)$/.test(t) ? "sec" : ""}">${esc(t)}</span>`);
+          if (own) crumbs.push(`<span class="me">&lt;${esc(own)}&gt;</span>`);
+          const row = (i) => {
+            const lit = i >= a && i <= b, far = i < w0 ? " far a" : i > w1 ? " far b" : "";
+            return `<div class="${lit ? "ln" : "cx" + far}" style="--li:${indCols(d.lines[i])}"${lit ? ` title="${esc(d.lines[i].trim())}"` : ""}><span class="no">${i + 1}</span><span class="tx">${d.hl[i] || " "}</span>${lit ? `<span class="mk"></span>` : ""}</div>`;
+          };
+          let rows = "";
+          for (let i = 0; i < n; i++) {
+            if (i === w0 && w0 > 0) rows += `<div class="fold a" data-lx="a" title="Show the start of the policy">⋯ ${w0} line${w0 === 1 ? "" : "s"} above · show</div>`;
+            rows += row(i);
+            if (i === w1 && w1 < n - 1) rows += `<div class="fold b" data-lx="b" title="Show the rest of the policy">⋯ ${n - 1 - w1} line${n - 2 - w1 ? "s" : ""} below · show</div>`;
+          }
           box.hidden = false;
-          box.className = `gwf-lens ${verdict}`;
-          box.innerHTML = `<div class="lh"><span class="dot"></span><b>${esc(spec.title)}</b><span class="muted">${esc(DOC_LABEL(spec.doc))} · line ${s.start + 1}${s.lines.length > 1 ? "–" + (s.start + s.lines.length) : ""}</span>${ctl ? `<span class="lctl">${ctl.badge}<a href="#" data-pawc="${ctl.id}">in the policy explorer →</a></span>` : ""}</div>
-            <div class="code">${s.lines.map((l, i) => `<div class="ln" title="${esc(l.trim())}"><span class="no">${s.start + i + 1}</span><span class="tx">${hl[i] || ""}</span><span class="mk"></span></div>`).join("")}</div>
+          box.className = `gwf-lens ${verdict}${lensFull ? " full" : ""}`;
+          box.innerHTML = `<div class="lh"><span class="dot"></span><b>${esc(spec.title)}</b>
+              <span class="lsrc">${esc(DOC_LABEL(spec.doc))} · line ${a + 1}${b > a ? "–" + (b + 1) : ""} of ${n}
+                <span class="lmap" title="Where these lines sit in the policy"><i style="left:${(100 * a / n).toFixed(1)}%;width:${(100 * (b - a + 1) / n).toFixed(1)}%"></i></span></span>
+              ${ctl ? `<span class="lctl">${ctl.badge}<a href="#" data-pawc="${ctl.id}">in the policy explorer →</a></span>` : ""}</div>
+            <div class="lbar"><div class="crumb" title="Where these lines sit in the policy document">${crumbs.join("<i>›</i>")}</div><span class="sp"></span>
+              <button type="button" class="lbtn${lensFull ? " on" : ""}" data-lx="full" title="Show the whole policy document, with these lines lit">${lensFull ? "⤡ Just these lines" : `⤢ Full policy · ${n} lines`}</button>
+              <button type="button" class="lbtn" data-lx="copy" title="Copy the whole policy document">⧉ Copy</button></div>
+            <div class="code">${rows}</div>
             <div class="nvs"></div>${spec.note ? `<div class="lnote">${spec.note}</div>` : ""}`;
-          const rows = [...box.querySelectorAll(".ln")];
-          return { box, s, rows, verdict, hits: rows.filter((_, i) => spec.hit.test(s.lines[i])) };
+          const code = box.querySelector(".code"), lit = [...box.querySelectorAll(".ln")];
+          box._p = { d, code, winInd, doc: spec.doc };
+          lensInd(box);
+          code.scrollTop = 0; if (lensFull) revealRow(code, lit[0]);
+          return { box, s, rows: lit, verdict, hits: lit.filter((_, i) => spec.hit.test(s.lines[i])) };
         }
+        el("gwfLens").addEventListener("click", (e) => {
+          const t = e.target.closest("[data-lx]"), box = el("gwfLens"), p = box._p; if (!t || !p) return;
+          const k = t.dataset.lx, first = box.querySelector(".ln");
+          if (k === "copy") {
+            navigator.clipboard?.writeText(p.d.norm).then(() => { t.textContent = "✓ Copied"; setTimeout(() => { t.textContent = "⧉ Copy"; }, 1400); }, () => { t.textContent = "Copy failed"; });
+            return;
+          }
+          if (k === "full") {
+            lensFull = !lensFull; box.classList.toggle("full", lensFull); box.classList.remove("oa", "ob");
+            t.classList.toggle("on", lensFull); t.textContent = lensFull ? "⤡ Just these lines" : `⤢ Full policy · ${p.d.lines.length} lines`;
+            lensInd(box); requestAnimationFrame(() => lensFull ? revealRow(p.code, first) : (p.code.scrollTop = 0));
+            return;
+          }
+          // a fold: show everything above (keeping the lit lines where they were on screen) or below
+          const before = first ? first.offsetTop - p.code.scrollTop : 0;
+          box.classList.add(k === "a" ? "oa" : "ob"); lensInd(box);
+          if (k === "a" && first) p.code.scrollTop = first.offsetTop - before;
+        });
         function stamp(p, spec) {
-          for (const row of (p.hits.length ? p.hits : p.rows.slice(0, 1))) {
+          const hits = p.hits.length ? p.hits : p.rows.slice(0, 1);
+          for (const row of hits) {
             row.classList.add("hit");
             row.querySelector(".mk").textContent = (p.verdict === "bad" ? "✗ " : p.verdict === "warn" ? "↷ " : "✓ ") + (spec.mark || (p.verdict === "bad" ? "stops here" : "passes"));
           }
+          revealRow(p.box.querySelector(".code"), hits[0], .35);
         }
         function nvRow(p, nv) {
           const v = flowDocs.namedValues?.[nv.name]; if (v == null) return false;
@@ -1948,8 +2211,8 @@
           if (/quota-by-key/.test(h["x-gw-blocked-by"] || "")) showBuckets(r, "blocked"); else if (safety) showBuckets(r, "charge");
           if (h["x-gw-block-reason"]) say(`<code>on-error</code> returns <code>x-gw-blocked-by</code> and <code>x-gw-block-reason</code>: ${esc(String(h["x-gw-block-reason"]).slice(0, 160))}`, "bad");
           await wait(900, g);
-          mark("log", "on"); edge(at, "log", "on"); const p = P(at), q = P("log");
-          const d = mk("circle", { r: 5, fill: "#d13438", class: "drop" }, layer.fx); place(d, p); await tween(d, q, g, 1.4); d.remove();
+          mark("log", "on");
+          const d = mk("circle", { r: 5, fill: "#d13438", class: "drop" }, layer.fx); place(d, P(at)); await ride(d, at, "log", g, 1.4, "bad"); d.remove();
           say(`The blocked call is still logged: <code>ApiManagementGatewayLogs</code> records the status and the policy that failed (<code>LastErrorSource</code>), and the governance event goes to App Insights.`, "", `Still logged: <code>ApiManagementGatewayLogs</code> records the policy that refused it`);
           await drops("log", g, "#d13438"); mark("log", "ok");
           const back = at === "entra" ? ["entra", "client"] : at === "api" ? ["api", "plan", "entra", "client"] : ["plan", "entra", "client"];
@@ -2038,7 +2301,7 @@
 
         // ---- controls
         let current = null, looping = false, played = false;
-        function setBusy(on) { el("gwfStop").disabled = !on; }
+        function setBusy(on) { el("gwfStop").disabled = !on; el("gwFlow").classList.toggle("playing", !!on); }
         async function run(item) {
           resetDiagram(); budgetPrimer(); const g = gen; current = item; played = true; setBusy(true);
           window.onFlowPlay?.(item.r);  // the page's "Policies at work" panel follows the replayed call
@@ -2066,7 +2329,7 @@
             i++;
           }
         }
-        function stop() { looping = false; gen++; setBusy(false); layer.fx.querySelectorAll(".tok, .drop").forEach(t => t.remove()); el("gwfNow").innerHTML += ` <span class="muted">(stopped)</span>`; }
+        function stop() { looping = false; gen++; setBusy(false); layer.fx.querySelectorAll(".tok, .drop").forEach(t => t.remove()); layer.lit.querySelectorAll(".trail").forEach(t => t.remove()); el("gwfNow").innerHTML += ` <span class="muted">(stopped)</span>`; }
         el("gwfDemos").addEventListener("click", (e) => { const id = e.target.closest("[data-d]")?.dataset.d; if (id) { looping = false; runDemo(id); } });
         el("gwfPlayAll").onclick = () => { if (!looping) playAll(); };
         el("gwfStop").onclick = stop;
@@ -2180,19 +2443,6 @@
       </script>
       </div>
       <!-- ================= end of gateway flow section ================= -->
-      <div class="card" id="evLogCard" style="margin-top:16px">
-        <div class="evlbar">
-          <h2>Request log <span class="muted" id="evLogCount"></span> <span class="info" tabindex="0" data-tip="Every call from this page session, newest first. Click a request (or use ↑ / ↓) to replay it in the flow above and load its policy trace and Log Analytics rows, without leaving this tab.">i</span></h2>
-          <select id="evRunFilter" aria-label="Show requests from"></select>
-          <label class="evlchk"><input type="checkbox" id="evBlockedOnly"/> Blocked only</label>
-          <button class="secondary" id="evPrev" title="Previous request (↑)">↑ Previous</button>
-          <button class="secondary" id="evNext" title="Next request (↓)">Next ↓</button>
-        </div>
-        <div class="scroll" id="evLogWrap" tabindex="0" aria-label="Request log: use the up and down arrow keys to step through the requests"><table>
-          <thead><tr><th>#</th><th>Time · run</th><th>Agent / user</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Gateway decision</th><th>Backend</th><th>Tokens</th><th>Cost USD</th><th>Latency</th><th>Evidence</th></tr></thead>
-          <tbody id="evLog"></tbody>
-        </table></div>
-      </div>
       <div class="card hidden" id="evPanel">
         <h2>Evidence for one request <span class="muted" id="evTitle"></span>
           <span class="evnav"><span class="muted" id="evPos"></span><button class="secondary" id="evPrev2" title="Previous request in the log">↑ Previous</button><button class="secondary" id="evNext2" title="Next request in the log">Next ↓</button></span></h2>
@@ -3772,7 +4022,7 @@ function setRunning(on, label = "") {
   document.querySelectorAll(".scenarios .scrun, #btnAll").forEach(b => b.disabled = on);
   $("btnStop").classList.toggle("hidden", !on); $("runStatus").textContent = label;
   $("launch").classList.toggle("running", on);
-  releaseRunBusy();
+  releaseRunBusy(); fillScRunSel();
   if (on) { rememberRun(label);
             if (!sideBySide() || (/^(scenario|demo)$/.test(curRun?.kind) && !$("launch").classList.contains("mini"))) collapseLaunch(true);
             $("sessionArea").classList.remove("idle");
@@ -3871,7 +4121,9 @@ const newId = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toStrin
 function startRun(run) {
   curRun = Object.assign(run, { id: newId(), n: runs.length ? runs[runs.length - 1].n + 1 : 1, started: Date.now(), ended: null, status: "running", calls: [], parts: [] });
   if (viewRun != null) { viewRun = null; $("tab-live").classList.remove("runmode"); renderRunBanner(); }  // a new run is live: show it
-  runs.push(curRun); curPart = null; stopRequested = false; selRun = null; selCall = null; renderRuns();
+  runs.push(curRun); curPart = null; stopRequested = false; selRun = null; selCall = null;
+  if (!evAllPinned) evFilterRun = String(curRun.n);  // the log shows the new run's calls (a scenario narrows it to its own part)
+  renderRuns();
 }
 // The "Viewing" selector next to the tabs: the live session, or one run's report in its place (null = live)
 let viewRun = null;
@@ -3910,6 +4162,67 @@ function renderRunBanner() {
 }
 $("viewSel").onchange = (e) => setView(e.target.value);
 function snapPart(p) { if (p) Object.assign(p, { story: $("scStory").innerHTML, steps: $("scSteps").innerHTML, takeaway: $("scTakeaway").innerHTML }); }
+// ---- The scenario card's dropdown: every scenario this page ran (each scenario of a full demo too) and every build-your-own request,
+//      newest first. Picking one shows its card again and scopes the request log under it to that entry's calls.
+//      key: "<run>.<part>" for a scenario, "<run>" for a whole run; card: whether it has a scenario card to show.
+let scActiveKey = null, scShownKey = null;
+function scEntries() {
+  const out = [];
+  for (const run of runs) {
+    if (run.parts.length) run.parts.forEach((p, k) => out.push({ key: `${run.n}.${k}`, run, part: p, title: p.title, calls: p.calls, card: SCENARIOS[p.si] != null || !!p.story }));
+    else out.push({ key: `${run.n}`, run, part: null, title: run.req ? `Your request: ${run.title}` : run.title, calls: run.calls, card: !!run.req });
+  }
+  return out.reverse();
+}
+function scEntryLabel(e, max = 70, calls = true) {
+  const t = String(e.title || ""), when = new Date(e.run.started).toDateString() === new Date().toDateString()
+    ? new Date(e.run.started).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : new Date(e.run.started).toLocaleDateString([], { month: "short", day: "numeric" });
+  const what = e.run.kind === "demo" ? `full demo #${e.run.n}` : `run #${e.run.n}`, name = t.length > max ? t.slice(0, max - 1) + "…" : t;
+  if (!calls) return e.key === scActiveKey ? `${name} (active)` : `${name} · ${what}, ${when}`;  // the card's dropdown doubles as its title: keep it short
+  return `${name}${e.key === scActiveKey ? " (active)" : ""} · ${what} · ${when} · ${e.calls.length} call${e.calls.length === 1 ? "" : "s"}`;
+}
+function fillScRunSel() {
+  const sel = $("scRunSel"), all = scEntries().filter(e => e.card), opt = (e) => `<option value="${e.key}">${escapeHtml(scEntryLabel(e, 70, false))}</option>`;
+  sel.hidden = !all.length || !scShownKey || !all.some(e => e.key === scShownKey);
+  if (sel.hidden) return;
+  const now = all.filter(e => !e.run.past), saved = all.filter(e => e.run.past);
+  sel.innerHTML = (now.length ? `<optgroup label="This visit">${now.map(opt).join("")}</optgroup>` : "")
+    + (saved.length ? `<optgroup label="Saved runs">${saved.map(opt).join("")}</optgroup>` : "");
+  sel.value = scShownKey; sel.disabled = running;
+  sel.title = running ? "Pick another scenario when this run finishes" : "Show another scenario run from this session";
+}
+// a run puts its scenario on the card: it becomes the active entry, and the request log follows it (unless "All requests" was picked)
+function scSetActive(key) {
+  scActiveKey = scShownKey = key;
+  if (!evAllPinned) evFilterRun = key;
+  fillScRunSel(); renderEvLog();
+}
+function snapCard() {
+  return { title: $("scTitle").textContent, flow: $("scFlow").innerHTML, flowMore: $("scFlowMore").innerHTML, story: $("scStory").innerHTML,
+           steps: $("scSteps").innerHTML, takeaway: $("scTakeaway").innerHTML, pol: $("scPol").innerHTML };
+}
+function scShow(key) {
+  const e = scEntries().find(x => x.key === key && x.card); if (!e || running) return;
+  scShownKey = key;
+  const card = $("scenario"); card.classList.remove("hidden");
+  if (e.part) {  // a scenario: its diagram and policies come from SCENARIOS, its story, steps and takeaway from the snapshot taken when it ran
+    const s = SCENARIOS[e.part.si];
+    card.dataset.mode = "guided";
+    $("scTitle").textContent = e.part.title;
+    $("scStory").innerHTML = e.part.story || (s ? s.story() : ""); $("scSteps").innerHTML = e.part.steps || ""; $("scTakeaway").innerHTML = e.part.takeaway || "";
+    $("scFlow").innerHTML = ""; $("scFlowMore").innerHTML = ""; $("scPol").innerHTML = "";
+    if (s) { scPolicyStrip(s); try { if (s.preview) setScFlow(s.preview()); } catch (err) { console.warn("scenario mini-flow failed", err); } }
+  } else {  // a build-your-own request: the card as it was when the run ended
+    const c = e.run.card || {};
+    card.dataset.mode = "build";
+    $("scTitle").textContent = c.title || e.title; $("scFlow").innerHTML = c.flow || ""; $("scFlowMore").innerHTML = c.flowMore || "";
+    $("scStory").innerHTML = c.story || ""; $("scSteps").innerHTML = c.steps || ""; $("scTakeaway").innerHTML = c.takeaway || ""; $("scPol").innerHTML = c.pol || "";
+  }
+  if (evFilterRun !== key) { evFilterRun = key; evIndex = -1; }
+  evAllPinned = false;
+  fillScRunSel(); renderEvLog();
+}
+$("scRunSel").onchange = (e) => scShow(e.target.value);
 // Build-your-own runs get their own results card (instead of whatever scenario ran last), scoped to the x-session-id they add to
 function sessionTotals(sid) {
   const t = { calls: 0, blocked: 0, cost: 0 };
@@ -3925,6 +4238,7 @@ function showRequestCard(run) {
   run.sessionStart = prior;
   const card = $("scenario"); card.dataset.mode = "build"; card.classList.remove("hidden");
   $("scTitle").textContent = `Your request: ${q.who} → ${q.target}`;
+  scSetActive(`${run.n}`);
   const sess = !sid ? `No <code>x-session-id</code>: these calls aren't tied to a session.`
     : prior.calls ? `Adds to session <span class="sess">${escapeHtml(sid)}</span>, which already has <b>${prior.calls}</b> call${prior.calls === 1 ? "" : "s"} (${fmtUsd(prior.cost)}) from this page. Press <b>New session</b> to start a fresh one.`
     : `Starts session <span class="sess">${escapeHtml(sid)}</span>. Send again to add to it, or press <b>New session</b> to start a fresh one.`;
@@ -3961,7 +4275,7 @@ function requestTakeaway(run) {
 }
 function endRun() {
   if (!curRun) return;
-  if (curRun.req && $("scenario").dataset.mode === "build") requestTakeaway(curRun);
+  if (curRun.req && $("scenario").dataset.mode === "build") { requestTakeaway(curRun); curRun.card = snapCard(); }
   snapPart(curPart);
   Object.assign(curRun, { ended: Date.now(), status: stopRequested ? "stopped" : "finished" });
   if (curRun.kind === "custom" && !curRun.calls.length) runs.splice(runs.indexOf(curRun), 1); // e.g. invalid tool JSON: nothing reached the gateway
@@ -3976,6 +4290,7 @@ function packRun(run, withInvocations = true) {
     callData: run.calls.map(i => { const { past, ...c } = session.calls[i]; return withInvocations ? c : { ...c, invocations: undefined }; }) };
 }
 async function saveRun(run) {
+  await histReady;  // a run that ends before the history has loaded would otherwise never be saved
   if (!hist.enabled) return;
   let body = JSON.stringify({ run: packRun(run) });
   if (body.length > 2_500_000) body = JSON.stringify({ run: packRun(run, false) });  // very long runs: keep the results, drop the raw HTTP captures
@@ -3984,8 +4299,21 @@ async function saveRun(run) {
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.status);
   } catch (e) { toast(`Run #${run.n} wasn't saved to your history: ${e.message}`); }
 }
-async function loadHistory() {
-  try { hist = await (await fetch("/api/history")).json(); } catch { hist = { enabled: false }; }
+// The signed-in user's saved runs. A failed load is retried, then reported: an empty list must mean "no saved runs", not "couldn't read them".
+let histReady = Promise.resolve();
+function loadHistory() { return histReady = fetchHistory(); }
+async function fetchHistory() {
+  for (let attempt = 0; ; attempt++) {
+    let h;
+    try {
+      const res = await fetch("/api/history", { cache: "no-store" });
+      h = await res.json().catch(() => ({ error: `HTTP ${res.status} without JSON (is your sign-in still valid? reload the page)` }));
+      if (!res.ok && !h.error) h.error = `HTTP ${res.status}`;
+    } catch (e) { h = { error: e.message }; }
+    if (!h.error || attempt >= 2) { hist = { enabled: false, ...h }; break; }
+    await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+  }
+  if (hist.error) toast(`Couldn't load your saved runs: ${hist.error}`);
   const lbl = $("runScope");
   if (!hist.enabled) { lbl.textContent = "(this page session, newest first)"; return; }
   hist.ephemeral = /ephemeral/.test(hist.store || "");
@@ -4006,7 +4334,8 @@ async function loadHistory() {
 }
 async function clearHistory() {
   if (running || !confirm(`Delete your saved run history${hist.user ? " for " + hist.user : ""}? Runs from this page session stay until you reload.`)) return;
-  await fetch("/api/history/clear", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  const res = await fetch("/api/history/clear", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(e => ({ ok: false, json: async () => ({ error: e.message }) }));
+  if (!res.ok) { toast("Couldn't clear the saved runs: " + ((await res.json().catch(() => ({}))).error || res.status)); return; }
   for (let k = runs.length - 1; k >= 0; k--) if (runs[k].past) runs.splice(k, 1);
   for (const r of runs) saveRun(r);  // keep this page's runs saved
   selRun = null; $("btnClearHist").classList.add("hidden"); renderRuns(); toast("Saved run history cleared.");
@@ -4051,6 +4380,7 @@ function renderRuns() {
   $("runCount").textContent = runs.length;
   if (viewRun != null && !runs.some(r => r.n === viewRun)) { viewRun = null; $("tab-live").classList.remove("runmode"); renderRunBanner(); }  // e.g. history cleared
   fillViewSel();
+  fillScRunSel();
   renderEvLog();
   if (psec !== "live" || curTab !== "happened" || !$("tab-runs").open) return;
   if (!runs.length) {
@@ -4972,15 +5302,24 @@ function vtable(row) { // one log record: the fields that matter first, the rest
   return `<div class="evkv">${first.map(k => `<div><span>${k}</span><b>${val(k, row[k])}</b></div>`).join("")}</div>`
     + (rest.length ? `<details class="raw"><summary>${rest.length} more field${rest.length === 1 ? "" : "s"}</summary><table class="steps"><tbody>${rest.map(([k, v]) => `<tr><td style="width:170px">${k}</td><td style="white-space:normal;word-break:break-word">${val(k, v)}</td></tr>`).join("")}</tbody></table></details>` : "");
 }
-// Request log on the Policies & evidence tab: pick a call to replay it and load its trace and logs without leaving the tab
-let evFilterRun = "all", evBlockedOnly = false;
+// Request log (under the scenario card): pick a call to replay it in the gateway flow and load its trace and logs.
+// It is scoped like the scenario card: evFilterRun is "all" or a scEntries() key (one scenario of a run, or a whole run).
+let evFilterRun = "all", evBlockedOnly = false, evAllPinned = false;  // evAllPinned: "All requests" picked, so new runs don't re-scope the log
 function evLogIdxs() {
+  const e = evFilterRun === "all" ? null : scEntries().find(x => x.key === evFilterRun), only = e ? new Set(e.calls) : null;
   const out = [];
   for (let i = session.calls.length - 1; i >= 0; i--) {
     const r = session.calls[i];
-    if ((evFilterRun === "all" || String(r.run) === evFilterRun) && (!evBlockedOnly || isBlocked(r))) out.push(i);
+    if ((!only || only.has(i)) && (!evBlockedOnly || isBlocked(r))) out.push(i);
   }
   return out;
+}
+// who sent the call: the agent or persona as the conversation shows it (name + plan), with its key name and end user underneath
+function evWho(r) {
+  const a = byName(r.agent) || personaOf(r.agent), h = r.headers || {}, tier = a?.tier || r.tier;
+  const sub = [a && a.displayName !== r.agent ? r.agent : "", h["x-gw-end-user"] ? `for ${h["x-gw-end-user"]}` : "", r.persona && a?.group ? a.group : ""].filter(Boolean);
+  return `<div class="evwho"><b>${escapeHtml(a?.displayName || r.agent || "-")}</b>${tier ? `<span class="badge ${escapeHtml(tier)}">${escapeHtml(tier)}</span>` : ""}`
+    + `${sub.length ? `<small>${escapeHtml(sub.join(" · "))}</small>` : ""}</div>`;
 }
 function evLogRow(r, i) {
   const h = r.headers || {}, cost = callCost(r), route = h["x-gw-route"] || "";
@@ -4988,21 +5327,21 @@ function evLogRow(r, i) {
   const decision = h["x-gw-blocked-by"] ? `<span class="src err">${escapeHtml(h["x-gw-blocked-by"])}</span>` : gov || (r.status === 200 ? "allowed" : "-");
   const tok = r.surface === "model" ? `${h["x-gw-prompt-tokens"] || "-"} / ${h["x-gw-completion-tokens"] || "-"}` : (r.tokens || "-");
   return `<tr class="click${i === evIndex ? " sel" : ""}" data-idx="${i}"><td>${i + 1}</td><td>${new Date(r.at || Date.now()).toLocaleTimeString()}${r.run ? ` <span class="rtag">#${r.run}</span>` : ""}</td>
-    <td>${escapeHtml(r.agent)}</td><td>${surfChip(r.surface)}</td><td><span class="status ${statusClass(r.status)}">${r.status}</span></td><td>${resourceOf(r)}</td><td>${decision}</td>
+    <td>${evWho(r)}</td><td class="tgt">${surfChip(r.surface)} ${resourceOf(r)}</td><td><span class="status ${statusClass(r.status)}">${r.status}</span></td><td>${decision}</td>
     <td title="${escapeHtml(route)}">${escapeHtml(h["x-gw-backend"] || "-")}${route.includes(" > ") ? ' <span class="gov">failover</span>' : ""}</td>
     <td>${tok}</td><td>${cost ? cost.toFixed(6) : "-"}</td><td>${r.latencyMs ?? "-"} ms</td>
     <td>${h["apim-trace-id"] ? "trace + logs" : h["x-gw-request-id"] ? "logs" : "-"}${(r.invocations || []).length ? ` · <a class="ev" title="The HTTP calls app.py made for this result (secrets masked)" onclick="openInspector(${i})">inspect</a>` : ""}</td></tr>`;
 }
 function renderEvLog() {
-  if (curTab !== "happened") return;
-  const sel = $("evRunFilter");
-  if (evFilterRun !== "all" && !runs.some(r => String(r.n) === evFilterRun)) evFilterRun = "all";
-  sel.innerHTML = `<option value="all">All runs</option>` + runs.slice().reverse().map(r => `<option value="${r.n}">Run #${r.n} · ${escapeHtml(r.title)}</option>`).join("");
+  const sel = $("evRunFilter"), entries = scEntries();
+  $("evLogCard").hidden = !session.calls.length;
+  if (evFilterRun !== "all" && !entries.some(e => e.key === evFilterRun)) evFilterRun = "all";
+  sel.innerHTML = `<option value="all">All requests</option>` + entries.map(e => `<option value="${e.key}">${escapeHtml(scEntryLabel(e, 52))}</option>`).join("");
   sel.value = evFilterRun; $("evBlockedOnly").checked = evBlockedOnly;
   const idxs = evLogIdxs(), blocked = idxs.filter(i => isBlocked(session.calls[i])).length;
   $("evLogCount").textContent = session.calls.length ? `(${idxs.length} request${idxs.length === 1 ? "" : "s"}${blocked && !evBlockedOnly ? `, ${blocked} blocked` : ""})` : "";
   $("evLog").innerHTML = idxs.length ? idxs.map(i => evLogRow(session.calls[i], i)).join("")
-    : `<tr><td colspan="12" class="muted" style="padding:16px">${session.calls.length ? "No requests match this filter." : "No requests yet. Run a guided scenario or send a request, and every call shows up here."}</td></tr>`;
+    : `<tr><td colspan="11" class="muted" style="padding:16px">${session.calls.length ? "No requests match this filter." : "No requests yet. Run a guided scenario or send a request, and every call shows up here."}</td></tr>`;
   const p = idxs.indexOf(evIndex);
   for (const [a, b] of [["evPrev", "evNext"], ["evPrev2", "evNext2"]]) { $(a).disabled = !idxs.length || p === 0; $(b).disabled = !idxs.length || p === idxs.length - 1; }
   $("evPos").textContent = p >= 0 ? `request ${p + 1} of ${idxs.length}` : "";
@@ -5021,15 +5360,25 @@ function stepEvidence(d, opts) {
 $("evLog").onclick = (e) => {
   const tr = e.target.closest("tr[data-idx]");
   if (!tr || e.target.closest("a")) return;
-  $("evLogWrap").focus({ preventScroll: true }); showEvidence(+tr.dataset.idx, 0, { scroll: false });
+  $("evLogWrap").focus({ preventScroll: true }); showEvidence(+tr.dataset.idx, 0, { scroll: false }); evRevealFlow();
 };
+// the flow sits under the log: when its diagram is off screen, scroll so the log's last rows and the flow are both in view
+function evRevealFlow() {
+  const f = $("gwFlow").getBoundingClientRect();
+  if (f.top > innerHeight - 260) scrollBy({ top: f.top - innerHeight * 0.38, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
 $("evLogWrap").onkeydown = (e) => {
   if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
   e.preventDefault(); stepEvidence(e.key === "ArrowDown" ? 1 : -1, { scroll: false });
 };
 $("evPrev").onclick = () => stepEvidence(-1, { scroll: false }); $("evNext").onclick = () => stepEvidence(1, { scroll: false });
 $("evPrev2").onclick = () => stepEvidence(-1, { scroll: false }); $("evNext2").onclick = () => stepEvidence(1, { scroll: false });
-$("evRunFilter").onchange = (e) => { evFilterRun = e.target.value; renderEvLog(); };
+$("evRunFilter").onchange = (e) => {
+  const key = e.target.value, entry = scEntries().find(x => x.key === key);
+  evAllPinned = key === "all";
+  if (entry?.card && !running) scShow(key);  // the scenario card above follows the log
+  else { evFilterRun = key; renderEvLog(); }
+};
 $("evBlockedOnly").onchange = (e) => { evBlockedOnly = e.target.checked; renderEvLog(); };
 
 async function showEvidence(i, attempt = 0, opts = {}) {
@@ -5977,7 +6326,7 @@ async function runScenario(s) {
   $("sessionId").value = newSessionId("demo"); // every scenario runs in its own session, so per-session caps never carry over
   $("endUser").value = "";                     // scenarios name their end users explicitly
   $("cacheScope").value = cfg.semanticCache?.enabled && !(s.controls || []).some(c => c.startsWith("sem-")) ? "off" : "";  // ...and their cache scopes: off unless the scenario demonstrates the cache, so repeated prompts reach the model, its limits and budgets
-  if (curRun) { snapPart(curPart); curPart = { si: SCENARIOS.indexOf(s), title: s.title, calls: [] }; curRun.parts.push(curPart); }
+  if (curRun) { snapPart(curPart); curPart = { si: SCENARIOS.indexOf(s), title: s.title, calls: [] }; curRun.parts.push(curPart); scSetActive(`${curRun.n}.${curRun.parts.length - 1}`); }
   if (!s.tab && !(curTab === "happened" && psec === "investigate")) showPsec("investigate");  // scenarios play out in the gateway flow
   // show the collapsed scenarios strip and the conversation under it (the run streams its prompts and answers there)
   const strip = $("launch").offsetHeight, cv = $("cvCard").getBoundingClientRect().top;  // the strip is sticky: put the conversation just under it

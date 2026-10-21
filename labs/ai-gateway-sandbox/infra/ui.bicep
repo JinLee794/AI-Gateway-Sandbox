@@ -22,6 +22,7 @@ var roles = {
   apimServiceContributor: '312a565d-c81f-4fd8-895a-4e21e48d571c' // debug traces, policies, budget reset
   logAnalyticsReader: '73c42c96-874c-492b-b04d-ab87d138a893' // chargeback and telemetry queries
   monitoringReader: '43d0d8ad-25c7-4714-9337-8ba259a9fe05' // Application Insights queries
+  storageBlobDataContributor: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe' // run history
 }
 
 resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
@@ -56,6 +57,44 @@ resource rgRoles 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for rol
     principalType: 'ServicePrincipal'
   }
 }]
+
+// Run history: the container's disk is wiped by every deploy, revision or restart, so each signed-in user's runs are
+// blobs here (run-history/<Entra object id>/<run id>.json), written by the UI's managed identity. Entra ID auth only.
+resource historyStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: 'sthist${resourceSuffix}'
+  location: location
+  tags: tags
+  sku: { name: 'Standard_LRS' }
+  kind: 'StorageV2'
+  properties: {
+    allowSharedKeyAccess: false
+    allowBlobPublicAccess: false
+    defaultToOAuthAuthentication: true
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+resource historyBlobs 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
+  parent: historyStorage
+  name: 'default'
+}
+
+resource historyContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: historyBlobs
+  name: 'run-history'
+  properties: { publicAccess: 'None' }
+}
+
+resource historyRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(historyContainer.id, identity.id, roles.storageBlobDataContributor)
+  scope: historyContainer
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.storageBlobDataContributor)
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
 
 resource app 'Microsoft.App/containerApps@2024-03-01' = {
   name: 'sandbox-ui-${resourceSuffix}'
@@ -97,13 +136,14 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
             { name: 'HOST', value: '0.0.0.0' }
             { name: 'PORT', value: '80' }
+            { name: 'HISTORY_BLOB_URL', value: '${historyStorage.properties.primaryEndpoints.blob}${historyContainer.name}' }
           ]
         }
       ]
       scale: { minReplicas: 1, maxReplicas: 1 }
     }
   }
-  dependsOn: [acrPull]
+  dependsOn: [acrPull, historyRole]
 }
 
 output name string = app.name
