@@ -1965,6 +1965,7 @@ def public_config(user=None):
         "copilot": {"enabled": copilot_enabled(), "model": COPILOT_MODEL, "subscription": COPILOT_SUBSCRIPTION, "plan": COPILOT_PRODUCT},
         "links": {
             "workbook": f"{portal}{CONFIG['workbookId']}/workbook" if CONFIG.get("workbookId") else None,
+            "dashboard": f"https://portal.azure.com/#@/dashboard/arm{CONFIG['finOpsDashboardId']}" if CONFIG.get("finOpsDashboardId") else None,
             "appInsights": f"{portal}{CONFIG['appInsightsId']}/overview" if CONFIG.get("appInsightsId") else None,
             "apim": f"{portal}{CONFIG['apimServiceId']}/overview" if CONFIG.get("apimServiceId") else None,
             "logAnalytics": f"{portal}{CONFIG['logAnalyticsResourceId']}/logs" if CONFIG.get("logAnalyticsResourceId") else None,

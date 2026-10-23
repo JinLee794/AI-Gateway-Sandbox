@@ -101,6 +101,7 @@ var demoConfig = union(config.uiConfig, {
   appInsightsId: sandbox.outputs.appInsightsId
   appInsightsAppId: sandbox.outputs.appInsightsAppId
   workbookId: sandbox.outputs.workbookId
+  finOpsDashboardId: sandbox.outputs.finOpsDashboardId
   agents: sandbox.outputs.agentKeys
   tenantId: sandbox.outputs.tenantId
   logAnalyticsWorkspaceId: sandbox.outputs.logAnalyticsWorkspaceId
@@ -159,5 +160,6 @@ output INFERENCE_BASE_URL string = sandbox.outputs.inferenceBaseUrl
 output MCP_URL string = sandbox.outputs.mcpUrl
 output A2A_URL string = sandbox.outputs.a2aUrl
 output WORKBOOK_ID string = sandbox.outputs.workbookId
+output FINOPS_DASHBOARD_ID string = sandbox.outputs.finOpsDashboardId
 // Custom role of the "over budget, switched off" Logic App: it outlives 'azd down', so the postdown hook deletes it
 output BUDGET_SUSPEND_CUSTOM_ROLE_ID string = (sandbox.outputs.budgetSuspend.?customRole ?? false) ? sandbox.outputs.budgetSuspend.roleDefinitionId : ''

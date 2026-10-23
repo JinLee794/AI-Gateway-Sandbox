@@ -762,6 +762,7 @@
   </div>
   <div class="cmdbar">
     <a class="cmd" id="lnkWorkbook" target="_blank"><img src="/icons/workbooks.svg" alt="">Workbook</a>
+    <a class="cmd" id="lnkDashboard" target="_blank" title="FinOps dashboard in the Azure portal: budget vs spend, cost by subscription and team, budget suspensions"><img src="/icons/cost-management.svg" alt="">FinOps dashboard</a>
     <a class="cmd" id="lnkLogs" target="_blank"><img src="/icons/log-analytics.svg" alt="">Log Analytics</a>
     <a class="cmd" id="lnkAppInsights" target="_blank"><img src="/icons/app-insights.svg" alt="">Application Insights</a>
     <a class="cmd" id="lnkApim" target="_blank"><img src="/icons/apim.svg" alt="">API Management</a>
@@ -2726,7 +2727,7 @@ async function init() {
     $("envLabel").innerHTML = `Hosted demo · signed in as <b>${escapeHtml(cfg.user || "unknown")}</b> · <a href="/.auth/logout" style="color:inherit">Sign out</a>`;
     $("useToken").parentElement.title = "Microsoft Entra ID token of the demo UI's managed identity (on behalf of the signed-in user), validated by validate-azure-ad-token";
   }
-  for (const [k, id] of [["workbook", "lnkWorkbook"], ["appInsights", "lnkAppInsights"], ["logAnalytics", "lnkLogs"], ["apim", "lnkApim"]]) {
+  for (const [k, id] of [["workbook", "lnkWorkbook"], ["dashboard", "lnkDashboard"], ["appInsights", "lnkAppInsights"], ["logAnalytics", "lnkLogs"], ["apim", "lnkApim"]]) {
     if (cfg.links[k]) $(id).href = cfg.links[k]; else $(id).classList.add("hidden");
   }
   loadHistory();

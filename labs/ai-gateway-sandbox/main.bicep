@@ -1058,6 +1058,22 @@ resource sandboxWorkbook 'Microsoft.Insights/workbooks@2022-04-01' = {
   }
 }
 
+// 11b. FinOps dashboard (Azure portal), ported from labs/finops-framework: budget vs spend, cost by subscription,
+//      over time and by team, budget suspensions, gateway request metrics
+module finOpsDashboardModule 'finops-dashboard.bicep' = {
+  name: 'finOpsDashboardModule'
+  params: {
+    resourceSuffix: resourceSuffix
+    workspaceName: lawModule.outputs.name
+    workspaceId: lawModule.outputs.id
+    appInsightsId: appInsightsModule.outputs.id
+    appInsightsName: appInsightsModule.outputs.name
+    workbookId: sandboxWorkbook.id
+    budgetRows: budgetRows
+    budgetSuspendEnabled: budgetSuspendEnabled
+  }
+}
+
 // 12. Optional: the demo UI hosted on App Service behind Easy Auth (only users of this tenant can sign in)
 module demoUi 'demo-ui.bicep' = if (hostDemoUi) {
   name: 'demoUiModule'
@@ -1116,6 +1132,7 @@ output appInsightsId string = appInsightsModule.outputs.id
 output appInsightsAppId string = appInsightsModule.outputs.appId
 output appInsightsName string = appInsightsModule.outputs.name
 output workbookId string = sandboxWorkbook.id
+output finOpsDashboardId string = finOpsDashboardModule.outputs.id
 output apimServiceId string = apimModule.outputs.id
 output apimServiceName string = apimModule.outputs.name
 output apimResourceGatewayURL string = apimModule.outputs.gatewayUrl
