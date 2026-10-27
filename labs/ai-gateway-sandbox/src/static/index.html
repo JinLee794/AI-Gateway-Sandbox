@@ -574,12 +574,37 @@
   #agTier .agstart > div:not(:last-child)::before { content:""; position:absolute; left:13px; top:26px; bottom:0; width:2px; background:#f4c7a8; }
   #agTier .agstart .n { width:28px; height:28px; border-radius:50%; display:grid; place-items:center; background:#ca5010; color:#fff; font-weight:800; font-size:13px; }
   #agTier .agstart b { display:block; font-size:13px; } #agTier .agstart span { font-size:11.5px; color:var(--muted); }
+  /* private network: the path a Foundry agent's call takes to the gateway */
+  #agTier .agpn { margin-top:16px; border-radius:8px; padding:12px 14px; border:1px solid var(--border); background:#fff; }
+  #agTier .agpn .top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; } #agTier .agpn .top p { margin:2px 0 0; font-size:12.5px; color:var(--muted); }
+  #agTier .agpk { display:flex; align-items:stretch; margin-top:12px; }
+  #agTier .agpk .vn { flex:1 1 auto; display:flex; align-items:stretch; position:relative; padding:24px 10px 10px; border:2px dashed #0f6cbd; border-radius:10px; background:#f5f9fd; }
+  #agTier .agpk .vn > .lb { position:absolute; top:4px; left:10px; font-size:10.5px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:#0f548c; }
+  #agTier .agpk .nd { flex:1 1 0; min-width:0; position:relative; display:flex; flex-direction:column; gap:3px; padding:10px 10px 9px; border-radius:8px; border:1px solid var(--border); background:#fff; transition:opacity .2s, box-shadow .2s, border-color .2s; }
+  #agTier .agpk .nd .ic { font-size:20px; line-height:1; } #agTier .agpk .nd img { width:22px; height:22px; }
+  #agTier .agpk .nd b { font-size:12.5px; line-height:1.25; } #agTier .agpk .nd code { font-size:10.5px; color:#0f548c; background:#eaf3fb; border-radius:3px; padding:1px 4px; align-self:flex-start; white-space:normal; }
+  #agTier .agpk .nd span { font-size:11px; line-height:1.3; color:var(--muted); }
+  #agTier .agpk .nd .no { position:absolute; top:-9px; right:-7px; width:20px; height:20px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:800; color:#fff; background:#0f6cbd; box-shadow:0 0 0 2px #fff; }
+  #agTier .agpk .nd.gw { border:2px solid #ca5010; background:#fdf6f1; } #agTier .agpk .nd.ext { border-style:dashed; }
+  #agTier .agpk .lk { flex:0 0 52px; align-self:center; height:2px; position:relative; background:#0f6cbd; }
+  #agTier .agpk .lk::after { content:""; position:absolute; right:-1px; top:-4px; border:5px solid transparent; border-left:7px solid #0f6cbd; border-right:0; }
+  #agTier .agpk .lk.out { flex-basis:36px; background:#ca5010; } #agTier .agpk .lk.out::after { border-left-color:#ca5010; }
+  #agTier .agpk .lk i { position:absolute; bottom:5px; left:45%; transform:translateX(-50%); font-style:normal; font-size:9.5px; font-weight:800; color:#0f548c; white-space:nowrap; }
+  #agTier .agpks { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:12px; }
+  #agTier .agpks button { font:inherit; color:inherit; text-align:left; cursor:pointer; height:auto; white-space:normal; display:grid; grid-template-columns:24px 1fr; gap:2px 8px; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:#fff; transition:background .2s, border-color .2s; }
+  #agTier .agpks button:hover, #agTier .agpks button[aria-pressed="true"] { border-color:#0f6cbd; background:#eaf3fb; }
+  #agTier .agpks .n { grid-row:1 / 3; width:24px; height:24px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:800; color:#fff; background:#0f6cbd; }
+  #agTier .agpks b { font-size:12.5px; } #agTier .agpks span { font-size:11.5px; line-height:1.35; color:var(--muted); }
+  #agTier .agpn[data-hl] .agpk .nd { opacity:.35; } #agTier .agpn[data-hl] .agpk .nd.gw { opacity:.6; }
+  #agTier .agpn[data-hl="1"] .agpk .s1, #agTier .agpn[data-hl="2"] .agpk .s2, #agTier .agpn[data-hl="3"] .agpk .s3, #agTier .agpn[data-hl="4"] .agpk .s4 { opacity:1; border-color:#0f6cbd; box-shadow:0 0 0 2px #0f6cbd, 0 4px 12px rgba(15,108,189,.2); }
+  #agTier .agpn .note { margin-top:8px; font-size:11.5px; color:var(--muted); }
   #agTier .agcust details.agfaq { margin-top:14px; } #agTier .agcust details.agfaq > summary { cursor:pointer; color:var(--accent); font-size:13px; font-weight:600; }
   #agTier .agfaqs { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px 18px; margin-top:8px; }
   #agTier .agfaqs .grp { font-size:10.5px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:var(--muted); margin:6px 0 2px; }
   #agTier .agfaqs .qa { font-size:12.5px; line-height:1.45; padding:6px 0; border-bottom:1px solid var(--divider); } #agTier .agfaqs .qa b { display:block; margin-bottom:2px; }
   @keyframes agPop { from { opacity:0; transform:scale(.92); } to { opacity:1; transform:none; } }
   @keyframes agFill { to { width:var(--w); } } @keyframes agFade { to { opacity:1; } } @keyframes agGrow { to { width:var(--w); } } @keyframes agFlow { to { background-position:22px 0; } } @keyframes agDash { to { stroke-dashoffset:-11; } }
+  @media (max-width:1100px) { #agTier .agpk, #agTier .agpk .vn { flex-direction:column; } #agTier .agpk .lk { flex-basis:18px; width:2px; align-self:center; background:#0f6cbd; animation:none; } #agTier .agpk .lk::after { right:auto; left:-4px; top:auto; bottom:-2px; border:5px solid transparent; border-top:6px solid #0f6cbd; border-bottom:0; } #agTier .agpk .lk.out { background:#ca5010; } #agTier .agpk .lk.out::after { border-top-color:#ca5010; } #agTier .agpk .lk i { display:none; } #agTier .agpks { grid-template-columns:1fr 1fr; } }
   @media (max-width:1100px) { #agTier .agval, #agTier .agdec, #agTier .agcv, #agTier .agc3, #agTier .agfaqs { grid-template-columns:1fr; } #agTier .agly { grid-template-columns:26px 1fr; } #agTier .agly .sy, #agTier .agly .ow { grid-column:2; } }
   /* 0. TL;DR */
   #agTier .agtldr { border-top:4px solid var(--accent); }
@@ -5941,7 +5966,6 @@ const AG_FAQ = [
     ["Does AI Gateway replace Foundry's controls?", "No. Foundry keeps governing what's built in it. The gateway adds rules that span apps, teams, subscriptions and providers."]]],
   ["Choosing and running the gateway", [
     ["Why choose the AI Gateway tier?", "It's the API Management tier built for AI workloads: the models and tools apps and agents call. Add a provider's models once and make them available to any number of Foundry projects; other tiers connect them one project at a time, or once per Foundry account. Tools work the same way: one MCP endpoint, and each project adds that URL."],
-    ["What does a private network need?", "Foundry's outbound VNet integration with the agent subnet, private DNS that resolves the gateway to its private IP, routes and firewall rules that allow HTTPS, and a model connection to the gateway's private endpoint. The Microsoft account team can help validate the setup."],
     ["Who owns the gateway?", "The platform team sets it up and owns its rules. App teams keep their Foundry projects, deployments and agents."],
     ["How do Agent 365, Foundry and AI Gateway fit together?", "Foundry builds and runs the agents. Agent 365 manages them, including which tools each may use. AI Gateway governs the calls they make to models and tools, with block and allow rules set at the gateway or from Agent 365."]]],
 ];
@@ -6007,6 +6031,42 @@ function agCustStack() {
   return AG_LAYERS.map(([id, ic, nm, sy, ow, chg], i) => (i ? `<div class="agdn"></div>` : "")
     + `<div class="agly ${id === "gw" ? "gw " : ""}${on.has(id) ? "hi" : "dim"}"><img src="/icons/${ic}.svg" alt=""><span class="nm">${nm}</span><span class="sy">${sy}${chg}</span><span class="ow">${ow}</span></div>`).join("");
 }
+// private network: the four things a Foundry agent's call needs to reach the gateway privately
+const AG_PN = [
+  ["Outbound VNet integration", "Foundry's agent subnet sends the agent's calls into your VNet."],
+  ["Private DNS", "Resolves the gateway's hostname to its private IP, not a public one."],
+  ["Routes &amp; firewall", "Rules that allow HTTPS (443) from the agent subnet to that IP."],
+  ["Model connection", "The project's model connection points at the gateway's private endpoint."],
+];
+function agPrivNet() {
+  const nd = (s, ic, t, code, sub, x = "") => `<div class="nd ${s ? "s" + s : ""} ${x}">${s ? `<span class="no">${s}</span>` : ""}${ic}<b>${t}</b>${code ? `<code>${code}</code>` : ""}<span>${sub}</span></div>`;
+  const lk = (t, x = "") => `<div class="lk ${x}">${t ? `<i>${t}</i>` : ""}</div>`;
+  return `<div class="agpn" id="agPn"><div class="top"><div><span class="h">Private network: how a Foundry agent reaches the gateway</span>`
+      + `<p>Four pieces keep the call on private IPs. Hover or click one to find it on the path.</p></div></div>`
+    + `<div class="agpk" role="img" aria-label="A Foundry agent in the agent subnet resolves the gateway through private DNS, passes routes and firewall rules on HTTPS, and reaches the gateway's private endpoint; the gateway then calls models and tools">`
+      + `<div class="vn"><span class="lb">Your VNet</span>`
+        + nd(1, `<img src="/icons/foundry-agent-service.svg" alt="">`, "Foundry agent", "agent subnet", "outbound VNet integration")
+        + lk("resolve")
+        + nd(2, `<span class="ic">📇</span>`, "Private DNS", "gateway → 10.x.x.x", "linked to the VNet")
+        + lk("HTTPS")
+        + nd(3, `<span class="ic">🧱</span>`, "Routes &amp; firewall", "allow 443", "to the gateway's private IP")
+        + lk("")
+        + nd(4, `<span class="ic">🔌</span>`, "Private endpoint", "10.x.x.x", "the model connection targets it")
+      + `</div>`
+      + lk("", "out")
+      + nd(0, `<img src="/icons/ai-gateway.svg" alt="">`, "AI Gateway", "", "limits, safety, routing", "gw")
+      + lk("", "out")
+      + nd(0, `<img src="/icons/foundry-models.svg" alt="">`, "Models &amp; tools", "", "the gateway calls them", "ext")
+    + `</div><div class="agpks" role="group" aria-label="What a private network needs">`
+      + AG_PN.map(([t, d], i) => `<button type="button" data-agpn="${i + 1}" aria-pressed="false"><span class="n">${i + 1}</span><b>${t}</b><span>${d}</span></button>`).join("")
+    + `</div><div class="note">The Microsoft account team can help validate the setup.</div></div>`;
+}
+function agPnHl(v) {
+  const p = $("agPn"); if (!p) return;
+  if (v) p.dataset.hl = v; else delete p.dataset.hl;
+  p.querySelectorAll("[data-agpn]").forEach(b => b.setAttribute("aria-pressed", b.dataset.agpn === v));
+}
+let agPnPin = "";
 function renderFg() {
   $("agFg").innerHTML = `<div class="hl"><span class="tag">FIELD GUIDE</span><div><b>When should a customer add AI Gateway to Foundry?<span class="ga">GA November 17, 2026</span></b>`
       + `<p>Start with Foundry: governance is built in. The gateway pays off once AI use spreads across apps, providers or teams. <b>Any yes</b> below is the signal.</p></div></div>`
@@ -6038,6 +6098,7 @@ function renderFg() {
       + `<div><span class="h">How to start when the answer is yes</span><div class="agstart">`
         + [["Pick one shared workload", "one that several teams already call"], ["Set up AI Gateway", "in its portal or in code, a limit per app"], ["Connect models, block direct", "model connections, then the Azure Policy"], ["Review in a few weeks", "with the customer, then add teams and tools"]]
           .map(([t, d], i) => `<div><span class="n">${i + 1}</span><span><b>${t}</b><span>${d}</span></span></div>`).join("") + `</div></div></div>`
+    + agPrivNet()
     + `<details class="agfaq"><summary>Field FAQ · ${n} answers</summary><div class="agfaqs">`
       + AG_FAQ.map(([g, qs]) => `<div><div class="grp">${g}</div>${qs.map(([q, a]) => `<div class="qa"><b>${q}</b>${a}</div>`).join("")}</div>`).join("") + `</div></details>`;
 }
@@ -6119,11 +6180,14 @@ addEventListener("resize", () => {
     if (row[row.length - 1].nextElementSibling !== pane) row[row.length - 1].after(pane); }
 });
 $("agTier").addEventListener("keydown", (e) => { if (e.key === "Escape" && agScSel != null) { const i = agScSel; agScClose(); $("agScenarios").querySelector(`[data-agsc="${i}"]`)?.focus(); } });
+$("agTier").addEventListener("mouseover", (e) => { const x = e.target.closest("[data-agpn]"); if (x) agPnHl(x.dataset.agpn); });
+$("agTier").addEventListener("mouseout", (e) => { const x = e.target.closest("[data-agpn]"); if (x && !x.contains(e.relatedTarget)) agPnHl(agPnPin); });
 $("agTier").addEventListener("click", (e) => {
   let x;
   if ((x = e.target.closest("[data-agfg]"))) { const i = Number(x.dataset.agfg); if (agFgOn.has(i)) agFgOn.delete(i); else agFgOn.add(i); agFgUpd(); return; }
   if (e.target.closest("[data-agfgall]")) { if (agFgOn.size === 3) agFgOn.clear(); else [0, 1, 2].forEach(i => agFgOn.add(i)); agFgUpd(); return; }
   if ((x = e.target.closest("[data-agfgdet]"))) { agFgDet = !agFgDet; x.setAttribute("aria-pressed", agFgDet); $("agNeeds").classList.toggle("det", agFgDet); return; }
+  if ((x = e.target.closest("[data-agpn]"))) { agPnPin = agPnPin === x.dataset.agpn ? "" : x.dataset.agpn; agPnHl(agPnPin); return; }
   if ((x = e.target.closest("[data-agwho]"))) { agWhoSel = x.dataset.agwho;
     $("agCust").querySelectorAll("[data-agwho]").forEach(b => { const on = b === x; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
     $("agStack").innerHTML = agCustStack(); return; }
