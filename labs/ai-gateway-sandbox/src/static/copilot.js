@@ -274,6 +274,7 @@
     "evidence-sinks": ["policies.telemetry", () => cardOf(byId("sinks"))], "policy-evidence": ["policies.telemetry", () => byId("policyEvidenceCard")],
     "deployed-policies": ["policies.deployed", () => window.pxShowDocs?.()],
     "ai-gateway-tier": ["policies.tier", () => byId("agTier")],
+    "foundry-gateway-guide": ["policies.tier", () => byId("agFg")], "customer-view": ["policies.tier", () => byId("agCust")],
     "monitor-cost": ["monitor", () => cardOf(byId("mCostAgent"))], "monitor-outcomes": ["monitor", () => cardOf(byId("mOutcomes"))],
     "monitor-cost-time": ["monitor", () => cardOf(byId("mCostTime"))], "monitor-chargeback": ["monitor", () => cardOf(byId("mChargeback"))],
     "monitor-resources": ["monitor", () => cardOf(byId("mResources"))], "monitor-tokens": ["monitor", () => cardOf(byId("mTokens"))],

@@ -467,6 +467,120 @@
   #agTier .elh { font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; margin:16px 0 8px; }
   #agTier .agcols { gap:16px; } #agTier .agcols > .card { min-width:0; }
   #agTier .agsrc { font-size:12px; margin:14px 0 0; }
+  /* Field guide: when to add AI Gateway to Foundry, and what it means for customers */
+  .agga { display:inline-block; font-size:9.5px; font-weight:800; letter-spacing:.05em; padding:0 5px; border-radius:7px; background:#ca5010; color:#fff; vertical-align:1px; }
+  #agTier .agfg { border-top:4px solid #ca5010; }
+  #agTier .agfg .hl, #agTier .agcust .hl { display:flex; gap:14px; align-items:flex-start; }
+  #agTier .agfg .hl .tag, #agTier .agcust .hl .tag { flex:none; font-size:11px; font-weight:800; letter-spacing:.6px; color:#fff; background:#ca5010; border-radius:4px; padding:3px 8px; margin-top:3px; }
+  #agTier .agfg .hl > div > b:first-child, #agTier .agcust .hl > div > b:first-child { display:block; font-size:19px; line-height:1.3; }
+  #agTier .agfg .hl p, #agTier .agcust .hl p { margin:4px 0 0; font-size:13.5px; line-height:1.5; max-width:980px; }
+  #agTier .agfg .hl .ga, #agTier .agcust .hl .ga { display:inline-block; margin-left:8px; font-size:11px; font-weight:700; color:#8a3707; background:#fdf0e7; border:1px solid #f4c7a8; border-radius:10px; padding:1px 8px; vertical-align:3px; }
+  /* the value: three outcomes, lit by the switches */
+  #agTier .agval { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-top:14px; }
+  #agTier .agval button { font:inherit; color:inherit; text-align:left; cursor:pointer; height:auto; white-space:normal; display:grid; grid-template-columns:44px 1fr; gap:2px 12px; align-items:center; padding:12px 14px; border-radius:10px; border:1px solid var(--border); border-top:4px solid var(--c); background:#fff; transition:background .25s, color .25s, box-shadow .25s; }
+  #agTier .agval button:hover { box-shadow:0 2px 10px rgba(0,0,0,.08); }
+  #agTier .agval .ic { grid-row:1 / 3; width:44px; height:44px; border-radius:50%; display:grid; place-items:center; font-size:22px; background:#f3f2f1; transition:background .25s; }
+  #agTier .agval b { font-size:15.5px; line-height:1.25; } #agTier .agval small { font-size:12px; line-height:1.35; color:var(--muted); transition:color .25s; }
+  #agTier .agval button.on { background:var(--c); color:#fff; border-color:var(--c); box-shadow:0 4px 14px rgba(0,0,0,.12); } #agTier .agval button.on small { color:rgba(255,255,255,.88); } #agTier .agval button.on .ic { background:rgba(255,255,255,.22); }
+  /* the decision: three switches drive the picture */
+  #agTier .agdec { display:grid; grid-template-columns:300px 1fr; gap:18px; margin-top:14px; align-items:stretch; }
+  #agTier .agqs { display:flex; flex-direction:column; gap:8px; }
+  #agTier .agfg .h, #agTier .agcust .h { font-size:10.5px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--muted); }
+  #agTier .agq { font:inherit; color:inherit; text-align:left; cursor:pointer; display:grid; grid-template-columns:22px 1fr 44px; gap:10px; align-items:center; height:auto; white-space:normal; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:#fff; transition:background .2s, border-color .2s, box-shadow .2s; }
+  #agTier .agq:hover { border-color:#ca5010; } #agTier .agq.on { background:#fdf6f1; border-color:#ca5010; box-shadow:0 0 0 1px #ca5010 inset; }
+  #agTier .agq .n { width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:800; color:#fff; background:var(--c); }
+  #agTier .agq .t { font-size:13px; font-weight:600; line-height:1.3; } #agTier .agq .t small { display:block; font-size:11px; font-weight:700; letter-spacing:.3px; text-transform:uppercase; color:var(--c); margin-bottom:2px; }
+  #agTier .agq .sw { width:40px; height:22px; border-radius:11px; background:#c8c6c4; position:relative; transition:background .2s; } #agTier .agq.on .sw { background:#ca5010; }
+  #agTier .agq .sw::after { content:""; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#fff; transition:transform .2s; } #agTier .agq.on .sw::after { transform:translateX(18px); }
+  #agTier .agqs .reset { align-self:flex-start; font:inherit; font-size:12px; height:auto; padding:0; border:0; background:none; color:var(--accent); cursor:pointer; }
+  #agTier .agpic { border-radius:10px; background:linear-gradient(#fbfbfa, #f5f4f2); border:1px solid var(--divider); padding:14px; display:flex; flex-direction:column; gap:12px; min-width:0; }
+  #agTier .agdia { position:relative; display:grid; grid-template-columns:minmax(0,1fr) 64px minmax(0,1.15fr) 64px minmax(0,1fr); grid-template-rows:auto 1fr; align-items:center; row-gap:8px; min-height:230px; }
+  #agTier .agdia > .h { align-self:end; } #agTier .agdia > .h.mid { text-align:center; }
+  #agTier .agdia .col { display:flex; flex-direction:column; gap:8px; }
+  #agTier .agfn, #agTier .agfd, #agTier .aggw { position:relative; z-index:1; }
+  #agTier .agwires { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; z-index:0; }
+  #agTier .agwires path { fill:none; stroke:#a19f9d; stroke-width:1.5; } #agTier .agwires path.on { stroke:#ca5010; stroke-width:2; stroke-dasharray:6 5; animation:agDash .8s linear infinite; }
+  #agTier .agfn { display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:6px; background:#fff; border:1px solid var(--border); font-size:12.5px; font-weight:600; animation:agPop .35s both; }
+  #agTier .agfn img { width:18px; height:18px; flex:none; } #agTier .agfn .sub { display:block; font-size:10.5px; font-weight:400; color:var(--muted); }
+  #agTier .agfn .m { margin-left:auto; width:46px; height:6px; border-radius:3px; background:#edebe9; overflow:hidden; flex:none; } #agTier .agfn .m i { display:block; height:100%; background:#ca5010; width:0; animation:agFill 1.2s .2s forwards; }
+  #agTier .agfn.ext { border-style:dashed; }
+  #agTier .agfd { padding:8px 10px; border-radius:8px; background:#fff; border:1px solid #0f6cbd; animation:agPop .35s both; }
+  #agTier .agfd.many { box-shadow:4px 4px 0 -1px #fff, 4px 4px 0 0 #0f6cbd, 8px 8px 0 -1px #fff, 8px 8px 0 0 #0f6cbd; margin:0 8px 8px 0; }
+  #agTier .agfd .t { display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; color:#0f548c; } #agTier .agfd .t img { width:18px; height:18px; }
+  #agTier .agfd .bi { display:flex; flex-wrap:wrap; gap:3px; margin-top:6px; } #agTier .agfd .bi span { font-size:10.5px; padding:0 6px; border-radius:8px; background:#eaf3fb; color:#0f548c; }
+  #agTier .agfd .bi span.x { background:#fde7e9; color:#a4262c; }
+  #agTier .aggw:not(.on) { align-self:start; background:#f5f4f2; }
+  #agTier .aggw { align-self:stretch; display:flex; flex-direction:column; gap:6px; justify-content:center; padding:10px; border-radius:10px; border:2px dashed #c8c6c4; text-align:center; color:var(--muted); font-size:12px; transition:all .3s; }
+  #agTier .aggw .gh { display:flex; align-items:center; justify-content:center; gap:8px; font-size:14px; font-weight:800; } #agTier .aggw .gh img { width:24px; height:24px; filter:grayscale(1); opacity:.5; transition:all .3s; }
+  #agTier .aggw.on { border:2px solid #ca5010; background:#fff; color:var(--text); box-shadow:0 4px 14px rgba(202,80,16,.15); } #agTier .aggw.on .gh { color:#ca5010; } #agTier .aggw.on .gh img { filter:none; opacity:1; }
+  #agTier .aggw .caps { display:flex; flex-wrap:wrap; gap:4px; justify-content:center; }
+  #agTier .agcap { font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px; color:#fff; background:var(--c); animation:agPop .35s both; }
+  #agTier .agverd { display:flex; align-items:center; gap:12px; padding:9px 14px; border-radius:8px; color:#fff; font-size:13px; transition:background .3s; }
+  #agTier .agverd b { font-size:16px; white-space:nowrap; } #agTier .agverd.no { background:#0f548c; } #agTier .agverd.yes { background:#1b1a19; } #agTier .agverd.yes b { color:#f7a76c; }
+  /* the needs behind a yes: before -> after tiles */
+  #agTier .agnds { margin-top:16px; } #agTier .agnds .none { font-size:12.5px; color:var(--muted); padding:4px 0; }
+  #agTier .agnhd { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
+  #agTier .agnhd button { font:inherit; font-size:12px; height:auto; padding:3px 10px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--accent); cursor:pointer; white-space:nowrap; } #agTier .agnhd button[aria-pressed="true"] { background:#eaf3fb; border-color:#0f6cbd; }
+  #agTier .agng + .agng { margin-top:12px; } #agTier .agng > .h { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--c); margin-bottom:6px; }
+  #agTier .agng > .h span { font-weight:400; text-transform:none; letter-spacing:0; color:var(--muted); }
+  #agTier .agng .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:8px; }
+  #agTier .agnd { border:1px solid var(--border); border-left:3px solid var(--c); border-radius:6px; background:#fff; padding:8px 10px; display:flex; flex-direction:column; gap:4px; animation:agPop .35s both; }
+  #agTier .agnd .nd { font-size:11.5px; line-height:1.35; color:var(--muted); } #agTier .agnd .nd i { font-style:normal; font-weight:700; margin-right:5px; }
+  #agTier .agnd .gv { font-size:13.5px; font-weight:700; line-height:1.3; color:var(--text); }
+  #agTier .agnd .more { display:none; flex-direction:column; gap:5px; margin-top:4px; padding-top:6px; border-top:1px dashed var(--divider); font-size:11.5px; line-height:1.35; }
+  #agNeeds.det .agnd .more { display:flex; }
+  #agTier .agnd .more .fa { padding:3px 6px; border-radius:4px; background:#eaf3fb; color:#0f548c; } #agTier .agnd .more .fa small { font-size:9px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; opacity:.75; margin-right:6px; }
+  #agTier .agnd .more .tn { color:var(--muted); }
+  #agTier .agsee { display:flex; flex-wrap:wrap; gap:4px; }
+  #agTier .agsee button { font:inherit; font-size:11px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; padding:0 7px; height:auto; text-align:left; white-space:normal; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--accent); }
+  #agTier .agsee button:hover { border-color:var(--accent); }
+  /* customer view */
+  #agTier .agcust { border-top:4px solid #8764b8; } #agTier .agcust .hl .tag { background:#8764b8; }
+  #agTier .agcv { display:grid; grid-template-columns:260px 1fr; gap:18px; margin-top:14px; }
+  #agTier .agper { display:flex; flex-direction:column; gap:6px; }
+  #agTier .agp { font:inherit; color:inherit; text-align:left; cursor:pointer; height:auto; white-space:normal; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:#fff; display:block; transition:all .2s; }
+  #agTier .agp:hover { border-color:#8764b8; } #agTier .agp.on { border-color:#8764b8; background:#f6f2fb; box-shadow:0 0 0 1px #8764b8 inset; }
+  #agTier .agp .t { display:flex; align-items:center; gap:8px; font-weight:700; font-size:13px; } #agTier .agp .t img { width:20px; height:20px; }
+  #agTier .agp .hd { display:block; font-size:12px; color:#5c2e91; font-weight:600; margin-top:2px; }
+  #agTier .agp ul { display:none; margin:6px 0 0; padding-left:16px; font-size:12px; line-height:1.45; } #agTier .agp.on ul { display:block; }
+  #agTier .agstack { display:flex; flex-direction:column; align-items:stretch; }
+  #agTier .agly { display:grid; grid-template-columns:30px 170px 1fr auto; gap:12px; align-items:center; padding:10px 14px; border-radius:8px; border:1px solid var(--border); background:#fff; transition:opacity .25s, box-shadow .25s, transform .25s; }
+  #agTier .agly img { width:26px; height:26px; } #agTier .agly .nm { font-weight:800; font-size:14px; } #agTier .agly .sy { font-size:12.5px; line-height:1.4; }
+  #agTier .agly .ow { font-size:11px; font-weight:700; padding:2px 9px; border-radius:10px; background:#f3f2f1; color:var(--muted); white-space:nowrap; }
+  #agTier .agly.gw { border:2px solid #ca5010; background:#fdf6f1; } #agTier .agly.gw .ow { background:#ca5010; color:#fff; }
+  #agTier .agly.dim { opacity:.35; } #agTier .agly.gw.dim { opacity:1; } #agTier .agly.hi { box-shadow:0 0 0 2px #8764b8; }
+  #agTier .agly .chg { display:inline-block; font-size:11px; font-weight:700; color:#0b6a0b; background:#dff6dd; border-radius:4px; padding:0 6px; margin-left:4px; }
+  #agTier .agdn { height:16px; width:2px; background:#a19f9d; margin:0 0 0 28px; position:relative; } #agTier .agdn::after { content:""; position:absolute; left:-4px; bottom:-2px; border:5px solid transparent; border-top:6px solid #a19f9d; border-bottom:0; }
+  #agTier .agc3 { display:grid; grid-template-columns:1.3fr 1fr 1fr; gap:12px; margin-top:16px; }
+  #agTier .agc3 > div { border-radius:8px; padding:12px 14px; border:1px solid var(--border); background:#fff; min-width:0; }
+  #agTier .aglim .bar { position:relative; height:30px; margin:26px 0 8px; border-radius:6px; background:#eaf3fb; border:1px solid #0f6cbd; display:flex; overflow:visible; }
+  #agTier .aglim .seg { height:100%; display:grid; place-items:center; font-size:10.5px; font-weight:700; color:#fff; width:0; animation:agGrow 1s forwards; position:relative; }
+  #agTier .aglim .seg.a { background:#ca5010; --w:20%; border-radius:5px 0 0 5px; } #agTier .aglim .seg.b { background:#8764b8; --w:45%; animation-delay:.3s; } #agTier .aglim .seg.c { background:#038387; --w:25%; animation-delay:.6s; }
+  #agTier .aglim .stop { position:absolute; z-index:2; left:20%; top:-5px; bottom:-5px; width:3px; margin-left:-1px; border-radius:2px; background:#a4262c; opacity:0; animation:agFade .3s 1.1s forwards; }
+  #agTier .aglim .stop b { position:absolute; bottom:calc(100% + 2px); left:50%; transform:translateX(-50%); white-space:nowrap; font-size:10.5px; font-weight:800; color:#a4262c; background:#fde7e9; border-radius:4px; padding:1px 6px; }
+  #agTier .aglim .cap { position:absolute; right:-1px; top:-22px; font-size:10.5px; font-weight:800; color:#0f548c; }
+  #agTier .aglim .lg { display:flex; justify-content:space-between; gap:8px; font-size:11.5px; color:var(--muted); }
+  #agTier .aglim .win { margin-top:8px; font-size:15px; font-weight:800; } #agTier .aglim .win span { color:#ca5010; }
+  #agTier .agwhod { margin:12px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; font-size:12px; }
+  #agTier .agwhod li { display:grid; grid-template-columns:96px 1fr 1fr; gap:6px; align-items:stretch; }
+  #agTier .agwhod li > b { font-size:11px; color:var(--muted); align-self:center; } #agTier .agwhod li > span { padding:3px 7px; border-radius:4px; background:#eaf3fb; color:#0f548c; line-height:1.3; } #agTier .agwhod li > span + span { background:#fdf0e7; color:#8a3707; }
+  #agTier .agwhod small { display:block; font-size:9px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; opacity:.75; }
+  #agTier .agny { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:8px; }
+  #agTier .agny > div { position:relative; text-align:center; font-size:11.5px; font-weight:600; line-height:1.25; padding:20px 4px 8px; border-radius:6px; background:#f3f2f1; color:#484644; }
+  #agTier .agny > div::before { content:attr(data-ic); position:absolute; top:4px; left:0; right:0; font-size:14px; } #agTier .agny > div i { display:block; margin-top:3px; font-style:normal; font-size:9.5px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; color:#8a3707; }
+  #agTier .agny > div.soon i { color:#0f6cbd; }
+  #agTier .agstart { display:flex; flex-direction:column; gap:0; margin-top:8px; }
+  #agTier .agstart > div { display:grid; grid-template-columns:28px 1fr; gap:10px; position:relative; padding-bottom:12px; }
+  #agTier .agstart > div:not(:last-child)::before { content:""; position:absolute; left:13px; top:26px; bottom:0; width:2px; background:#f4c7a8; }
+  #agTier .agstart .n { width:28px; height:28px; border-radius:50%; display:grid; place-items:center; background:#ca5010; color:#fff; font-weight:800; font-size:13px; }
+  #agTier .agstart b { display:block; font-size:13px; } #agTier .agstart span { font-size:11.5px; color:var(--muted); }
+  #agTier .agcust details.agfaq { margin-top:14px; } #agTier .agcust details.agfaq > summary { cursor:pointer; color:var(--accent); font-size:13px; font-weight:600; }
+  #agTier .agfaqs { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px 18px; margin-top:8px; }
+  #agTier .agfaqs .grp { font-size:10.5px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:var(--muted); margin:6px 0 2px; }
+  #agTier .agfaqs .qa { font-size:12.5px; line-height:1.45; padding:6px 0; border-bottom:1px solid var(--divider); } #agTier .agfaqs .qa b { display:block; margin-bottom:2px; }
+  @keyframes agPop { from { opacity:0; transform:scale(.92); } to { opacity:1; transform:none; } }
+  @keyframes agFill { to { width:var(--w); } } @keyframes agFade { to { opacity:1; } } @keyframes agGrow { to { width:var(--w); } } @keyframes agFlow { to { background-position:22px 0; } } @keyframes agDash { to { stroke-dashoffset:-11; } }
+  @media (max-width:1100px) { #agTier .agval, #agTier .agdec, #agTier .agcv, #agTier .agc3, #agTier .agfaqs { grid-template-columns:1fr; } #agTier .agly { grid-template-columns:26px 1fr; } #agTier .agly .sy, #agTier .agly .ow { grid-column:2; } }
   /* 0. TL;DR */
   #agTier .agtldr { border-top:4px solid var(--accent); }
   #agTier .agtldr .hl { display:flex; gap:14px; align-items:flex-start; }
@@ -627,7 +741,7 @@
   @media (max-width:760px) { #agTier .agpr { grid-template-columns:1fr; } #agTier .agpr .link { height:28px; } #agTier .agpr .link i { left:50%; right:auto; top:2px; bottom:2px; width:2px; height:auto; } #agTier .agpr .link i::after { display:none; } }
   @media (max-width:1100px) { #agTier .aglanes { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
   @media (max-width:1000px) { #agTier .agcols { grid-template-columns:1fr; } }
-  @media (prefers-reduced-motion: reduce) { #agTier *, #agTier *::before, #agTier *::after { animation:none !important; transition:none !important; } #agTier .agwire .r, #agTier .agtile, #agTier .agpr, #agTier .agtl { opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce) { #agTier *, #agTier *::before, #agTier *::after { animation:none !important; transition:none !important; } #agTier .agwire .r, #agTier .agtile, #agTier .agpr, #agTier .agtl, #agTier .agfn, #agTier .agfd, #agTier .agcap, #agTier .agnd, #agTier .aglim .stop { opacity:1; transform:none; } #agTier .aglim .seg { width:var(--w); } #agTier .agfn .m i { width:var(--w); } }
   .bkpool { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:10px; }
   .bkpool .ph { grid-column:1 / -1; font-size:12px; color:var(--muted); display:flex; gap:6px; align-items:center; }
   .bk { border:1px solid var(--border); border-radius:6px; padding:10px 12px; display:flex; gap:10px; align-items:flex-start; background:#fff; }
@@ -2812,7 +2926,9 @@
       </div>
       </div><!-- /psec explorer -->
       <div class="psec hidden" data-psec="tier" id="agTier">
-      <div class="card agtldr" id="agTldr"></div>
+      <div class="card agfg" id="agFg"></div>
+      <div class="card agcust" id="agCust" style="margin-top:16px"></div>
+      <div class="card agtldr" id="agTldr" style="margin-top:16px"></div>
       <div class="card" style="margin-top:16px">
         <h2><img class="hico" src="/icons/ai-gateway.svg" alt="">Same call, two gateways <span class="muted">this sandbox (API Management v2) vs. the AI Gateway tier</span> <span class="info" tabindex="0" data-tip="The AI Gateway tier is a separate resource type (Microsoft.ApiManagement/aigateways) with its own portal (ai.gateway.azure.com) and Azure CLI extension (az aigateway). Instead of XML policies, you add managed policies at Gateway scope or to one model, alias or MCP server. Pick a call below to watch what each gateway does with it.">i</span></h2>
         <div class="agstories" id="agStories" role="group" aria-label="Pick a call"></div>
@@ -2841,7 +2957,7 @@
       <div class="card" style="margin-top:16px">
         <h2><img class="hico" src="/icons/plan.svg" alt="">The guided scenarios on the AI Gateway tier <span class="muted">one bar segment per control it shows · click a scenario to compare it on both gateways</span></h2>
         <div id="agScenarios"></div>
-        <p class="muted agsrc">Based on the Azure AI Gateway tier labs (October 2026). The tier is still changing: check the <a href="https://ai.gateway.azure.com" target="_blank">AI Gateway portal ↗</a> docs before you plan a migration.</p>
+        <p class="muted agsrc">Based on the Azure AI Gateway tier labs (October 2026), the <a href="https://learn.microsoft.com/azure/api-management/ai-gateway-overview" target="_blank">AI Gateway tier (preview) docs ↗</a> and the product group's field guide <i>When to add AI Gateway to Foundry</i> (AI Gateway is GA on November 17, 2026). Marked <span class="agga">GA</span>: what the field guide describes for general availability that the preview docs don't list yet. Check the <a href="https://ai.gateway.azure.com" target="_blank">AI Gateway portal ↗</a> docs before you plan a migration.</p>
       </div>
       </div><!-- /psec tier -->
     </div>
@@ -5384,30 +5500,30 @@ const AG_KIND = { same: ["Same", "A managed policy or feature does the same job.
   classic: ["Classic only", "No managed equivalent yet: stays an XML policy on an API Management classic or v2 gateway."] };
 const AG_TIER = {
   "entra": ["differs", "Access › Microsoft Entra ID", "Callers get an AI Gateway data-plane role (AI Gateway User, Models User or Tools User) on the gateway, an alias or an MCP server, instead of a <code>validate-azure-ad-token</code> policy. A missing or invalid credential is still a 401."],
-  "model-ent": ["differs", "Aliases + Models User role per alias", "Publish only the aliases a caller may use and grant the role per alias. Swapping in a cheaper model for one plan (the downgrade) has no managed equivalent: retargeting an alias changes it for every caller."],
-  "out-cap": ["classic", "", "No managed policy rewrites <code>max_tokens</code>."],
+  "model-ent": ["differs", "Aliases + Models User role per alias", "Publish only the aliases a caller may use and grant the role per alias. Swapping in a cheaper model for one plan (the downgrade) has no managed equivalent: retargeting an alias changes it for every caller. Model Router (preview) can send simple requests to a lower-cost model behind one stable name, by a cost, balanced or quality preference, for every caller rather than per plan."],
+  "out-cap": ["classic", "", "No managed policy rewrites <code>max_tokens</code> in the preview. The field guide lists header and payload rewriting at the gateway for GA (need 3.4)."],
   "tpm": ["same", "Token rate limit", "Per minute, hour or day, counted per caller identity (API key, or Entra tenant + object id), at Gateway scope or on a model or alias: 429 with Retry-After. The monthly token quota (403) has no direct counterpart; a Cost limit caps spend instead."],
-  "budget": ["differs", "Cost limit", "One US-dollar budget per caller identity (hour to year, calendar windows) with overrides per API key or Entra identity: 403 <code>LlmCostQuotaExceeded</code>, and a response header with the budget left. It covers models and aliases only, so MCP tool, A2A agent, image and safety spend can't draw on it."],
+  "budget": ["differs", "Cost limit", "One US-dollar budget per caller identity (hour to year, calendar windows) with overrides per API key or Entra identity: 403 <code>LlmCostQuotaExceeded</code>, and a response header with the budget left. At GA the field guide sets budgets per app, project or model, across every provider. It covers models and aliases only, so MCP tool, A2A agent, image and safety spend can't draw on it. Costs are estimates from token use, not linked to Azure billing."],
   "session": ["classic", "", "Policy counters are keyed by caller identity or IP address only."],
   "session-budget": ["classic", "", "A Cost limit counts per caller identity or IP address, not per session."],
   "eu-budget": ["differs", "Cost limit per Entra identity", "Works when each end user calls with their own Entra token: every identity gets its own counter, with overrides. Users the app names in a header have no managed equivalent."],
-  "model-price": ["differs", "Built-in cost estimate", "The gateway estimates each response's cost from the provider's token counts and public pricing, by token category. No custom rate card, internal prices or PTU allocations."],
+  "model-price": ["differs", "Built-in cost estimate", "The gateway estimates each response's cost from the provider's token counts and public pricing, by token category. No custom rate card, internal prices or PTU allocations. Estimates only: don't use them for billing or invoicing."],
   "token-metric": ["same", "OpenTelemetry token metric", "<code>gen_ai_client_token_usage</code>, with caller claims as attributes, to Application Insights or any OTLP endpoint."],
   "cost-metric": ["differs", "Monitoring › estimated model cost", "The built-in dashboard shows estimated model cost by model and API key. Tool, agent and image spend isn't priced."],
-  "tool-ent": ["differs", "MCP server tool availability", "Allow all, an exact list, name patterns or block, per MCP server and the same for every caller; who may call the server is a Tools User role. A different tool list per plan would need one MCP server per plan."],
+  "tool-ent": ["differs", "MCP server tool availability", "Allow all, an exact list, name patterns or block, per MCP server and the same for every caller; who may call the server is a Tools User role. A different tool list per plan would need one MCP server per plan. Each Foundry project adds the gateway's MCP URL as a tool (tools aren't routed automatically), and block and allow rules can also come from Agent 365."],
   "tool-price": ["classic", "", "Tool calls aren't priced: a Cost limit applies to models only."],
   "tool-rate": ["same", "Request rate limit on an MCP server", "Calls per period per caller identity: 429 with Retry-After."],
-  "agent-ent": ["classic", "", "A2A agent APIs aren't an asset type: agents call the gateway as clients (for example Foundry hosted agents)."],
+  "agent-ent": ["classic", "", "A2A agent APIs aren't an asset type yet (agent-to-agent calls are coming after Ignite): agents call the gateway as clients (for example Foundry hosted agents)."],
   "agent-price": ["classic", "", "No per-task fee or downstream spend."],
   "obo": ["classic", "", "Spend counts against the identity that calls, so an agent's model calls land on the agent, not on the user it works for."],
   "chargeback": ["differs", "OpenTelemetry with token claims", "Export Entra claims (tid, oid or custom claims) with logs, traces and token metrics, then build chargeback from observed tokens. Per-session and per-cost-center records stay custom."],
-  "pool": ["differs", "Alias routing by priority and weight", "An alias spreads calls across backend models by priority and weight (canaries, preferred models) with no client change."],
-  "retry": ["classic", "", "No retry policy to write: the labs cover priority and weight across models, not retry on 429."],
-  "cb": ["classic", "", "Circuit breaker rules aren't exposed as a setting in the tier labs."],
+  "pool": ["differs", "Alias routing by priority and weight", "An alias spreads calls across backend models by priority and weight (canaries, preferred models) with no client change. At GA the field guide adds rule-based routing across deployments and providers; PTU spillover set on a Foundry deployment still applies inside Foundry."],
+  "retry": ["differs", "Failover across resources and providers", "The field guide lists failover to another resource or provider, in your deployment order (such as PTU first), for GA. The preview labs show alias priority and weight only, so confirm retry on 429 before relying on it."],
+  "cb": ["classic", "", "Circuit breaker rules aren't exposed as a setting; the gateway handles failover itself (see retry)."],
   "req-id": ["differs", "OpenTelemetry traces", "Every call and policy decision is a trace span. The <code>x-gw-*</code> headers are this sandbox's own."],
   "trace": ["differs", "Monitoring › Traces", "Gateway-aware traces for every call, instead of a per-request debug credential."],
   "gw-logs": ["differs", "OpenTelemetry logs", "Metrics, logs and traces go to Application Insights or any OTLP endpoint, instead of the <code>ApiManagementGateway*</code> tables in Log Analytics."],
-  "content-safety": ["differs", "Content safety policy", "Screens prompts, tool inputs and responses with a threshold per category, at Gateway scope or on a model, alias or MCP server. A blocked call gets 400 (403 here)."],
+  "content-safety": ["differs", "Content safety policy", "Screens prompts, tool inputs and responses with a threshold per category, at Gateway scope or on a model, alias or MCP server. A blocked call gets 400 (403 here). Only calls through the gateway get its policy; calls Foundry serves directly get Foundry's filters."],
   "safety-price": ["classic", "", "The safety check isn't priced into a budget."],
   "safety-ledger": ["classic", "", "No chargeback line for the safety check."],
   "suspend": ["classic", "", "A caller over its Cost limit stays blocked (403) until the next period or a higher amount; revoke its key in Access › Keys to switch it off."],
@@ -5423,7 +5539,7 @@ const AG_TIER = {
   "entra-group-plan": ["differs", "Roles for groups + Cost limit claim overrides", "Grant data-plane roles to security groups, and give a claim combination such as <code>groups</code> its own Cost limit amount. There's no plan object that bundles models, limits and a budget."],
   "entra-model-ent": ["differs", "Models User role per alias", "Grant the group the role on the aliases it may use. No downgrade."],
   "entra-tpm": ["same", "Token rate limit per caller identity", "Entra callers are counted by tenant + object id."],
-  "group-budget": ["classic", "", "Cost limit overrides never pool callers: each matching identity gets its own counter."],
+  "group-budget": ["classic", "", "Cost limit overrides never pool callers: each matching identity gets its own counter. Foundry agents are the exception: they call with their project's identity, so a project's agents share its limits."],
   "member-budget": ["same", "Cost limit per Entra identity", "Each identity has its own counter, with a claim-combination override for the group's amount."],
 };
 const agOf = (id) => AG_TIER[id] || ["classic", "", "Not mapped yet."];
@@ -5487,9 +5603,9 @@ const AG_STORIES = [
   { id: "notoken", chip: false, label: "Key but no Entra token", hot: ["access"], k: "differs",
     classic: { stop: "access", flag: "no Entra token", status: 401, end: "<code>validate-azure-ad-token</code>" }, tier: { flag: "key is enough", flagAt: "access", warn: true, status: 200, end: "answered" },
     note: "<b>Here every call needs the key and an Entra token; on the tier either one is a credential.</b> To require Entra ID on the tier, call with tokens and don't issue runtime keys." },
-  { id: "failover", chip: false, label: "Primary region throttles", hot: ["route"], k: "classic",
-    classic: { flag: "429 → France Central", flagAt: "route", status: 200, end: "served by the other region" }, tier: { flag: "priority · weight", flagAt: "route", warn: true, status: "?", end: "retry on 429 isn't in the labs" },
-    note: "<b>Here a 429 from Sweden Central is retried in France Central</b> and the circuit breaker keeps traffic there. The tier routes an alias across models by priority and weight; the labs don't cover retry or circuit breaking." },
+  { id: "failover", chip: false, label: "Primary region throttles", hot: ["route"], k: "differs",
+    classic: { flag: "429 → France Central", flagAt: "route", status: 200, end: "served by the other region" }, tier: { flag: "failover (GA)", flagAt: "route", status: 200, end: "another resource or provider" },
+    note: "<b>Here a 429 from Sweden Central is retried in France Central</b> and the circuit breaker keeps traffic there. At GA the field guide lists failover to another resource or provider in your deployment order; the preview labs show alias priority and weight only, and no circuit breaker setting." },
   { id: "suspend", chip: false, label: "The next call after overspend", hot: ["access", "budget"], k: "differs",
     classic: { stop: "access", flag: "key suspended", status: 401, end: "until reactivated" }, tier: { stop: "budget", flag: "$ spent", status: 403, end: "<code>LlmCostQuotaExceeded</code> until the next period" },
     note: "<b>Both stop the caller; here the key itself is switched off.</b> A Logic App suspends the subscription, so every API rejects it. On the tier the Cost limit keeps answering 403 until its period renews; revoke the key to switch it off." },
@@ -5538,9 +5654,10 @@ const AG_BLOCKS = [
   ["policy", "XML + C# expressions", "policy", "Managed policy settings", "No XML: each policy is a type with settings, such as amount, period, counter and overrides."],
   ["plan", "Product · API · operation", "ai-gateway", "Gateway · model · alias · MCP", "Gateway-scope policies apply to every compatible asset, including ones added later; asset policies add stricter rules on top."],
   ["subscriptions", "Products + subscription keys", "key", "Runtime keys + overrides", "No products: a policy has a default and per-key or per-Entra-identity overrides."],
-  ["backend-pool", "Backend pool across regions", "foundry-models", "Aliases by priority & weight", "Clients call an alias; retarget it, or split it across backend models, with no client change."],
-  ["mcp", "MCP server from a REST API", "mcp", "Federated MCP servers", "One endpoint per server, federating remote MCP servers, OpenAPI specs, connectors and Foundry Toolbox, with tool availability."],
-  ["a2a", "A2A agent API", "a2a", "No agent asset", "Agents call the gateway as clients, for example Foundry hosted agents.", true],
+  ["backend-pool", "Backend pool across regions", "foundry-models", "Aliases by priority & weight", "Clients call an alias; retarget it, or split it across backend models, with no client change. At GA, failover to another resource or provider in your deployment order, and Model Router (preview) picks a model per request."],
+  ["foundry", "Projects call their own deployments", "foundry", "Model connections", "Add a provider's models once and make them available to any number of Foundry projects (other API Management tiers: one project, or one Foundry account, at a time). Model connection is the new name for Admin-Connected Models; existing connections upgrade, keys are kept."],
+  ["mcp", "MCP server from a REST API", "mcp", "Federated MCP servers", "One endpoint per server, federating remote MCP servers, OpenAPI specs, connectors and Foundry Toolbox, with tool availability. Each Foundry project adds the gateway's MCP URL as a tool."],
+  ["a2a", "A2A agent API", "a2a", "No agent asset yet", "Agents call the gateway as clients, for example Foundry hosted agents. Agent-to-agent calls are coming after Ignite.", true],
   ["log-analytics", "Log Analytics tables", "app-insights", "OpenTelemetry", "Metrics, logs and traces go to Application Insights (the Monitoring dashboard) or any OTLP endpoint."],
 ];
 let agShow = new Set(["same", "differs", "classic"]), agStory = null, agSel = null;
@@ -5767,7 +5884,171 @@ function agTable() {
   }).join("");
   $("agControls").innerHTML = `<table><thead><tr><th>Control</th><th>Here</th><th>Tier</th><th>AI Gateway tier equivalent</th><th>What differs</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
+// ---------- Field guide: when to add AI Gateway to Foundry, and what it means for customers ----------
+// Source: the product group's field guide "When to add AI Gateway to Foundry" (AI Gateway is GA on November 17, 2026).
+// A need: [id, your need, Foundry on its own, what AI Gateway adds, how the tier does it (or the caveat), GA-only per the guide, sandbox scenarios that show it]
+const AG_FG = [
+  { k: "Shared models", q: "Do many apps, teams or customers share the same models?", p: "Give each one its own access and limits, on the same deployments.",
+    c: "#ca5010", sq: "Do many apps, teams or customers share the same models?", x: "apps", v: ["🔑", "Its own limits and access, per app", "On the same shared deployments, and apps never hold model keys."], caps: [["Limit per app"], ["No model keys in apps"], ["Usage per caller"]],     who: "Platform team, app owners, FinOps",
+    rows: [
+      ["1.1", "Apps or customers share deployments and need their own limits", "Quota per deployment", "Token limits per app, team or customer", "Token rate limit and Cost limit per runtime key or Entra identity.", false, [/^Tokens-per-minute/, /^\$ budget exhausted/, /^One app, many users/]],
+      ["1.2", "Agents from many teams share costly models", "One quota per deployment", "Limits and usage per project", "Foundry agents call with their project's identity, so limits count per project, not per agent.", true, [/^Entra only: team/, /^Chargeback by user/]],
+      ["1.3", "Each app gets only the models it's approved for", "Access set per resource", "Access per caller; apps never hold model keys", "The gateway calls the model with its own credentials.", false, [/^Model governance/, /^Zero trust/, /^Entra only: no key/]]] },
+  { k: "Multi-provider", q: "Do your models or tools span providers, subscriptions or clouds?", p: "One endpoint and one set of rules, wherever the model or tool runs.",
+    c: "#038387", sq: "Do models or tools span providers, subscriptions or clouds?", x: "providers", v: ["🔀", "One endpoint, any provider", "Routing and budgets across Azure, AWS, Google, OpenAI, Anthropic and MCP tools."], caps: [["Failover", 1], ["One model name"], ["Budget across providers"], ["One MCP endpoint"]], who: "Platform team, developers, FinOps",
+    rows: [
+      ["2.1", "Use capacity allocated across resources and providers", "PTU spillover within Foundry", "Rule-based routing across deployments and providers", "PTU spillover set on the Foundry deployment still applies when the gateway calls it.", true, [/^Load balancing/]],
+      ["2.2", "Keep serving when a region or provider has an outage", "Failover within the deployment you call", "Failover to another resource or provider", "The preview labs show alias priority and weight; confirm failover behaviour at GA.", true, [/^Load balancing/]],
+      ["2.3", "Many apps call one name while the model behind it changes", "A name per deployment", "Point the name at another deployment or provider; apps don't change", "An alias: retarget it, or split it by priority and weight.", false, [/^Load balancing/]],
+      ["2.4", "Let the system pick the best model for each request", "Model Router within Foundry", "Model Router's intelligent selection combined with gateway routing (preview)", "By a cost, balanced or quality preference, across providers. Free in preview; Model Router pricing at GA.", true, []],
+      ["2.5", "One budget or limit per app, across providers", "Foundry budgets and cost views", "Cost budgets per app, across every provider", "Per app, project or model. Estimates from token use: not for billing.", false, [/^\$ budget exhausted/, /^One \$ budget/]],
+      ["2.6", "Agents on any platform share MCP tools, APIs and SaaS", "Toolbox for Foundry agents", "One MCP endpoint for every agent, with block and allow rules", "Each Foundry project adds the gateway's MCP URL as a tool: tools aren't routed automatically.", false, [/^MCP tools/]],
+      ["2.7", "Models or agents outside Foundry need the same rules", "Covers models and agents in Foundry", "Same access, safety and log; works with or without Foundry", "Custom models: AWS Bedrock, Google Vertex, OpenAI, Anthropic or any OpenAI-compatible endpoint.", false, [/^A2A agent/]]] },
+  { k: "Hub and spoke", q: "Does a central team set the rules for every Foundry team?", p: "Set access, limits, safety and tool rules once for every project that connects.",
+    c: "#5c2e91", sq: "Does one central team set the rules for every Foundry team?", x: "teams", v: ["🛡️", "Rules set once, for every team", "Access, safety and tool rules for every Foundry project and subscription."], caps: [["Approved models only"], ["Tool allow / block"], ["Masking & validation", 1], ["One view of AI use"]], who: "Platform team, security, FinOps",
+    rows: [
+      ["3.1", "Foundry in many subscriptions, one platform team", "Rules set per resource", "Set the rules once for every team", "Gateway-scope policies apply to every model and tool, including ones added later.", false, [/^Entra only: the plan/]],
+      ["3.2", "Projects may use only approved models", "Built-in Azure Policy for deployments", "Model connections to approved models only; direct deployments blocked", "Turn on the built-in Azure Policy that blocks direct model deployments, so the gateway is the only path.", true, [/^Model governance/]],
+      ["3.3", "Mask or validate data before any model sees it", "Built-in filters and guardrails", "Custom policy logic on every call", "The preview's managed policies are content safety and IP filter; custom logic is listed for GA.", true, [/content safety/]],
+      ["3.4", "Rewrite headers or fields before a call reaches the model", "Requests reach the model as sent", "Header and payload rewriting at the gateway", "Not a managed policy type in the preview; listed for GA.", true, [/^Output cap/]],
+      ["3.5", "See AI usage across all teams in one place", "Monitoring per resource", "Usage by app and project in one log", "OpenTelemetry logs, traces and token metrics, with caller claims.", false, [/^Chargeback in Azure Monitor/, /^Policy trace/]]] },
+];
+// The customer view: the layers after the gateway is added, and what each team sees in them
+const AG_LAYERS = [
+  ["apps", "app-services", "Apps &amp; agents", "Foundry agents pick models from the project's list; apps in code call the gateway", "App teams", `<span class="chg">0 or 1 change</span>`],
+  ["gw", "ai-gateway", "AI Gateway", "Keys, limits, model names, safety, MCP endpoint: set once for every project", "Platform team", ""],
+  ["fd", "foundry", "Foundry projects", "Projects, deployments and agents stay; Foundry's RBAC, Azure Policy and filters still apply", "App teams", ""],
+  ["md", "foundry-models", "Models &amp; tools", "Azure, AWS Bedrock, Google Vertex, OpenAI, Anthropic, MCP servers", "Any provider", ""],
+];
+// [key, icon, team, headline, takeaways, layers it touches]
+const AG_WHO = [
+  ["app", "foundry", "App teams", "Change one endpoint, or nothing", ["Keep their projects, deployments and agents", "Foundry agents: no code change", "Add the gateway's MCP URL to use its tools"], ["apps", "fd"]],
+  ["plat", "ai-gateway", "Platform team", "Owns the gateway and its rules", ["Adds a provider's models once, for every project", "Turns on the Azure Policy that blocks direct deployments", "Sets limits, safety and tool rules in one place"], ["gw", "fd", "md"]],
+  ["fin", "cost-management", "FinOps", "Cost by app, across every provider", ["Budgets per app, project or model", "Cost by app, project and model in one log", "Estimates from token use: not for billing"], ["gw"]],
+  ["sec", "entra-id", "Security", "No model keys in apps", ["The gateway calls models with its own credentials", "Projects see only approved models and tools", "Content safety on every call through the gateway"], ["apps", "gw"]],
+];
+const AG_FAQ = [
+  ["Connecting Foundry", [
+    ["What is a model connection?", "How models are made available to Foundry projects: the new name for Admin-Connected Models. Nothing goes away. Connecting an existing Azure OpenAI or Azure AI Services resource upgrades its connection: no new Azure resources, no added cost, and API keys are kept."],
+    ["How do tools go through the gateway?", "Each project adds the gateway's MCP URL as a tool, in the portal or by API; tools aren't routed automatically. Foundry agents can also use Foundry's Toolbox. The gateway adds the same tools for agents outside Foundry, with block and allow rules."],
+    ["Do agents or apps need code changes?", "Foundry agents don't: they pick the model from the project's list. Apps in code change one setting, the endpoint they call."],
+    ["Does PTU spillover still work?", "Yes. Spillover set on the Foundry deployment applies when the gateway calls that deployment. Spillover works inside Foundry; the gateway routes across resources and providers."],
+    ["Can the gateway use Model Router to pick models?", "Yes, from supported models across providers, including models outside Foundry. The platform team picks the models and a cost, balanced or quality preference; apps call one stable model name. Model selection is free during the preview; standard Model Router pricing applies at GA."]]],
+  ["Limits and cost", [
+    ["Are limits per agent or per project?", "Per project for Foundry agents, which call the gateway with their project's identity. Apps and agents in code can each sign in with their own identity for limits per app."],
+    ["How do cost limits work?", "Token limits cap tokens per minute or over a period. Cost budgets set a spending amount per app, project or model for a period, and the gateway enforces it. Costs are estimates from token use, not actual prices: don't use them for billing or invoicing. The Azure invoice shows what you pay."],
+    ["Which projects should stay on direct deployments for now?", "Projects that use Foundry IQ, agent memory, agent optimization, synthetic data for evaluations, or realtime audio and vision models: these don't work through model connections yet."],
+    ["Does AI Gateway replace Foundry's controls?", "No. Foundry keeps governing what's built in it. The gateway adds rules that span apps, teams, subscriptions and providers."]]],
+  ["Choosing and running the gateway", [
+    ["Why choose the AI Gateway tier?", "It's the API Management tier built for AI workloads: the models and tools apps and agents call. Add a provider's models once and make them available to any number of Foundry projects; other tiers connect them one project at a time, or once per Foundry account. Tools work the same way: one MCP endpoint, and each project adds that URL."],
+    ["What does a private network need?", "Foundry's outbound VNet integration with the agent subnet, private DNS that resolves the gateway to its private IP, routes and firewall rules that allow HTTPS, and a model connection to the gateway's private endpoint. The Microsoft account team can help validate the setup."],
+    ["Who owns the gateway?", "The platform team sets it up and owns its rules. App teams keep their Foundry projects, deployments and agents."],
+    ["How do Agent 365, Foundry and AI Gateway fit together?", "Foundry builds and runs the agents. Agent 365 manages them, including which tools each may use. AI Gateway governs the calls they make to models and tools, with block and allow rules set at the gateway or from Agent 365."]]],
+];
+const agFgOn = new Set();
+let agWhoSel = "app", agFgDet = false;
+const agGa = `<span class="agga" title="Described in the field guide for general availability; not in the preview docs yet">GA</span>`;
+// the guided scenarios that show a need: a chip each that opens it in the scenario picker
+function agFgSee(res) {
+  const hits = SCENARIOS.map((s, i) => [s, i]).filter(([s]) => res.some(re => re.test(s.title)));
+  if (!hits.length) return "";
+  return `<div class="agsee">` + hits.map(([s, i]) => { const rt = agScRating(i);
+    return `<button type="button" data-agopen="${i}" title="Open it in the scenario picker${rt ? `. On the AI Gateway tier this demo: ${rt[1]}` : ""}">${rt ? agHtml(rt[2], false) : ""}${escapeHtml(s.title)}</button>`; }).join("") + `</div>`;
+}
+// the picture: who calls -> (AI Gateway) -> Foundry and models, redrawn from the three answers
+function agFgPic() {
+  const [sh, mp, hs] = [0, 1, 2].map(i => agFgOn.has(i)), any = agFgOn.size > 0;
+  const node = (ic, t, sub, x = "", d = 0, m) => `<div class="agfn ${x}" style="animation-delay:${d}ms"><img src="/icons/${ic}.svg" alt=""><span>${t}${sub ? `<span class="sub">${sub}</span>` : ""}</span>${m ? `<span class="m"><i style="--w:${m}%"></i></span>` : ""}</div>`;
+  let callers = "";
+  if (!sh && !hs) callers = node("app-services", "One app", "one team, one workload");
+  else ["A", "B", "C"].forEach((x, i) => { callers += hs ? node("foundry", `Project ${x}`, `team ${x} · subscription ${i + 1}`, "", i * 80, sh ? [80, 45, 60][i] : 0)
+    : node("app-services", i === 2 ? "Customer C" : `App ${x}`, "own key and limit", "", i * 80, [80, 45, 60][i]); });
+  if (mp) callers += node("a2a", "Agent outside Foundry", "any platform", "ext", 240);
+  const caps = any ? [0, 1, 2].filter(i => agFgOn.has(i)).flatMap(i => AG_FG[i].caps.map(([t, ga], j) => `<span class="agcap" style="--c:${AG_FG[i].c};animation-delay:${j * 70}ms">${t}${ga ? " · GA" : ""}</span>`)).join("") : "";
+  const gw = `<div class="aggw${any ? " on" : ""}"><div class="gh"><img src="/icons/ai-gateway.svg" alt="">AI Gateway</div>`
+    + (any ? `<div class="caps">${caps}</div><span style="font-size:11px;color:var(--muted)">owned by the platform team</span>` : `<span>Not needed yet</span>`) + `</div>`;
+  const bi = ["RBAC", "Azure Policy", "Quota", "Content filters", "Tracing"].map(x => `<span>${x}</span>`).join("") + (hs ? `<span class="x">direct deployments blocked · GA</span>` : "");
+  let back = `<div class="agfd${hs ? " many" : ""}"><div class="t"><img src="/icons/foundry.svg" alt="">Foundry deployments${hs ? " · every subscription" : ""}</div><div class="bi">${bi}</div></div>`;
+  if (mp) back += node("foundry-models", "AWS Bedrock · Google Vertex", "OpenAI, Anthropic, any compatible", "ext", 120) + node("mcp", "MCP tools and APIs", "on any platform", "ext", 200);
+  const list = [...agFgOn].sort().map(i => AG_FG[i].x), across = list.length > 1 ? list.slice(0, -1).join(", ") + " and " + list.at(-1) : list[0];
+  const verd = any ? `<div class="agverd yes"><b>Add AI Gateway.</b><span>Foundry keeps its built-in governance; the gateway adds one set of rules across ${across}.</span></div>`
+    : `<div class="agverd no"><b>Foundry is enough.</b><span>One team, one workload: Foundry's built-in governance covers it.</span></div>`;
+  return `<div class="agdia"><svg class="agwires" aria-hidden="true"></svg><span class="h">Who calls</span><span></span><span class="h mid"></span><span></span><span class="h">Models &amp; tools</span>`
+    + `<div class="col agcl">${callers}</div><span></span>${gw}<span></span><div class="col agbk">${back}</div></div>${verd}`;
+}
+// the wires: measured from the boxes, so each arrow starts and ends on one
+function agFgWires() {
+  const d = $("agPic").querySelector(".agdia"); if (!d || !d.offsetWidth) return;
+  const svg = d.querySelector(".agwires"), gw = d.querySelector(".aggw"), on = gw.classList.contains("on");
+  const box = el => { let x = 0, y = 0, n = el; while (n && n !== d) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; } return { l: x, r: x + el.offsetWidth, m: y + el.offsetHeight / 2 }; };
+  const from = [...d.querySelectorAll(".agcl > .agfn")], to = [...d.querySelectorAll(".agbk > .agfn, .agbk > .agfd")];
+  const curve = (x1, y1, x2, y2, c) => { const mx = (x1 + x2) / 2; return `<path${c ? ` class="on"` : ""} d="M${x1} ${y1} C${mx} ${y1} ${mx} ${y2} ${x2} ${y2}" marker-end="url(#${c ? "agArOn" : "agAr"})"/>`; };
+  const spread = (i, k, m) => m + (i - (k - 1) / 2) * 12;
+  let p = "";
+  if (on) { const g = box(gw);
+    from.forEach((n, i) => { const b = box(n); p += curve(b.r + 2, b.m, g.l - 3, spread(i, from.length, g.m), 1); });
+    to.forEach((n, i) => { const b = box(n); p += curve(g.r + 2, spread(i, to.length, g.m), b.l - 3, b.m, 1); });
+  } else if (from[0] && to[0]) { const a = box(from[0]), b = box(to[0]); p = curve(a.r + 2, a.m, b.l - 3, b.m, 0); }
+  const mk = (id, c) => `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon points="0,0 10,5 0,10" fill="${c}"/></marker>`;
+  svg.setAttribute("viewBox", `0 0 ${d.offsetWidth} ${d.offsetHeight}`);
+  svg.innerHTML = `<defs>${mk("agAr", "#a19f9d")}${mk("agArOn", "#ca5010")}</defs>${p}`;
+}
+function agFgNeeds() {
+  if (!agFgOn.size) return `<div class="none">Flip a switch, or click an outcome above, to see the customer needs behind it.</div>`;
+  return `<div class="agnhd"><span class="h">The needs behind each yes · what the gateway adds</span><button type="button" data-agfgdet aria-pressed="${agFgDet}">Compare with Foundry alone</button></div>`
+    + [...agFgOn].sort().map(i => { const g = AG_FG[i];
+    return `<div class="agng" style="--c:${g.c}"><div class="h">${i + 1} · ${g.k} <span>· who benefits: ${g.who}</span></div><div class="grid">`
+      + g.rows.map(([id, need, f, add, tn, ga, res], j) => `<div class="agnd" style="animation-delay:${j * 40}ms"><div class="nd"><i>${id}</i>${need}</div>`
+        + `<div class="gv">${add}${ga ? " " + agGa : ""}</div><div class="more"><span class="fa"><small>Foundry alone</small>${f}</span><span class="tn">${tn}</span>${agFgSee(res)}</div></div>`).join("")
+      + `</div></div>`; }).join("");
+}
+function agCustStack() {
+  const w = AG_WHO.find(x => x[0] === agWhoSel), on = new Set(w ? w[5] : AG_LAYERS.map(l => l[0]));
+  return AG_LAYERS.map(([id, ic, nm, sy, ow, chg], i) => (i ? `<div class="agdn"></div>` : "")
+    + `<div class="agly ${id === "gw" ? "gw " : ""}${on.has(id) ? "hi" : "dim"}"><img src="/icons/${ic}.svg" alt=""><span class="nm">${nm}</span><span class="sy">${sy}${chg}</span><span class="ow">${ow}</span></div>`).join("");
+}
+function renderFg() {
+  $("agFg").innerHTML = `<div class="hl"><span class="tag">FIELD GUIDE</span><div><b>When should a customer add AI Gateway to Foundry?<span class="ga">GA November 17, 2026</span></b>`
+      + `<p>Start with Foundry: governance is built in. The gateway pays off once AI use spreads across apps, providers or teams. <b>Any yes</b> below is the signal.</p></div></div>`
+    + `<div class="agval" role="group" aria-label="What the customer gets">` + AG_FG.map((g, i) => `<button type="button" data-agfg="${i}" aria-pressed="false" style="--c:${g.c}"><span class="ic">${g.v[0]}</span><b>${g.v[1]}</b><small>${g.v[2]}</small></button>`).join("") + `</div>`
+    + `<div class="agdec"><div class="agqs" role="group" aria-label="The three questions"><span class="h">Ask the customer</span>`
+      + AG_FG.map((g, i) => `<button type="button" class="agq" data-agfg="${i}" aria-pressed="false" style="--c:${g.c}"><span class="n">${i + 1}</span><span class="t"><small>${g.k}</small>${g.sq}</span><span class="sw"></span></button>`).join("")
+      + `<button type="button" class="reset" data-agfgall>Show all three</button></div>`
+    + `<div class="agpic" id="agPic"></div></div>`
+    + `<div class="agnds" id="agNeeds"></div>`;
+  agFgUpd();
+  if (window.ResizeObserver && !renderFg.ro) { renderFg.ro = new ResizeObserver(() => agFgWires()); renderFg.ro.observe($("agFg")); }
+  const n = AG_FAQ.reduce((k, [, q]) => k + q.length, 0);
+  $("agCust").innerHTML = `<div class="hl"><span class="tag">CUSTOMER VIEW</span><div><b>What it means for customers</b>`
+      + `<p>Foundry stays where teams build and run agents. The gateway sits on top and the platform team owns it. Pick a team to see what changes for them.</p></div></div>`
+    + `<div class="agcv"><div class="agper" role="group" aria-label="Teams">` + AG_WHO.map(([k, ic, t, hd, pts]) => `<button type="button" class="agp${k === agWhoSel ? " on" : ""}" data-agwho="${k}" aria-pressed="${k === agWhoSel}">`
+      + `<span class="t"><img src="/icons/${ic}.svg" alt="">${t}</span><span class="hd">${hd}</span><ul>${pts.map(x => `<li>${x}</li>`).join("")}</ul></button>`).join("") + `</div>`
+      + `<div class="agstack" id="agStack">${agCustStack()}</div></div>`
+    + `<div class="agc3"><div class="aglim"><span class="h">When Foundry and the gateway both set a rule</span>`
+        + `<div class="bar" role="img" aria-label="A deployment quota of 100K tokens per minute shared by three apps; the gateway stops app A at 20K"><span class="cap">Foundry quota: 100K TPM, all apps</span><span class="seg a">App A</span><span class="seg b">App B</span><span class="seg c">C</span><span class="stop"><b>App A: 429 at 20K</b></span></div>`
+        + `<div class="lg"><span>The gateway stops app A at its 20K limit (a small overrun can happen)</span><span>Foundry stops all apps at 100K</span></div>`
+        + `<div class="win">The <span>stricter</span> limit wins.</div>`
+        + `<ul class="agwhod"><li><b></b><span><small>Foundry decides</small></span><span><small>The gateway decides</small></span></li>`
+          + `<li><b>Models &amp; tools</b><span>what can be deployed</span><span>what each app can call</span></li>`
+          + `<li><b>Content safety</b><span>calls Foundry serves directly</span><span>calls through the gateway</span></li>`
+          + `<li><b>Model choice</b><span>Model Router, within Foundry</span><span>Model Router across providers, then your order, such as PTU first ${agGa}</span></li></ul></div>`
+      + `<div><span class="h">Not through the gateway yet</span><p class="muted" style="font-size:12px;margin:4px 0 0">Keep these projects on direct deployments for now.</p><div class="agny">`
+        + [["🔎", "Foundry IQ"], ["🧠", "Agent memory"], ["⚙️", "Agent optimization"], ["🧪", "Synthetic eval data"], ["🎙️", "Realtime audio &amp; vision"]].map(([ic, t]) => `<div data-ic="${ic}">${t}<i>direct for now</i></div>`).join("")
+        + `<div class="soon" data-ic="🤝">Agent-to-agent<i>after Ignite</i></div></div></div>`
+      + `<div><span class="h">How to start when the answer is yes</span><div class="agstart">`
+        + [["Pick one shared workload", "one that several teams already call"], ["Set up AI Gateway", "in its portal or in code, a limit per app"], ["Connect models, block direct", "model connections, then the Azure Policy"], ["Review in a few weeks", "with the customer, then add teams and tools"]]
+          .map(([t, d], i) => `<div><span class="n">${i + 1}</span><span><b>${t}</b><span>${d}</span></span></div>`).join("") + `</div></div></div>`
+    + `<details class="agfaq"><summary>Field FAQ · ${n} answers</summary><div class="agfaqs">`
+      + AG_FAQ.map(([g, qs]) => `<div><div class="grp">${g}</div>${qs.map(([q, a]) => `<div class="qa"><b>${q}</b>${a}</div>`).join("")}</div>`).join("") + `</div></details>`;
+}
+function agFgUpd() {
+  $("agFg").querySelectorAll("[data-agfg]").forEach(b => { const on = agFgOn.has(Number(b.dataset.agfg)); b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); const sw = b.querySelector(".sw"); if (sw) sw.title = on ? "Yes" : "No"; });
+  const all = $("agFg").querySelector("[data-agfgall]"); if (all) all.textContent = agFgOn.size === 3 ? "Start over" : "Show all three";
+  $("agPic").innerHTML = agFgPic(); $("agNeeds").innerHTML = agFgNeeds(); $("agNeeds").classList.toggle("det", agFgDet);
+  agFgWires(); requestAnimationFrame(agFgWires);
+}
 function renderTier() {
+  renderFg();
   const ids = Object.keys(POL_CONTROLS), by = { same: [], differs: [], classic: [] };
   ids.forEach(id => by[agOf(id)[0]].push(id));
   const n = ids.length;
@@ -5783,14 +6064,14 @@ function renderTier() {
     + col("differs", "~", "Set up differently", [
         "XML policies → <b>managed policy settings</b>, at gateway scope or on one model, alias or MCP server",
         "Products and subscription keys → <b>runtime keys with per-key overrides</b>",
-        "Backend pool → <b>aliases</b> routed by priority and weight",
-        "$ budget → <b>Cost limit</b> (403 <code>LlmCostQuotaExceeded</code>)", "A new base URL: <code>…/default/models/openai/v1</code>"])
+        "Backend pool → <b>aliases</b> routed by priority and weight, with failover across resources and providers <span class=\"agga\">GA</span>",
+        "$ budget → <b>Cost limit</b> (403 <code>LlmCostQuotaExceeded</code>), an estimate from token use", "A new base URL: <code>…/default/models/openai/v1</code>"])
     + col("classic", "＋", "Custom logic here, no managed equivalent yet", [
         "One $ budget shared by models, <b>tools and agents</b>",
         "Billing an agent's spend <b>to the user it works for</b>",
-        "<b>Session and per-user</b> $ caps, the <b>semantic cache</b>, output caps, retry on 429"])
+        "<b>Session and per-user</b> $ caps, the <b>semantic cache</b>, output caps"])
     + `</div>`
-    + `<div class="agbl"><b>Bottom line:</b> if your gateway uses the common controls, <b>the AI Gateway tier does the same job with less to build and maintain.</b> `
+    + `<div class="agbl"><b>Bottom line:</b> start with Foundry, and add a gateway when one of the field guide's three scenarios applies. When you do, and the gateway uses the common controls, <b>the AI Gateway tier does the same job with less to build and maintain.</b> `
     + `If you rely on custom XML, like this sandbox's FinOps logic, API Management v2 keeps running it. <span class="muted">${by.same.length + by.differs.length} of ${n} controls in this sandbox have a managed equivalent; the cards below show each one.</span></div>`;
   // 1. the race
   if (!$("agRace").children.length) {
@@ -5840,6 +6121,12 @@ addEventListener("resize", () => {
 $("agTier").addEventListener("keydown", (e) => { if (e.key === "Escape" && agScSel != null) { const i = agScSel; agScClose(); $("agScenarios").querySelector(`[data-agsc="${i}"]`)?.focus(); } });
 $("agTier").addEventListener("click", (e) => {
   let x;
+  if ((x = e.target.closest("[data-agfg]"))) { const i = Number(x.dataset.agfg); if (agFgOn.has(i)) agFgOn.delete(i); else agFgOn.add(i); agFgUpd(); return; }
+  if (e.target.closest("[data-agfgall]")) { if (agFgOn.size === 3) agFgOn.clear(); else [0, 1, 2].forEach(i => agFgOn.add(i)); agFgUpd(); return; }
+  if ((x = e.target.closest("[data-agfgdet]"))) { agFgDet = !agFgDet; x.setAttribute("aria-pressed", agFgDet); $("agNeeds").classList.toggle("det", agFgDet); return; }
+  if ((x = e.target.closest("[data-agwho]"))) { agWhoSel = x.dataset.agwho;
+    $("agCust").querySelectorAll("[data-agwho]").forEach(b => { const on = b === x; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
+    $("agStack").innerHTML = agCustStack(); return; }
   if ((x = e.target.closest("[data-ags]"))) { agPlay(x.dataset.ags); return; }
   if (e.target.closest("[data-agall]")) { agPlayAll(); return; }
   if ((x = e.target.closest("[data-agk]"))) { const v = x.dataset.agk; if (agShow.has(v) && agShow.size > 1) agShow.delete(v); else agShow.add(v);
