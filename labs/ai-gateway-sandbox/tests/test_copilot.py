@@ -220,6 +220,23 @@ class CopilotTests(unittest.TestCase):
         for name in app.COPILOT_TARGETS | {k + ":" for k in app.COPILOT_TARGET_KINDS}:
             self.assertIn(name, app.COPILOT_PROMPT, name)
 
+    def test_ai_gateway_tier_maps_every_control(self):
+        html = (LAB / "src" / "static" / "index.html").read_text(encoding="utf-8")
+        controls = set(re.findall(r'^  "([a-z0-9-]+)": \{ s:', html[html.index("const POL_CONTROLS = {"):html.index("const AG_KIND")], re.M))
+        tier = dict(re.findall(r'^  "([a-z0-9-]+)": \["([a-z]+)"', html[html.index("const AG_TIER = {"):html.index("const agOf")], re.M))
+        self.assertEqual(set(tier), controls)
+        self.assertLessEqual(set(tier.values()), {"same", "differs", "classic"})
+
+    def test_every_scenario_plays_a_tier_story(self):
+        html = (LAB / "src" / "static" / "index.html").read_text(encoding="utf-8")
+        stories = set(re.findall(r'^  \{ id: "([a-z]+)"', html[html.index("const AG_STORIES = ["):html.index("const AG_SC_STORY")], re.M))
+        mapping = re.findall(r'\[/(.+?)/, "([a-z]+)"\]', html[html.index("const AG_SC_STORY = ["):html.index("const agScStory")])
+        self.assertLessEqual({sid for _, sid in mapping}, stories)
+        titles = re.findall(r'^  \{ title: "([^"]+)"', html, re.M)
+        self.assertEqual(len(titles), 23)
+        for title in titles:
+            self.assertTrue(any(re.search(rx, title) for rx, _ in mapping), title)
+
     def test_references_match_the_page_and_open_by_topic_or_item(self):
         html = (LAB / "src" / "static" / "index.html").read_text(encoding="utf-8")
         block = html[html.index("const PATTERNS = {"):html.index("const PAT_KEYS")]

@@ -146,6 +146,20 @@
   .cv-steps { list-style:none; padding:0; margin:0; font-size:12px; } .cv-steps li { padding:3px 0; border-bottom:1px solid var(--divider); }
   .cv-pre { background:#fff; border:1px solid var(--divider); border-radius:4px; padding:6px 8px; font-family:Consolas,monospace; font-size:12px; white-space:pre-wrap; word-break:break-word; max-height:220px; overflow:auto; margin:0; }
   .cv-typing { display:inline-flex; gap:3px; padding:4px 0; } .cv-typing i { width:6px; height:6px; border-radius:50%; background:#a19f9d; animation:cvdot 1s infinite; }
+  /* Why is it slow: what app.py is doing for a call in flight, and where a finished call's time went */
+  .cv-wait { display:flex; flex-direction:column; gap:3px; margin-top:4px; font-size:12px; line-height:1.35; }
+  .cv-wait .now { display:flex; align-items:center; gap:7px; } .cv-wait .now b { font-weight:600; } .cv-wait .sec { margin-left:auto; font-variant-numeric:tabular-nums; color:var(--muted); }
+  .cv-wait .now .spin { width:12px; height:12px; flex:none; } .cv-wait .det { color:var(--muted); font-size:11.5px; padding-left:19px; }
+  .cv-wait .k-token b { color:#5c2e91; } .cv-wait .k-arm b { color:#a33f00; } .cv-wait .k-gateway b { color:#0f6cbd; }
+  .cv-wait .tot { color:var(--muted); font-size:11px; padding-left:19px; }
+  .cv-slow { color:#8a5300; font-weight:600; }
+  .tbar { display:flex; height:10px; border-radius:5px; overflow:hidden; background:#f3f2f1; margin:6px 0 4px; }
+  .tbar i { display:block; min-width:2px; } .tk-token { background:#8764b8; } .tk-arm { background:#ca5010; } .tk-gateway { background:#0f6cbd; } .tk-logs { background:#038387; } .tk-http { background:#8a8886; } .tk-app { background:#c8c6c4; }
+  .trows { display:grid; grid-template-columns:12px minmax(0, 1fr) auto; gap:3px 8px; align-items:baseline; font-size:12px; }
+  .trows .sw { width:10px; height:10px; border-radius:2px; align-self:center; } .trows .d { color:var(--muted); font-size:11px; } .trows .ms { font-variant-numeric:tabular-nums; text-align:right; }
+  .trows .ms.big { color:#8a5300; font-weight:700; }
+  .tokpill { font-size:11px; font-weight:400; padding:1px 8px; border-radius:10px; border:1px solid var(--border); color:var(--muted); margin-left:6px; vertical-align:2px; white-space:nowrap; }
+  .tokpill.ok { color:#0b5a0b; border-color:#9fd89f; background:#f1faf0; } .tokpill.fetch { color:#5c2e91; border-color:#c5b3e0; background:#f7f3fc; } .tokpill.cold { color:#8a5300; border-color:#e0c66b; background:#fffbea; }
   .cv-typing i:nth-child(2) { animation-delay:.15s; } .cv-typing i:nth-child(3) { animation-delay:.3s; }
   @keyframes cvdot { 0%, 60%, 100% { opacity:.25; transform:translateY(0); } 30% { opacity:1; transform:translateY(-3px); } }
   .cv-compose { display:flex; gap:8px; align-items:flex-end; margin-top:10px; padding-top:10px; border-top:1px solid var(--divider); }
@@ -192,6 +206,19 @@
   .cv-meter .mcan { margin:6px 0 0 6px; font-size:11.5px; } .cv-meter .mnote { margin:4px 0 0 6px; font-size:11px; }
   .cv-meter .bfirst { font-size:10px; color:#a4262c; border:1px solid #f1bbbc; background:#fdf3f4; border-radius:3px; padding:0 4px; } .cv-meter .mfoot { margin-top:8px; font-size:11px; }
   .cv-meter .delta { color:var(--muted); white-space:nowrap; } .cv-meter.bump .delta { animation:cvbump 1.2s ease-out; }
+  .cv-meter .mtabs { display:inline-flex; margin:0 6px; border:1px solid #c8c6c4; border-radius:5px; overflow:hidden; vertical-align:middle; }
+  .cv-meter .mtabs button { height:20px; padding:0 8px; border:0; border-radius:0; background:#fff; color:var(--text); font-size:11.5px; font-weight:400; }
+  .cv-meter .mtabs button + button { border-left:1px solid #c8c6c4; }
+  .cv-meter .mtabs button:hover:not(:disabled) { background:#f3f2f1; border-color:#c8c6c4; color:var(--text); }
+  .cv-meter .mtabs button.on, .cv-meter .mtabs button.on:hover:not(:disabled) { background:#eff6fc; color:#0f6cbd; font-weight:600; }
+  .cv-meter .mtabs small { color:var(--muted); font-weight:400; margin-left:3px; }
+  .cv-meter .rdot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-left:5px; vertical-align:1px; }
+  .cv-meter .rdot.warn { background:#f7630c; } .cv-meter .rdot.hit { background:#d13438; }
+  .cv-meter .bk-r429 { color:#a4262c; border-color:#f1bbbc; background:#fdf3f4; } .cv-meter .bk-r403 { color:#8a3707; border-color:#f0c4a3; background:#fdf3ec; }
+  .cv-meter .rb + .rb { margin-top:8px; } .cv-meter .mtier + .mrow { margin-top:6px; }
+  .cv-meter .rwin { display:flex; justify-content:space-between; gap:2px 10px; flex-wrap:wrap; margin-top:3px; font-size:11px; color:var(--muted); }
+  .cv-meter .rwin .hot { color:#a4262c; font-weight:600; }
+  .cv-meter .wbar { height:3px; margin-top:2px; background:#edebe9; border-radius:2px; overflow:hidden; } .cv-meter .wbar > div { height:100%; background:#8a8886; transition:width 1s linear; }
   @keyframes cvbump { 0% { color:var(--bad); font-weight:600; } 100% { color:var(--muted); } }
   table { width:100%; border-collapse:collapse; font-size:13px; }
   th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--divider); white-space:nowrap; }
@@ -215,8 +242,8 @@
   .scchips .offchk { display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--muted); margin:0 0 0 auto; font-weight:400; cursor:pointer; white-space:nowrap; }
   .scpick { display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:fit-content(42%) minmax(0,1fr); gap:8px; height:clamp(340px, calc(100vh - 300px), 560px); min-height:0; }
   .sclist { position:relative; }
-  .sclist, .scpv { overflow:auto; overscroll-behavior:contain; border:1px solid var(--divider); border-radius:6px; min-height:0; background:#fff; }
-  .sclist { padding:4px; } .scpv { padding:12px 14px 0; }
+  .sclist, .scpv { overflow:auto; overscroll-behavior:contain; border:1px solid #e1e6ec; border-radius:10px; min-height:0; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.03); }
+  .sclist { padding:4px; background:#fafbfc; } .scpv { padding:14px 16px 0; }
   /* a narrow panel: one list that fills it, and the selected scenario opens in place under its row */
   .scpick.inline { grid-template-rows:minmax(0,1fr); } .scpick.inline .scpv { display:none; }
   .scpick.inline .scrow::after { content:"›"; flex:0 0 10px; color:var(--muted); font-size:15px; line-height:1; text-align:center; transition:transform .15s; }
@@ -225,27 +252,38 @@
   .scexp .meta { margin-left:0 !important; } .scexp .dgm { margin-top:6px; }
   .scdg { margin-top:6px; } .scdg > summary { cursor:pointer; font-size:12px; font-weight:600; color:var(--accent); width:max-content; }
   .scexp .scpol { margin-top:6px; } .scexp .scacts { margin-top:6px; padding:8px 0; }
-  @container (min-width:700px) { .scpick { grid-template-columns:minmax(250px,5fr) 7fr; grid-template-rows:minmax(0,1fr); } }
-  .scrow { display:flex; align-items:center; gap:8px; width:100%; height:auto; min-height:32px; padding:4px 8px; text-align:left; background:transparent; color:var(--text);
-           border:0; border-radius:4px; font-weight:400; font-size:13px; }
-  .scrow:hover:not(:disabled) { background:#f3f2f1; color:var(--text); }
-  .scrow.sel, .scrow.sel:hover:not(:disabled) { background:var(--accent-light); box-shadow:inset 3px 0 0 var(--accent); font-weight:600; }
+  @container (min-width:700px) { .scpick { grid-template-columns:minmax(220px,4fr) 8fr; grid-template-rows:minmax(0,1fr); } }
+  .scrow { position:relative; display:flex; align-items:center; gap:10px; width:100%; height:auto; min-height:44px; padding:6px 10px 6px 8px; text-align:left; background:transparent; color:var(--text);
+           border:0; border-radius:8px; font-weight:400; font-size:13px; transition:background .15s, box-shadow .15s; }
+  .scrow:hover:not(:disabled) { background:#eef2f6; color:var(--text); }
+  .scrow.sel, .scrow.sel:hover:not(:disabled) { background:#fff; box-shadow:0 0 0 1px #9fc5ea, 0 2px 8px rgba(0,90,158,.12); }
+  .scrow.sel::before { content:""; position:absolute; left:0; top:8px; bottom:8px; width:3px; border-radius:0 3px 3px 0; background:var(--accent); }
   .scrow:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
-  .scrow .n, .scpv .ph .n { width:22px; height:22px; border-radius:50%; background:var(--accent-light); color:var(--accent); font-weight:600; font-size:11px; display:grid; place-items:center; flex:0 0 22px; }
-  .scrow.sel .n, .scpv .ph .n { background:var(--accent); color:#fff; }
-  .scrow .t { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .scrow .c { flex:0 0 auto; color:var(--muted); font-size:11px; font-weight:400; }
+  .scrow .n, .scpv .ph .n { width:24px; height:24px; border-radius:50%; background:#e6f0fa; color:#0f6cbd; font-weight:600; font-size:11px; display:grid; place-items:center; flex:0 0 24px; transition:background .15s, color .15s; }
+  .scrow.sel .n, .scpv .ph .n { background:linear-gradient(180deg,#2b88d8,#0f6cbd); color:#fff; box-shadow:0 2px 5px rgba(0,90,158,.3); }
+  .scrow .tt { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+  .scrow .t { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.3; }
+  .scrow.sel .t { font-weight:600; color:#0f548c; }
+  .scrow .c { color:var(--muted); font-size:11px; font-weight:400; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .scrow.off { color:#8a8886; } .scrow.off .t { text-decoration:line-through; text-decoration-color:#a19f9d; } .scrow.off .n { background:#e1dfdd; color:#8a8886; }
   .scrow .offtag, .scpv .offtag, .scexp .offtag { flex:0 0 auto; font-size:10px; font-weight:700; letter-spacing:.06em; padding:1px 6px; border-radius:10px; background:#edebe9; color:#605e5c; border:1px solid #c8c6c4; }
-  .sclist .sctopic { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin:10px 8px 2px; }
-  .sclist .sctopic:first-child { margin-top:4px; }
+  .sclist .sctopic { position:sticky; top:-4px; z-index:1; font-size:10.5px; font-weight:700; color:#8a8886; text-transform:uppercase; letter-spacing:.7px; margin:6px -4px 2px; padding:6px 12px 5px;
+    background:rgba(250,251,252,.94); backdrop-filter:blur(4px); border-bottom:1px solid #edf0f3; }
+  .sclist .sctopic:first-child { margin-top:-4px; }
   .scempty { padding:16px; color:var(--muted); font-size:13px; }
-  :is(.scpv, .scexp) .ph { display:flex; gap:10px; align-items:flex-start; } .scpv .ph .n { width:26px; height:26px; flex-basis:26px; font-size:12px; }
-  :is(.scpv, .scexp) .ph b { font-size:15px; } :is(.scpv, .scexp) .gist { color:var(--muted); font-size:12.5px; line-height:1.5; margin-top:2px; }
-  :is(.scpv, .scexp) .meta { font-size:12px; color:var(--muted); margin:8px 0 0 36px; display:flex; flex-wrap:wrap; gap:2px 12px; }
-  :is(.scpv, .scexp) .meta .tour { color:#005a9e; font-weight:600; }
-  :is(.scpv, .scexp) .scacts { display:flex; flex-wrap:wrap; gap:6px; align-items:center; position:sticky; bottom:0; background:#fff; padding:10px 0; margin-top:10px; border-top:1px solid var(--divider); }
-  :is(.scpv, .scexp) .scacts button { height:30px; font-size:12px; padding:0 12px; }
+  :is(.scpv, .scexp) > * { animation:scPaneIn .3s cubic-bezier(.2,.8,.3,1) both; }
+  @keyframes scPaneIn { from { opacity:0; transform:translateY(4px); } }
+  :is(.scpv, .scexp) .ph { display:flex; gap:10px; align-items:flex-start; } .scpv .ph .n { width:30px; height:30px; flex-basis:30px; font-size:13px; }
+  :is(.scpv, .scexp) .ph b { font-size:16px; line-height:1.3; color:#1b1b1b; } :is(.scpv, .scexp) .gist { color:var(--muted); font-size:12.5px; line-height:1.5; margin-top:3px; }
+  :is(.scpv, .scexp) .meta { font-size:11.5px; color:var(--muted); margin:10px 0 0 40px; display:flex; flex-wrap:wrap; gap:6px; }
+  .scexp .meta { margin-left:0; }
+  :is(.scpv, .scexp) .meta > span { display:inline-flex; align-items:center; gap:4px; padding:1px 9px; border-radius:11px; background:#f3f5f8; border:1px solid #e3e7ec; line-height:18px; }
+  :is(.scpv, .scexp) .meta .tour { color:#0f548c; font-weight:600; background:#eef6fd; border-color:#c7e0f4; }
+  :is(.scpv, .scexp) .scacts { display:flex; flex-wrap:wrap; gap:6px; align-items:center; position:sticky; bottom:0; z-index:2; background:rgba(255,255,255,.94); backdrop-filter:blur(6px);
+    padding:10px 0; margin-top:12px; border-top:1px solid #e8ebef; box-shadow:0 -10px 12px -10px rgba(0,0,0,.12); }
+  .scexp .scacts { bottom:-4px; padding:8px 0 10px; }
+  :is(.scpv, .scexp) .scacts button { height:30px; font-size:12px; padding:0 12px; border-radius:15px; }
+  :is(.scpv, .scexp) .scacts .scrun { padding:0 16px; box-shadow:0 2px 6px rgba(0,90,158,.25); }
   :is(.scpv, .scexp) .offnote { font-size:12px; color:var(--muted); }
   :is(.scpv, .scexp) .fine { font-size:11px; color:var(--muted); padding:0 0 10px; }
   .gwmode { display:inline-flex; border:1px solid var(--border); border-radius:4px; overflow:hidden; flex:0 0 auto; }
@@ -370,6 +408,226 @@
   .pxdetail details.full { margin-top:12px; } .pxdetail details.full > summary { cursor:pointer; color:var(--accent); font-size:12.5px; } .pxdetail details.full pre.xml { max-height:560px; }
   .pxdetail.flash { animation:lensHit 1s both; }
   @media (max-width:1000px) { .pxbody { grid-template-columns:1fr; } .pxlist { position:static; max-height:320px; } }
+  /* Why › AI Gateway tier: compatibility of each control with the managed tier (same / works differently / classic only) */
+  .agk { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; white-space:nowrap; }
+  .agk::before { content:""; width:9px; height:9px; border-radius:50%; flex:0 0 9px; box-sizing:border-box; }
+  .agk.same { color:#0b6a0b; } .agk.same::before { background:#107c10; }
+  .agk.differs { color:#8a5300; } .agk.differs::before { background:linear-gradient(90deg, #c19c00 50%, #fff 50%); border:1.5px solid #c19c00; }
+  .agk.classic { color:#605e5c; } .agk.classic::before { border:1.5px solid #8a8886; }
+  .pxlist .it .agk { flex:0 0 auto; margin-left:2px; } .pxlist .it.out .agk { opacity:.5; }
+  .pxdetail .agadopt { border-left-color:#8a8886; margin-top:8px; }
+  /* AI Gateway tier in the scenario picker: the row badge, the filter chip, the v2 / tier toggle and the tier view */
+  .scrow .scag { flex:none; font-size:9.5px; font-weight:800; letter-spacing:.04em; padding:1px 6px; border-radius:9px; border:1.5px solid; line-height:14px; }
+  .scag.same { color:#0b5a0b; border-color:#107c10; background:#dff6dd; }
+  .scag.differs { color:#6b4100; border-color:#c19c00; background:#fff4ce; }
+  .scag.partly { color:#6b4100; border-color:#c19c00; background:linear-gradient(90deg, #fff4ce 50%, #fff 50%); }
+  .scag.classic { color:#605e5c; border-color:#c8c6c4; border-style:dashed; background:#fff; }
+  .scchips button.ag { border-color:#8764b8; color:#5c2e91; } .scchips button.ag.on { background:#f4effa; border-color:#8764b8; color:#5c2e91; } .scchips button.ag.on .k { color:#5c2e91; }
+  .sctopic.ag { color:#5c2e91; }
+  .scgw { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:8px 0 2px; font-size:12px; }
+  .scgw .seg button { height:26px; font-size:12px; padding:0 10px; } .scgw .seg button[data-gw="tier"].on { background:#8764b8; }
+  .agpick { margin-top:6px; }
+  .agpick .rt { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px; } .agpick .rt a { margin-left:auto; font-size:12px; }
+  .agpick .elh { font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; margin:12px 0 6px; }
+  .agpick .agnote { margin-top:8px; display:flex; gap:10px; align-items:flex-start; padding:8px 12px; border-radius:6px; background:var(--panel2); font-size:12.5px; line-height:1.45; }
+  .agpick .agnote .agk { flex:none; margin-top:2px; }
+  table.agsteps { margin-top:8px; font-size:12px; table-layout:fixed; }
+  table.agsteps th, table.agsteps td { white-space:normal; padding:5px 8px; vertical-align:top; }
+  table.agsteps thead th { font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; }
+  table.agsteps thead th:first-child { width:30px; } table.agsteps thead th:nth-child(3) { color:#5c2e91; } table.agsteps tbody th { color:var(--muted); font-weight:600; text-align:center; }
+  table.agsteps tbody tr { opacity:0; animation:agRow .3s forwards; } table.agsteps tr.diff td { background:#fffbea; } table.agsteps tr.diff th { color:#8a5300; }
+  table.agsteps td .g { display:inline-grid; place-items:center; width:16px; height:16px; border-radius:50%; font-size:10px; font-weight:800; color:#fff; background:#107c10; margin-right:6px; vertical-align:-2px; }
+  table.agsteps td.flag .g { background:#107c10; } table.agsteps td.warn .g { background:#c19c00; } table.agsteps td.stop .g { background:#d13438; } table.agsteps td.halt .g { background:#0f6cbd; }
+  table.agsteps td.skip { color:#a19f9d; } table.agsteps td.skip .g { background:transparent; color:#a19f9d; }
+  table.agsteps td .fl { display:inline-block; margin-left:6px; font-size:10.5px; font-weight:700; padding:0 6px; border-radius:8px; background:#107c10; color:#fff; }
+  table.agsteps td.warn .fl { background:#c19c00; } table.agsteps td.stop .fl { background:#d13438; } table.agsteps td.halt .fl { background:#0f6cbd; }
+  table.agsteps tr.end td { border-top:2px solid var(--border); } table.agsteps .res .st { font-weight:800; font-size:15px; margin-right:8px; }
+  table.agsteps .st.s2 { color:#107c10; } table.agsteps .st.s4 { color:#d13438; } table.agsteps .st.sq { color:#8a8886; } table.agsteps .res .nm { color:var(--muted); font-size:11.5px; }
+  .agdata { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:10px; }
+  .agdata .col { border:1px solid var(--border); border-radius:6px; padding:8px 10px; background:#fff; min-width:0; font-size:12px; }
+  .agdata .col.tier { border:1.5px dashed #8764b8; background:#fbf9fd; }
+  .agdata .hd { font-weight:700; font-size:12.5px; margin-bottom:4px; } .agdata .hd small { font-weight:400; color:var(--muted); margin-left:4px; } .agdata .col.tier .hd { color:#5c2e91; }
+  .agdata .agsrc2 { color:var(--muted); font-size:11.5px; margin-bottom:6px; }
+  .agill { display:inline-block; font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:0 6px; border-radius:8px; background:#8764b8; color:#fff; margin-right:4px; }
+  .agdata .resp { font-family:Consolas, "Cascadia Mono", monospace; font-size:11px; background:#1e1e1e; color:#d4d4d4; border-radius:5px; padding:6px 8px; line-height:1.5; overflow-wrap:anywhere; }
+  .agdata .resp .sl { color:#4fc1ff; font-weight:700; } .agdata .agkv { display:flex; gap:6px; } .agdata .agkv span { color:#9cdcfe; flex:none; } .agdata .agkv span::after { content:":"; }
+  .agdata .agkv b { font-weight:400; color:#ce9178; min-width:0; } .agdata .agkv.bad b { color:#f48771; font-weight:700; }
+  .agdata .resp .body { color:#ce9178; } .agdata .resp .more { color:#808080; font-style:italic; }
+  .agdata .trace { margin-top:6px; border-left:2px solid #8764b8; padding-left:8px; } .agdata .trace .h { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; font-weight:600; margin-bottom:2px; }
+  .agdata .trace > div:not(.h) { display:flex; gap:6px; align-items:center; padding:1px 0; }
+  .agdata .trace .g { width:14px; height:14px; border-radius:50%; display:grid; place-items:center; font-size:9px; font-weight:800; color:#fff; background:#107c10; flex:none; }
+  .agdata .trace .warn .g { background:#c19c00; } .agdata .trace .stop .g { background:#d13438; } .agdata .trace .halt .g { background:#0f6cbd; }
+  .agdata .trace em { font-style:normal; font-size:10.5px; font-weight:700; color:#5c2e91; margin-left:auto; } .agdata .trace .stop em { color:#a4262c; } .agdata .trace .warn em { color:#8a5300; }
+  .agdata .metric { margin-top:6px; font-size:11px; color:var(--muted); } .agdata .metric code, .agdata .tables code { font-size:10.5px; white-space:normal; }
+  .agdata .tables, .agdata .agtables { margin-top:6px; font-size:11px; color:var(--muted); line-height:1.45; }
+  .agdata [data-agevbox] { margin-top:6px; } .agdata [data-agevbox] .lnk { height:24px; padding:0 10px; font-size:11.5px; font-weight:400; background:#fff; color:var(--accent); border:1px solid var(--border); border-radius:12px; }
+  .agdata [data-agevbox] .evsrc h3 { font-size:12px; margin:6px 0 2px; }
+  .agdfine { margin-top:6px; font-size:11px; color:var(--muted); }
+  @media (prefers-reduced-motion: reduce) { table.agsteps tbody tr { animation:none; opacity:1; } }
+  #agTier .elh { font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; margin:16px 0 8px; }
+  #agTier .agcols { gap:16px; } #agTier .agcols > .card { min-width:0; }
+  #agTier .agsrc { font-size:12px; margin:14px 0 0; }
+  /* 0. TL;DR */
+  #agTier .agtldr { border-top:4px solid var(--accent); }
+  #agTier .agtldr .hl { display:flex; gap:14px; align-items:flex-start; }
+  #agTier .agtldr .hl .tag { flex:none; font-size:11px; font-weight:800; letter-spacing:.6px; color:#fff; background:var(--accent); border-radius:4px; padding:3px 8px; margin-top:3px; }
+  #agTier .agtldr .hl > div > b:first-child { display:block; font-size:19px; line-height:1.3; }
+  #agTier .agtldr .hl p { margin:4px 0 0; font-size:13.5px; line-height:1.5; color:var(--text); max-width:980px; }
+  #agTier .agtldr .cols { display:grid; grid-template-columns:1.2fr 1fr 1fr; gap:10px; margin-top:14px; }
+  #agTier .agtl { border-radius:8px; padding:10px 14px; border:1px solid; opacity:0; transform:translateY(6px); animation:agRow .4s forwards; }
+  #agTier .agtl:nth-child(2) { animation-delay:.12s; } #agTier .agtl:nth-child(3) { animation-delay:.24s; }
+  #agTier .agtl .h { display:flex; align-items:center; gap:8px; font-weight:700; font-size:13.5px; }
+  #agTier .agtl .g { width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-size:13px; font-weight:800; color:#fff; flex:none; }
+  #agTier .agtl ul { margin:8px 0 0; padding-left:18px; font-size:12.5px; line-height:1.5; } #agTier .agtl li + li { margin-top:3px; }
+  #agTier .agtl.same { border-color:#107c10; background:#f1faf0; } #agTier .agtl.same .g { background:#107c10; } #agTier .agtl.same .h { color:#0b5a0b; font-size:15px; }
+  #agTier .agtl.differs { border-color:#e0c66b; background:#fffbea; } #agTier .agtl.differs .g { background:#c19c00; } #agTier .agtl.differs .h { color:#6b4100; }
+  #agTier .agtl.classic { border-color:#d2d0ce; border-style:dashed; background:#faf9f8; } #agTier .agtl.classic .g { background:#8a8886; } #agTier .agtl.classic .h { color:#484644; }
+  #agTier .agtldr .agbl { margin-top:12px; padding:10px 14px; border-radius:6px; background:var(--accent-light); font-size:13.5px; line-height:1.5; }
+  #agTier .agtldr .agbl .muted { font-size:12px; }
+  @media (max-width:1000px) { #agTier .agtldr .cols { grid-template-columns:1fr; } }
+  /* 1. Same call, two gateways: two lanes of stages, a dot per lane walks them and stops where the gateway stops the call */
+  #agTier .agstories { display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 14px; }
+  #agTier .agstories button { height:30px; padding:0 12px; border-radius:15px; border:1px solid var(--border); background:#fff; color:var(--text); font-size:12.5px; font-weight:400; display:inline-flex; gap:6px; align-items:center; }
+  #agTier .agstories button:hover:not(:disabled) { background:var(--accent-light); color:var(--text); }
+  #agTier .agstories button.on { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  #agTier .agstories button .sc { font-size:10.5px; font-weight:700; padding:0 5px; border-radius:8px; background:#f3f2f1; color:#323130; }
+  #agTier .agstories button.on .sc { background:rgba(255,255,255,.25); color:#fff; }
+  #agTier .agstories .play { margin-left:auto; border-style:dashed; }
+  #agTier .agrace { overflow-x:auto; padding-bottom:4px; }
+  #agTier .aglane { position:relative; display:grid; grid-template-columns:150px repeat(7, minmax(92px, 1fr)) 120px; align-items:start; min-width:980px; padding:6px 0; }
+  #agTier .aglane .who, #agTier .aglane .agres { align-self:center; }
+  #agTier .aglane .who { display:flex; gap:8px; align-items:center; font-weight:600; font-size:12.5px; line-height:1.25; }
+  #agTier .aglane .who img { width:26px; height:26px; flex:0 0 26px; } #agTier .aglane .who small { display:block; font-weight:400; color:var(--muted); font-size:11px; }
+  #agTier .aglane .track { position:absolute; left:calc(150px + 46px); right:166px; top:50%; height:3px; margin-top:-14px; background:repeating-linear-gradient(90deg, #c8c6c4 0 6px, transparent 6px 11px); }
+  #agTier .agnode { position:relative; z-index:1; justify-self:center; display:flex; flex-direction:column; align-items:center; gap:3px; width:92px; text-align:center; }
+  #agTier .agnode .ic { width:40px; height:40px; border-radius:50%; background:#fff; border:2px solid var(--border); display:grid; place-items:center; transition:border-color .25s, box-shadow .25s, transform .25s, background .25s; }
+  #agTier .agnode .ic img { width:22px; height:22px; }
+  #agTier .agnode b { font-size:11.5px; line-height:1.2; font-weight:600; } #agTier .agnode small { font-size:10px; color:var(--muted); line-height:1.2; }
+  #agTier .agnode.pass .ic { border-color:#107c10; box-shadow:0 0 0 4px rgba(16,124,16,.12); }
+  #agTier .agnode.stop .ic { border-color:#d13438; background:#fde7e9; box-shadow:0 0 0 5px rgba(209,52,56,.18); animation:agShake .45s; }
+  #agTier .agnode .flag { position:absolute; top:-18px; left:50%; transform:translateX(-50%) scale(.6); opacity:0; white-space:nowrap; font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:9px; background:#323130; color:#fff; transition:opacity .25s, transform .25s; pointer-events:none; }
+  #agTier .agnode .flag.on { opacity:1; transform:translateX(-50%) scale(1); } #agTier .agnode .flag.warn { background:#c19c00; } #agTier .agnode .flag.bad { background:#d13438; } #agTier .agnode .flag.ok { background:#107c10; }
+  #agTier .agdot { position:absolute; z-index:2; top:0; left:0; width:52px; height:52px; margin:-26px 0 0 -26px; border-radius:50%; border:3px solid var(--accent); box-shadow:0 0 0 5px rgba(0,120,212,.15), 0 0 14px rgba(0,120,212,.35); transition:left .38s cubic-bezier(.4,0,.2,1), border-color .2s, box-shadow .2s; opacity:0; pointer-events:none; }
+  #agTier .agdot.on { opacity:1; } #agTier .agdot.bad { border-color:#d13438; box-shadow:0 0 0 5px rgba(209,52,56,.18), 0 0 14px rgba(209,52,56,.4); }
+  #agTier .aglane[data-lane="classic"] { padding-top:20px; } #agTier .aglane[data-lane="tier"] { padding-bottom:22px; }
+  #agTier .aglane[data-lane="tier"] .agnode .flag { top:auto; bottom:-20px; }
+  #agTier .agres { justify-self:start; margin-left:10px; display:flex; flex-direction:column; gap:2px; opacity:0; transform:translateX(-8px); transition:opacity .3s, transform .3s; }
+  #agTier .agres.on { opacity:1; transform:none; }
+  #agTier .agres .st { font-size:20px; font-weight:700; line-height:1; } #agTier .agres .st.s2 { color:#107c10; } #agTier .agres .st.s4 { color:#d13438; }
+  #agTier .agres small { font-size:10.5px; color:var(--muted); max-width:120px; line-height:1.25; } #agTier .agres code { font-size:10px; white-space:normal; word-break:break-all; }
+  /* the compatibility of each stage, between the two lanes */
+  #agTier .agmap { display:grid; grid-template-columns:150px repeat(7, minmax(92px, 1fr)) 120px; min-width:980px; height:26px; align-items:center; }
+  #agTier .agmap span { justify-self:center; display:flex; flex-direction:column; align-items:center; }
+  #agTier .agmap span[data-st]::before, #agTier .agmap span[data-st]::after { content:""; width:2px; height:6px; background:currentColor; opacity:.5; }
+  #agTier .agmap i { font-style:normal; font-size:10px; font-weight:700; padding:0 6px; border-radius:8px; line-height:14px; border:1px solid currentColor; background:#fff; }
+  #agTier .agmap .same { color:#107c10; } #agTier .agmap .differs { color:#8a5300; } #agTier .agmap .classic { color:#8a8886; }
+  #agTier .agmap .hot i { animation:agPulse 1s 2; }
+  #agTier .agnote { margin-top:10px; min-height:44px; display:flex; gap:12px; align-items:center; padding:10px 14px; border-radius:6px; background:var(--panel2); font-size:13px; line-height:1.45; opacity:0; transition:opacity .35s; }
+  #agTier .agnote.on { opacity:1; } #agTier .agnote .agk { flex:none; } #agTier .agnote b { font-weight:600; }
+  @keyframes agShake { 0%,100% { transform:none; } 25% { transform:translateX(-4px); } 50% { transform:translateX(4px); } 75% { transform:translateX(-2px); } }
+  @keyframes agPulse { 50% { transform:scale(1.25); box-shadow:0 0 0 4px rgba(193,156,0,.2); } }
+  /* 2. What your app changes: the request on the wire, line by line */
+  #agTier .agwire { font-family:Consolas, "Cascadia Mono", monospace; font-size:11.5px; border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+  #agTier .agwire .r { display:grid; grid-template-columns:22px 1fr 1fr; border-bottom:1px solid var(--divider); opacity:0; transform:translateY(4px); }
+  #agTier .agwire.on .r { animation:agRow .35s forwards; } #agTier .agwire .r:last-child { border-bottom:0; }
+  #agTier .agwire .r > div { padding:5px 8px; word-break:break-all; line-height:1.4; } #agTier .agwire .r > div + div { border-left:1px solid var(--divider); }
+  #agTier .agwire .g { display:grid; place-items:center; font-family:"Segoe UI", sans-serif; font-weight:700; font-size:12px; }
+  #agTier .agwire .h { background:var(--panel2); font-family:"Segoe UI", sans-serif; font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
+  #agTier .agwire .same .g { color:#107c10; background:#dff6dd; }
+  #agTier .agwire .chg .g { color:#8a5300; background:#fff4ce; } #agTier .agwire .chg > div:nth-child(3) { background:#fffbea; }
+  #agTier .agwire .chg mark { background:#fde7a7; color:inherit; border-radius:2px; padding:0 1px; }
+  #agTier .agwire .drop .g { color:#a4262c; background:#fde7e9; } #agTier .agwire .drop > div:nth-child(3) { color:#a19f9d; text-decoration:line-through; }
+  #agTier .agwire .why { grid-column:2 / -1; font-family:"Segoe UI", sans-serif; font-size:11px; color:var(--muted); padding:0 8px 5px; border-left:0 !important; }
+  @keyframes agRow { to { opacity:1; transform:none; } }
+  #agTier .agcodes { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:8px; }
+  #agTier .agcode { border:1px solid var(--border); border-radius:6px; padding:8px 10px; background:#fff; }
+  #agTier .agcode .l { font-size:11px; color:var(--muted); margin-bottom:5px; }
+  #agTier .agcode .p { display:flex; align-items:center; gap:6px; flex-wrap:nowrap; }
+  #agTier .agcode .s { font-weight:700; font-size:15px; padding:0 6px; border-radius:4px; background:#f3f2f1; }
+  #agTier .agcode .s.new { background:#fff4ce; color:#8a5300; } #agTier .agcode .sub { margin-top:4px; font-size:10.5px; color:var(--muted); word-break:break-word; }
+  #agTier .agcode .arr { color:var(--muted); } #agTier .agcode.same { border-left:3px solid #107c10; } #agTier .agcode.chg { border-left:3px solid #c19c00; }
+  /* 3. What you build with: pairs of building blocks, an arrow pulses from the sandbox's to the tier's */
+  #agTier .agblocks { display:grid; gap:6px; }
+  #agTier .agpair { display:grid; grid-template-columns:1fr 44px 1fr; align-items:center; gap:4px; padding:5px 8px; border-radius:6px; border:1px solid transparent; cursor:default; }
+  #agTier .agpair:hover, #agTier .agpair:focus-visible { background:var(--accent-light); border-color:#c7e0f4; }
+  #agTier .agpair > div { display:flex; align-items:center; gap:8px; font-size:12.5px; line-height:1.25; min-width:0; } #agTier .agpair > div img { width:24px; height:24px; flex:0 0 24px; }
+  #agTier .agpair > div small { display:block; font-size:10.5px; color:var(--muted); }
+  #agTier .agpair .to { position:relative; height:2px; background:#c8c6c4; overflow:visible; } #agTier .agpair .to::after { content:""; position:absolute; right:-1px; top:-4px; border:5px solid transparent; border-left:7px solid #c8c6c4; border-right:0; }
+  #agTier .agpair .to i { position:absolute; top:-3px; left:0; width:8px; height:8px; border-radius:50%; background:var(--accent); animation:agFlow 2.4s infinite; }
+  #agTier .agpair.none > div:last-child { color:var(--muted); font-style:italic; } #agTier .agpair.none > div:last-child img { opacity:.35; filter:grayscale(1); }
+  #agTier .agpair.none .to i { background:#a19f9d; }
+  #agTier .agblk-tip { margin-top:8px; min-height:38px; font-size:12px; color:var(--muted); line-height:1.45; }
+  @keyframes agFlow { 0% { left:0; opacity:0; } 15% { opacity:1; } 85% { opacity:1; } 100% { left:calc(100% - 8px); opacity:0; } }
+  /* 4. Every control: a stacked meter, then one lane of tiles per pipeline stage */
+  #agTier .agmeter { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin:2px 0 12px; }
+  #agTier .agmeter .bar { flex:1 1 280px; display:flex; height:14px; border-radius:7px; overflow:hidden; background:#f3f2f1; }
+  #agTier .agmeter .bar i { display:block; width:0; transition:width .9s cubic-bezier(.4,0,.2,1); } #agTier .agmeter .bar .same { background:#107c10; } #agTier .agmeter .bar .differs { background:#c19c00; } #agTier .agmeter .bar .classic { background:#c8c6c4; }
+  #agTier .agmeter .big { font-size:24px; font-weight:700; line-height:1; } #agTier .agmeter .big small { font-size:12px; font-weight:400; color:var(--muted); margin-left:4px; }
+  #agTier .agmeter .pc[aria-pressed="false"] { opacity:.45; }
+  #agTier .aglanes { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px; }
+  #agTier .aglanes .ln { background:var(--panel2); border-radius:6px; padding:8px; }
+  #agTier .aglanes .ln > div:first-child { display:flex; gap:6px; align-items:center; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px; } #agTier .aglanes .ln > div:first-child img { width:14px; height:14px; }
+  #agTier .agtiles { display:flex; flex-wrap:wrap; gap:5px; }
+  #agTier .agtile { height:auto; min-height:26px; padding:3px 8px; border-radius:13px; font-size:11.5px; font-weight:600; line-height:1.2; border:1.5px solid; background:#fff; color:var(--text); text-align:left; opacity:0; transform:scale(.85); transition:opacity .25s, transform .25s, filter .2s; }
+  #agTier .agtile.in { opacity:1; transform:none; }
+  #agTier .agtile.same { border-color:#107c10; background:#dff6dd; color:#0b5a0b; }
+  #agTier .agtile.differs { border-color:#c19c00; background:linear-gradient(90deg, #fff4ce 50%, #fff 50%); color:#6b4100; }
+  #agTier .agtile.classic { border-color:#c8c6c4; border-style:dashed; color:#605e5c; font-weight:400; }
+  #agTier .agtile:hover:not(:disabled), #agTier .agtile.cur { box-shadow:0 0 0 3px rgba(0,120,212,.25); color:inherit; }
+  #agTier .agtile.dim { filter:grayscale(1); opacity:.25; }
+  #agTier .agpeek { margin-top:10px; min-height:62px; border:1px solid var(--border); border-radius:6px; padding:10px 12px; font-size:12.5px; line-height:1.45; display:grid; grid-template-columns:minmax(0, 1fr) 30px minmax(0, 1fr); gap:10px; align-items:center; }
+  #agTier .agpeek .side small { display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; }
+  #agTier .agpeek .side b { font-size:13px; } #agTier .agpeek .arr { font-size:20px; color:var(--muted); text-align:center; }
+  #agTier .agpeek .note { grid-column:1 / -1; color:var(--muted); font-size:12px; border-top:1px solid var(--divider); padding-top:6px; }
+  #agTier .agpeek.empty { display:flex; color:var(--muted); justify-content:center; }
+  #agTier details.agtable { margin-top:10px; } #agTier details.agtable > summary { cursor:pointer; color:var(--accent); font-size:12.5px; }
+  #agTier table td { white-space:normal; vertical-align:top; font-size:12.5px; line-height:1.45; } #agTier table th { font-size:11px; color:var(--muted); font-weight:600; }
+  #agTier table td:first-child { font-weight:600; } #agTier .agrow { cursor:pointer; } #agTier .agrow:hover td { background:var(--accent-light); }
+  #agTier .agg td { background:var(--panel2); font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); padding:5px 10px; }
+  /* 5. Scenarios: a compact tile each, with one bar segment per control it shows */
+  #agTier .agsc { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; }
+  #agTier .agsc > button { height:auto; display:flex; flex-direction:column; align-items:stretch; gap:6px; padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:#fff; color:var(--text); font-weight:400; text-align:left; }
+  #agTier .agsc > button:hover:not(:disabled) { background:var(--accent-light); color:var(--text); }
+  #agTier .agsc .t { display:flex; gap:6px; align-items:flex-start; font-size:12px; line-height:1.3; } #agTier .agsc .t b { flex:1; font-weight:600; }
+  #agTier .agsc .t .n { flex:0 0 20px; height:20px; border-radius:50%; background:#f3f2f1; font-size:10.5px; font-weight:700; display:grid; place-items:center; }
+  #agTier .agsc .segs { display:flex; gap:2px; height:6px; } #agTier .agsc .segs i { flex:1; border-radius:3px; }
+  #agTier .agsc .segs .same { background:#107c10; } #agTier .agsc .segs .differs { background:#c19c00; } #agTier .agsc .segs .classic { background:#d2d0ce; }
+  #agTier .agsc .agk { font-size:10.5px; }
+  #agTier .agsc > button.on { border-color:var(--accent); background:var(--accent-light); box-shadow:inset 0 -3px 0 var(--accent); }
+  /* a scenario's comparison, opened in place under its row */
+  #agTier .agscd { grid-column:1 / -1; position:relative; border:1px solid var(--accent); border-radius:8px; background:#fff; padding:12px 14px 14px; margin:2px 0 6px;
+    box-shadow:0 6px 18px rgba(0,0,0,.08); animation:agOpen .32s cubic-bezier(.4,0,.2,1); transform-origin:top; }
+  #agTier .agscd .hd { display:flex; gap:10px; align-items:flex-start; }
+  #agTier .agscd .hd .n { flex:0 0 26px; height:26px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:700; display:grid; place-items:center; }
+  #agTier .agscd .hd b { font-size:15px; } #agTier .agscd .hd small { display:block; color:var(--muted); font-size:12.5px; line-height:1.4; margin-top:2px; }
+  #agTier .agscd .hd .agk { margin-left:8px; vertical-align:2px; } #agTier .agscd .hd .sp { flex:1; }
+  #agTier .agscd .lnk { height:26px; padding:0 10px; font-size:12px; font-weight:400; white-space:nowrap; flex:none; background:#fff; color:var(--accent); border:1px solid var(--border); border-radius:13px; }
+  #agTier .agscd .lnk:hover:not(:disabled) { background:var(--accent-light); color:var(--accent); }
+  #agTier .agscd .x { height:26px; width:26px; padding:0; font-size:13px; background:transparent; color:var(--muted); border:0; }
+  #agTier .agscd .x:hover:not(:disabled) { background:var(--panel2); color:var(--text); }
+  #agTier .agscd .elh { display:flex; align-items:center; gap:8px; } #agTier .agscd .elh .lnk { height:22px; font-size:11px; text-transform:none; letter-spacing:0; }
+  #agTier .agscd .agnote { margin-top:6px; }
+  #agTier .agpairs { display:grid; gap:6px; }
+  #agTier .agpr { display:grid; grid-template-columns:minmax(0, 1fr) 150px minmax(0, 1.4fr); align-items:stretch; opacity:0; transform:translateY(6px); animation:agRow .35s forwards; }
+  #agTier .agpr .side { border:1px solid var(--border); border-radius:6px; padding:7px 10px; background:#fff; font-size:12.5px; line-height:1.4; min-width:0; text-align:left; }
+  #agTier .agpr .side small { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; }
+  #agTier .agpr .side b { display:block; font-size:13px; } #agTier .agpr .side code { font-size:11px; white-space:normal; }
+  #agTier .agpr .side.l { height:auto; color:var(--text); font-weight:400; cursor:pointer; } #agTier .agpr .side.l:hover:not(:disabled) { background:var(--accent-light); color:var(--text); }
+  #agTier .agpr .side.r span { display:block; color:var(--muted); font-size:12px; }
+  #agTier .agpr .link { position:relative; display:grid; place-items:center; }
+  #agTier .agpr .link i { position:absolute; left:6px; right:6px; top:50%; height:2px; background:currentColor; opacity:.55; z-index:0; }
+  #agTier .agpr .link i::after { content:""; position:absolute; right:-2px; top:-4px; border:5px solid transparent; border-left:7px solid currentColor; border-right:0; }
+  #agTier .agpr .link .agk { position:relative; z-index:1; background:#fff; padding:1px 8px; border:1px solid currentColor; border-radius:10px; }
+  #agTier .agpr.same .link { color:#107c10; } #agTier .agpr.same .side.r { border-color:#107c10; background:#f3fbf2; }
+  #agTier .agpr.differs .link { color:#c19c00; } #agTier .agpr.differs .side.r { border-color:#c19c00; background:#fffbea; }
+  #agTier .agpr.classic .link { color:#a19f9d; } #agTier .agpr.classic .link i { background:repeating-linear-gradient(90deg, currentColor 0 5px, transparent 5px 9px); opacity:.8; }
+  #agTier .agpr.classic .side.r { border-style:dashed; background:#faf9f8; } #agTier .agpr.classic .side.r b { color:var(--muted); font-style:italic; font-weight:600; }
+  #agTier .agres .st.sq { color:#8a8886; }
+  @keyframes agOpen { from { opacity:0; transform:scaleY(.94) translateY(-6px); } to { opacity:1; transform:none; } }
+  @media (max-width:760px) { #agTier .agpr { grid-template-columns:1fr; } #agTier .agpr .link { height:28px; } #agTier .agpr .link i { left:50%; right:auto; top:2px; bottom:2px; width:2px; height:auto; } #agTier .agpr .link i::after { display:none; } }
+  @media (max-width:1100px) { #agTier .aglanes { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+  @media (max-width:1000px) { #agTier .agcols { grid-template-columns:1fr; } }
+  @media (prefers-reduced-motion: reduce) { #agTier *, #agTier *::before, #agTier *::after { animation:none !important; transition:none !important; } #agTier .agwire .r, #agTier .agtile, #agTier .agpr, #agTier .agtl { opacity:1; transform:none; } }
   .bkpool { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:10px; }
   .bkpool .ph { grid-column:1 / -1; font-size:12px; color:var(--muted); display:flex; gap:6px; align-items:center; }
   .bk { border:1px solid var(--border); border-radius:6px; padding:10px 12px; display:flex; gap:10px; align-items:flex-start; background:#fff; }
@@ -435,43 +693,86 @@
   .preview .ph b { font-size:14px; } .preview .gist { color:var(--muted); font-size:12px; line-height:1.5; margin-top:2px; }
   .preview .pf { display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin-top:10px; font-size:11px; color:var(--muted); }
   .preview .pf code { font-size:11px; } .preview .pf .sp { flex:1; }
-  .dgm { margin-top:10px; background:var(--panel2); border:1px solid var(--divider); border-radius:6px; padding:12px; display:grid; gap:10px; }
+  .dgm { margin-top:10px; background:radial-gradient(circle at 1px 1px, #d8dfe7 .8px, transparent 1.3px) 0 0 / 14px 14px, linear-gradient(180deg,#fbfcfe,#f2f5f9);
+         border:1px solid #e1e6ec; border-radius:10px; padding:12px; display:grid; gap:12px; box-shadow:inset 0 1px 0 #fff, 0 1px 2px rgba(0,0,0,.03); }
   .dr { display:flex; align-items:center; width:100%; }
   .dc { display:grid; gap:6px; flex:1; }
-  .dn { border:1px solid var(--border); background:#fff; border-radius:6px; padding:4px 8px; font-size:11px; line-height:1.3; text-align:center; flex:0 0 auto; max-width:120px; }
-  .dn b { display:block; font-size:12px; font-weight:600; } .dn > span { color:var(--muted); font-size:10.5px; display:block; text-wrap:balance; }
+  .dn { position:relative; border:1px solid #d6dbe1; background:linear-gradient(180deg,#fff,#f6f7f9); border-radius:8px; padding:4px 8px; font-size:11px; line-height:1.3; text-align:center; flex:0 1 auto; max-width:120px;
+        overflow-wrap:break-word; box-shadow:0 1px 2px rgba(0,0,0,.06), 0 3px 8px rgba(0,0,0,.035); }
+  .dn b { display:block; font-size:12px; font-weight:600; color:#242424; }
+  /* the node's Azure icon: a small chip centred on its top border, clear of the arrow labels on either side */
+  .dn:has(.dni) { padding-top:11px; margin-top:6px; }
+  .dn b .dni { position:absolute; top:-9px; left:50%; transform:translateX(-50%); width:18px; height:18px; padding:2px; box-sizing:border-box; background:#fff; border-radius:50%;
+    box-shadow:0 0 0 1px #e1e6ec, 0 1px 3px rgba(0,0,0,.14); }
+  .dn > span { color:var(--muted); font-size:10.5px; display:block; text-wrap:balance; margin-top:1px; }
   .dn .badge { font-size:9px; padding:0 5px; }
-  .dn.gw { border-color:var(--accent); background:var(--accent-light); } .dn.gw b { color:#005a9e; }
-  .dn.model { border-color:#9fc5ea; } .dn.tool { border-color:#7fc8cd; background:#f2fafa; } .dn.a2a { border-color:#b9a4d8; background:#f9f6fc; }
-  .dn.mon { border-color:#c3b3e0; } .dn.x { border-color:#e8a3a7; background:var(--bad-bg); } .dn.x b { color:var(--bad); }
-  .dn.dim { border-style:dashed; color:var(--muted); }
+  .dn.gw { border-color:#9fc5ea; background:linear-gradient(180deg,#f7fbff,#e5f0fb); box-shadow:0 0 0 3px rgba(0,120,212,.07), 0 2px 6px rgba(0,90,158,.1); } .dn.gw b { color:#0f548c; }
+  .dn.model { border-color:#b4d3f0; background:linear-gradient(180deg,#f9fcff,#e9f2fb); } .dn.model b { color:#0f548c; }
+  .dn.tool { border-color:#8ccfd4; background:linear-gradient(180deg,#f6fcfc,#e0f2f3); } .dn.tool b { color:#00666d; }
+  .dn.a2a { border-color:#c3b1df; background:linear-gradient(180deg,#fcf9ff,#eee6f8); } .dn.a2a b { color:#5c2e91; }
+  .dn.mon { border-color:#cdbfe6; background:linear-gradient(180deg,#fdfbff,#f1ebfa); } .dn.mon b { color:#5c2e91; }
+  .dn.x { border-color:#eeb1b3; background:linear-gradient(180deg,#fff8f8,#fde8ea); box-shadow:0 0 0 3px rgba(209,52,56,.07), 0 2px 6px rgba(209,52,56,.1); } .dn.x b { color:var(--bad); }
+  .dn.dim { border-style:dashed; background:#fafafa; box-shadow:none; color:var(--muted); } .dn.dim b { color:#8a8886; } .dn.dim .dni { opacity:.45; filter:grayscale(1); }
   /* arrow: label above a line that stays level with the middle of the boxes; long labels wrap instead of running over the boxes */
-  .da { --c:#8a8886; flex:1 1 0; min-width:40px; align-self:stretch; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:1fr auto 1fr; justify-items:center; font-size:10px; color:var(--muted); padding:0 4px; text-align:center; line-height:1.2; }
-  .da > span { align-self:end; margin-bottom:3px; max-width:100%; text-wrap:balance; overflow-wrap:break-word; }
+  .da { --c:#a19f9d; flex:1 1 0; min-width:auto; align-self:stretch; display:grid; grid-template-columns:minmax(min-content,1fr); grid-template-rows:1fr auto 1fr; justify-items:center; font-size:10px; color:var(--muted); padding:0 4px; text-align:center; line-height:1.2; }
+  .da > span { align-self:end; margin-bottom:4px; max-width:100%; text-wrap:balance; overflow-wrap:normal; word-break:normal; font-weight:500; }
+  .da > span.nw, .da > span.nw * { white-space:nowrap !important; max-width:none !important; }  /* dgFit measures the label on one line */
   /* surface chips (AI model, MCP tool…) on an arrow wrap to its width instead of overflowing under the next box */
   .da .surf { display:inline-block; white-space:normal; text-align:center; max-width:100%; padding:1px 4px; font-size:10px; line-height:1.2; }
   .da .surf img.ico.sm { width:11px; height:11px; margin-right:2px; vertical-align:-1px; }
-  .da i { display:block; width:100%; height:2px; background:var(--c); position:relative; grid-row:2; }
+  .da i { display:block; width:100%; min-width:20px; height:2px; border-radius:2px; background:var(--c); position:relative; grid-row:2; }
   .dc .da:only-child { grid-template-rows:auto auto; }
   .da i::after { content:""; position:absolute; right:-2px; top:-4px; border:5px solid transparent; border-left:7px solid var(--c); border-right:0; }
-  .da.ok { --c:#107c10; } .da.bad { --c:#d13438; } .da.warn { --c:#ca5010; } .da.ok > span { color:var(--ok); } .da.bad > span { color:var(--bad); } .da.warn > span { color:var(--warn); }
+  .da.ok { --c:#13a10e; } .da.bad { --c:#d13438; } .da.warn { --c:#ca5010; } .da.ok > span { color:var(--ok); } .da.bad > span { color:var(--bad); } .da.warn > span { color:var(--warn); }
   .da.dash i { background:repeating-linear-gradient(90deg,var(--c) 0 4px,transparent 4px 7px); }
   .dr > .status { margin-left:6px; flex:0 0 auto; }
+  .status.dcode { box-shadow:0 0 0 3px color-mix(in srgb, currentColor 10%, transparent); }
+  .status.dcode.s200::before { content:"✓ "; } .status.dcode.s401::before, .status.dcode.s403::before { content:"✗ "; } .status.dcode.s429::before { content:"⏱ "; }
   .db { display:grid; grid-template-columns:110px 1fr auto; gap:8px; align-items:center; font-size:11px; }
-  .db .t { height:10px; background:#edebe9; border-radius:5px; overflow:hidden; display:flex; } .db .t span { display:block; height:100%; }
+  .db .t { height:9px; background:#e6e9ee; border-radius:5px; overflow:hidden; display:flex; box-shadow:inset 0 1px 2px rgba(0,0,0,.08); }
+  .db .t span { display:block; height:100%; background-image:linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,0)) !important; background-blend-mode:normal; }
   .db .t span + span { border-left:2px solid #fff; }
   .db .r { color:var(--muted); text-align:right; white-space:nowrap; }
   .dseq { display:flex; gap:4px; align-items:center; font-size:11px; color:var(--muted); }
-  .dseq .dq { font-size:10px; font-weight:600; border-radius:3px; padding:2px 5px; }
+  .dseq .dq { font-size:10px; font-weight:600; border-radius:10px; padding:2px 7px; box-shadow:0 1px 2px rgba(0,0,0,.08); }
   .dnote { font-size:11px; color:var(--muted); line-height:1.5; } .dnote code { white-space:nowrap; }
-  .dlane + .dlane { border-top:1px solid var(--divider); padding-top:10px; }
-  .dlhead { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; font-size:11px; }
+  .dlane { background:rgba(255,255,255,.85); border:1px solid #e3e7ec; border-radius:9px; padding:10px 12px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .dlhead { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; font-size:11.5px; }
   .dlane .dr { gap:6px; }
   .dlane .dn { flex:1 1 0; min-width:0; max-width:none; overflow-wrap:anywhere; padding:6px; }
-  .dlane .da { flex:0 0 18px; min-width:18px; padding:0; }
+  .dlane .da { flex:0 0 18px; min-width:18px; padding:0; } .dlane .da i { min-width:0; }
   .dlane .da > span { display:none; }
-  .dn.ok { border-color:#a7d3a7; background:var(--ok-bg); }
+  .dn.ok { border-color:#a8dca8; background:linear-gradient(180deg,#f6fcf6,#e5f5e5); box-shadow:0 0 0 3px rgba(19,161,14,.07), 0 2px 6px rgba(19,161,14,.08); }
   .dn.ok b { color:var(--ok); }
+  /* fan-out: one wire from the node on the left splits into the column's rows along a spine */
+  .dc.fan { --sx:10px; position:relative; gap:0; padding-left:var(--sx); align-self:stretch; align-content:center; }
+  .dc.fan::after { content:""; position:absolute; left:0; top:50%; width:var(--sx); height:2px; margin-top:-1px; border-radius:1px; background:#a19f9d; }
+  .dc.fan > .dr { position:relative; padding:5px 0; }
+  .dc.fan > .dr::before { content:""; position:absolute; left:-1px; top:0; bottom:0; width:2px; background:#a19f9d; }
+  .dc.fan > .dr:first-child::before { top:50%; } .dc.fan > .dr:last-child::before { bottom:50%; } .dc.fan > .dr:only-child::before { display:none; }
+  /* a row too wide for its box flows top to bottom: boxes stacked, down-arrows with their label beside them (dgFit) */
+  .dr.stack { flex-direction:column; align-items:flex-start; gap:0; }
+  .dr.stack > .dn, .dr.stack > .dc { width:min(260px,100%); max-width:none; flex:0 0 auto; }
+  .dr.stack > .dn:has(.dni) { margin-top:10px; }
+  .dr.stack > .da { flex:0 0 auto; width:100%; min-width:0 !important; grid-template-columns:auto minmax(0,1fr); grid-template-rows:auto; align-items:center; padding:0 0 0 23px; }
+  .dr.stack > .da i { grid-column:1; grid-row:1; width:2px; min-width:0; height:26px; }
+  .dr.stack > .da i::after { right:auto; left:-4px; top:auto; bottom:-2px; border:5px solid transparent; border-top:7px solid var(--c); border-bottom:0; }
+  .dr.stack > .da.dash i { background:repeating-linear-gradient(180deg,var(--c) 0 4px,transparent 4px 7px); }
+  .dr.stack > .da > span { grid-column:2; grid-row:1; justify-self:start; align-self:center; margin:0 0 0 10px; text-align:left; max-width:none; }
+  .dr.stack > .status { margin:8px 0 0; }
+  .dr.stack > .dc.fan { --sx:24px; padding-left:var(--sx); } .dr.stack > .dc.fan::after { display:none; }
+  .dr.stack > .dc.fan > .dr:first-child::before { top:0; }
+  /* a diagram on show (the picker's selected scenario): parts arrive in order, wires carry a moving pulse, bars grow */
+  .dgm.live .dr > *, .dgm.live .db, .dgm.live .dseq, .dgm.live .dnote, .dgm.live .dlhead, .dgm.live .dchips { animation:dgIn .42s cubic-bezier(.2,.8,.3,1) both; animation-delay:calc(var(--i, 0) * 70ms); }
+  .dgm.live .da i::before { content:""; position:absolute; top:-2px; left:0; width:6px; height:6px; border-radius:50%; background:var(--c); box-shadow:0 0 6px var(--c);
+    animation:daPulse 2.2s cubic-bezier(.45,0,.55,1) infinite; animation-delay:calc(var(--i, 0) * 70ms + .5s); opacity:0; }
+  .dgm.live .dr.stack > .da i::before { top:0; left:-2px; animation-name:daPulseV; }
+  .dgm.live .db .t span { transform-origin:left; animation:dbGrow .8s cubic-bezier(.2,.8,.3,1) both; animation-delay:calc(var(--i, 0) * 70ms + .1s); }
+  @keyframes dgIn { from { opacity:0; transform:translateY(5px) scale(.97); } }
+  @keyframes daPulse { 0% { left:0; opacity:0; } 15%, 80% { opacity:1; } 100% { left:calc(100% - 8px); opacity:0; } }
+  @keyframes daPulseV { 0% { top:0; opacity:0; } 15%, 80% { opacity:1; } 100% { top:calc(100% - 8px); opacity:0; } }
+  @keyframes dbGrow { from { transform:scaleX(0); } }
+  @media (prefers-reduced-motion: reduce) { .dgm.live *, .dgm.live .da i::before { animation:none !important; } .dgm.live .da i::before { display:none; } }
   /* service nodes: Azure icon above the product name (semantic cache preview) */
   .dn.svc img.ico { display:block; width:20px; height:20px; margin:0 auto 3px; vertical-align:0; }
   .dc .dn.svc { flex:0 0 128px; max-width:128px; }
@@ -762,8 +1063,8 @@
   </div>
   <div class="cmdbar">
     <a class="cmd" id="lnkWorkbook" target="_blank"><img src="/icons/workbooks.svg" alt="">Workbook</a>
-    <a class="cmd" id="lnkDashboard" target="_blank" title="FinOps dashboard in the Azure portal: budget vs spend, cost by subscription and team, budget suspensions"><img src="/icons/cost-management.svg" alt="">FinOps dashboard</a>
-    <a class="cmd" id="lnkLogs" target="_blank"><img src="/icons/log-analytics.svg" alt="">Log Analytics</a>
+        <a class="cmd" id="lnkDashboard" target="_blank" title="FinOps dashboard in the Azure portal: budget vs spend, cost by subscription and team, budget suspensions"><img src="/icons/cost-management.svg" alt="">FinOps dashboard</a>
+        <a class="cmd" id="lnkLogs" target="_blank"><img src="/icons/log-analytics.svg" alt="">Log Analytics</a>
     <a class="cmd" id="lnkAppInsights" target="_blank"><img src="/icons/app-insights.svg" alt="">Application Insights</a>
     <a class="cmd" id="lnkApim" target="_blank"><img src="/icons/apim.svg" alt="">API Management</a>
     <button class="cmd" data-pat="basics" title="APIM building blocks and the AI Gateway lab patterns"><svg viewBox="0 0 16 16"><path d="M3 1.5h8.5A1.5 1.5 0 0 1 13 3v11.5H4a1 1 0 0 1-1-1V1.5zm1 1v10.6l.1-.1H12V3a.5.5 0 0 0-.5-.5H4zm1 2h5v1H5v-1zm0 2h5v1H5v-1z"/></svg>References</button>
@@ -867,12 +1168,12 @@
   <div class="cvcol">
     <div class="card" id="cvCard">
       <div class="cvhead">
-        <h2>Conversation <span class="info" tabindex="0" data-tip="Every prompt, tool call and agent task sent from this page, and what came back through the gateway. Expand Details for the gateway's decision, tool arguments, agent steps and errors.">i</span></h2>
+        <h2>Conversation <span class="info" tabindex="0" data-tip="Every prompt, tool call and agent task sent from this page, and what came back through the gateway. Expand Details for the gateway's decision, tool arguments, agent steps and errors.">i</span> <span class="tokpill" id="tokPill" hidden></span></h2>
         <select id="cvFilter" aria-label="Show the conversation of"></select>
         <button class="secondary" id="cvFullBtn" onclick="cvFull()" title="Show the conversation in a larger view (Esc or click outside to close)" aria-pressed="false">⤢ Expand</button>
       </div>
       <div class="convo" id="convo" aria-live="polite"></div>
-      <div class="cv-meter hidden" id="cvMeter" aria-live="polite" onclick="cvMeterToggle(event)" title="Click to show or hide every subscription&#39;s budget"></div>
+      <div class="cv-meter hidden" id="cvMeter" aria-live="polite" onclick="cvMeterToggle(event)" title="Click to switch between the latest caller and every caller"></div>
       <div class="cv-compose">
         <textarea id="cvInput" placeholder="Message the model…" aria-label="Message"></textarea>
         <button id="cvSend">Send</button>
@@ -2489,6 +2790,10 @@
     </div>
 
     <div id="tab-why" class="hidden">
+      <div class="psub" role="tablist" aria-label="Why: policies views" style="grid-template-columns:repeat(2,1fr)">
+        <button class="on" data-psec="explorer" role="tab"><img class="ico" src="/icons/policy.svg" alt=""><span><b>Policy explorer</b><small>every control, its policy and deployed lines</small></span></button>
+        <button data-psec="tier" role="tab"><img class="ico" src="/icons/ai-gateway.svg" alt=""><span><b>AI Gateway tier</b><small>what changes · what carries over</small></span></button>
+      </div>
       <div class="psec" data-psec="explorer">
       <div class="card" id="polMapCard">
         <h2><img class="hico" src="/icons/policy.svg" alt="">Policy explorer <span class="muted">every control on this gateway, the policy behind it and its deployed lines</span> <span class="info" tabindex="0" data-tip="Policies run in scopes: the product (plan) policy wraps the API policy, and a call is rejected by the first policy that fails, before it costs anything. Pick a scenario to see the controls it shows. Group by stage to follow a call, or by document to see each deployed policy whole. Every line shown is read back from Azure Resource Manager.">i</span></h2>
@@ -2506,6 +2811,39 @@
         <div id="backendsKv" class="bkpool"><div class="muted">Loading…</div></div>
       </div>
       </div><!-- /psec explorer -->
+      <div class="psec hidden" data-psec="tier" id="agTier">
+      <div class="card agtldr" id="agTldr"></div>
+      <div class="card" style="margin-top:16px">
+        <h2><img class="hico" src="/icons/ai-gateway.svg" alt="">Same call, two gateways <span class="muted">this sandbox (API Management v2) vs. the AI Gateway tier</span> <span class="info" tabindex="0" data-tip="The AI Gateway tier is a separate resource type (Microsoft.ApiManagement/aigateways) with its own portal (ai.gateway.azure.com) and Azure CLI extension (az aigateway). Instead of XML policies, you add managed policies at Gateway scope or to one model, alias or MCP server. Pick a call below to watch what each gateway does with it.">i</span></h2>
+        <div class="agstories" id="agStories" role="group" aria-label="Pick a call"></div>
+        <div class="agrace" id="agRace"></div>
+        <div class="agnote" id="agNote" aria-live="polite"></div>
+      </div>
+      <div class="grid2 agcols" style="margin-top:16px">
+        <div class="card">
+          <h2><img class="hico" src="/icons/api.svg" alt="">What your app changes <span class="muted">one model call, as it goes over the wire</span></h2>
+          <div id="agWire"></div>
+          <div class="elh">Responses</div>
+          <div id="agCodes"></div>
+        </div>
+        <div class="card">
+          <h2><img class="hico" src="/icons/apim.svg" alt="">What you build with <span class="muted">hover a pair for the detail</span></h2>
+          <div id="agBlocks"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2><img class="hico" src="/icons/policy.svg" alt="">Every control on this gateway <span class="muted">hover a tile to see its AI Gateway tier equivalent · click to open it in the Policy explorer</span></h2>
+        <div class="agmeter" id="agMeter"></div>
+        <div class="aglanes" id="agLanes"></div>
+        <div class="agpeek" id="agPeek" aria-live="polite"></div>
+        <details class="agtable"><summary>Show as a table</summary><div id="agControls"></div></details>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2><img class="hico" src="/icons/plan.svg" alt="">The guided scenarios on the AI Gateway tier <span class="muted">one bar segment per control it shows · click a scenario to compare it on both gateways</span></h2>
+        <div id="agScenarios"></div>
+        <p class="muted agsrc">Based on the Azure AI Gateway tier labs (October 2026). The tier is still changing: check the <a href="https://ai.gateway.azure.com" target="_blank">AI Gateway portal ↗</a> docs before you plan a migration.</p>
+      </div>
+      </div><!-- /psec tier -->
     </div>
 
     <div id="tab-cost" class="hidden">
@@ -3032,12 +3370,16 @@ function fillEndUsers() {
 }
 function newSessionId(prefix = "s") { return `${prefix}-${new Date().toISOString().slice(5, 16).replace(/[-T:]/g, "")}-${Math.random().toString(36).slice(2, 6)}`; }
 async function post(path, body) {
-  const pend = cvPending(path, body);
+  const pend = cvPending(path, body), t0 = performance.now();
+  pend.cid = newId();
+  actWatch(pend);
   let r;
   try {  // a dead server or a non-JSON error page (e.g. a proxy 502) must fail the call, not leave the run stuck on "Sending…"
-    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-Call-Id": pend.cid }, body: JSON.stringify(body) });
     r = await res.json().catch(() => ({ error: `${path} answered HTTP ${res.status} without JSON` }));
   } catch (e) { r = { error: `Can't reach the demo app (${e.message}). Is app.py still running?` }; }
+  actDone(pend);
+  if (r && typeof r === "object") r.e2eMs = Math.round(performance.now() - t0);
   releaseRunBusy();
   if (r.status === undefined) {
     toast(r.error || "request failed");
@@ -3281,7 +3623,8 @@ function cvAnswer(r, idx) {
   }
   if (ok && r.finishReason === "length") body += `<div class="cv-meta">⚠ Cut off at max_tokens: the builder's value or the plan's output cap.</div>`;
   const g = h["x-gw-governance"], meta = [`<span class="status ${statusClass(r.status)}">${r.status || "—"}</span>`];
-  if (typeof r.latencyMs === "number") meta.push(fmtLat(r.latencyMs));
+  const tc = timeChip(r);
+  if (tc) meta.push(tc); else if (typeof r.latencyMs === "number") meta.push(fmtLat(r.latencyMs));
   if (r.surface === "model" && ok) meta.push(`${h["x-gw-prompt-tokens"] ?? r.usage?.prompt_tokens ?? "-"} + ${h["x-gw-completion-tokens"] ?? r.usage?.completion_tokens ?? "-"} tokens`);
   const sem = h["x-gw-semantic-cache"];
   const ci = cacheable(r) && sem !== "hit" ? cacheInfo(r) : null, cb = ci && cacheBadge(ci);  // a semantic cache hit never reached the model's prompt cache
@@ -3298,16 +3641,96 @@ function cvAnswer(r, idx) {
     `${i ? `<span class="arr">${x.code === 200 ? "retry →" : "→"}</span>` : ""}<span class="hop ${x.code === 200 ? "ok" : "bad"}">${escapeHtml(x.name)} · ${escapeHtml(x.region || "?")} · ${x.code}</span>`).join("")}</div>`;
   const sec = (t) => `<div class="cv-sec">${t}</div>`;
   let det = "";
+  if (r.timing && timeSteps(r).total >= 3000) det += sec("Where the time went") + timeDetails(r);  // slow calls: the breakdown comes first
   if (r.surface === "tool" && r.sent?.args) det += sec("Arguments") + `<pre class="cv-pre">${escapeHtml(JSON.stringify(r.sent.args, null, 2))}</pre>`;
   if (r.steps?.length) det += sec("What the agent did through the gateway") + `<ul class="cv-steps">${r.steps.map(s => `<li><span class="status ${statusClass(s.status)}">${s.status}</span> ${surfChip(s.type)} ${escapeHtml(s.name || "")} · ${fmtUsd((s.costMicroUsd || 0) / 1e6)}${s.billedTo ? ` · billed to ${escapeHtml(s.billedTo)}` : ""}</li>`).join("")}</ul>`;
   if (ci) det += cacheDetails(r, ci);
   if (sem === "hit" || sem === "miss") det += semDetails(r);
+  if (r.timing && timeSteps(r).total < 3000) det += sec("Where the time went") + timeDetails(r);
   if (idx >= 0) {
     det += sec("What the gateway decided") + `<div class="kv">${callKv(r, idx)}</div>`;
     if ((r.invocations || []).length) det += `<div class="cv-meta"><a class="ev" onclick="openInspector(${idx})">Inspect the HTTP calls ›</a></div>`;
   }
   return `<div class="cv-a ${cls}"><div class="cv-who">${target}</div>${body}<div class="cv-meta">${meta.join("<span>·</span>")}</div>`
     + (det ? `<details><summary>Details${ok ? "" : ": why it didn't go through"}</summary>${det}</details>` : "") + `</div>`;
+}
+// ---- Why is it slow? While a call is in flight the page polls GET /api/activity and shows, in its waiting answer, what app.py is doing
+//      right now: fetching an Entra ID token (the Azure CLI can take 5-30 s), waiting on Azure Resource Manager, or the gateway round
+//      trip, with the seconds so far. A finished call keeps its breakdown (Details › Where the time went).
+const cvWaits = new Set(), ACT_KIND = { token: "Entra ID token", arm: "Azure Resource Manager", gateway: "Gateway", logs: "Log Analytics", http: "HTTP" };
+let actTimer = null;
+function actWatch(p) { p.t0 = performance.now(); cvWaits.add(p); if (!actTimer) actTimer = setTimeout(actPoll, 800); }
+function actDone(p) { cvWaits.delete(p); }
+async function actPoll() {
+  actTimer = null;
+  if (!cvWaits.size) return;
+  let a = null;
+  try { a = await (await fetch("/api/activity")).json(); } catch { a = null; }
+  if (a) { actPaint(a); tokPaint(a.tokens); }
+  if (cvWaits.size) actTimer = setTimeout(actPoll, 700);
+}
+const fmtSecs = (ms) => ms < 10000 ? (ms / 1000).toFixed(1) + " s" : Math.round(ms / 1000) + " s";
+function actPaint(a) {
+  // token and ARM waits explain the delay best; the gateway round trip is the normal part of a call
+  const acts = (a.activities || []).filter(x => x.kind !== "http"), rank = { token: 0, arm: 1, logs: 2, gateway: 3 };
+  acts.sort((x, y) => (rank[x.kind] ?? 9) - (rank[y.kind] ?? 9) || y.elapsedMs - x.elapsedMs);
+  for (const p of cvWaits) {
+    const box = p.el?.querySelector(".cv-wait"); if (!box) continue;
+    const own = performance.now() - p.t0, mine = acts.filter(x => x.call === p.cid);  // only what this call is waiting on
+    const lines = mine.slice(0, 2).map((x, i) => `<div class="now k-${x.kind}">${i ? `<span style="width:12px"></span>` : `<span class="spin sm" aria-hidden="true"></span>`}<b>${escapeHtml(x.what)}</b><span class="sec">${fmtSecs(x.elapsedMs)}</span></div>`
+      + (x.detail && i === 0 ? `<div class="det">${escapeHtml(x.detail)}</div>` : "")).join("");
+    box.innerHTML = (lines || `<div class="now"><span class="spin sm" aria-hidden="true"></span><b>Waiting for app.py</b></div>`)
+      + `<div class="tot">This call: ${fmtSecs(own)} so far</div>`;
+    box.hidden = false;
+  }
+}
+// The token pill next to "Conversation": is the gateway token ready, being fetched, or still to fetch (the next call pays for it)
+function tokPaint(tokens) {
+  const el = $("tokPill"), t = (tokens || []).find(x => /gateway/.test(x.label)); if (!el || !t) return;
+  el.hidden = false;
+  el.className = "tokpill " + (t.fetching ? "fetch" : t.minutesLeft > 5 ? "ok" : "cold");
+  el.textContent = t.fetching ? `🔑 fetching the gateway token…` : t.minutesLeft > 5 ? `🔑 gateway token ready · ${t.minutesLeft} min` : `🔑 no gateway token yet`;
+  el.title = `app.py adds a Microsoft Entra ID token to every gateway call. It gets it from the ${t.source}${t.source === "Azure CLI" ? " (az account get-access-token, often 5-30 s)" : ""}, `
+    + `keeps it for about an hour and refreshes it in the background before it expires, so most calls don't wait for one.`;
+}
+async function tokRefresh() { try { const a = await (await fetch("/api/activity")).json(); tokPaint(a.tokens); } catch { /* the pill just stays as it was */ } }
+setTimeout(tokRefresh, 1500); setInterval(() => { if (!document.hidden) tokRefresh(); }, 30000);
+// Where a finished call's time went: app.py's steps (token, ARM, gateway round trip) plus the rest (app.py and the browser)
+function timeSteps(r) {
+  const t = r.timing; if (!t) return null;
+  const steps = (t.steps || []).map(s => ({ ...s })), spent = steps.reduce((x, s) => x + (s.ms || 0), 0), total = Math.max(r.e2eMs || 0, t.totalMs || 0, spent);
+  steps.push({ kind: "app", step: "app.py and the browser", detail: "reading the request, building the result, the network to this page", ms: Math.max(0, total - spent) });
+  return { total, steps };
+}
+function timeChip(r) {
+  const t = timeSteps(r); if (!t || t.total < 3000) return "";
+  const slow = t.steps.filter(s => s.kind !== "gateway" && s.kind !== "app").sort((x, y) => y.ms - x.ms)[0];
+  const gw = t.steps.filter(s => s.kind === "gateway").reduce((x, s) => x + s.ms, 0);
+  const why = slow && slow.ms >= 1000 ? `${fmtSecs(slow.ms)} ${ACT_KIND[slow.kind] === "Entra ID token" ? "Entra token" : ACT_KIND[slow.kind] || slow.step}` : "";
+  return `<span class="${why ? "cv-slow" : ""}" title="End to end, from Send to the answer on this page. Details › Where the time went has the breakdown.">⏱ ${fmtSecs(t.total)}${why || gw ? ": " : ""}${[why, gw ? `${fmtSecs(gw)} gateway` : ""].filter(Boolean).join(", ")}</span>`;
+}
+function timeDetails(r) {
+  const t = timeSteps(r); if (!t || !t.total) return "";
+  const shown = t.steps.filter(s => s.ms > 0 || /cached/.test(s.detail || ""));
+  return `<div class="tbar" title="${fmtSecs(t.total)} end to end">${shown.filter(s => s.ms > 0).map(s => `<i class="tk-${s.kind}" style="width:${(100 * s.ms / t.total).toFixed(1)}%" title="${escapeHtml(s.step)}: ${fmtSecs(s.ms)}"></i>`).join("")}</div>`
+    + `<div class="trows">${shown.map(s => `<span class="sw tk-${s.kind}"></span><span>${escapeHtml(s.step)}${s.detail ? ` <span class="d">· ${escapeHtml(s.detail)}</span>` : ""}</span>`
+      + `<span class="ms${s.ms >= 3000 && s.kind !== "gateway" ? " big" : ""}">${s.ms ? fmtSecs(s.ms) : "0 s"}</span>`).join("")}</div>`;
+}
+// A scenario pause the user should know about (Retry-After, pacing for quota counters, the gap between scenarios): a line in the conversation
+async function pause(ms, why) {
+  if (!running || ms < 1500 || !why) return sleep(ms);
+  const sid = $("sessionId").value.trim(), box = $("convo"), t0 = Date.now();
+  let el = null;
+  if (cvShows(sid)) {  // a repeated pause (pacing inside a loop) reuses its line instead of adding one per call
+    const last = box.lastElementChild?.previousElementSibling;
+    el = last?.dataset?.why === why ? last : box.lastElementChild?.dataset?.why === why ? box.lastElementChild : null;
+    if (!el) { el = document.createElement("div"); el.className = "cv-sys"; el.dataset.why = why; el.setAttribute("role", "status"); box.append(el); }
+    box.scrollTop = box.scrollHeight;
+  }
+  const tick = () => { if (el) el.innerHTML = `<span class="spin sm" aria-hidden="true"></span>${escapeHtml(why)} · ${Math.max(0, Math.ceil((ms - (Date.now() - t0)) / 1000))} s`; };
+  tick(); const iv = setInterval(tick, 1000);
+  await sleep(ms); clearInterval(iv);
+  if (el) el.textContent = `${why.replace(/^Waiting|^Pausing|^Spacing/, m => ({ Waiting: "Waited", Pausing: "Paused", Spacing: "Spaced" })[m])} (${Math.round(ms / 1000)} s).`;
 }
 function cvPending(path, body) {
   const sent = cvSentOf(path, body), grp = cvGroup(sent), p = { sent, key: grp.key, label: grp.label, el: null };
@@ -3317,7 +3740,7 @@ function cvPending(path, body) {
   const box = $("convo"), stick = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
   cvDivider(box, grp.key, grp.label, sent.session);
   p.el = document.createElement("div"); p.el.className = "cv-turn";
-  p.el.innerHTML = cvUser(sent, body.agent) + `<div class="cv-a"><span class="cv-typing" role="status" aria-label="Waiting for the gateway"><i></i><i></i><i></i></span></div>`;
+  p.el.innerHTML = cvUser(sent, body.agent) + `<div class="cv-a"><span class="cv-typing" role="status" aria-label="Waiting for the gateway"><i></i><i></i><i></i></span><div class="cv-wait" aria-live="polite" hidden></div></div>`;
   box.append(p.el);
   if (stick) box.scrollTop = box.scrollHeight;
   return p;
@@ -3359,6 +3782,7 @@ function cvCtx() {
 // and every end user (x-gw-end-user) has their own budget. The first bucket to run out returns 403. Collapsed: the
 // buckets of the latest call (or the selected sender). Click to expand to every tier and subscription key.
 let cvMeterSeen = 0, cvMeterOpen = false, cvMeterMin = localStorage.getItem("cvMeterMin") === "1";
+let cvMeterTab = localStorage.getItem("cvMeterTab") === "rate" ? "rate" : "budget", cvRateTick = null;  // Budgets or Rate limits tab
 const BUCKET_ID_TIP = "Demo shortcut: the subscription key picks the plan and key budget, and the x-session-id and x-gw-end-user headers pick the session and end-user buckets. "
   + "That keeps the deployment free of Entra ID user accounts and app roles. Every call already carries an Entra ID token that the gateway validates, so in production "
   + "the same buckets can key on its claims instead: user = oid, budget class = an app role or group, plan = the calling app (azp). Only the counter keys change; the budgets, caps and records stay the same.";
@@ -3376,6 +3800,7 @@ function cvBuckets(a, calls) {
 }
 function cvMeter() {
   const el = $("cvMeter"); if (!cfg) return;
+  if (cvMeterTab === "rate") return cvMeterRate(el);
   if (gwMode === "entra") return cvMeterEntra(el);
   const calls = session.calls.filter(r => r && !r.past && !personaOf(r.agent)), last = calls[calls.length - 1];
   const a = (last && byName(last.agent)) || selectedAgent;
@@ -3419,7 +3844,7 @@ function cvMeter() {
     <div class="mrow"><span class="delta">${last ? `Last call: ${escapeHtml(byName(last.agent)?.displayName || last.agent)} · ${callCost(last) ? "−" + fmtUsd(callCost(last)) + " from each bucket above" : "no charge"} · ${last.status}` : "No calls yet this session"}</span>
       <span class="muted">${budgetLive.loading ? `<span class="bspin"></span> syncing logs` : budgetState(a).pending ? "striped = not in the logs yet" : ""}</span></div>`;
   }
-  el.innerHTML = `<div class="mrow mhead"><span><b>This session</b> <span class="muted">· ${calls.length} call${calls.length === 1 ? "" : "s"} · ${subs.size} subscription key${subs.size === 1 ? "" : "s"} · −${fmtUsd(total)}</span></span>
+  el.innerHTML = `<div class="mrow mhead"><span><b>This session</b>${cvMeterTabs()}<span class="muted">· ${calls.length} call${calls.length === 1 ? "" : "s"} · ${subs.size} subscription key${subs.size === 1 ? "" : "s"} · −${fmtUsd(total)}</span></span>
       <span>${cvMeterMin ? `<span class="mtog">▸ show budgets</span>` : `<span class="mtog">${cvMeterOpen ? "▾ show the latest call only" : "▸ all tiers and keys"}</span>
         <button class="mmin" onclick="cvMeterHide(true)" title="Hide the budget view (click the bar to bring it back)" aria-label="Hide the budget view">✕</button>`}</span></div>
     ${cvMeterMin ? "" : `<div class="mhint muted">One call is charged to every bucket in its branch at once; the first to run out answers 403.
@@ -3473,7 +3898,7 @@ function cvMeterEntra(el) {
       + `<div class="mrow"><span class="delta">${lastTxt}</span><span class="muted">${budgetLive.loading ? `<span class="bspin"></span> syncing logs` : calls.some(r => entraMemberState(personaOf(r.agent)).pending) ? "striped = not in the logs yet" : ""}</span></div>`;
   }
   const chain = g ? `🎫 token → <code>groups</code> → ${escapeHtml(g.displayName)} → <span class="badge ${g.tier}">${g.tier}</span> plan → team + member buckets` : "🎫 token → no gateway group → 403";
-  el.innerHTML = `<div class="mrow mhead"><span><b>This session · Entra only</b> <span class="muted">· ${calls.length} call${calls.length === 1 ? "" : "s"} · ${who.size} persona${who.size === 1 ? "" : "s"} · no keys · −${fmtUsd(total)}</span></span>
+  el.innerHTML = `<div class="mrow mhead"><span><b>This session · Entra only</b>${cvMeterTabs()}<span class="muted">· ${calls.length} call${calls.length === 1 ? "" : "s"} · ${who.size} persona${who.size === 1 ? "" : "s"} · no keys · −${fmtUsd(total)}</span></span>
       <span>${cvMeterMin ? `<span class="mtog">▸ show budgets</span>` : `<span class="mtog">${cvMeterOpen ? "▾ show the caller's group only" : "▸ all groups"}</span>
         <button class="mmin" onclick="cvMeterHide(true)" title="Hide the budget view (click the bar to bring it back)" aria-label="Hide the budget view">✕</button>`}</span></div>
     ${cvMeterMin ? "" : `<div class="mhint muted">One call is charged to the team budget <b>and</b> the caller's member cap at once; whichever runs out first answers 403.
@@ -3482,6 +3907,116 @@ function cvMeterEntra(el) {
   el.classList.remove("hidden");
   if (calls.length > cvMeterSeen) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
   cvMeterSeen = calls.length;
+}
+// Rate limits tab: the buckets that answer 429 when empty (llm-token-limit tokens per minute, rate-limit-by-key per
+// surface, all 60 s windows) plus the token quota (403, a fixed UTC window). The gateway can't be asked for its counters,
+// so each bucket shows what the latest call from this page got back in its x-gw-remaining-* header, and the window
+// timing is estimated from those calls' times (Retry-After is the gateway's own answer once a call was throttled).
+function cvMeterSetTab(t) { cvMeterTab = t; localStorage.setItem("cvMeterTab", t); if (cvMeterMin) return cvMeterHide(false); cvMeter(); }
+function cvMeterTabs() {
+  const w = cvMeterTab === "rate" ? "" : rateCallers().cur?.warn || "";
+  const b = (t, label, code, extra = "") => `<button type="button" role="tab" aria-selected="${cvMeterTab === t}" class="${cvMeterTab === t ? "on" : ""}" onclick="cvMeterSetTab('${t}')">${label}<small>${code}</small>${extra}</button>`;
+  return `<span class="mtabs" role="tablist" aria-label="Meter">${b("budget", "$ budgets", "403")}${b("rate", "Rate limits", "429",
+    w ? `<i class="rdot ${w}" title="${w === "hit" ? "A rate limit is throttling this caller now" : "A rate limit is nearly used up"}"></i>` : "")}</span>`;
+}
+const rlDur = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return s < 90 ? `${s} s` : s < 5400 ? `${Math.round(s / 60)} min`
+  : s < 172800 ? `${Math.floor(s / 3600)} h ${Math.round(s % 3600 / 60)} min` : `${Math.floor(s / 86400)} d ${Math.round(s % 86400 / 3600)} h`; };
+function quotaWindow(period, now) {  // APIM starts a token-quota-period at the UTC timestamp truncated to the period's unit
+  const d = new Date(now), y = d.getUTCFullYear(), m = d.getUTCMonth(), dd = d.getUTCDate(), hh = d.getUTCHours();
+  const w = { Hourly: [Date.UTC(y, m, dd, hh), Date.UTC(y, m, dd, hh + 1)], Daily: [Date.UTC(y, m, dd), Date.UTC(y, m, dd + 1)],
+              Monthly: [Date.UTC(y, m, 1), Date.UTC(y, m + 1, 1)], Yearly: [Date.UTC(y, 0, 1), Date.UTC(y + 1, 0, 1)] }[period];
+  return w ? { start: w[0], end: w[1] } : null;  // Weekly: the docs don't say which weekday starts the week
+}
+function rateBuckets(t, calls, entra) {
+  const now = Date.now(), img = (cfg.images?.tiers || {})[t.name] || {};
+  const defs = [
+    { k: "tpm", label: "Tokens per minute", surf: "model", hdr: "x-gw-remaining-tpm", limit: t.tpm, unit: "tokens", by: "llm-token-limit", code: 429 },
+    !entra && (t.allowedTools || []).length && { k: "tool", label: "MCP tool calls per minute", surf: "tool", hdr: "x-gw-remaining-tool-calls", limit: t.toolCallsPerMinute, unit: "calls", by: "rate-limit-by-key", code: 429 },
+    !entra && (t.allowedAgents || []).length && { k: "agent", label: "Agent tasks per minute", surf: "agent", hdr: "x-gw-remaining-agent-calls", limit: t.agentCallsPerMinute, unit: "tasks", by: "rate-limit-by-key", code: 429 },
+    !entra && cfg.images?.enabled && (img.allowedImageModels || []).length && { k: "image", label: "Images per minute", surf: "image", hdr: "x-gw-remaining-images", limit: img.imagesPerMinute, unit: "images", by: "rate-limit-by-key", code: 429 },
+    t.tokenQuota && { k: "quota", label: `Token quota · ${String(t.tokenQuotaPeriod || "").toLowerCase()}`, surf: "model", hdr: "x-gw-remaining-quota-tokens", limit: t.tokenQuota, unit: "tokens", by: "llm-token-limit", code: 403, period: t.tokenQuotaPeriod },
+  ].filter(d => d && d.limit);
+  return defs.map(d => {
+    const qw = d.period ? quotaWindow(d.period, now) : null, from = d.period ? (qw ? qw.start : 0) : now - 60000;
+    const hit = (r) => (r.headers || {})[d.hdr] != null && r.headers[d.hdr] !== "", isBlock = (r) => r.status === d.code && String((r.headers || {})["x-gw-blocked-by"] || "").startsWith(d.by);
+    const inWin = calls.filter(r => r.surface === d.surf && r.at > from && (hit(r) || isBlock(r))), rev = [...inWin].reverse();
+    const seen = rev.find(hit), block = rev.find(isBlock);
+    let left = seen ? Number(seen.headers[d.hdr]) : d.limit; if (!Number.isFinite(left)) left = d.limit;
+    if (block && (!seen || block.at >= seen.at)) left = 0;
+    left = Math.max(0, Math.min(d.limit, left));
+    const ra = block ? Number(block.headers["retry-after"]) : NaN;
+    const until = !block ? 0 : d.period ? (qw ? qw.end : Infinity) : block.at + (Number.isFinite(ra) && ra > 0 ? ra * 1000 : 60000);
+    const blocked = until > now && left <= 0, pct = 100 * (d.limit - left) / d.limit;
+    const resetAt = d.period ? qw?.end : inWin.length ? inWin[0].at + 60000 : null;  // the oldest counted call drops out a minute after it was made
+    return { ...d, left, pct, blocked, until, ra, resetAt, bAt: block?.at, start: d.period ? qw?.start : inWin[0]?.at, n: inWin.length,
+             warn: blocked ? "hit" : left <= 0 && inWin.length ? "hit" : pct >= 75 ? "warn" : "" };
+  });
+}
+// The caller to show (the latest call's, else the selected one) and every caller with calls since the last budget reset
+// (Reset budgets starts a new epoch, which is part of every counter key, so the rate counters restart too)
+function rateCallers() {
+  const entra = gwMode === "entra", since = budgetLive.resetAt || 0;
+  const calls = session.calls.filter(r => r && !r.past && (r.at || 0) >= since && (entra ? personaOf(r.agent) : !personaOf(r.agent)));
+  const tierFor = (name) => { if (!entra) { const a = byName(name); return a && { a, t: tierOf(a) }; }
+    const p = personaOf(name), g = p && entraGroup(p.group); return p && { a: p, t: g ? cfg.tiers.find(x => x.name === g.tier) : null, g }; };
+  const mk = (name) => { const x = tierFor(name); if (!x) return null;
+    const mine = calls.filter(r => r.agent === name), bs = x.t ? rateBuckets(x.t, mine, entra) : [];
+    return { ...x, name, mine, bs, warn: bs.some(b => b.warn === "hit") ? "hit" : bs.some(b => b.warn) ? "warn" : "" }; };
+  const last = calls[calls.length - 1], curName = last?.agent || (entra ? selectedPersona : selectedAgent)?.name;
+  const cur = curName ? mk(curName) : null;
+  return { entra, calls, cur, all: () => [...new Set([curName, ...calls.map(r => r.agent)])].filter(Boolean).map(mk).filter(Boolean) };
+}
+function cvMeterRate(el) {
+  const rc = rateCallers(), { entra, calls, cur } = rc, now = Date.now();
+  if (!cur) { el.classList.add("hidden"); return; }
+  const callerHead = (c) => `${ico(entra ? "entra-id" : c.a.kind === "user" ? "users" : "foundry-agent-service")} <b>${escapeHtml(c.a.displayName || c.name)}</b>`
+    + (c.t ? ` <span class="badge ${c.t.name}">${c.t.name}</span>` : "") + ` <span class="muted">· ${entra ? "one counter per member (oid)" : "one counter per subscription key"}</span>`;
+  const bucket = (b, closest) => {
+    const col = b.warn === "hit" ? "#d13438" : b.pct >= 75 ? "#f7630c" : "#107c10";
+    const win = b.period ? (b.resetAt ? `${escapeHtml(b.period)} window (UTC) · resets in ${rlDur(b.resetAt - now)} <span title="${new Date(b.resetAt).toLocaleString()}">(${new Date(b.resetAt).toISOString().slice(0, 16).replace("T", " ")} UTC)</span>` : `${escapeHtml(b.period)} window`)
+      : `60 s window${b.start ? ` · opened ${rlDur(now - b.start)} ago` : " · idle, full"}`;
+    const state = b.blocked ? `<span class="hot">${b.code} now · ${b.period ? "until the quota resets" : `retry in ${rlDur(b.until - now)}${Number.isFinite(b.ra) ? ` (Retry-After ${b.ra} s)` : ""}`}</span>`
+      : b.left <= 0 && b.n ? `<span class="hot">empty: the next call gets ${b.code}</span>`
+      : !b.period && b.resetAt ? `≈ full again in ${rlDur(b.resetAt - now)}` : "";
+    const wpct = b.period ? (b.resetAt && b.start ? 100 * (now - b.start) / (b.resetAt - b.start) : 0) : b.blocked ? 100 * (now - b.bAt) / (b.until - b.bAt) : b.start ? 100 * (now - b.start) / 60000 : 0;
+    return `<div class="rb"><div class="mrow"><span><span class="bk bk-r${b.code}">${b.code}</span> <b>${escapeHtml(b.label)}</b>${closest ? ` <span class="bfirst">closest to 429</span>` : ""}</span>
+        <span><b class="${b.left <= 0 ? "bout" : ""}">${b.left.toLocaleString()}</b> of ${b.limit.toLocaleString()} ${b.unit} left · ${b.pct > 0 && b.pct < 1 ? "<1" : Math.round(b.pct)}% used</span></div>
+      <div class="bar thin"><div class="fill" style="width:${Math.min(100, b.pct)}%;background:${col}"></div></div>
+      <div class="rwin"><span>${win}</span><span>${state}</span></div>${b.period ? "" : `<div class="wbar" title="How far into the current minute the window is"><div style="width:${Math.max(0, Math.min(100, wpct))}%"></div></div>`}</div>`;
+  };
+  const caller = (c) => {
+    if (!c.t) return `<div class="mtier"><div class="mrow"><span>${callerHead(c)}</span></div><div class="muted mnote">In no gateway group: every call is refused with 403 <code>entra-group</code> before any rate limit is counted.</div></div>`;
+    const r429 = c.bs.filter(b => b.code === 429 && b.pct >= 50), top = r429.length ? r429.reduce((m, b) => b.pct > m.pct ? b : m) : null;
+    return `<div class="mtier"><div class="mrow"><span>${callerHead(c)}</span></div><div class="mkey">${c.bs.map(b => bucket(b, top && b === top && c.bs.filter(x => x.code === 429).length > 1)).join("")}</div></div>`;
+  };
+  const lastCall = cur.mine[cur.mine.length - 1], lh = lastCall?.headers || {};
+  let body;
+  if (cvMeterOpen) {
+    const all = rc.all();
+    body = `<div class="mall">${all.map(caller).join("")}
+      <div class="muted mfoot"><b>Where the numbers come from:</b> each bucket shows the count left that the gateway returned on the caller's latest call from this page (<code>x-gw-remaining-tpm</code>, <code>-tool-calls</code>, <code>-agent-calls</code>, <code>-images</code>, <code>-quota-tokens</code>). Windows are estimated from those calls' times; a throttled call's <code>Retry-After</code> is exact. Other apps using the same ${entra ? "identity" : "key"} spend the same counters. <b>Reset budgets</b> restarts them all.</div></div>`;
+  } else {
+    const lastTxt = !lastCall ? "No calls from this caller since the last reset"
+      : `Last call ${new Date(lastCall.at).toLocaleTimeString()} · ${escapeHtml(lastCall.surface || "")} · ${lastCall.status}${lh["x-gw-tokens-consumed"] ? ` · ${Number(lh["x-gw-tokens-consumed"]).toLocaleString()} tokens counted` : ""}${lh["x-gw-blocked-by"] ? ` · blocked by ${escapeHtml(lh["x-gw-blocked-by"])}` : ""}`;
+    body = caller(cur) + `<div class="mrow"><span class="delta">${lastTxt}</span><span class="muted">estimated from this page's calls</span></div>`;
+  }
+  const n = calls.length, who = new Set(calls.map(r => r.agent)).size, scroll = el.querySelector(".mall")?.scrollTop;
+  el.innerHTML = `<div class="mrow mhead"><span><b>This session${entra ? " · Entra only" : ""}</b>${cvMeterTabs()}<span class="muted">· ${n} call${n === 1 ? "" : "s"} · ${who} ${entra ? "persona" : "subscription key"}${who === 1 ? "" : "s"}</span></span>
+      <span>${cvMeterMin ? `<span class="mtog">▸ show rate limits</span>` : `<span class="mtog">${cvMeterOpen ? "▾ show the latest caller only" : "▸ every caller"}</span>
+        <button class="mmin" onclick="cvMeterHide(true)" title="Hide the rate-limit view (click the bar to bring it back)" aria-label="Hide the rate-limit view">✕</button>`}</span></div>
+    ${cvMeterMin ? "" : `<div class="mhint muted">Per-minute buckets answer <b>429</b> with Retry-After once empty and refill as the minute rolls on; the token quota answers <b>403</b> until its UTC period ends.
+      <span class="mid" title="llm-token-limit counts prompt + completion tokens (estimate-prompt-tokens is off, so a call is let in while any tokens are left and can overshoot). rate-limit-by-key counts calls per surface. Every counter key includes the budget epoch, so Reset budgets restarts them.">⏱ ${entra ? "keyed on the token's oid" : "keyed on the subscription key"}</span></div>${body}`}`;
+  if (scroll) { const m = el.querySelector(".mall"); if (m) m.scrollTop = scroll; }
+  el.classList.toggle("min", cvMeterMin);
+  el.classList.remove("hidden");
+  if (n > cvMeterSeen) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
+  cvMeterSeen = n;
+  const live = !cvMeterMin && (cvMeterOpen ? calls.some(r => now - r.at < 61000) : cur.bs.some(b => !b.period && (b.start || b.blocked)));
+  if (live && !cvRateTick) cvRateTick = setInterval(() => {
+    if (cvMeterTab !== "rate" || cvMeterMin) { clearInterval(cvRateTick); cvRateTick = null; return; }
+    if (document.visibilityState === "visible") cvMeter();
+  }, 1000);
+  else if (!live && cvRateTick) { clearInterval(cvRateTick); cvRateTick = null; }
 }
 function cvFull(on) {
   const c = $("cvCard"), b = $("cvFullBtn"); on = on ?? !c.classList.contains("full");
@@ -4260,6 +4795,7 @@ function setScFlow(html) {
   if (more.length) { const d = document.createElement("div"); d.className = "dgm"; more.forEach(c => d.appendChild(c)); $("scFlowMore").appendChild(d); }
   if (!box.children.length) $("scFlow").innerHTML = "";
   $("scFlow").querySelectorAll(".dr").forEach(row => [...row.children].forEach((c, k) => c.style.setProperty("--i", k)));
+  requestAnimationFrame(() => dgFit($("scFlow")));
 }
 // the Steps summary counts the steps as they're added (scenarios, requests and restored runs all write #scSteps)
 new MutationObserver(() => { const n = $("scSteps").children.length; $("scStepCount").textContent = n ? `(${n})` : ""; $("scStepsBox").hidden = !n; })
@@ -4582,10 +5118,10 @@ $("btnReset").onclick = async () => {
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
 // Four tabs, one question each: what happened, why (policies), what it cost, and the proof. The earlier tab and view names
 // still work (scenarios, the copilot and deep links use them) and map to a tab + section.
-const TAB_OF = { happened: ["happened"], why: ["why", "explorer"], cost: ["cost"], proof: ["proof"],
+const TAB_OF = { happened: ["happened"], why: ["why"], cost: ["cost"], proof: ["proof"], tier: ["why", "tier"],
                  live: ["happened", "live"], runs: ["happened", "live"], evidence: ["happened", "investigate"], policies: ["happened", "investigate"],
                  monitor: ["proof", "monitor"], telemetry: ["proof", "telemetry"], plans: ["cost", "plans"], chargeback: ["cost", "chargeback"], spend: ["cost", "spend"] };
-const PSEC_TAB = { investigate: "happened", live: "happened", explorer: "why", spend: "cost", plans: "cost", chargeback: "cost", telemetry: "proof", monitor: "proof" };
+const PSEC_TAB = { investigate: "happened", live: "happened", explorer: "why", tier: "why", spend: "cost", plans: "cost", chargeback: "cost", telemetry: "proof", monitor: "proof" };
 // the Policy pipeline and Deployed policies views became the Policy explorer (grouped by stage or by document)
 const PSEC_ALIAS = { pipeline: ["explorer", "stage"], deployed: ["explorer", "doc"] };
 window.topTabOf = (name) => (TAB_OF[name] || [PSEC_TAB[(PSEC_ALIAS[name] || [name])[0]] || "happened"])[0];
@@ -4622,6 +5158,7 @@ function showPsec(name) {
   root.querySelectorAll("div.psec").forEach(x => x.classList.toggle("hidden", x.dataset.psec !== name));
   if (name === "investigate") { renderEvLog(); window.gwFlow?.shown(); }
   if (name === "explorer") renderExplorer();
+  if (name === "tier") renderTier();
   if (name === "live") renderRuns();
   if (name === "chargeback" && !cbLoaded) { cbLoaded = true; loadChargeback(); }
   if (name === "monitor" && !charts._loaded) { charts._loaded = true; refreshMonitor(); }
@@ -4838,6 +5375,490 @@ const POL_CONTROLS = {
     w: "One counter per caller (<code>oid</code>), so one member can't drain the whole team budget.",
     u: "Copy the block next to the team budget." },
 };
+// ---------- AI Gateway tier: each control's managed equivalent ----------
+// [compatibility, the tier's equivalent, what differs]. same: a managed policy or feature does the job; differs: a managed
+// equivalent with the differences noted; classic: no managed equivalent yet, the control stays XML on a classic or v2 gateway.
+// Source: the Azure AI Gateway tier labs (Oct 2026). Keep one entry per POL_CONTROLS id (the tier view lists unmapped ids as classic).
+const AG_KIND = { same: ["Same", "A managed policy or feature does the same job."],
+  differs: ["Works differently", "A managed equivalent exists, configured differently or with a narrower scope."],
+  classic: ["Classic only", "No managed equivalent yet: stays an XML policy on an API Management classic or v2 gateway."] };
+const AG_TIER = {
+  "entra": ["differs", "Access › Microsoft Entra ID", "Callers get an AI Gateway data-plane role (AI Gateway User, Models User or Tools User) on the gateway, an alias or an MCP server, instead of a <code>validate-azure-ad-token</code> policy. A missing or invalid credential is still a 401."],
+  "model-ent": ["differs", "Aliases + Models User role per alias", "Publish only the aliases a caller may use and grant the role per alias. Swapping in a cheaper model for one plan (the downgrade) has no managed equivalent: retargeting an alias changes it for every caller."],
+  "out-cap": ["classic", "", "No managed policy rewrites <code>max_tokens</code>."],
+  "tpm": ["same", "Token rate limit", "Per minute, hour or day, counted per caller identity (API key, or Entra tenant + object id), at Gateway scope or on a model or alias: 429 with Retry-After. The monthly token quota (403) has no direct counterpart; a Cost limit caps spend instead."],
+  "budget": ["differs", "Cost limit", "One US-dollar budget per caller identity (hour to year, calendar windows) with overrides per API key or Entra identity: 403 <code>LlmCostQuotaExceeded</code>, and a response header with the budget left. It covers models and aliases only, so MCP tool, A2A agent, image and safety spend can't draw on it."],
+  "session": ["classic", "", "Policy counters are keyed by caller identity or IP address only."],
+  "session-budget": ["classic", "", "A Cost limit counts per caller identity or IP address, not per session."],
+  "eu-budget": ["differs", "Cost limit per Entra identity", "Works when each end user calls with their own Entra token: every identity gets its own counter, with overrides. Users the app names in a header have no managed equivalent."],
+  "model-price": ["differs", "Built-in cost estimate", "The gateway estimates each response's cost from the provider's token counts and public pricing, by token category. No custom rate card, internal prices or PTU allocations."],
+  "token-metric": ["same", "OpenTelemetry token metric", "<code>gen_ai_client_token_usage</code>, with caller claims as attributes, to Application Insights or any OTLP endpoint."],
+  "cost-metric": ["differs", "Monitoring › estimated model cost", "The built-in dashboard shows estimated model cost by model and API key. Tool, agent and image spend isn't priced."],
+  "tool-ent": ["differs", "MCP server tool availability", "Allow all, an exact list, name patterns or block, per MCP server and the same for every caller; who may call the server is a Tools User role. A different tool list per plan would need one MCP server per plan."],
+  "tool-price": ["classic", "", "Tool calls aren't priced: a Cost limit applies to models only."],
+  "tool-rate": ["same", "Request rate limit on an MCP server", "Calls per period per caller identity: 429 with Retry-After."],
+  "agent-ent": ["classic", "", "A2A agent APIs aren't an asset type: agents call the gateway as clients (for example Foundry hosted agents)."],
+  "agent-price": ["classic", "", "No per-task fee or downstream spend."],
+  "obo": ["classic", "", "Spend counts against the identity that calls, so an agent's model calls land on the agent, not on the user it works for."],
+  "chargeback": ["differs", "OpenTelemetry with token claims", "Export Entra claims (tid, oid or custom claims) with logs, traces and token metrics, then build chargeback from observed tokens. Per-session and per-cost-center records stay custom."],
+  "pool": ["differs", "Alias routing by priority and weight", "An alias spreads calls across backend models by priority and weight (canaries, preferred models) with no client change."],
+  "retry": ["classic", "", "No retry policy to write: the labs cover priority and weight across models, not retry on 429."],
+  "cb": ["classic", "", "Circuit breaker rules aren't exposed as a setting in the tier labs."],
+  "req-id": ["differs", "OpenTelemetry traces", "Every call and policy decision is a trace span. The <code>x-gw-*</code> headers are this sandbox's own."],
+  "trace": ["differs", "Monitoring › Traces", "Gateway-aware traces for every call, instead of a per-request debug credential."],
+  "gw-logs": ["differs", "OpenTelemetry logs", "Metrics, logs and traces go to Application Insights or any OTLP endpoint, instead of the <code>ApiManagementGateway*</code> tables in Log Analytics."],
+  "content-safety": ["differs", "Content safety policy", "Screens prompts, tool inputs and responses with a threshold per category, at Gateway scope or on a model, alias or MCP server. A blocked call gets 400 (403 here)."],
+  "safety-price": ["classic", "", "The safety check isn't priced into a budget."],
+  "safety-ledger": ["classic", "", "No chargeback line for the safety check."],
+  "suspend": ["classic", "", "A caller over its Cost limit stays blocked (403) until the next period or a higher amount; revoke its key in Access › Keys to switch it off."],
+  "resp-affinity": ["classic", "", "Not covered by the tier labs: Responses API calls pass through."],
+  "resp-price": ["differs", "Built-in cost estimate", "Cost is estimated by token category; the labs don't say how cached input is priced."],
+  "img-ent": ["classic", "", "Image generation isn't covered by the tier's policies."],
+  "img-price": ["classic", "", "Images aren't priced: a Cost limit counts tokens."],
+  "img-rate": ["classic", "", "A request rate limit counts calls, not images."],
+  "sem-cache": ["classic", "", "No semantic cache policy in the tier."],
+  "sem-scope": ["classic", "", "No semantic cache policy in the tier."],
+  "sem-price": ["classic", "", "No semantic cache policy in the tier."],
+  "entra-only-token": ["same", "Keyless access with Microsoft Entra ID", "Call with an Entra token that carries a data-plane role: no API key."],
+  "entra-group-plan": ["differs", "Roles for groups + Cost limit claim overrides", "Grant data-plane roles to security groups, and give a claim combination such as <code>groups</code> its own Cost limit amount. There's no plan object that bundles models, limits and a budget."],
+  "entra-model-ent": ["differs", "Models User role per alias", "Grant the group the role on the aliases it may use. No downgrade."],
+  "entra-tpm": ["same", "Token rate limit per caller identity", "Entra callers are counted by tenant + object id."],
+  "group-budget": ["classic", "", "Cost limit overrides never pool callers: each matching identity gets its own counter."],
+  "member-budget": ["same", "Cost limit per Entra identity", "Each identity has its own counter, with a claim-combination override for the group's amount."],
+};
+const agOf = (id) => AG_TIER[id] || ["classic", "", "Not mapped yet."];
+const agHtml = (k, text = true) => `<span class="agk ${k}" title="${AG_KIND[k][0]}: ${AG_KIND[k][1]}">${text ? AG_KIND[k][0] : ""}</span>`;
+// ---------- Why › AI Gateway tier: the visual comparison ----------
+// 1. Same call, two gateways: one lane per gateway, one node per stage. A story walks a dot through both lanes at once and
+//    stops it where that gateway stops the call; the badges between the lanes say how each stage maps.
+const AG_STAGES = ["client", "access", "limits", "budget", "safety", "route", "model"];
+const AG_LANES = {
+  classic: { ico: "apim", t: "This sandbox", sub: "API Management v2 · XML policies", nodes: {
+    client: ["users", "App", "OpenAI SDK"], access: ["entra-id", "Key + Entra", "product · token check"],
+    limits: ["policy", "Token limit", "llm-token-limit"], budget: ["cost-budgets", "$ budgets", "plan · session · end user"],
+    safety: ["policy", "Content safety", "llm-content-safety"], route: ["backend-pool", "Backend pool", "priority · retry · breaker"],
+    model: ["foundry-models", "Foundry", "managed identity"] } },
+  tier: { ico: "ai-gateway", t: "AI Gateway tier", sub: "managed policies", nodes: {
+    client: ["users", "App", "OpenAI SDK"], access: ["key", "Access", "runtime key · Entra role"],
+    limits: ["policy", "Token rate limit", "per identity"], budget: ["cost-budgets", "Cost limit", "per identity · models only"],
+    safety: ["policy", "Content safety", "managed policy"], route: ["foundry-models", "Alias", "priority · weight"],
+    model: ["foundry-models", "Foundry", "managed identity"] } } };
+const AG_STAGE_MAP = { client: "same", access: "differs", limits: "same", budget: "differs", safety: "differs", route: "differs", model: "same" };
+// a story: where each lane stops (stop), the flag it raises on a stage (flag, flagAt), its status and what the caller sees
+const AG_STORIES = [
+  { id: "ok", label: "Normal call", code: "200", hot: [], k: "same",
+    classic: { status: 200, end: "answered" }, tier: { status: 200, end: "answered" },
+    note: "<b>Same answer.</b> Here XML policies decide; on the tier, managed policies do. The app changes its base URL." },
+  { id: "tpm", label: "Too many tokens a minute", code: "429", hot: ["limits"], k: "same",
+    classic: { stop: "limits", flag: "429", status: 429, end: "Retry-After" }, tier: { stop: "limits", flag: "429", status: 429, end: "Retry-After" },
+    note: "<b>Same 429 with Retry-After.</b> <code>llm-token-limit</code> becomes a Token rate limit, counted per caller identity." },
+  { id: "budget", label: "Over its $ budget", code: "403", hot: ["budget"], k: "differs",
+    classic: { stop: "budget", flag: "$ spent", status: 403, end: "<code>quota-by-key</code>" }, tier: { stop: "budget", flag: "$ spent", status: 403, end: "<code>LlmCostQuotaExceeded</code>" },
+    note: "<b>Both stop the call before the model runs; the error code changes.</b> The Cost limit counts model tokens at public prices. Here one budget also pays for tools, agent tasks, images and safety checks." },
+  { id: "safety", label: "Unsafe prompt", code: "403 → 400", hot: ["safety"], k: "differs",
+    classic: { stop: "safety", flag: "blocked", status: 403, end: "<code>llm-content-safety</code>" }, tier: { stop: "safety", flag: "blocked", status: 400, end: "content safety" },
+    note: "<b>Blocked before spend on both, with a different status:</b> 403 here, 400 on the tier. Check error handling that expects 403." },
+  { id: "session", label: "Runaway session", code: "403 → 200", hot: ["budget"], k: "classic",
+    classic: { stop: "budget", flag: "session cap", status: 403, end: "<code>session-budget</code>" }, tier: { flag: "no session cap", flagAt: "budget", warn: true, status: 200, end: "keeps spending" },
+    note: "<b>The tier has no session counter.</b> A looping conversation runs until the caller's whole Cost limit is spent." },
+  { id: "obo", label: "An agent works for a user", code: "who pays?", hot: ["budget"], k: "classic",
+    classic: { flag: "bills the user", flagAt: "budget", status: 200, end: "user pays" }, tier: { flag: "bills the agent", flagAt: "budget", warn: true, status: 200, end: "agent pays" },
+    note: "<b>Same answers, different payer.</b> Here the agent's model calls are billed to the user it works for (<code>x-gw-on-behalf-of</code>). The tier counts spend against whoever calls: the agent." },
+  // the stories below play inside a scenario's comparison (chip: false keeps them out of the picker above the lanes)
+  { id: "every", chip: false, label: "Every model, priced", hot: ["budget"], k: "differs",
+    classic: { flag: "rate card $", flagAt: "budget", status: 200, end: "priced from <code>model-pricing</code>" }, tier: { flag: "public price", flagAt: "budget", status: 200, end: "estimated cost" },
+    note: "<b>Both price every call, from different price lists.</b> Here the <code>model-pricing</code> rate card (internal prices, PTU allocations) prices the tokens; the tier estimates cost from public pricing." },
+  { id: "downgrade", chip: false, label: "Model not in the plan", hot: ["access"], k: "differs",
+    classic: { flag: "↓ cheaper model", flagAt: "access", warn: true, status: 200, end: "downgraded" }, tier: { stop: "access", flag: "no role on alias", status: 403, end: "denied" },
+    note: "<b>Here a plan can swap in a cheaper model and still answer; the tier can only deny.</b> A caller without the Models User role on an alias gets 403. Retargeting an alias changes it for every caller, not one plan." },
+  { id: "outcap", chip: false, label: "Asks for 4,000 tokens", hot: ["limits"], k: "classic",
+    classic: { flag: "max_tokens → 300", flagAt: "limits", warn: true, status: 200, end: "capped output" }, tier: { flag: "uncapped", flagAt: "limits", warn: true, status: 200, end: "up to 4,000 tokens" },
+    note: "<b>The tier has no output cap.</b> Here the plan rewrites <code>max_tokens</code> so one call has a bounded worst-case cost; on the tier the app's own value goes through." },
+  { id: "tool", chip: false, label: "Premium MCP tool", hot: ["budget"], k: "differs",
+    relabel: { route: ["mcp", "MCP server", "tools/call"], model: ["mcp", "Commerce tools", "REST API"] },
+    classic: { flag: "$0.002 charged", flagAt: "budget", status: 200, end: "priced per call" }, tier: { flag: "not priced", flagAt: "budget", warn: true, status: 200, end: "free to the budget" },
+    note: "<b>The tool call goes through on both; only here does it cost money.</b> The tier governs tools with tool availability and a request rate limit, the same for every caller, and its Cost limit counts model tokens only." },
+  { id: "mixed", chip: false, label: "Tools and agents spent the budget", hot: ["budget"], k: "classic",
+    classic: { stop: "budget", flag: "shared $ spent", status: 403, end: "<code>quota-by-key</code>" }, tier: { flag: "only tokens counted", flagAt: "budget", warn: true, status: 200, end: "keeps going" },
+    note: "<b>Here models, tool calls and agent tasks draw on one $ budget</b>, so tool and agent spend can use it up. The tier's Cost limit sees model tokens only, so the same caller keeps going." },
+  { id: "records", chip: false, label: "Who spent what", hot: ["model"], k: "differs",
+    classic: { flag: "user · team · session", flagAt: "model", status: 200, end: "chargeback record" }, tier: { flag: "tid · oid claims", flagAt: "model", status: 200, end: "OpenTelemetry" },
+    note: "<b>Both record every call; the evidence differs.</b> Here each call writes a chargeback record (user, team, cost center, session) and lands in the <code>ApiManagementGateway*</code> tables. The tier exports Entra claims with OpenTelemetry traces and token metrics." },
+  { id: "notoken", chip: false, label: "Key but no Entra token", hot: ["access"], k: "differs",
+    classic: { stop: "access", flag: "no Entra token", status: 401, end: "<code>validate-azure-ad-token</code>" }, tier: { flag: "key is enough", flagAt: "access", warn: true, status: 200, end: "answered" },
+    note: "<b>Here every call needs the key and an Entra token; on the tier either one is a credential.</b> To require Entra ID on the tier, call with tokens and don't issue runtime keys." },
+  { id: "failover", chip: false, label: "Primary region throttles", hot: ["route"], k: "classic",
+    classic: { flag: "429 → France Central", flagAt: "route", status: 200, end: "served by the other region" }, tier: { flag: "priority · weight", flagAt: "route", warn: true, status: "?", end: "retry on 429 isn't in the labs" },
+    note: "<b>Here a 429 from Sweden Central is retried in France Central</b> and the circuit breaker keeps traffic there. The tier routes an alias across models by priority and weight; the labs don't cover retry or circuit breaking." },
+  { id: "suspend", chip: false, label: "The next call after overspend", hot: ["access", "budget"], k: "differs",
+    classic: { stop: "access", flag: "key suspended", status: 401, end: "until reactivated" }, tier: { stop: "budget", flag: "$ spent", status: 403, end: "<code>LlmCostQuotaExceeded</code> until the next period" },
+    note: "<b>Both stop the caller; here the key itself is switched off.</b> A Logic App suspends the subscription, so every API rejects it. On the tier the Cost limit keeps answering 403 until its period renews; revoke the key to switch it off." },
+  { id: "responses", chip: false, label: "Responses follow-up", hot: ["route"], k: "classic",
+    classic: { flag: "sticky region", flagAt: "route", status: 200, end: "cached input cheaper" }, tier: { flag: "not covered", flagAt: "route", warn: true, status: 200, end: "cost by token category" },
+    note: "<b>Here a follow-up goes back to the region that stored the response</b>, cached input is priced lower and another plan gets 404. The tier labs don't cover Responses affinity or ownership." },
+  { id: "images", chip: false, label: "Generate an image", hot: ["budget"], k: "classic",
+    relabel: { model: ["foundry-models", "gpt-image-1-mini", "per image"] },
+    classic: { flag: "$0.011 / image", flagAt: "budget", status: 200, end: "priced per image" }, tier: { flag: "not priced", flagAt: "budget", warn: true, status: "?", end: "images aren't in the tier's policies" },
+    note: "<b>Here images are entitled, rate-limited and priced per image</b> (model × quality × size) from the same $ budget. The tier's policies count tokens and calls, not images." },
+  { id: "enduser", chip: false, label: "One app, user over their cap", hot: ["budget"], k: "differs",
+    classic: { stop: "budget", flag: "ana's $ spent", status: 403, end: "<code>end-user-budget</code>" }, tier: { flag: "header ignored", flagAt: "budget", warn: true, status: 200, end: "app's budget only" },
+    note: "<b>Here the app names its user in <code>x-gw-end-user</code> and each user has a cap.</b> On the tier a user gets a counter only by calling with their own Entra token; a header doesn't count." },
+  { id: "cache", chip: false, label: "Same question, other words", hot: ["route"], k: "classic",
+    classic: { halt: "route", flag: "cache hit", status: 200, end: "$0.000001 lookup" }, tier: { flag: "no cache", flagAt: "route", warn: true, status: 200, end: "full token price" },
+    note: "<b>Here a similar question is answered from Azure Managed Redis without calling the model</b>, billed only the embedding lookup. The tier has no semantic cache policy, so every call reaches the model." },
+  { id: "entra", chip: false, label: "Keyless call", hot: ["access"], k: "differs",
+    classic: { flag: "group → plan", flagAt: "access", status: 200, end: "answered" }, tier: { flag: "role on alias", flagAt: "access", status: 200, end: "answered" },
+    note: "<b>Keyless on both.</b> Here the caller's security group picks a plan (models, limits, budget); on the tier the group gets a data-plane role, and a Cost limit override can give a claim combination its own amount." },
+  { id: "team", chip: false, label: "Team budget spent", hot: ["budget"], k: "classic",
+    classic: { stop: "budget", flag: "team $ spent", status: 403, end: "<code>group-budget</code>" }, tier: { flag: "own counter", flagAt: "budget", warn: true, status: 200, end: "until his own limit" },
+    note: "<b>Here Ana and Raj draw on their team's shared budget.</b> Tier overrides never pool callers: each member has an own counter, so a team can spend members × amount." },
+];
+// which call story each guided scenario plays in its comparison
+const AG_SC_STORY = [[/^Same question/, "every"], [/^Model governance/, "downgrade"], [/^Output cap/, "outcap"], [/^Tokens-per-minute/, "tpm"],
+  [/^\$ budget exhausted/, "budget"], [/^MCP tools/, "tool"], [/^A2A agent/, "obo"], [/^One \$ budget/, "mixed"], [/^Chargeback|^Policy trace/, "records"],
+  [/^Runaway session/, "session"], [/^Zero trust/, "notoken"], [/^Load balancing/, "failover"], [/content safety/, "safety"], [/^Over budget/, "suspend"],
+  [/^Responses API/, "responses"], [/^Images/, "images"], [/^One app, many users/, "enduser"], [/^Semantic cache/, "cache"],
+  [/^Entra only: no key/, "entra"], [/^Entra only: team/, "team"], [/^Entra only: the plan/, "downgrade"]];
+const agScStory = (i) => (AG_SC_STORY.find(([re]) => re.test(SCENARIOS[i].title)) || [])[1];
+// 2. One model call on the wire: [kind, here, on the tier, why]
+const AG_WIRE = [
+  ["chg", "POST https://&lt;apim&gt;<mark>/inference/openai/v1</mark>/chat/completions", "POST https://&lt;gateway&gt;<mark>/default/models/openai/v1</mark>/chat/completions", "New host and path: change the SDK's base URL."],
+  ["same", "api-key: &lt;subscription key&gt;", "api-key: &lt;runtime API key&gt;", "Same header; the key comes from Access › Keys."],
+  ["same", "Authorization: Bearer &lt;Entra token&gt;", "Authorization: Bearer &lt;Entra token&gt;", "The caller needs an AI Gateway data-plane role."],
+  ["same", "\"model\": \"gpt-4.1-mini\"", "\"model\": \"gpt-4.1-mini\"", "A Foundry import gets a default alias with the model's name."],
+  ["same", "\"messages\": [ … ]", "\"messages\": [ … ]", ""],
+  ["drop", "x-session-id: s-42", "x-session-id: s-42", "No session cap or ledger on the tier: the header has no effect."],
+  ["drop", "x-gw-end-user: ana.lopez", "x-gw-end-user: ana.lopez", "Per-user budgets need each user's own Entra token."],
+];
+const AG_CODES = [["same", "No or bad credential", "401", "401"], ["same", "Over a token or request rate", "429", "429", "Retry-After"],
+  ["chg", "Over a $ budget", "403", "403", "LlmCostQuotaExceeded"], ["chg", "Unsafe content", "403", "400"]];
+// 3. The building blocks: [icon, here, icon, on the tier, detail, no tier asset]
+const AG_BLOCKS = [
+  ["apim", "API Management v2", "ai-gateway", "AI Gateway resource", "A separate resource type, <code>Microsoft.ApiManagement/aigateways</code>, managed in ai.gateway.azure.com and with <code>az aigateway</code>."],
+  ["policy", "XML + C# expressions", "policy", "Managed policy settings", "No XML: each policy is a type with settings, such as amount, period, counter and overrides."],
+  ["plan", "Product · API · operation", "ai-gateway", "Gateway · model · alias · MCP", "Gateway-scope policies apply to every compatible asset, including ones added later; asset policies add stricter rules on top."],
+  ["subscriptions", "Products + subscription keys", "key", "Runtime keys + overrides", "No products: a policy has a default and per-key or per-Entra-identity overrides."],
+  ["backend-pool", "Backend pool across regions", "foundry-models", "Aliases by priority & weight", "Clients call an alias; retarget it, or split it across backend models, with no client change."],
+  ["mcp", "MCP server from a REST API", "mcp", "Federated MCP servers", "One endpoint per server, federating remote MCP servers, OpenAPI specs, connectors and Foundry Toolbox, with tool availability."],
+  ["a2a", "A2A agent API", "a2a", "No agent asset", "Agents call the gateway as clients, for example Foundry hosted agents.", true],
+  ["log-analytics", "Log Analytics tables", "app-insights", "OpenTelemetry", "Metrics, logs and traces go to Application Insights (the Monitoring dashboard) or any OTLP endpoint."],
+];
+let agShow = new Set(["same", "differs", "classic"]), agStory = null, agSel = null;
+const agRM = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const agWait = (ms) => new Promise(r => setTimeout(r, agRM() ? 0 : ms));
+const agMid = (el) => el.offsetLeft + el.offsetWidth / 2;
+// the vertical centre of a node's icon inside its lane: the track and the travelling ring sit on it
+const agIconY = (node) => { const ic = node.querySelector(".ic"); return node.offsetTop + ic.offsetTop + ic.offsetHeight / 2; };
+function agLane(key) {
+  const L = AG_LANES[key];
+  return `<div class="aglane" data-lane="${key}"><div class="who"><img src="/icons/${L.ico}.svg" alt=""><span>${L.t}<small>${L.sub}</small></span></div><div class="track"></div>`
+    + AG_STAGES.map(s => { const [ic, b, sm] = L.nodes[s];
+      return `<div class="agnode" data-st="${s}"><span class="flag"></span><span class="ic"><img src="/icons/${ic}.svg" alt=""></span><b>${b}</b><small>${sm}</small></div>`; }).join("")
+    + `<div class="agres"><span class="st"></span><small></small></div><span class="agdot"></span></div>`;
+}
+function agRaceHtml() {
+  return agLane("classic")
+    + `<div class="agmap"><span></span>${AG_STAGES.map(s => `<span class="${AG_STAGE_MAP[s]}" data-st="${s}"><i>${AG_STAGE_MAP[s] === "same" ? "same" : "differs"}</i></span>`).join("")}<span></span></div>`
+    + agLane("tier");
+}
+function agLayout(race = $("agRace")) {
+  race.querySelectorAll(".aglane").forEach(l => {
+    const n = l.querySelectorAll(".agnode"), a = agMid(n[0]), z = agMid(n[n.length - 1]), tr = l.querySelector(".track");
+    tr.style.left = a + "px"; tr.style.width = (z - a) + "px"; tr.style.right = "auto"; tr.style.top = agIconY(n[0]) + "px"; tr.style.marginTop = "-1px";
+    l.querySelector(".agdot").style.top = agIconY(n[0]) + "px";
+  });
+}
+function agFlag(node, text, cls) { if (!text) return; const f = node.querySelector(".flag"); f.textContent = text; f.className = "flag on " + cls; }
+// play one story in a race (the lanes) and write its takeaway in note; each race keeps its own run counter
+async function agPlay(id, race = $("agRace"), note = $("agNote")) {
+  const run = race._run = (race._run || 0) + 1, s = AG_STORIES.find(x => x.id === id);
+  if (race.id === "agRace") { agStory = id; $("agStories").querySelectorAll("[data-ags]").forEach(b => b.classList.toggle("on", b.dataset.ags === id)); }
+  race.querySelectorAll(".agnode").forEach(n => {
+    n.classList.remove("pass", "stop"); n.querySelector(".flag").className = "flag";
+    const lane = n.closest(".aglane").dataset.lane, [ic, b, sm] = (s.relabel || {})[n.dataset.st] || AG_LANES[lane].nodes[n.dataset.st];
+    n.querySelector(".ic img").src = `/icons/${ic}.svg`; n.querySelector("b").textContent = b; n.querySelector("small").textContent = sm;
+  });
+  race.querySelectorAll(".agres").forEach(r => r.classList.remove("on"));
+  race.querySelectorAll(".agmap [data-st]").forEach(x => x.classList.toggle("hot", s.hot.includes(x.dataset.st)));
+  note.classList.remove("on");
+  agLayout(race);
+  const lanes = ["classic", "tier"].map(k => ({ el: race.querySelector(`[data-lane="${k}"]`), p: s[k], done: false }));
+  for (const { el } of lanes) {
+    const d = el.querySelector(".agdot");
+    d.style.transition = "none"; d.className = "agdot on"; d.style.left = agMid(el.querySelector(".agnode")) + "px"; void d.offsetWidth; d.style.transition = "";
+  }
+  for (const st of AG_STAGES) {
+    if (run !== race._run) return null;
+    for (const L of lanes) {
+      if (L.done) continue;
+      const node = L.el.querySelector(`.agnode[data-st="${st}"]`), dot = L.el.querySelector(".agdot");
+      dot.style.left = agMid(node) + "px";
+      if (L.p.stop === st) { node.classList.add("stop"); dot.classList.add("bad"); agFlag(node, L.p.flag, "bad"); L.done = true; }
+      else if (L.p.halt === st) { node.classList.add("pass"); agFlag(node, L.p.flag, "ok"); L.done = true; }  // answered here, the rest of the lane is skipped
+      else { node.classList.add("pass"); if (L.p.flagAt === st) agFlag(node, L.p.flag, L.p.warn ? "warn" : "ok"); }
+    }
+    await agWait(420);
+  }
+  if (run !== race._run) return null;
+  for (const { el, p } of lanes) {
+    const r = el.querySelector(".agres"), st = r.querySelector(".st"), c = String(p.status)[0];
+    st.textContent = p.status; st.className = "st " + (c === "2" ? "s2" : c === "4" || c === "5" ? "s4" : "sq"); r.querySelector("small").innerHTML = p.end; r.classList.add("on");
+  }
+  note.innerHTML = agHtml(s.k) + `<span>${s.note}</span>`;
+  note.classList.add("on");
+  return run;
+}
+async function agPlayAll() {
+  for (const s of AG_STORIES.filter(x => x.chip !== false)) {
+    const run = await agPlay(s.id);
+    if (run == null) return;
+    await agWait(2800);
+    if (run !== $("agRace")._run) return;
+  }
+}
+// A scenario's comparison, opened in place under its row of tiles: its call story in two lanes, then each of its controls
+// side by side with the tier's equivalent
+let agScSel = null;
+function agScClose() { agScSel = null; $("agScenarios").querySelector(".agscd")?.remove(); $("agScenarios").querySelectorAll("[data-agsc]").forEach(b => { b.classList.remove("on"); b.setAttribute("aria-expanded", "false"); }); }
+function agScOpen(i) {
+  if (agScSel === i) { agScClose(); return; }
+  agScClose(); agScSel = i;
+  const grid = $("agScenarios").querySelector(".agsc"), tile = grid.querySelector(`[data-agsc="${i}"]`), s = SCENARIOS[i];
+  tile.classList.add("on"); tile.setAttribute("aria-expanded", "true");
+  // after the last tile in the selected tile's row
+  const row = [...grid.querySelectorAll("[data-agsc]")].filter(b => b.offsetTop === tile.offsetTop), last = row[row.length - 1];
+  const cs = (s.controls || []).filter(id => POL_CONTROLS[id]), story = agScStory(i), [, label, k] = agScRate(cs);
+  const pane = document.createElement("div");
+  pane.className = "agscd"; pane.id = "agScDetail"; pane.setAttribute("role", "region"); pane.setAttribute("aria-label", `Scenario ${i + 1} on the AI Gateway tier`);
+  pane.innerHTML = `<div class="hd"><span class="n">${i + 1}</span><div><b>${escapeHtml(s.title)}</b> <span class="agk ${k}">${label}</span><small>${s.gist || ""}</small></div><span class="sp"></span>`
+      + `<button type="button" class="lnk" data-agopen="${i}" title="Open it in the scenario picker to run it">Run it ↗</button><button type="button" class="x" data-agclose aria-label="Close">✕</button></div>`
+    + (story ? `<div class="elh">${escapeHtml(AG_STORIES.find(x => x.id === story).label)}: what each gateway does <button type="button" class="lnk" data-agreplay>↻ Replay</button></div><div class="agrace mini">${agRaceHtml()}</div><div class="agnote"></div>` : "")
+    + `<div class="elh">The ${cs.length} control${cs.length === 1 ? "" : "s"} it shows, side by side</div><div class="agpairs">`
+    + cs.map((id, j) => { const c = POL_CONTROLS[id], [ck, eq, nt] = agOf(id);
+        return `<div class="agpr ${ck}" style="animation-delay:${120 + j * 110}ms"><button type="button" class="side l" data-agc="${id}" title="Open in the Policy explorer"><small>This sandbox</small><b>${escapeHtml(c.s)}</b><code>${escapeHtml(c.p)}</code></button>`
+          + `<div class="link"><span class="agk ${ck}">${AG_KIND[ck][0]}</span><i></i></div>`
+          + `<div class="side r"><small>AI Gateway tier</small><b>${eq || "No managed equivalent yet"}</b><span>${nt}</span></div></div>`; }).join("")
+    + `</div>` + (story ? `<div class="elh">What the data looks like</div>${agDataHtml(i)}` : "");
+  last.after(pane);
+  pane.scrollIntoView({ behavior: agRM() ? "auto" : "smooth", block: "nearest" });
+  if (story) requestAnimationFrame(() => agPlay(story, pane.querySelector(".agrace"), pane.querySelector(".agnote")));
+}
+// a scenario's rating, from how many of its controls have a managed equivalent
+function agScRate(cs) {
+  const cl = cs.filter(id => agOf(id)[0] === "classic").length, df = cs.filter(id => agOf(id)[0] === "differs").length;
+  return cl === cs.length ? ["classic", "Needs classic", "classic"] : cl ? ["partly", "Partly carries over", "differs"]
+    : df ? ["differs", "Carries over, with changes", "differs"] : ["same", "Carries over", "same"];
+}
+const AG_RANK = { same: 0, differs: 1, partly: 2, classic: 3 };
+const agScRating = (i) => { const cs = (SCENARIOS[i]?.controls || []).filter(id => POL_CONTROLS[id]); return cs.length ? agScRate(cs) : null; };
+// How the scenario's call runs, stage by stage, on each gateway: ✓ passed, ⚑ something happened there, ✕ stopped, — never reached
+function agLaneCells(p) {
+  let done = false;
+  return AG_STAGES.map(st => {
+    if (done) return { k: "skip", t: "" };
+    if (p.stop === st) { done = true; return { k: "stop", t: p.flag }; }
+    if (p.halt === st) { done = true; return { k: "halt", t: p.flag }; }
+    return p.flagAt === st ? { k: p.warn ? "warn" : "flag", t: p.flag } : { k: "pass", t: "" };
+  });
+}
+function agStepsHtml(id) {
+  const s = AG_STORIES.find(x => x.id === id); if (!s) return "";
+  const a = agLaneCells(s.classic), b = agLaneCells(s.tier), sym = { pass: "✓", flag: "⚑", warn: "⚑", stop: "✕", halt: "✓", skip: "—" };
+  const name = (lane, st) => ((s.relabel || {})[st] || AG_LANES[lane].nodes[st])[1];
+  const cell = (c, lane, st) => `<td class="${c.k}"><span class="g">${sym[c.k]}</span>${c.k === "skip" ? `<span class="nm">not reached</span>` : `<span class="nm">${escapeHtml(name(lane, st))}</span>${c.t ? `<span class="fl">${escapeHtml(c.t)}</span>` : ""}`}</td>`;
+  const res = (p) => { const c = String(p.status)[0]; return `<td class="res"><span class="st ${c === "2" ? "s2" : c === "4" || c === "5" ? "s4" : "sq"}">${p.status}</span><span class="nm">${p.end}</span></td>`; };
+  return `<table class="agsteps"><thead><tr><th></th><th>API Management v2</th><th>AI Gateway tier</th></tr></thead><tbody>`
+    + AG_STAGES.map((st, k) => `<tr class="${a[k].k !== b[k].k || a[k].t !== b[k].t ? "diff" : ""}" style="animation-delay:${k * 70}ms"><th>${k + 1}</th>${cell(a[k], "classic", st)}${cell(b[k], "tier", st)}</tr>`).join("")
+    + `<tr class="end" style="animation-delay:${AG_STAGES.length * 70}ms"><th>⇒</th>${res(s.classic)}${res(s.tier)}</tr></tbody></table>`;
+}
+// The newest real call a scenario sent (this page or saved runs): the one that tells its story (a refused call when the sandbox
+// lane stops, otherwise an answered one)
+function agRealCall(i) {
+  const st = AG_STORIES.find(x => x.id === agScStory(i)), wantBlock = !!(st && st.classic.stop);
+  const idx = new Set();
+  session.calls.forEach((r, j) => { if (r.si === i) idx.add(j); });
+  for (const run of runs) for (const p of run.parts || []) if (p.si === i) (p.calls || []).forEach(j => idx.add(j));
+  const all = [...idx].filter(j => session.calls[j]).sort((x, y) => x - y);
+  if (!all.length) return null;
+  const surf = (st?.relabel?.model || [])[0] === "mcp" ? "tool" : "model", fits = (k) => (session.calls[k].status >= 400) === wantBlock;
+  const j = [...all].reverse().find(k => fits(k) && session.calls[k].surface === surf) ?? [...all].reverse().find(fits) ?? all[all.length - 1];
+  return { j, r: session.calls[j] };
+}
+const AG_HDRS = ["x-gw-tier", "x-gw-caller", "x-gw-model-served", "x-gw-governance", "x-gw-blocked-by", "x-gw-block-reason", "x-gw-cost-usd", "x-gw-session", "x-gw-end-user", "x-gw-route", "x-gw-semantic-cache", "x-gw-request-id"];
+const agPlain = (h) => String(h || "").replace(/<[^>]+>/g, "");
+// What the data looks like: the sandbox's real response headers and log rows next to an illustrative AI Gateway tier response,
+// trace and metric. Nothing on the tier side comes from a live gateway, and it says so.
+function agDataHtml(i) {
+  const id = agScStory(i), s = AG_STORIES.find(x => x.id === id); if (!s) return "";
+  const real = agRealCall(i), line = (k, v, cls = "") => `<div class="agkv ${cls}"><span>${escapeHtml(k)}</span><b>${escapeHtml(v)}</b></div>`;
+  let left;
+  if (real) {
+    const h = real.r.headers || {}, keys = AG_HDRS.filter(k => h[k]), more = Object.keys(h).filter(k => /^x-gw-/.test(k) && !keys.includes(k)).length;
+    left = `<div class="agsrc2">Your call <b>#${real.j + 1}</b> · ${escapeHtml(real.r.agent || "")}${real.r.past ? " · saved run" : ""}</div>`
+      + `<div class="resp"><div class="sl">HTTP ${real.r.status}</div>${keys.map(k => line(k, h[k], k === "x-gw-blocked-by" ? "bad" : "")).join("")}${more ? `<div class="more">+${more} more x-gw-* header${more === 1 ? "" : "s"}</div>` : ""}</div>`
+      + (h["x-gw-request-id"] && Date.now() - (real.r.at || 0) < 23 * 3600e3 ? `<div class="ev" data-agevbox><button type="button" class="lnk" data-agev="${escapeHtml(h["x-gw-request-id"])}" data-agsurf="${escapeHtml(real.r.surface || "model")}">Load its Log Analytics rows</button></div>`
+        : h["x-gw-request-id"] ? `<div class="agtables">Sent ${real.r.at ? new Date(real.r.at).toLocaleDateString() : "earlier"}: the log lookup covers the last 24 hours. Run the scenario again to load fresh rows here.</div>` : "");
+  } else {
+    const c = s.classic, stop = c.stop || null;
+    left = `<div class="agsrc2">Example · <b>run the scenario</b> to see your own call here</div>`
+      + `<div class="resp"><div class="sl">HTTP ${c.status}</div>${line("x-gw-tier", "gold")}${stop ? line("x-gw-blocked-by", agPlain(c.end), "bad") : line("x-gw-cost-usd", "0.000163")}${line("x-gw-session", "s-42")}${line("x-gw-request-id", "7f3c9a1e-…")}</div>`
+      + `<div class="tables">Lands in <code>ApiManagementGatewayLogs</code>${stop ? "" : ", <code>ApiManagementGatewayLlmLog</code>"} and a chargeback record in <code>AppTraces</code>, joined on the request id.</div>`;
+  }
+  // the tier side: status, body, the policy spans the call went through, and the token metric when the model answered
+  const t = s.tier, cells = agLaneCells(t), c0 = String(t.status)[0];
+  const body = t.stop === "budget" ? `{"error": {"code": "LlmCostQuotaExceeded"}}` : t.stop === "limits" ? "Retry-After: 12" : t.stop === "access" ? `{"error": {"code": "401"}}` : t.stop === "safety" ? `{"error": {"code": "content_filter"}}` : "";
+  const spans = AG_STAGES.slice(1).map((st, k) => [st, cells[k + 1]]).filter(([, c]) => c.k !== "skip")
+    .map(([st, c]) => `<div class="sp ${c.k}"><span class="g">${{ pass: "✓", flag: "⚑", warn: "⚑", stop: "✕", halt: "✓" }[c.k]}</span>${escapeHtml(((s.relabel || {})[st] || AG_LANES.tier.nodes[st])[1])}${c.t ? `<em>${escapeHtml(c.t)}</em>` : ""}</div>`).join("");
+  const reached = !t.stop && !t.halt && c0 === "2";
+  const right = `<div class="agsrc2"><span class="agill">Illustrative</span> not from a live gateway</div>`
+    + `<div class="resp"><div class="sl">HTTP ${t.status}</div>${body ? `<div class="body">${escapeHtml(body)}</div>` : ""}</div>`
+    + `<div class="trace"><div class="h">Trace · one span per policy</div>${spans}</div>`
+    + (reached ? `<div class="metric"><code>gen_ai_client_token_usage</code> {gen_ai.request.model, <code>azure.ai_gateway.identity.claims.oid</code>}</div>` : "")
+    + `<div class="tables">Lands in Application Insights through OpenTelemetry (or any OTLP endpoint), with no <code>x-gw-*</code> headers.</div>`;
+  return `<div class="agdata"><div class="col v2"><div class="hd">API Management v2 <small>this sandbox</small></div>${left}</div>`
+    + `<div class="col tier"><div class="hd">AI Gateway tier <small>illustrative</small></div>${right}</div></div>`
+    + `<div class="agdfine">The tier side follows the AI Gateway tier labs and the OpenTelemetry GenAI conventions; exact field names and error bodies may differ.</div>`;
+}
+// the picker's "AI Gateway tier" view of a scenario: how it runs step by step on both gateways, then what the data looks like
+function agPickHtml(i) {
+  const id = agScStory(i), s = AG_STORIES.find(x => x.id === id), rt = agScRating(i);
+  if (!s) return `<div class="muted">No AI Gateway tier comparison for this scenario.</div>`;
+  return `<div class="agpick">${rt ? `<div class="rt"><span class="muted">The call: <b>${escapeHtml(s.label)}</b></span>`
+      + `<a href="#" data-act="tiercmp" data-i="${i}">Every control side by side ›</a></div>` : ""}`
+    + agStepsHtml(id) + `<div class="agnote on">${agHtml(s.k)}<span>${s.note}</span></div>`
+    + `<div class="elh">What the data looks like</div>${agDataHtml(i)}</div>`;
+}
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-agev]"); if (!b) return;
+  e.preventDefault();
+  const box = b.closest("[data-agevbox]");
+  box.innerHTML = `<div class="muted">Querying Log Analytics for <code>${escapeHtml(b.dataset.agev)}</code>…</div>`;
+  const ev = await loadEvidence(b.dataset.agev, b.dataset.agsurf).catch(err => ({ html: `<div class="muted">${escapeHtml(err.message)}</div>` }));
+  box.innerHTML = ev.html + (ev.found === false ? `<div class="muted">Logs arrive 2–5 minutes after a call: try again shortly.</div>` : "");
+});
+function agPeek(id) {
+  const box = $("agPeek");
+  if (!id) { box.className = "agpeek empty"; box.innerHTML = "Hover or focus a control to compare it."; return; }
+  const c = POL_CONTROLS[id], [k, eq, note] = agOf(id);
+  box.className = "agpeek";
+  box.innerHTML = `<div class="side"><small>This sandbox · ${POL_LEVELS[c.l][0]}</small><b>${escapeHtml(c.s)}</b> <code>${escapeHtml(c.p)}</code></div><div class="arr">→</div>`
+    + `<div class="side"><small>AI Gateway tier · ${AG_KIND[k][0]}</small><b>${eq || "No managed equivalent yet"}</b></div><div class="note">${note}</div>`;
+}
+function agTiles() {
+  const ids = Object.keys(POL_CONTROLS);
+  $("agLanes").innerHTML = ["identity", "plan", "routing", "metering"].map(stg => {
+    const st = PIPE[STAGE_IX[stg]], items = ids.filter(id => POL_CONTROLS[id].st === stg);
+    return `<div class="ln"><div>${ico(st.ico, "", "")}${st.title}</div><div class="agtiles">`
+      + items.map(id => `<button type="button" class="agtile ${agOf(id)[0]}${agShow.has(agOf(id)[0]) ? "" : " dim"}${agSel === id ? " cur" : ""}" data-agc="${id}" title="Open in the Policy explorer">${escapeHtml(POL_CONTROLS[id].s)}</button>`).join("")
+      + `</div></div>`;
+  }).join("");
+  const tiles = [...$("agLanes").querySelectorAll(".agtile")];
+  tiles.forEach((t, i) => setTimeout(() => t.classList.add("in"), agRM() ? 0 : 20 * i));
+}
+function agTable() {
+  const ids = Object.keys(POL_CONTROLS);
+  const rows = Object.keys(STAGE_IX).map(stg => {
+    const items = ids.filter(id => POL_CONTROLS[id].st === stg && agShow.has(agOf(id)[0]));
+    if (!items.length) return "";
+    return `<tr class="agg"><td colspan="5">${PIPE[STAGE_IX[stg]].title}</td></tr>` + items.map(id => {
+      const c = POL_CONTROLS[id], [k, eq, note] = agOf(id);
+      return `<tr class="agrow" data-agc="${id}" title="Open in the Policy explorer"><td>${escapeHtml(c.s)}</td><td><code>${escapeHtml(c.p)}</code></td><td>${agHtml(k)}</td><td>${eq ? `<b>${eq}</b>` : `<span class="muted">none yet</span>`}</td><td>${note}</td></tr>`;
+    }).join("");
+  }).join("");
+  $("agControls").innerHTML = `<table><thead><tr><th>Control</th><th>Here</th><th>Tier</th><th>AI Gateway tier equivalent</th><th>What differs</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function renderTier() {
+  const ids = Object.keys(POL_CONTROLS), by = { same: [], differs: [], classic: [] };
+  ids.forEach(id => by[agOf(id)[0]].push(id));
+  const n = ids.length;
+  // 0. the TL;DR: the reassurance first, then what to set up differently, then the custom logic with no managed equivalent yet
+  const col = (k, ic, h, items) => `<div class="agtl ${k}"><div class="h"><span class="g">${ic}</span>${h}</div><ul>${items.map(x => `<li>${x}</li>`).join("")}</ul></div>`;
+  $("agTldr").innerHTML = `<div class="hl"><span class="tag">TL;DR</span><div><b>Same AI gateway jobs, packaged as managed policies.</b>`
+      + `<p>The AI Gateway tier is a tier of Azure API Management. It takes the controls most AI gateways need and makes them settings you pick in a portal, instead of XML you write and maintain. <b>For those controls, your apps see the same behaviour.</b></p></div></div>`
+    + `<div class="cols">`
+    + col("same", "✓", "Works the same for your apps", [
+        "<b>Same SDKs and payloads:</b> OpenAI-compatible calls, the <code>api-key</code> header and Entra ID tokens",
+        "<b>Same answers when a call is refused:</b> 401 without a credential, 429 + Retry-After over a limit",
+        "<b>Same built-in controls:</b> token limits, content safety, managed identity to Foundry, usage and cost telemetry"])
+    + col("differs", "~", "Set up differently", [
+        "XML policies → <b>managed policy settings</b>, at gateway scope or on one model, alias or MCP server",
+        "Products and subscription keys → <b>runtime keys with per-key overrides</b>",
+        "Backend pool → <b>aliases</b> routed by priority and weight",
+        "$ budget → <b>Cost limit</b> (403 <code>LlmCostQuotaExceeded</code>)", "A new base URL: <code>…/default/models/openai/v1</code>"])
+    + col("classic", "＋", "Custom logic here, no managed equivalent yet", [
+        "One $ budget shared by models, <b>tools and agents</b>",
+        "Billing an agent's spend <b>to the user it works for</b>",
+        "<b>Session and per-user</b> $ caps, the <b>semantic cache</b>, output caps, retry on 429"])
+    + `</div>`
+    + `<div class="agbl"><b>Bottom line:</b> if your gateway uses the common controls, <b>the AI Gateway tier does the same job with less to build and maintain.</b> `
+    + `If you rely on custom XML, like this sandbox's FinOps logic, API Management v2 keeps running it. <span class="muted">${by.same.length + by.differs.length} of ${n} controls in this sandbox have a managed equivalent; the cards below show each one.</span></div>`;
+  // 1. the race
+  if (!$("agRace").children.length) {
+    $("agStories").innerHTML = AG_STORIES.filter(s => s.chip !== false).map(s => `<button type="button" data-ags="${s.id}">${s.label}<span class="sc">${s.code}</span></button>`).join("")
+      + `<button type="button" class="play" data-agall>▶ Play all</button>`;
+    $("agRace").innerHTML = agRaceHtml();
+  }
+  agLayout();
+  if (!agStory) setTimeout(() => agPlay("ok"), agRM() ? 0 : 350);
+  // 2. the wire and the status codes
+  const gut = { same: "✓", chg: "~", drop: "✕" };
+  $("agWire").innerHTML = `<div class="agwire"><div class="r h"><div class="g"></div><div>This sandbox</div><div>AI Gateway tier</div></div>`
+    + AG_WIRE.map(([k, a, b, why], i) => `<div class="r ${k}" style="animation-delay:${i * 90}ms"><div class="g" title="${{ same: "Unchanged", chg: "Changes", drop: "No effect on the tier" }[k]}">${gut[k]}</div><div>${a}</div><div>${b}</div>${why ? `<div class="why">${why}</div>` : ""}</div>`).join("") + `</div>`;
+  requestAnimationFrame(() => $("agWire").firstElementChild.classList.add("on"));
+  $("agCodes").innerHTML = `<div class="agcodes">` + AG_CODES.map(([k, l, a, b, sub]) => `<div class="agcode ${k}"><div class="l">${l}</div><div class="p"><span class="s">${a}</span><span class="arr">→</span><span class="s${k === "chg" ? " new" : ""}">${b}</span></div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>`).join("") + `</div>`;
+  // 3. the building blocks
+  $("agBlocks").innerHTML = `<div class="agblocks">` + AG_BLOCKS.map(([i1, a, i2, b, , none], i) => `<div class="agpair${none ? " none" : ""}" tabindex="0" data-agb="${i}"><div><img src="/icons/${i1}.svg" alt="">${a}</div><div class="to"><i style="animation-delay:${i * 0.3}s"></i></div><div><img src="/icons/${i2}.svg" alt="">${b}</div></div>`).join("")
+    + `</div><div class="agblk-tip" id="agBlkTip">Hover a pair to see what changes.</div>`;
+  // 4. every control: the meter, the tiles by stage, the peek card and the table
+  const carry = by.same.length + by.differs.length;
+  $("agMeter").innerHTML = `<span class="big">${carry}<small>of ${n} controls have a managed equivalent</small></span>`
+    + `<div class="bar">${["same", "differs", "classic"].map(k => `<i class="${k}" data-w="${(by[k].length / n * 100).toFixed(1)}" title="${AG_KIND[k][0]}: ${by[k].length}"></i>`).join("")}</div>`
+    + `<div class="pxlv">${["same", "differs", "classic"].map(k => `<button type="button" class="pc" data-agk="${k}" aria-pressed="${agShow.has(k)}" title="${AG_KIND[k][1]} Click to show or hide.">${agHtml(k)} ${by[k].length}</button>`).join("")}</div>`;
+  requestAnimationFrame(() => $("agMeter").querySelectorAll(".bar i").forEach(i => { i.style.width = i.dataset.w + "%"; }));
+  agTiles(); agPeek(agSel); agTable();
+  // 5. the scenarios: a tile each, one bar segment per control it shows; a click compares it in place
+  const keep = agScSel;
+  agScSel = null;
+  $("agScenarios").innerHTML = `<div class="agsc">` + SCENARIOS.map((s, i) => {
+    const cs = (s.controls || []).filter(id => POL_CONTROLS[id]);
+    if (!cs.length) return "";
+    const [, label, k] = agScRate(cs);
+    const tip = cs.map(id => `${POL_CONTROLS[id].s}: ${AG_KIND[agOf(id)[0]][0]}`).join("\n");
+    return `<button type="button" data-agsc="${i}" aria-expanded="false" aria-controls="agScDetail" title="${escapeHtml(tip)}\n\nClick to compare it on both gateways"><div class="t"><span class="n">${i + 1}</span><b>${escapeHtml(s.title)}</b></div>`
+      + `<div class="segs">${cs.map(id => `<i class="${agOf(id)[0]}"></i>`).join("")}</div><span class="agk ${k}">${label}</span></button>`;
+  }).join("") + `</div>`;
+  if (keep != null) agScOpen(keep);
+}
+addEventListener("resize", () => {
+  if (psec !== "tier") return;
+  if ($("agRace").children.length) agLayout();
+  const pane = $("agScDetail");
+  if (pane) { agLayout(pane.querySelector(".agrace") || pane);  // keep the panel under its own row when the tiles reflow
+    const grid = pane.parentElement, tile = grid.querySelector(`[data-agsc="${agScSel}"]`), row = [...grid.querySelectorAll("[data-agsc]")].filter(b => b.offsetTop === tile.offsetTop);
+    if (row[row.length - 1].nextElementSibling !== pane) row[row.length - 1].after(pane); }
+});
+$("agTier").addEventListener("keydown", (e) => { if (e.key === "Escape" && agScSel != null) { const i = agScSel; agScClose(); $("agScenarios").querySelector(`[data-agsc="${i}"]`)?.focus(); } });
+$("agTier").addEventListener("click", (e) => {
+  let x;
+  if ((x = e.target.closest("[data-ags]"))) { agPlay(x.dataset.ags); return; }
+  if (e.target.closest("[data-agall]")) { agPlayAll(); return; }
+  if ((x = e.target.closest("[data-agk]"))) { const v = x.dataset.agk; if (agShow.has(v) && agShow.size > 1) agShow.delete(v); else agShow.add(v);
+    $("agMeter").querySelectorAll("[data-agk]").forEach(b => b.setAttribute("aria-pressed", agShow.has(b.dataset.agk)));
+    $("agLanes").querySelectorAll(".agtile").forEach(t => t.classList.toggle("dim", !agShow.has(agOf(t.dataset.agc)[0]))); agTable(); return; }
+  if ((x = e.target.closest("[data-agsc]"))) { agScOpen(Number(x.dataset.agsc)); return; }
+  if (e.target.closest("[data-agclose]")) { const i = agScSel; agScClose(); $("agScenarios").querySelector(`[data-agsc="${i}"]`)?.focus(); return; }
+  if (e.target.closest("[data-agreplay]")) { const p = $("agScDetail"); agPlay(agScStory(agScSel), p.querySelector(".agrace"), p.querySelector(".agnote")); return; }
+  if ((x = e.target.closest("[data-agopen]"))) { scOpen(Number(x.dataset.agopen)); return; }
+  if ((x = e.target.closest("[data-agc]"))) { showPsec("explorer"); pxSelect({ kind: "ctl", id: x.dataset.agc }, "stage"); $("polMapCard").scrollIntoView({ behavior: "smooth", block: "start" }); }
+});
+const agHover = (e) => {
+  const t = e.target.closest?.(".agtile");
+  if (t && t.dataset.agc !== agSel) { agSel = t.dataset.agc; $("agLanes").querySelectorAll(".agtile").forEach(x => x.classList.toggle("cur", x === t)); agPeek(agSel); }
+  const p = e.target.closest?.(".agpair");
+  if (p && $("agBlkTip")) $("agBlkTip").innerHTML = `<b>${AG_BLOCKS[p.dataset.agb][3]}:</b> ${AG_BLOCKS[p.dataset.agb][4]}`;
+};
+$("agTier").addEventListener("mouseover", agHover);
+$("agTier").addEventListener("focusin", agHover);
 // Explorer state: the scenario (index or "all"), grouping, visible levels, the selected control or document, the plan shown
 let polMapSel = null, pxGroup = "stage", pxLevels = new Set([1, 2, 3]), pxSel = null, pxTier = null;
 // polDeployed: every policy document read back from ARM (/api/policies); polDocs: the flow documents + plain named values (/api/flow-policies)
@@ -4969,7 +5990,7 @@ function pxCtlList() {
   const sc = pxScIds(), ids = pxCtlOrder();
   const item = (id, n, out) => { const c = POL_CONTROLS[id], off = pxOff(c);
     return `<button type="button" class="it${pxSel?.id === id ? " sel" : ""}${out ? " out" : ""}${off ? " off" : ""}" data-pxi="ctl:${id}" title="${escapeHtml(c.p)}${off ? " · not deployed in this sandbox" : ""}">`
-      + `<span class="nb">${n >= 0 ? n + 1 : ""}</span>${lvlHtml(c.l, false)}<span class="lab">${escapeHtml(c.s)}</span>${(c.o || []).filter(o => o !== "dg").slice(0, 1).map(o => `<span class="tag">${o}</span>`).join("")}</button>`; };
+      + `<span class="nb">${n >= 0 ? n + 1 : ""}</span>${lvlHtml(c.l, false)}<span class="lab">${escapeHtml(c.s)}</span>${(c.o || []).filter(o => o !== "dg").slice(0, 1).map(o => `<span class="tag">${o}</span>`).join("")}${agHtml(agOf(id)[0], false)}</button>`; };
   // a scenario's controls come first, in its order; the rest of the catalog follows by pipeline stage
   const head = sc.length ? `<div class="g">${ico("policy", "", "")}In this scenario<span class="cnt">${sc.length}</span></div>` + sc.map((id, i) => item(id, i, false)).join("") : "";
   return head + Object.keys(STAGE_IX).map(stg => {
@@ -5013,6 +6034,7 @@ function pxCtlHtml(id) {
     + (tiers.length > 1 ? `<div class="tiers">Plan: ${tiers.map(t => `<button type="button" class="pc${doc === "product:" + t ? " cur" : ""}" data-pxt="${escapeHtml(t)}">${escapeHtml(tierName(t))}</button>`).join("")}<span>the same control, with each plan's own values</span></div>` : "")
     + lines
     + `<div class="adopt"><b>To use it yourself:</b> ${c.u}</div>`
+    + (([k, eq, note]) => `<div class="adopt agadopt"><b>On the AI Gateway tier:</b> ${agHtml(k)} ${eq ? `<b>${eq}</b>. ` : ""}${note} <a href="#" data-pxag>Compare every control →</a></div>`)(agOf(id))
     + `<div class="meta">${doc ? `<span>In <a href="#" data-pxdoc="${escapeHtml(doc)}">${escapeHtml(polDocLabel(doc))}</a>${xml ? ` · ${polStat(xml).lines} lines` : ""}</span>` : ""}`
     + `${uses.length ? `<span>Shown in ${uses.map(([sc, k]) => `<a href="#" data-pmsc="${k}" title="${escapeHtml(sc.title)}">scenario ${k + 1}</a>${sc.off ? "" : ` <a href="#" class="pxrun" data-runsc="${k}" title="Open scenario ${k + 1} in the scenario picker, ready to run">▶</a>`}`).join(", ")}</span>` : ""}`
     + `${demo ? `<a href="#" class="pat" data-pxdemo="${demo}">Watch it in the gateway flow</a>` : ""}</div>`;
@@ -5052,6 +6074,7 @@ $("polMapCard").addEventListener("click", (e) => {
   else if ((x = t("[data-pmsc]"))) act(() => { polMapSel = Number(x.dataset.pmsc); renderExplorer(); });
   else if ((x = t("[data-pxdemo]"))) act(() => { showPsec("investigate"); $("gwFlow").scrollIntoView({ behavior: "smooth", block: "start" }); window.gwFlow?.play(x.dataset.pxdemo); });
   else if (t("[data-pxretry]")) act(() => { polDeployedErr = null; loadPolicies(); });
+  else if (t("[data-pxag]")) act(() => { showPsec("tier"); $("agTier").scrollIntoView({ behavior: "smooth", block: "start" }); });
 });
 $("pipe").addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("stage")) { e.preventDefault(); e.target.click(); } });
 // The copilot's highlight targets: select what it asks for and return the element to spotlight (idempotent: it polls)
@@ -5482,22 +6505,25 @@ const info = (html) => $("scSteps").insertAdjacentHTML("beforeend", `<li class="
 const takeaway = (html) => $("scTakeaway").innerHTML = html;
 
 // Scenario previews: building blocks for the small diagram shown when hovering a scenario
+const DG_ICON = { gw: "apim", model: "foundry-models", tool: "mcp", a2a: "a2a", mon: "monitor", who: "users" };  // node type → Azure icon
 const dg = {
-  node: (label, sub = "", cls = "") => `<div class="dn ${cls}"><b>${label}</b>${sub ? `<span>${sub}</span>` : ""}</div>`,
-  agent: (tier, sub) => { const a = tierAgent(tier); return dg.node(a ? a.displayName : tier, sub ?? `<span class="badge ${tier}">${tier}</span>`); },
+  node: (label, sub = "", cls = "") => { const k = String(cls).split(/\s+/).find(c => DG_ICON[c]);
+    return `<div class="dn ${cls}"><b>${k ? `<img class="dni" src="/icons/${DG_ICON[k]}.svg" alt="">` : ""}<span>${label}</span></b>${sub ? `<span>${sub}</span>` : ""}</div>`; },
+  agent: (tier, sub) => { const a = tierAgent(tier); return dg.node(a ? a.displayName : tier, sub ?? `<span class="badge ${tier}">${tier}</span>`, "who"); },
   gw: (sub = "") => dg.node("AI Gateway", sub, "gw"),
   model: (name, sub = "Foundry") => dg.node(name, sub, "model"),
   arrow: (label = "", cls = "") => `<div class="da ${cls}"><span>${label || "&nbsp;"}</span><i></i></div>`,
   row: (...xs) => `<div class="dr">${xs.join("")}</div>`,
   col: (...xs) => `<div class="dc">${xs.join("")}</div>`,
-  code: (c) => `<span class="status ${statusClass(c)}">${c}</span>`,
+  fan: (style, ...rows) => `<div class="dc fan"${style ? ` style="${style}"` : ""}>${rows.join("")}</div>`,  // one wire in, one row per branch
+  code: (c) => `<span class="status dcode ${statusClass(c)}">${c}</span>`,
   bar: (label, segs, right = "") => `<div class="db"><span>${label}</span><span class="t">${(Array.isArray(segs[0]) ? segs : [segs]).filter(([pct]) => pct > 0)
     .map(([pct, color]) => `<span style="width:${Math.max(1.5, Math.min(100, pct))}%;background:${color}"></span>`).join("")}</span><span class="r">${right}</span></div>`,
   seq: (codes, after = "") => `<div class="dseq">${codes.map(c => `<span class="dq status ${statusClass(c)}">${c}</span>`).join("")}${after}</div>`,
   chips: (xs) => `<div class="dchips">${xs.map(x => `<span>${x}</span>`).join("<i>›</i>")}</div>`,
   note: (html) => `<div class="dnote">${html}</div>`,
   lane: (label, status, ...nodes) => `<div class="dlane"><div class="dlhead"><b>${label}</b>${status ? dg.code(status) : ""}</div>${dg.row(...nodes.flatMap((node, i) => i ? [dg.arrow("", status === 200 ? "ok" : status >= 400 ? "bad" : ""), node] : [node]))}</div>`,
-  user: (name, sub) => { const a = byName(name); return dg.node(a ? a.displayName : name, sub ?? (a ? `${a.team}<br>${a.costCenter}` : "demo user")); },
+  user: (name, sub) => { const a = byName(name); return dg.node(a ? a.displayName : name, sub ?? (a ? `${a.team}<br>${a.costCenter}` : "demo user"), "who"); },
   svc: (icon, label, sub = "", cls = "") => `<div class="dn svc ${cls}">${ico(icon, "", "")}<b>${label}</b>${sub ? `<span>${sub}</span>` : ""}</div>`,
 };
 const premiumFor = (tier) => cfg.models.find(m => !tierOf(tierAgent(tier)).allowedModels.includes(m.name))?.name || cfg.models[0].name;
@@ -5604,7 +6630,7 @@ const SCENARIOS = [
         if (r.status === 200) spent += usd(r);
         if (r.status === 403) blocked = r;
         step(r, r.status === 200 ? `spent ${fmtUsd(spent)} of $${t.budgetUsd}` : r.status === 403 ? "budget exhausted" : "");
-        if (r.status === 429) await sleep(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5));
+        if (r.status === 429) await pause(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5), "Waiting for the gateway's Retry-After (it answered 429)");
       }
       takeaway(blocked && spent === 0 ? `The first call was already blocked with <b>403</b>: the budget reset had not reached the gateway yet. Run the scenario again.`
              : blocked ? `The agent spent ${fmtUsd(spent)} against its $${t.budgetUsd} budget and the gateway now answers <b>403</b>. Spend stops at the gateway until the budget period renews (or you reset it). The budget is checked before each call, so the last call can go slightly over.`
@@ -5741,7 +6767,7 @@ const SCENARIOS = [
         if (r.status === 200) spent += usd(r);
         if (r.status === 403) blocked = r;
         step(r, r.status === 200 ? `session spend ${fmtUsd(spent)}` : `blocked by <code>${escapeHtml(hdr(r, "x-gw-blocked-by") || "?")}</code>`);
-        if (r.status === 429) await sleep(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5));
+        if (r.status === 429) await pause(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5), "Waiting for the gateway's Retry-After (it answered 429)");
       }
       if (!running) return;
       const fresh = newSessionId("alice"); $("sessionId").value = fresh;
@@ -5885,7 +6911,7 @@ const SCENARIOS = [
         spent += callCost(r);
         if (r.status === 403 && hdr(r, "x-gw-blocked-by") === "quota-by-key (subscription-budget)") blocked = r;
         step(r, r.status === 200 ? `spent ${fmtUsd(spent)} of $${t.budgetUsd}` : r.status === 403 ? `blocked by <code>${escapeHtml(hdr(r, "x-gw-blocked-by") || "unknown policy")}</code> · suspension notification: ${escapeHtml(hdr(r, "x-gw-suspension-status") || "not triggered")}` : "");
-        if (r.status === 429) await sleep(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5));
+        if (r.status === 429) await pause(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5), "Waiting for the gateway's Retry-After (it answered 429)");
       }
       if (!running) return;
       if (!blocked) { takeaway(`Spent ${fmtUsd(spent)} without exhausting the $${t.budgetUsd} budget. Run the scenario again.`); return; }
@@ -6045,7 +7071,7 @@ const SCENARIOS = [
           if (r.status === 200) spentBy[user] += usd(r);
           const bu = endUserBudget(user);
           step(r, r.status === 200 ? `${escapeHtml(user)} spent ${fmtUsd(spentBy[user])} of $${bu.usd} (${escapeHtml(bu.cls)})` : `blocked by <code>${escapeHtml(hdr(r, "x-gw-blocked-by") || "?")}</code>`);
-          if (r.status === 429) { await sleep(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5)); continue; }
+          if (r.status === 429) { await pause(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5), "Waiting for the gateway's Retry-After (it answered 429)"); continue; }
           if (r.status !== 200) { result[user] = r; return; }
         }
       }
@@ -6067,9 +7093,9 @@ const SCENARIOS = [
       const cell = (on) => on ? `<span class="yes">hit</span>` : `<span class="deny">miss</span>`;
       const scopes = [["session", [1, 0, 0, 0]], ["user", [1, 1, 0, 0]], ["plan", [1, 1, 1, 0]]].filter(([s]) => sc.allowed.includes(s));
       return dg.row(dg.svc("users", "Gold & Silver apps", "single-turn chat"), dg.arrow("prompt"), dg.svc("ai-gateway", "AI Gateway", "API Management", "gw"),
-          `<div class="dc" style="flex:2.6">${dg.row(dg.arrow("① embed"), dg.svc("foundry-models", escapeHtml(sc.embeddings), "Foundry · managed identity", "emb"))
-                 + dg.row(dg.arrow("② vector search"), dg.svc("managed-redis", "Azure Managed Redis", `${escapeHtml(sc.sku)} · RediSearch`, "redis"))
-                 + dg.row(dg.arrow("③ miss only", "dash"), dg.svc("foundry-models", escapeHtml(m), "Foundry · backend pool", "model"))}</div>`)
+          dg.fan("flex:2.6", dg.row(dg.arrow("① embed"), dg.svc("foundry-models", escapeHtml(sc.embeddings), "Foundry · managed identity", "emb")),
+                 dg.row(dg.arrow("② vector search"), dg.svc("managed-redis", "Azure Managed Redis", `${escapeHtml(sc.sku)} · RediSearch`, "redis")),
+                 dg.row(dg.arrow("③ miss only", "dash"), dg.svc("foundry-models", escapeHtml(m), "Foundry · backend pool", "model"))))
         + dg.note(`<b>Who may reuse a stored answer.</b> The app picks the scope per request with <code>x-gw-cache-scope</code> (default <code>${escapeHtml(sc.defaultScope)}</code>). The same question asked again from…`)
         + `<table class="dmx"><thead><tr><th>Scope</th><th>same<br>session</th><th>other session<br><span class="muted">same user</span></th><th>other user<br><span class="muted">same plan</span></th><th>other<br>plan</th></tr></thead><tbody>`
         + scopes.map(([s, v]) => `<tr><td><code>${s}</code>${s === sc.defaultScope ? " default" : s === "plan" ? " opt-in" : ""}</td>${v.map(x => `<td>${cell(x)}</td>`).join("")}</tr>`).join("") + `</tbody></table>`
@@ -6206,11 +7232,11 @@ const SCENARIOS = [
         const s = sid(p); spent[p.name] = 0; calls[p.name] = 0;
         for (let i = 0; i < max && running; i++) {
           // quota-by-key counters sync asynchronously: pacing the calls lets each one see the spend before it
-          if (i) await sleep(ENTRA_PACE_MS);
+          if (i) await pause(ENTRA_PACE_MS, "Spacing the calls so the gateway's quota counters keep up");
           const r = await sendAs(p.name, m, { prompt: LONG, maxTokens: 300, session: s });
           if (r.status === 200) { spent[p.name] += usd(r); calls[p.name]++; }
           step(r, r.status === 200 ? `${escapeHtml(p.displayName)} has spent ${fmtUsd(spent[p.name])}` : `blocked by <code>${escapeHtml(hdr(r, "x-gw-blocked-by") || "?")}</code>`);
-          if (r.status === 429) { await sleep(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5)); continue; }
+          if (r.status === 429) { await pause(1000 * Math.min(15, Number(hdr(r, "retry-after")) || 5), "Waiting for the gateway's Retry-After (it answered 429)"); continue; }
           if (r.status !== 200) { blocked[p.name] = r; return; }
         }
       }
@@ -6380,12 +7406,16 @@ function scTour() {
 }
 function scHay(i) {
   const s = SCENARIOS[i], ctl = (s.controls || []).map(id => POL_CONTROLS[id]).filter(Boolean).map(c => `${c.c} ${c.p} ${c.s}`);
-  const tp = SCENARIO_TOPICS.find(t => t[0] === scTopicOf(i));
-  return [s.title, s.gist, scTopicOf(i), tp?.[1], ...(s.policies || []), ...(s.controls || []), ...ctl].join(" ").toLowerCase();
+  const tp = SCENARIO_TOPICS.find(t => t[0] === scTopicOf(i)), rt = agScRating(i);
+  return [s.title, s.gist, scTopicOf(i), tp?.[1], ...(s.policies || []), ...(s.controls || []), ...ctl, rt ? `ai gateway tier ${rt[1]}` : ""].join(" ").toLowerCase();
 }
+// "◆ AI Gateway tier": every scenario with a tier comparison, from the ones that carry over to the ones that need classic
+const scAgOrder = () => SCENARIOS.map((s, i) => i).filter(i => scVisible(SCENARIOS[i]) && (!SCENARIOS[i].off || scShowOff) && agScRating(i))
+  .sort((x, y) => AG_RANK[agScRating(x)[0]] - AG_RANK[agScRating(y)[0]] || x - y);
 function scOrder() {  // the scenario indices the list shows, in order
   const words = scQ.toLowerCase().split(/\s+/).filter(Boolean), names = SC_TOPIC_NAMES();
   if (!words.length && scTopic === "start") return scTour();
+  if (!words.length && scTopic === "aigw") return scAgOrder();
   return SCENARIOS.map((s, i) => i).filter(i => {
     const s = SCENARIOS[i];
     if (!scVisible(s) || (s.off && !scShowOff && !words.length)) return false;
@@ -6440,23 +7470,58 @@ function scFlowDemo(s) {
 }
 function scPlay(id) { showPsec("investigate"); $("gwFlow")?.scrollIntoView({ behavior: "smooth", block: "center" }); window.gwFlow?.play(id); }
 function scRow(i) {
-  const s = SCENARIOS[i], on = i === scSel;
+  const s = SCENARIOS[i], on = i === scSel, rt = agScRating(i);
   return `<button type="button" class="scrow${s.off ? " off" : ""}${on ? " sel" : ""}" data-i="${i}" role="option" aria-selected="${on}" tabindex="${on ? 0 : -1}" title="${escapeHtml(s.gist || "")}">`
-    + `<span class="n">${i + 1}</span><span class="t">${s.title}</span>${s.off ? `<span class="offtag">OFF</span>` : `<span class="c">${escapeHtml(s.cost.split(" · ").slice(0, 2).join(" · "))}</span>`}</button>`;
+    + `<span class="n">${i + 1}</span><span class="tt"><span class="t">${s.title}</span>${s.off ? "" : `<span class="c">${escapeHtml(s.cost)}</span>`}</span>`
+    + (rt ? `<span class="scag ${rt[0]}" title="AI Gateway tier: ${rt[1]}. Select it, then pick ◆ AI Gateway tier to see how it runs there.">AI GW</span>` : "")
+    + `${s.off ? `<span class="offtag">OFF</span>` : ""}</button>`;
 }
+// a diagram on show: parts arrive in order (--i) and the wires pulse
+function dgLive(root) {
+  root.querySelectorAll(".dgm").forEach(d => {
+    let k = 0;
+    d.querySelectorAll(".dr > *, .db, .dseq, .dnote, .dlhead, .dchips").forEach(c => c.style.setProperty("--i", Math.min(k++, 18)));
+    d.classList.add("live");
+  });
+  dgFit(root);
+}
+// Fits a diagram to its box: each arrow keeps room for its label on about two lines, and a row that still doesn't fit
+// side by side flows top to bottom (.stack). Re-fitted on resize (window resize and the picker's ResizeObserver).
+function dgFitOne(d) {
+  if (!d.isConnected || !d.offsetWidth) return;
+  d.querySelectorAll(".dr.stack").forEach(r => r.classList.remove("stack"));
+  d.querySelectorAll(".dr > .da").forEach(a => {
+    const s = a.firstElementChild; if (!s) return;
+    a.style.minWidth = "";
+    s.classList.add("nw");
+    const w = s.getBoundingClientRect().width;
+    s.classList.remove("nw");
+    a.style.minWidth = `${Math.round(Math.max(28, Math.min(96, w + 10)))}px`;
+  });
+  for (const r of d.querySelectorAll(":scope > .dr")) {  // top-level rows only: lanes and fan branches keep their layout
+    const avail = r.clientWidth;
+    r.style.width = "max-content"; const need = r.getBoundingClientRect().width; r.style.width = "";
+    if (need > avail * 1.12) r.classList.add("stack");  // boxes may give up ~12% of their width before the row stacks
+  }
+}
+function dgFit(root) { root.querySelectorAll(".dgm").forEach(dgFitOne); }
+let dgFitT;
+addEventListener("resize", () => { clearTimeout(dgFitT); dgFitT = setTimeout(() => dgFit(document), 120); });
 function scRender() {
   const order = scOrder(), searching = !!scQ.trim(), live = SCENARIOS.map((s, i) => i).filter(i => scVisible(SCENARIOS[i]));
   const on = live.filter(i => !SCENARIOS[i].off), off = live.length - on.length, count = (n) => on.filter(i => scTopicOf(i) === n).length;
-  if (scTopic !== "start" && scTopic !== "all" && !count(scTopic)) scTopic = "start";
-  const chip = (k, label, n, tip = "") => `<button type="button" data-topic="${escapeHtml(k)}" class="${!searching && scTopic === k ? "on" : ""}" aria-pressed="${!searching && scTopic === k}"${tip ? ` title="${escapeHtml(tip)}"` : ""}>${label}<span class="k">${n}</span></button>`;
+  if (scTopic !== "start" && scTopic !== "all" && scTopic !== "aigw" && !count(scTopic)) scTopic = "start";
+  const chip = (k, label, n, tip = "") => `<button type="button" data-topic="${escapeHtml(k)}" class="${!searching && scTopic === k ? "on" : ""}${k === "aigw" ? " ag" : ""}" aria-pressed="${!searching && scTopic === k}"${tip ? ` title="${escapeHtml(tip)}"` : ""}>${label}<span class="k">${n}</span></button>`;
   $("scChips").innerHTML = chip("start", "★ Start here", scTour().length, gwMode === "entra" ? "The Entra-only scenarios, in order" : "Five scenarios in story order: identity → plan → budgets → routing → evidence")
     + chip("all", "All", on.length)
+    + chip("aigw", "◆ AI Gateway tier", scAgOrder().length, "Every scenario compared with the AI Gateway tier of API Management, grouped by how it carries over. Select one, then pick ◆ AI Gateway tier in its preview.")
     + (gwMode === "entra" ? "" : SC_TOPIC_NAMES().filter(count).map(n => chip(n, escapeHtml(SC_SHORT[n] || n), count(n), (SCENARIO_TOPICS.find(t => t[0] === n) || [])[1] || "")).join(""))
     + (off ? `<label class="offchk" title="Scenarios whose feature isn't deployed in this sandbox"><input type="checkbox" id="scOff"${scShowOff ? " checked" : ""}> not deployed (${off})</label>` : "");
   if (!order.includes(scSel)) scSel = order[0] ?? null;
   let html = "", last = null;
   for (const i of order) {
     if (scTopic === "all" && !searching && scTopicOf(i) !== last) { last = scTopicOf(i); html += `<div class="sctopic">${escapeHtml(last)}</div>`; }
+    if (scTopic === "aigw" && !searching && agScRating(i)[1] !== last) { last = agScRating(i)[1]; html += `<div class="sctopic ag">◆ ${escapeHtml(last)}</div>`; }
     html += scRow(i);
   }
   $("scList").innerHTML = html || `<div class="scempty">No scenario matches “${escapeHtml(scQ.trim())}”. Try a control or policy name, e.g. <i>quota-by-key</i>, <i>semantic cache</i> or <i>failover</i>.</div>`;
@@ -6467,16 +7532,19 @@ function scRender() {
   scPane();
 }
 const scInline = () => $("scenarios").clientWidth < 700;  // same threshold as the side-by-side container query
-let scExpanded = true, scDiagram = true;  // in the inline layout: whether the selected row is open, and its diagram
+let scExpanded = true, scDiagram = true, scGw = "v2";  // in the inline layout: whether the selected row is open, and its diagram; which gateway the preview shows
 function scPaneHtml(i, inline) {
-  const s = SCENARIOS[i];
+  const s = SCENARIOS[i], rt = agScRating(i), tier = scGw === "tier" && !!rt;
   let dgm = "";
-  try { if (s.preview) dgm = `<div class="dgm">${s.preview()}</div>`; } catch (e) { console.warn("scenario preview failed", e); }
+  if (!tier) try { if (s.preview) dgm = `<div class="dgm">${s.preview()}</div>`; } catch (e) { console.warn("scenario preview failed", e); }
   if (inline && dgm) dgm = `<details class="scdg"${scDiagram ? " open" : ""}><summary>Diagram</summary>${dgm}</details>`;  // compact rows: the diagram opens on demand
   const tour = scTour(), k = tour.indexOf(i), flow = scFlowDemo(s), chips = scPolChips(s);
+  const tog = rt ? `<div class="scgw"><span class="muted">Runs on</span><div class="seg" role="group" aria-label="Show it on"><button type="button" data-act="gw" data-gw="v2" class="${tier ? "" : "on"}" aria-pressed="${!tier}">API Management v2</button>`
+    + `<button type="button" data-act="gw" data-gw="tier" class="${tier ? "on" : ""}" aria-pressed="${tier}">◆ AI Gateway tier</button></div><span class="agk ${rt[2]}">${rt[1]}</span></div>` : "";
   return (inline ? `<div class="gist">${s.gist || ""}</div>` : `<div class="ph"><span class="n">${i + 1}</span><div><b>${s.title}</b><div class="gist">${s.gist || ""}</div></div></div>`)
+    + tog
     + `<div class="meta"><span>${escapeHtml(s.cost)}</span><span>${escapeHtml(scTopicOf(i))}</span>${k >= 0 ? `<span class="tour">★ Start here · step ${k + 1} of ${tour.length}</span>` : ""}</div>
-    ${dgm}${chips ? `<div class="scpol"><span class="muted">Policies behind it:</span>${chips}</div>` : ""}
+    ${tier ? agPickHtml(i) : `${dgm}${chips ? `<div class="scpol"><span class="muted">Policies behind it:</span>${chips}</div>` : ""}`}
     <div class="scacts">${s.off ? `<span class="offtag">OFF</span><span class="offnote">Not deployed in this sandbox: ${escapeHtml(s.cost.replace(/^off · /, ""))}</span>`
       : `<button type="button" class="scrun" data-i="${i}"${running ? " disabled" : ""}>▶ Run${s.slow ? " (takes minutes)" : ""}</button>`}
       ${scTry(s) ? `<button type="button" class="secondary" data-act="custom" title="Fill in the request builder with this scenario's caller, target and prompt; change anything, then send it yourself">✎ Customize${inline ? "" : " in the builder"}</button>` : ""}
@@ -6498,6 +7566,8 @@ function scPane() {
   }
   if (!s) { box.innerHTML = `<div class="scempty">Pick a scenario to see what it shows.</div>`; return; }
   box.innerHTML = scPaneHtml(i, inline);
+  if (!inline) box.scrollTop = 0;
+  dgLive(box);
   box.querySelector(".scdg")?.addEventListener("toggle", e => { scDiagram = e.target.open; scReveal(i); });
   const run = box.querySelector(".scrun");
   if (run) run.onclick = async () => {
@@ -6511,7 +7581,8 @@ function scPane() {
 function scReveal(i) {
   const L = $("scList"), row = L.querySelector(`.scrow[data-i="${i}"]`); if (!row) return;
   const exp = row.nextElementSibling?.classList.contains("scexp") ? row.nextElementSibling : row;
-  const top = row.offsetTop - 4, bottom = exp.offsetTop + exp.offsetHeight + 4;
+  const head = L.querySelector(".sctopic")?.offsetHeight || 0;  // topic headers stick to the top of the list
+  const top = row.offsetTop - 4 - head, bottom = exp.offsetTop + exp.offsetHeight + 4;
   if (top < L.scrollTop) L.scrollTop = top;
   else if (bottom > L.scrollTop + L.clientHeight) L.scrollTop = Math.min(top, bottom - L.clientHeight);
 }
@@ -6576,15 +7647,17 @@ function renderScenarios() {
       if (b.dataset.ctl) openPolMap(Number(b.dataset.sc), b.dataset.ctl);
       else if (b.dataset.act === "custom") scCustomize(SCENARIOS[scSel]);
       else if (b.dataset.act === "play") scPlay(b.dataset.flow);
+      else if (b.dataset.act === "gw") { scGw = b.dataset.gw; scPane(); scReveal(scSel); }
+      else if (b.dataset.act === "tiercmp") { const i = Number(b.dataset.i); showTab("why"); showPsec("tier"); if (agScSel !== i) agScOpen(i); }
     });
-    new ResizeObserver(() => { if (scInline() !== $("scPick").classList.contains("inline")) { scPane(); scReveal(scSel); } }).observe($("scenarios"));
+    new ResizeObserver(() => { if (scInline() !== $("scPick").classList.contains("inline")) { scPane(); scReveal(scSel); } else requestAnimationFrame(() => dgFit($("scPick"))); }).observe($("scenarios"));
     $("btnAll").onclick = async () => {
       setRunning(true, gwMode === "entra" ? "Running the Entra-only demo…" : "Running the full demo…");
       const quick = SCENARIOS.filter(s => !s.slow && !s.off && scVisible(s)); // slow scenarios (minutes of Azure Monitor latency) run on their own; off ones aren't deployed
       for (const [i, s] of quick.entries()) {
         if (!running) break;
         $("runStatus").textContent = `Full demo: scenario ${i + 1}/${quick.length}`;
-        await runScenario(s); await sleep(4000);
+        await runScenario(s); await pause(4000, "Pausing before the next scenario");
       }
       setRunning(false, "Full demo finished.");
       resetBudgetsAhead();

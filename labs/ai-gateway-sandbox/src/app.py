@@ -27,7 +27,7 @@ IMAGES_FALLBACK = "https://raw.githubusercontent.com/Azure-Samples/AI-Gateway/ma
 # Hosted on App Service or Container Apps with a managed identity (IDENTITY_ENDPOINT / IDENTITY_HEADER are set by the platform)
 HOSTED = bool(os.environ.get("IDENTITY_ENDPOINT") and os.environ.get("IDENTITY_HEADER"))
 CONFIG = {}
-_token_cache, _token_lock = {}, threading.Lock()
+_token_cache = {}
 # Demo safety net: cap the gateway calls the UI can send, independent of the gateway's own tier limits
 MAX_CALLS_PER_MINUTE = int(os.environ.get("DEMO_MAX_CALLS_PER_MINUTE", 60))
 _recent_calls, _calls_lock = [], threading.Lock()
@@ -146,25 +146,132 @@ def managed_identity_token(resource, client_id=None):
     return data["access_token"], float(data.get("expires_on") or time.time() + 1800)
 
 
-def az_token(resource):
-    with _token_lock:
+# ---- Activity: what app.py is waiting on right now (token fetches, Azure Resource Manager, gateway round trips). GET /api/activity
+#      lets the page show why a call is slow while it is in flight, and every inspected call returns its own timing breakdown.
+_activity, _activity_lock, _activity_seq = {}, threading.Lock(), iter(range(1, 1 << 62))
+
+
+class activity:
+    """Context manager: registers one step while it runs and adds it to the current request's timing (if it has one)."""
+    def __init__(self, kind, what, detail=""):
+        self.item = {"kind": kind, "what": what, "detail": detail, "owner": getattr(_capture, "presenter", None),
+                     "call": getattr(_capture, "call", None)}
+
+    def __enter__(self):
+        with _activity_lock:
+            self.key = next(_activity_seq)
+            self.item["since"] = time.time()
+            _activity[self.key] = self.item
+        self.t0 = time.perf_counter()
+        return self
+
+    def __exit__(self, *exc):
+        ms = round((time.perf_counter() - self.t0) * 1000)
+        with _activity_lock:
+            _activity.pop(self.key, None)
+        timing = getattr(_capture, "timing", None)
+        if timing is not None:
+            timing.append({"kind": self.item["kind"], "step": self.item["what"], "detail": self.item["detail"], "ms": ms})
+        return False
+
+
+def note_timing(kind, what, detail="", ms=0):
+    timing = getattr(_capture, "timing", None)
+    if timing is not None:
+        timing.append({"kind": kind, "step": what, "detail": detail, "ms": ms})
+
+
+TOKEN_LABELS = {GATEWAY_AUDIENCE: "Entra ID token for the gateway", ARM: "Azure Resource Manager token",
+                "https://api.loganalytics.io": "Log Analytics token"}
+
+
+def token_label(resource):
+    return TOKEN_LABELS.get(resource.rstrip("/"), "Entra ID token")
+
+
+_token_locks, _token_locks_lock = {}, threading.Lock()
+
+
+def _lock_for(key):
+    with _token_locks_lock:
+        return _token_locks.setdefault(key, threading.Lock())
+
+
+def token_source():
+    return "managed identity" if HOSTED else "Azure CLI"
+
+
+def az_token(resource, force=False):
+    """A cached Entra ID token for resource. A cache miss runs the Azure CLI locally (often 5-30 s) or asks the managed identity
+    endpoint when hosted. One lock per resource: a slow ARM token fetch doesn't hold up calls that already have a gateway token."""
+    label, source = token_label(resource), token_source()
+    cached = _token_cache.get(resource)
+    if not force and cached and cached[1] - 300 > time.time():
+        note_timing("token", label, f"cached · {int((cached[1] - time.time()) // 60)} min left")
+        return cached[0]
+    lock = _lock_for(resource)
+    if not lock.acquire(blocking=False):  # another request is fetching this token: wait for it instead of fetching twice
+        with activity("token", f"Waiting for the {label} another call is fetching", source):
+            lock.acquire()
+    try:
         cached = _token_cache.get(resource)
-        if cached and cached[1] - 300 > time.time():
+        if not force and cached and cached[1] - 300 > time.time():
             return cached[0]
-        if HOSTED:
-            _token_cache[resource] = managed_identity_token(resource)
-            return _token_cache[resource][0]
-        az = shutil.which("az") or shutil.which("az.cmd")
-        if not az:
-            raise RuntimeError("Azure CLI not found - install it and run 'az login'")
-        result = subprocess.run([az, "account", "get-access-token", "--resource", resource, "-o", "json"],
-                                capture_output=True, text=True, timeout=60)
-        if result.returncode != 0:
-            raise RuntimeError(f"az account get-access-token failed: {result.stderr.strip()}")
-        data = json.loads(result.stdout)
-        expires = data.get("expires_on") or time.time() + 1800
-        _token_cache[resource] = (data["accessToken"], float(expires))
-        return data["accessToken"]
+        with activity("token", f"Fetching the {label}", f"{source} · {'refresh' if force else 'not cached yet' if not cached else 'expired'}"):
+            if HOSTED:
+                _token_cache[resource] = managed_identity_token(resource)
+                return _token_cache[resource][0]
+            az = shutil.which("az") or shutil.which("az.cmd")
+            if not az:
+                raise RuntimeError("Azure CLI not found - install it and run 'az login'")
+            result = subprocess.run([az, "account", "get-access-token", "--resource", resource, "-o", "json"],
+                                    capture_output=True, text=True, timeout=60)
+            if result.returncode != 0:
+                raise RuntimeError(f"az account get-access-token failed: {result.stderr.strip()}")
+            data = json.loads(result.stdout)
+            expires = data.get("expires_on") or time.time() + 1800
+            _token_cache[resource] = (data["accessToken"], float(expires))
+            return data["accessToken"]
+    finally:
+        lock.release()
+
+
+def token_status():
+    """The tokens app.py holds, for the page: which, how long they stay valid, and whether one is being fetched right now."""
+    now, out = time.time(), []
+    for resource in (GATEWAY_AUDIENCE, ARM):
+        cached = _token_cache.get(resource)
+        out.append({"resource": resource, "label": token_label(resource), "source": token_source(),
+                    "minutesLeft": int((cached[1] - now) // 60) if cached else None,
+                    "fetching": any(a["kind"] == "token" and token_label(resource) in a["what"] for a in list(_activity.values()))})
+    return out
+
+
+def activity_now(presenter=None):
+    now = time.time()
+    with _activity_lock:
+        items = list(_activity.values())
+    # token fetches are shared by every user of the app; other steps belong to the person whose call made them
+    mine = [a for a in items if a["kind"] == "token" or not presenter or a.get("owner") in (None, presenter)]
+    return {"activities": [{"kind": a["kind"], "what": a["what"], "detail": a["detail"], "call": a.get("call"), "elapsedMs": round((now - a["since"]) * 1000)}
+                           for a in sorted(mine, key=lambda a: a["since"])], "tokens": token_status()}
+
+
+def warm_tokens():
+    """Fetch the gateway token when the app starts and refresh tokens before they expire, so a demo call rarely waits for one."""
+    def loop():
+        first = True
+        while True:
+            for resource in (GATEWAY_AUDIENCE, ARM, "https://api.loganalytics.io"):
+                cached = _token_cache.get(resource)
+                if (first and resource == GATEWAY_AUDIENCE) or (cached and cached[1] - time.time() < 600):
+                    try:
+                        az_token(resource, force=bool(cached))
+                    except Exception as error:  # noqa: BLE001 - a failed warm-up only means the next call fetches it
+                        print(f"Token warm-up for {resource} failed: {scrub(str(error))}", flush=True)
+            first = False
+            time.sleep(120)
+    threading.Thread(target=loop, name="token-warmup", daemon=True).start()
 
 
 def entra_mode_config():
@@ -190,14 +297,28 @@ def persona_token(persona):
         raise RuntimeError(f"Persona '{persona.get('name')}' is not available here: managed identity personas need the hosted UI, "
                            "the Azure CLI persona needs a locally run UI")
     key = f"persona:{persona['name']}"
-    with _token_lock:
-        cached = _token_cache.get(key)
-        if cached and cached[1] - 300 > time.time():
-            return cached[0]
-        if persona.get("kind") == "managed-identity":
-            _token_cache[key] = managed_identity_token(entra["gatewayAppId"], persona["clientId"])
+    cached = _token_cache.get(key)
+    if cached and cached[1] - 300 > time.time():
+        note_timing("token", f"Entra ID token as {persona['name']}", "cached")
+        return cached[0]
+    if persona.get("kind") == "managed-identity":
+        with _lock_for(key), activity("token", f"Fetching the Entra ID token as {persona['name']}", "managed identity"):
+            cached = _token_cache.get(key)
+            if not (cached and cached[1] - 300 > time.time()):
+                _token_cache[key] = managed_identity_token(entra["gatewayAppId"], persona["clientId"])
             return _token_cache[key][0]
     return az_token(entra["gatewayAppId"])
+
+
+def _activity_of(method, url, body):
+    host = urllib.parse.urlsplit(url).netloc
+    if "management.azure.com" in host:
+        return "arm", f"Azure Resource Manager: {_label(method, url, body)[4:]}", "control plane"
+    if "loganalytics" in host:
+        return "logs", "Log Analytics query", "api.loganalytics.io"
+    if CONFIG.get("inferenceBaseUrl") and host == urllib.parse.urlsplit(CONFIG["inferenceBaseUrl"]).netloc:
+        return "gateway", f"Gateway round trip: {_label(method, url, body)}", "APIM policies, then the backend (Foundry, MCP server or agent), then the response"
+    return "http", f"{method} {host}", ""
 
 
 def http(method, url, body=None, headers=None, timeout=120):
@@ -205,14 +326,15 @@ def http(method, url, body=None, headers=None, timeout=120):
     all_headers = {"Content-Type": "application/json", **(headers or {})}
     request = urllib.request.Request(url, data=data, method=method, headers=all_headers)
     started = time.perf_counter()
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            result = response.status, dict(response.headers), response.read().decode("utf-8", "replace"), time.perf_counter() - started
-    except urllib.error.HTTPError as error:
-        result = error.code, dict(error.headers), error.read().decode("utf-8", "replace"), time.perf_counter() - started
-    except Exception as error:
-        capture_invocation(method, url, all_headers, body, None, {}, f"{type(error).__name__}: {error}", time.perf_counter() - started)
-        raise
+    with activity(*_activity_of(method, url, body)):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                result = response.status, dict(response.headers), response.read().decode("utf-8", "replace"), time.perf_counter() - started
+        except urllib.error.HTTPError as error:
+            result = error.code, dict(error.headers), error.read().decode("utf-8", "replace"), time.perf_counter() - started
+        except Exception as error:
+            capture_invocation(method, url, all_headers, body, None, {}, f"{type(error).__name__}: {error}", time.perf_counter() - started)
+            raise
     capture_invocation(method, url, all_headers, body, *result)
     return result
 
@@ -370,6 +492,7 @@ def debug_token(surface):
     """Short-lived APIM debug credential (Apim-Debug-Authorization) that turns on request tracing for one API."""
     cached = _token_cache.get("debug:" + surface)
     if cached and cached[1] - 300 > time.time():
+        note_timing("arm", "Request-trace credential", "cached")
         return cached[0]
     api_id = f"{CONFIG['apimServiceId']}/apis/{TRACE_APIS[surface]}"
     status, _, text, _ = http("POST", f"{ARM}{CONFIG['apimServiceId']}/gateways/managed/listDebugCredentials?api-version=2023-05-01-preview",
@@ -956,13 +1079,14 @@ def wait_for_named_value(token, url, value, timeout=90):
     """The named-value PATCH is asynchronous (202): the gateway keeps using the old budget-epoch until ARM finishes.
     Wait until ARM reports the new value as provisioned, so scenarios that reset budgets don't race the old counters."""
     deadline = time.time() + timeout
-    while time.time() < deadline:
-        status, _, text, _ = http("GET", url, None, {"Authorization": f"Bearer {token}"})
-        if status == 200:
-            props = json.loads(text).get("properties", {})
-            if props.get("value") == value and props.get("provisioningState", "Succeeded") == "Succeeded":
-                return True
-        time.sleep(1)
+    with activity("arm", "Waiting for Azure to apply the new budget epoch", "ARM applies named-value changes asynchronously, usually in 15-35 s"):
+        while time.time() < deadline:
+            status, _, text, _ = http("GET", url, None, {"Authorization": f"Bearer {token}"})
+            if status == 200:
+                props = json.loads(text).get("properties", {})
+                if props.get("value") == value and props.get("provisioningState", "Succeeded") == "Succeeded":
+                    return True
+            time.sleep(1)
     return False
 
 
@@ -1324,7 +1448,7 @@ COPILOT_KQL_ROWS = int(os.environ.get("COPILOT_KQL_ROWS", 100))
 COPILOT_HISTORY, COPILOT_HISTORY_CHARS = int(os.environ.get("COPILOT_HISTORY", 40)), int(os.environ.get("COPILOT_HISTORY_CHARS", 120000))
 COPILOT_MAX_BODY = 1_000_000
 COPILOT_VIEWS = ("scenarios", "builder", "conversation", "live", "runs", "spend", "chargeback", "plans", "policies.investigate",
-                 "policies.pipeline", "policies.telemetry", "policies.deployed", "monitor")
+                 "policies.pipeline", "policies.telemetry", "policies.deployed", "policies.tier", "monitor")
 COPILOT_FLOWS = ("happy", "downgrade", "tpm", "budget", "failover", "mcp", "a2a", "noauth", "safety")
 COPILOT_TARGET = re.compile(r"[a-z][a-z0-9-]{1,30}(:[\w .@()-]{1,80})?")
 # Highlight target names: keep in sync with T and resolve() in static/copilot.js (tests/test_copilot.py checks it)
@@ -1332,7 +1456,7 @@ COPILOT_TARGETS = {"scenarios", "builder", "callers", "surface-picker", "model-s
                    "token-toggle", "send-button", "conversation", "budget-meter", "kpis", "signals", "last-response", "budgets", "budget-burn",
                    "outcomes-chart", "cost-chart", "latency-chart", "live-request-log", "run-history", "chargeback-flow", "chargeback-ledger",
                    "chargeback-monitor", "plans-matrix", "price-list", "endpoints", "request-log", "flow-diagram", "policies-at-work", "evidence-panel", "pipeline",
-                   "backend-pool", "policy-map", "evidence-sinks", "policy-evidence", "deployed-policies", "monitor-cost", "monitor-outcomes",
+                   "backend-pool", "policy-map", "evidence-sinks", "policy-evidence", "deployed-policies", "ai-gateway-tier", "monitor-cost", "monitor-outcomes",
                    "monitor-cost-time", "monitor-chargeback", "monitor-resources", "monitor-tokens", "monitor-governance", "portal-links",
                    "reset-budgets", "references"}
 COPILOT_TARGET_KINDS = {"scenario", "caller", "plan", "flow", "stage", "policy", "sink", "deployed", "session"}
@@ -1385,6 +1509,7 @@ UI targets for ui_highlight
 - What happened › Session overview (view live): signals, last-response, outcomes-chart, latency-chart, live-request-log, run-history (view runs)
 - Why: policies › Policy explorer, by stage (view policies.pipeline): pipeline (the explorer: pipeline strip, control list, selected control's detail), stage:<client|identity|plan|routing|metering>, policy:<policy element or name, e.g. llm-token-limit or quota-by-key> (selects that control and shows what it does, its level and its deployed lines), policy-map (the control list and detail), backend-pool
 - Why: policies › Policy explorer, by document (view policies.deployed): deployed-policies (the document list), deployed:<document name, e.g. Silver or entra-identity> (selects it: purpose, size, controls, named values, includes, full XML)
+- Why: policies › AI Gateway tier (view policies.tier): ai-gateway-tier (how this API Management v2 sandbox maps to the AI Gateway tier, Microsoft.ApiManagement/aigateways: the building blocks that change, the app contract that carries over, each control's managed equivalent (same, works differently or classic only) and which scenarios carry over; each control's detail in the Policy explorer has the same mapping)
 - What it cost › Budgets & spend (view spend): budgets, budget-burn, cost-chart
 - What it cost › Plans & prices (view plans): plans-matrix, plan:<gold|silver|bronze>, price-list, endpoints
 - What it cost › Chargeback (view chargeback): chargeback-flow, chargeback-ledger, chargeback-monitor, session:<session id> (its row in the Azure Monitor chargeback table)
@@ -2022,6 +2147,8 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/invocations":  # the last 50 inspected requests, newest first (already redacted)
             with _recent_lock:
                 return self.send_json(200, {"requests": list(reversed(_recent))})
+        if self.path == "/api/activity":  # what app.py is waiting on right now, and the tokens it holds (no token values)
+            return self.send_json(200, activity_now(signed_in_user(self.headers)))
         if self.path == "/api/history":
             return self.send_json(*history(self.headers))
         match = re.fullmatch(r"/images/([a-z0-9-]+\.gif)", self.path)
@@ -2066,7 +2193,11 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json(404, {"error": "not found"})
         inspect = handler in (chat, mcp, a2a, responses, image)
         _capture.calls = [] if inspect else None
+        _capture.timing = [] if inspect else None
         _capture.presenter = signed_in_user(self.headers)
+        call_id = self.headers.get("X-Call-Id", "")
+        _capture.call = call_id if re.fullmatch(r"[A-Za-z0-9-]{1,40}", call_id) else None  # the page's id for this call (GET /api/activity)
+        began = time.perf_counter()
         try:
             length = int(self.headers.get("Content-Length") or 0)
             payload = json.loads(self.rfile.read(length) or b"{}")
@@ -2075,8 +2206,12 @@ class Handler(SimpleHTTPRequestHandler):
             status, result = 500, {"error": scrub(str(error))}
         finally:
             calls, _capture.calls = _capture.calls, None
+            timing, _capture.timing = _capture.timing, None
+            _capture.call = None
         if inspect and isinstance(result, dict):
             result["invocations"] = calls
+            # where app.py spent this call's time: token fetches, ARM and the gateway round trip, in order
+            result["timing"] = {"totalMs": round((time.perf_counter() - began) * 1000), "steps": timing or []}
             with _recent_lock:
                 _recent.append({"at": time.time(), "path": self.path, "agent": result.get("agent"), "status": result.get("status", status), "invocations": calls})
         self.send_json(status, result)
@@ -2131,6 +2266,8 @@ def main():
         with open(args.config, encoding="utf-8") as f:
             CONFIG.update(json.load(f))
     server = ThreadingHTTPServer((args.host, args.port), Handler)
+    if os.environ.get("TOKEN_WARMUP", "1") != "0":
+        warm_tokens()
     print(f"AI Gateway Sandbox demo UI running on http://{'localhost' if args.host == '127.0.0.1' else args.host}:{args.port}"
           f"{'  (hosted: managed identity)' if HOSTED else '  (Ctrl+C to stop)'}", flush=True)
     try:

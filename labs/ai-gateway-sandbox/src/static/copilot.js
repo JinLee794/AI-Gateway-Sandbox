@@ -42,7 +42,7 @@
     const c = typeof cfg !== "undefined" ? cfg : null;
     if (!c) { if (tries < 300) setTimeout(() => boot(tries + 1), 200); return; }
     S.conf = c.copilot || {};
-    if (S.conf.enabled === false) { fab.hidden = true; return; }
+    if (S.conf.enabled === false) { fab.hidden = true; document.body.classList.add("cop-off"); return; }
     byId("copFoot").innerHTML = `Answers by <b>${esc(S.conf.model || "a model")}</b> through this gateway (key <code>${esc(S.conf.subscription || "sandbox-copilot")}</code> on the `
       + `<code>${esc(S.conf.plan || "agent-platform")}</code> plan), governed and metered like any other agent. Read-only.`;
   })();
@@ -71,7 +71,7 @@
 
   // ---------- What the copilot can see: the user's view, session and the calls this page sent ----------
   const TAB_NAMES = { happened: "What happened", why: "Why: policies", cost: "What it cost", proof: "Proof: logs & monitoring" };
-  const PSEC_NAMES = { investigate: "Gateway flow", live: "Session overview", explorer: "Policy explorer", spend: "Budgets & spend", plans: "Plans & prices",
+  const PSEC_NAMES = { investigate: "Gateway flow", live: "Session overview", explorer: "Policy explorer", tier: "AI Gateway tier", spend: "Budgets & spend", plans: "Plans & prices",
     chargeback: "Chargeback", telemetry: "Logs & telemetry", monitor: "Azure Monitor" };
   function viewLabel() {
     const tab = typeof curTab !== "undefined" ? curTab : "happened", sub = typeof psec !== "undefined" ? psec : "";
@@ -233,6 +233,7 @@
   // ---------- UI actions streamed by the agent ----------
   const VIEW_NAMES = { scenarios: "Guided scenarios", builder: "Request builder", conversation: "Conversation", live: "What happened › Session overview", runs: "What happened › Run history",
     "policies.investigate": "What happened › Gateway flow", "policies.pipeline": "Why: policies › Policy explorer", "policies.deployed": "Why: policies › Policy explorer (by document)",
+    "policies.tier": "Why: policies › AI Gateway tier",
     spend: "What it cost › Budgets & spend", plans: "What it cost › Plans & prices", chargeback: "What it cost › Chargeback",
     "policies.telemetry": "Proof › Logs & telemetry", monitor: "Proof › Azure Monitor" };
   function flash(el) { if (!el) return; el.classList.remove("cop-flash"); void el.offsetWidth; el.classList.add("cop-flash"); setTimeout(() => el.classList.remove("cop-flash"), 1500); }
@@ -272,6 +273,7 @@
     pipeline: ["policies.pipeline", () => cardOf(byId("pipe"))], "policy-map": ["policies.pipeline", () => byId("polMap")], "backend-pool": ["policies.pipeline", () => cardOf(byId("backendsKv"))],
     "evidence-sinks": ["policies.telemetry", () => cardOf(byId("sinks"))], "policy-evidence": ["policies.telemetry", () => byId("policyEvidenceCard")],
     "deployed-policies": ["policies.deployed", () => window.pxShowDocs?.()],
+    "ai-gateway-tier": ["policies.tier", () => byId("agTier")],
     "monitor-cost": ["monitor", () => cardOf(byId("mCostAgent"))], "monitor-outcomes": ["monitor", () => cardOf(byId("mOutcomes"))],
     "monitor-cost-time": ["monitor", () => cardOf(byId("mCostTime"))], "monitor-chargeback": ["monitor", () => cardOf(byId("mChargeback"))],
     "monitor-resources": ["monitor", () => cardOf(byId("mResources"))], "monitor-tokens": ["monitor", () => cardOf(byId("mTokens"))],
@@ -515,6 +517,56 @@
     if (e.key !== "Escape") return;
     if (S.spots.length) clearSpots(); else if (!panel.hidden && panel.contains(document.activeElement)) open(false);
   });
+
+  // ---------- "Ask Copilot" chips beside the parts of the page people most often misread ----------
+  // Each spot is [find the heading, question]. The chip opens the chat and asks (or prefills the box while an answer streams).
+  const h2With = (start) => [...document.querySelectorAll(".card h2")].find((h) => h.textContent.trim().startsWith(start));
+  const ASK_SPOTS = [
+    [() => q("#gwFlow > h2"), "How does one call flow through this gateway? In what order do the product and API policies run, where can a call be stopped, and which x-gw-* headers show it?"],
+    [() => h2With("Gateway signals"), "What do the x-gw-* response headers mean (blocked-by, governance, route, pricing rule), and which policy sets each one?"],
+    [() => q("#polMapCard > h2"), "How do policy scopes work here? Explain the order product → API → operation, what <base /> does, and why the first policy that fails stops a call before it costs anything."],
+    [() => byId("backendsKv")?.previousElementSibling, "How does the backend pool pick the Foundry region that serves a call? Explain priority vs weight, when the circuit breaker trips and how Retry-After is honoured."],
+    [() => q("#bDetails summary h2"), "What's the difference between the token rate limit (429), the token quota and the $ budget (403)? Which one stops a call first, and how do budgets reset?"],
+    [() => h2With("One product per plan"), "How do products (plans) work here? How does one product cover models, MCP tools and the A2A agent, and why does a plan downgrade a model instead of rejecting the call?"],
+    [() => h2With("Price list"), "Where do the prices come from? Explain the model-pricing, tool-pricing and agent-pricing named values and how one call's cost is computed."],
+    [() => h2With("Agent-to-agent chargeback"), "When an agent calls the Sourcing Agent, who pays for the Sourcing Agent's own model and tool calls, and how does the gateway know?"],
+    [() => q("#tab-chargeback .card h2"), "How does the gateway attribute cost to a user, a team and a session? Explain x-session-id and its fallbacks."],
+    [() => h2With("Where the evidence lands"), "Why can a call show in the headers and the trace but not yet in Log Analytics or Application Insights? Where does each kind of evidence land, and how long does it take?"],
+  ];
+  // Policy explorer detail: a control (with its policy element) or a whole policy document
+  function pxQuestion(chip) {
+    const h = chip.closest(".pxh"), name = h?.querySelector("h3")?.textContent.trim() || "this control";
+    const pol = h?.parentElement?.querySelector(".kv code")?.textContent.trim();
+    return pol ? `Explain the "${name}" control (${pol}): what it does in this sandbox, when it fires, and what people commonly misunderstand about it.`
+      : `Walk me through the ${name} (${h?.querySelector(".muted")?.textContent.trim() || "policy document"}): what each section does, the order it runs in, and what's easy to misread.`;
+  }
+  const lbQuestion = () => `Explain "${byId("gwLbTitle")?.textContent.trim() || "this pattern"}" as this sandbox implements it, and what people most often get wrong about it.`;
+  function askChip(question) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "cop-ask"; b.innerHTML = `${ICON}<span>Ask Copilot</span>`; b._q = question;
+    b.title = typeof question === "string" ? `Ask Sandbox Copilot: ${question}` : "Ask Sandbox Copilot to explain this";
+    return b;
+  }
+  function decorate() {
+    askRaf = 0;
+    for (const [find, question] of ASK_SPOTS) { const h = find(); if (h && !h.querySelector(":scope > .cop-ask")) h.append(askChip(question)); }
+    const px = q("#pxDetail .pxh"); if (px && !px.querySelector(".cop-ask")) px.append(askChip(pxQuestion));
+    const cap = q("#gwLb .gwlb-cap"); if (cap && !cap.querySelector(".cop-ask")) cap.append(askChip(lbQuestion));
+  }
+  let askRaf = 0;  // own frame handle: S.raf belongs to the spotlights
+  const decorateSoon = () => { if (!askRaf) askRaf = requestAnimationFrame(decorate); };
+  new MutationObserver(decorateSoon).observe(document.body, { childList: true, subtree: true });
+  decorateSoon();
+  // capture phase: the chip may sit in a <summary> or a clickable card, which must not also react
+  document.addEventListener("click", (e) => {
+    const chip = e.target.closest?.(".cop-ask"); if (!chip) return;
+    e.preventDefault(); e.stopPropagation();
+    const text = typeof chip._q === "function" ? chip._q(chip) : chip._q;
+    if (!text || S.conf.enabled === false) return;
+    open(true);
+    if (S.busy) { input.value = text; autosize(); input.focus(); } else ask(text);
+  }, true);
+
   window.sandboxCopilot = { open, ask, highlight: (target, caption) => { clearSpots(); return highlight(target, caption, 1); }, clear: clearSpots,
     // Runs one UI action as if the agent had sent it (presenter scripts and UI checks): e.g. { type: "open_reference", topic: "routing" }
     act: async (a) => { const b = addBot(); b.sum.parentElement.hidden = true; await act(a, b); return !b.el.querySelector(".cop-chip.off"); },
