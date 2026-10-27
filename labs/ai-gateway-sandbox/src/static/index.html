@@ -596,7 +596,13 @@
   #agTier .agpks .n { grid-row:1 / 3; width:24px; height:24px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:800; color:#fff; background:#0f6cbd; }
   #agTier .agpks b { font-size:12.5px; } #agTier .agpks span { font-size:11.5px; line-height:1.35; color:var(--muted); }
   #agTier .agpn[data-hl] .agpk .nd { opacity:.35; } #agTier .agpn[data-hl] .agpk .nd.gw { opacity:.6; }
-  #agTier .agpn[data-hl="1"] .agpk .s1, #agTier .agpn[data-hl="2"] .agpk .s2, #agTier .agpn[data-hl="3"] .agpk .s3, #agTier .agpn[data-hl="4"] .agpk .s4 { opacity:1; border-color:#0f6cbd; box-shadow:0 0 0 2px #0f6cbd, 0 4px 12px rgba(15,108,189,.2); }
+  #agTier .agpn[data-hl="1"] .agpk .s1, #agTier .agpn[data-hl="2"] .agpk .s2, #agTier .agpn[data-hl="3"] .agpk .s3, #agTier .agpn[data-hl="4"] .agpk .s4,
+  #agTier .agpn[data-hl="5"] .agpk .s5, #agTier .agpn[data-hl="6"] .agpk .s6, #agTier .agpn[data-hl="7"] .agpk .s7, #agTier .agpn[data-hl="8"] .agpk .s8 { opacity:1; border-color:#0f6cbd; box-shadow:0 0 0 2px #0f6cbd, 0 4px 12px rgba(15,108,189,.2); }
+  #agTier .agpk .nd.gw, #agTier .agpk .nd.ext { flex:0 0 160px; }
+  #agTier .agpn .pln { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-top:16px; padding-top:12px; border-top:1px solid var(--border); }
+  #agTier .agpn .top + .pln { margin-top:10px; padding-top:0; border-top:0; }
+  #agTier .agpn .pln .k { align-self:center; width:22px; height:22px; border-radius:5px; display:grid; place-items:center; font-size:12px; font-weight:800; color:#fff; background:#0f548c; }
+  #agTier .agpn .pln b { font-size:13.5px; } #agTier .agpn .pln > span:last-child { font-size:12px; color:var(--muted); }
   #agTier .agpn .note { margin-top:8px; font-size:11.5px; color:var(--muted); }
   #agTier .agcust details.agfaq { margin-top:14px; } #agTier .agcust details.agfaq > summary { cursor:pointer; color:var(--accent); font-size:13px; font-weight:600; }
   #agTier .agfaqs { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px 18px; margin-top:8px; }
@@ -604,7 +610,7 @@
   #agTier .agfaqs .qa { font-size:12.5px; line-height:1.45; padding:6px 0; border-bottom:1px solid var(--divider); } #agTier .agfaqs .qa b { display:block; margin-bottom:2px; }
   @keyframes agPop { from { opacity:0; transform:scale(.92); } to { opacity:1; transform:none; } }
   @keyframes agFill { to { width:var(--w); } } @keyframes agFade { to { opacity:1; } } @keyframes agGrow { to { width:var(--w); } } @keyframes agFlow { to { background-position:22px 0; } } @keyframes agDash { to { stroke-dashoffset:-11; } }
-  @media (max-width:1100px) { #agTier .agpk, #agTier .agpk .vn { flex-direction:column; } #agTier .agpk .lk { flex-basis:18px; width:2px; align-self:center; background:#0f6cbd; animation:none; } #agTier .agpk .lk::after { right:auto; left:-4px; top:auto; bottom:-2px; border:5px solid transparent; border-top:6px solid #0f6cbd; border-bottom:0; } #agTier .agpk .lk.out { background:#ca5010; } #agTier .agpk .lk.out::after { border-top-color:#ca5010; } #agTier .agpk .lk i { display:none; } #agTier .agpks { grid-template-columns:1fr 1fr; } }
+  @media (max-width:1100px) { #agTier .agpk, #agTier .agpk .vn { flex-direction:column; } #agTier .agpk .lk { flex-basis:18px; width:2px; align-self:center; background:#0f6cbd; animation:none; } #agTier .agpk .lk::after { right:auto; left:-4px; top:auto; bottom:-2px; border:5px solid transparent; border-top:6px solid #0f6cbd; border-bottom:0; } #agTier .agpk .lk.out { background:#ca5010; } #agTier .agpk .lk.out::after { border-top-color:#ca5010; } #agTier .agpk .lk i { display:none; } #agTier .agpk .nd.gw, #agTier .agpk .nd.ext { flex:0 0 auto; } #agTier .agpks { grid-template-columns:1fr 1fr; } }
   @media (max-width:1100px) { #agTier .agval, #agTier .agdec, #agTier .agcv, #agTier .agc3, #agTier .agfaqs { grid-template-columns:1fr; } #agTier .agly { grid-template-columns:26px 1fr; } #agTier .agly .sy, #agTier .agly .ow { grid-column:2; } }
   /* 0. TL;DR */
   #agTier .agtldr { border-top:4px solid var(--accent); }
@@ -6031,20 +6037,30 @@ function agCustStack() {
   return AG_LAYERS.map(([id, ic, nm, sy, ow, chg], i) => (i ? `<div class="agdn"></div>` : "")
     + `<div class="agly ${id === "gw" ? "gw " : ""}${on.has(id) ? "hi" : "dim"}"><img src="/icons/${ic}.svg" alt=""><span class="nm">${nm}</span><span class="sy">${sy}${chg}</span><span class="ow">${ow}</span></div>`).join("");
 }
-// private network: the four things a Foundry agent's call needs to reach the gateway privately
+// private network, both directions: A = a Foundry agent reaches the gateway (PG field guide FAQ);
+// B = the gateway reaches private models and tools (Learn: Configure private networking for AI Gateway tier)
 const AG_PN = [
-  ["Outbound VNet integration", "Foundry's agent subnet sends the agent's calls into your VNet."],
+  ["Agent subnet", "Foundry's outbound VNet integration sends the agent's calls into your VNet."],
   ["Private DNS", "Resolves the gateway's hostname to its private IP, not a public one."],
   ["Routes &amp; firewall", "Rules that allow HTTPS (443) from the agent subnet to that IP."],
   ["Model connection", "The project's model connection points at the gateway's private endpoint."],
+  ["Private routing", "The gateway joins its own subnet: dedicated, /27 or larger (/24 advised), delegated to Microsoft.Web/serverFarms, same region."],
+  ["NSG &amp; routes", "Allow HTTPS (443) out to the Storage and AzureKeyVault service tags, and to every backend."],
+  ["Private DNS for backends", "Backend hostnames resolve to private IPs: link their private DNS zones to the VNet."],
+  ["Private backends", "Models, APIs and MCP servers behind private endpoints, reachable from that subnet."],
 ];
 function agPrivNet() {
   const nd = (s, ic, t, code, sub, x = "") => `<div class="nd ${s ? "s" + s : ""} ${x}">${s ? `<span class="no">${s}</span>` : ""}${ic}<b>${t}</b>${code ? `<code>${code}</code>` : ""}<span>${sub}</span></div>`;
   const lk = (t, x = "") => `<div class="lk ${x}">${t ? `<i>${t}</i>` : ""}</div>`;
-  return `<div class="agpn" id="agPn"><div class="top"><div><span class="h">Private network: how a Foundry agent reaches the gateway</span>`
-      + `<p>Four pieces keep the call on private IPs. Hover or click one to find it on the path.</p></div></div>`
-    + `<div class="agpk" role="img" aria-label="A Foundry agent in the agent subnet resolves the gateway through private DNS, passes routes and firewall rules on HTTPS, and reaches the gateway's private endpoint; the gateway then calls models and tools">`
-      + `<div class="vn"><span class="lb">Your VNet</span>`
+  const gw = (sub) => nd(0, `<img src="/icons/ai-gateway.svg" alt="">`, "AI Gateway", "", sub, "gw");
+  const steps = (a, b) => `<div class="agpks" role="group" aria-label="What this direction needs">`
+    + AG_PN.slice(a, b).map(([t, d], i) => `<button type="button" data-agpn="${a + i + 1}" aria-pressed="false"><span class="n">${a + i + 1}</span><b>${t}</b><span>${d}</span></button>`).join("") + `</div>`;
+  const lane = (k, t, sub) => `<div class="pln"><span class="k">${k}</span><b>${t}</b><span>${sub}</span></div>`;
+  return `<div class="agpn" id="agPn"><div class="top"><div><span class="h">Private network: both directions stay off the internet</span>`
+      + `<p>A private endpoint lets callers in; it doesn't let the gateway reach private backends. <b>Set up each direction separately</b>, on the gateway's Networking page (Inbound and Outbound). Hover or click a step to find it on the path.</p></div></div>`
+    + lane("A", "Inbound: a Foundry agent reaches the gateway", "caller → private endpoint")
+    + `<div class="agpk" role="img" aria-label="A Foundry agent in the agent subnet resolves the gateway through private DNS, passes routes and firewall rules on HTTPS, and reaches the gateway's private endpoint">`
+      + `<div class="vn"><span class="lb">Your VNet · callers</span>`
         + nd(1, `<img src="/icons/foundry-agent-service.svg" alt="">`, "Foundry agent", "agent subnet", "outbound VNet integration")
         + lk("resolve")
         + nd(2, `<span class="ic">📇</span>`, "Private DNS", "gateway → 10.x.x.x", "linked to the VNet")
@@ -6054,12 +6070,25 @@ function agPrivNet() {
         + nd(4, `<span class="ic">🔌</span>`, "Private endpoint", "10.x.x.x", "the model connection targets it")
       + `</div>`
       + lk("", "out")
-      + nd(0, `<img src="/icons/ai-gateway.svg" alt="">`, "AI Gateway", "", "limits, safety, routing", "gw")
+      + gw("public network access: off, once private calls work")
+    + `</div>` + steps(0, 4)
+    + lane("B", "Outbound: the gateway reaches private models and tools", "integration subnet → private backends")
+    + `<div class="agpk" role="img" aria-label="The gateway calls out through its delegated integration subnet, NSG rules allow HTTPS, private DNS resolves each backend to a private IP, and the call reaches models, APIs and MCP servers on private endpoints">`
+      + gw("limits, safety, routing")
       + lk("", "out")
-      + nd(0, `<img src="/icons/foundry-models.svg" alt="">`, "Models &amp; tools", "", "the gateway calls them", "ext")
-    + `</div><div class="agpks" role="group" aria-label="What a private network needs">`
-      + AG_PN.map(([t, d], i) => `<button type="button" data-agpn="${i + 1}" aria-pressed="false"><span class="n">${i + 1}</span><b>${t}</b><span>${d}</span></button>`).join("")
-    + `</div><div class="note">The Microsoft account team can help validate the setup.</div></div>`;
+      + `<div class="vn"><span class="lb">Your VNet · gateway egress</span>`
+        + nd(5, `<span class="ic">🧩</span>`, "Integration subnet", "/27+ · delegated", "dedicated to this gateway")
+        + lk("")
+        + nd(6, `<span class="ic">🛡️</span>`, "NSG &amp; routes", "allow 443", "Storage, Key Vault, backends")
+        + lk("resolve")
+        + nd(7, `<span class="ic">📇</span>`, "Private DNS", "backend → 10.x.x.x", "zones linked to the VNet")
+        + lk("HTTPS")
+        + nd(8, `<span class="ic">🔌</span>`, "Private endpoints", "10.x.x.x", "one per backend")
+      + `</div>`
+      + lk("", "out")
+      + nd(0, `<img src="/icons/foundry-models.svg" alt="">`, "Models &amp; tools", "", "Foundry, Azure OpenAI, APIs, MCP servers", "ext")
+    + `</div>` + steps(4, 8)
+    + `<div class="note">Keep the outbound subnet separate from the private endpoint subnet; the same VNet can hold both. Lane B follows <a href="https://learn.microsoft.com/azure/api-management/ai-gateway-configure-private-networking" target="_blank" rel="noopener">Configure private networking for AI Gateway tier</a> (preview). The Microsoft account team can help validate the setup.</div></div>`;
 }
 function agPnHl(v) {
   const p = $("agPn"); if (!p) return;
