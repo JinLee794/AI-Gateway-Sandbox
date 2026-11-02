@@ -25,6 +25,9 @@
     },
     "toolboxClientId": {
       "value": "${TOOLBOX_CLIENT_ID=}"
+    },
+    "hyperlightExecutor": {
+      "value": "${HYPERLIGHT_EXECUTOR=false}"
     }
   }
 }

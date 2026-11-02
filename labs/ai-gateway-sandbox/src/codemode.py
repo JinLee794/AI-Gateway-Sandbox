@@ -14,12 +14,13 @@ In every mode every tool call is a separate gateway call, so the plan's tool ent
 limits and logs still apply to code written by the model.
 
 Spike-grade sandbox: an AST allow-list, restricted builtins, a separate interpreter process (-I), a wall-clock timeout,
-a tool-call cap and (on Linux) CPU and memory limits. A production build would run the script in a real isolation
-boundary such as Hyperlight or Azure Container Apps dynamic sessions.
+a tool-call cap and (on Linux) CPU and memory limits. With sandbox "hyperlight" (modes C and D) the same script runs in a
+Hyperlight micro-VM instead, on the optional executor VM (infra/hyperlight.bicep): the executor restores a clean
+micro-VM snapshot per script and proxies every stub call back here, so tool calls still go through the gateway from here.
 
 Standard library only; app.py passes in its http, auth and rate-limit helpers so this module has no global state.
 """
-import ast, json, queue, re, secrets, subprocess, sys, threading, time
+import ast, json, queue, re, secrets, subprocess, sys, threading, time, urllib.error, urllib.request
 
 MAX_ROUNDS = 8            # tool-calling rounds before the classic loop gives up
 MAX_TOOL_CALLS = 15       # tool calls per run, in either mode
@@ -93,6 +94,8 @@ try:
 except Exception:
     pass
 out, inp = sys.stdout, sys.stdin
+out.write('{"ready": true}\n')
+out.flush()
 spec = json.loads(inp.readline())
 buf, size = io.StringIO(), [0]
 def emit(*args, sep=" ", end="\n"):
@@ -310,6 +313,7 @@ class Run:
     def __init__(self, deps, agent, payload, mode):
         self.deps, self.agent, self.payload, self.mode = deps, agent, payload, mode
         self.model = payload.get("model") or "gpt-4.1-mini"
+        self.sandbox = payload.get("sandbox") or "subprocess"  # where C and D run their scripts: subprocess | hyperlight
         self.mcp_session, self.rpc_id = None, 0
         self.tb_session = None  # Foundry Toolbox MCP session (search mode)
         self.model_calls, self.tool_calls, self.mcp_calls = [], [], []
@@ -520,7 +524,7 @@ class Run:
         output = script.get("output", "")
         self.context_chars += len(output)
         result = {"code": code, "stubs": stub_text, "scriptOutput": output, "scriptError": script.get("error"), "scriptMs": script.get("ms"),
-                  "scriptStartMs": script_start}
+                  "scriptStartMs": script_start, "scriptBootMs": script.get("bootMs"), "scriptColdMs": script.get("coldMs")}
         if script.get("error") and not output:
             return {**result, "answer": "", "error": f"the script failed: {script['error']}"}
         final = self.chat([{"role": "system", "content": ANSWER_SYSTEM},
@@ -563,7 +567,7 @@ class Run:
             else:
                 script = self.execute(code, {}, generic=True, resolve=resolve)
             self.scripts.append({"kind": kind, "code": code, "output": script.get("output", ""), "error": script.get("error"),
-                                 "startMs": start, "ms": script.get("ms", 0)})
+                                 "startMs": start, "ms": script.get("ms", 0), "bootMs": script.get("bootMs"), "coldMs": script.get("coldMs")})
             return {"output": script.get("output", "")[:MAX_TOOL_RESULT_CHARS], **({"error": script["error"]} if script.get("error") else {})}
 
         messages = [{"role": "system", "content": system}, {"role": "user", "content": task}]
@@ -587,9 +591,13 @@ class Run:
         return {**result, "scripts": self.scripts, "mesh": self.mesh_info}
 
     def execute(self, code, functions, data=None, generic=False, resolve=None):
-        """Runs the script in a separate interpreter; each stub call becomes a governed MCP tools/call here.
-        `data` adds read-only values (D's catalog); `generic` adds call(op_id, **params), routed through `resolve`."""
+        """Runs the script in a separate interpreter (or a Hyperlight micro-VM); each stub call becomes a governed MCP tools/call here.
+        `data` adds read-only values (D's catalog); `generic` adds call(op_id, **params), routed through `resolve`.
+        bootMs is how long the sandbox took to be ready for the script: interpreter start, or micro-VM snapshot restore."""
         began = time.perf_counter()
+        if self.sandbox == "hyperlight":
+            return self.execute_hyperlight(code, functions, data, generic, resolve, began)
+        boot = None
         proc = subprocess.Popen([sys.executable, "-I", "-c", RUNNER], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, encoding="utf-8")
         lines = queue.Queue()
@@ -611,8 +619,11 @@ class Run:
                     msg = json.loads(line)
                 except ValueError:
                     continue
+                if msg.get("ready"):
+                    boot = _ms(began)
+                    continue
                 if msg.get("done"):
-                    return {"output": msg.get("output", ""), "error": msg.get("error"), "ms": _ms(began)}
+                    return {"output": msg.get("output", ""), "error": msg.get("error"), "ms": _ms(began), "bootMs": boot}
                 try:
                     reply = {"result": (resolve or self.tool)(msg.get("call"), msg.get("args") or {})}
                 except RuntimeError as error:
@@ -628,6 +639,42 @@ class Run:
                     pipe.close()
                 except OSError:
                     pass
+
+    def execute_hyperlight(self, code, functions, data, generic, resolve, began):
+        """The same script and stubs in a Hyperlight micro-VM on the executor VM. The executor parks each stub call and this
+        loop answers it (long poll), so the APIM key never leaves the UI and the micro-VM has no network."""
+        base = (self.deps["config"].get("hyperlightUrl") or "").rstrip("/")
+        if not base:
+            return {"output": "", "ms": 0, "error": "the Hyperlight sandbox is not deployed: azd env set HYPERLIGHT_EXECUTOR true, then azd provision "
+                    "(it runs on a VM in the sandbox VNet, so only the hosted UI can reach it)"}
+
+        def call(method, path, body=None, timeout=30):
+            request = urllib.request.Request(base + path, data=json.dumps(body).encode() if body is not None else None, method=method,
+                                             headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return json.loads(response.read() or b"{}")
+
+        deadline = time.time() + SCRIPT_TIMEOUT_S
+        try:
+            job = call("POST", "/run", {"code": code, "functions": functions, "generic": generic, "data": data or {},
+                                        "maxOutput": MAX_OUTPUT_CHARS})["id"]
+            while True:
+                if time.time() > deadline:
+                    return {"output": "", "error": f"timed out after {SCRIPT_TIMEOUT_S} s", "ms": _ms(began)}
+                msg = call("GET", f"/jobs/{job}/next", timeout=40)
+                if msg.get("wait"):
+                    continue
+                if msg.get("done"):
+                    return {"output": msg.get("output", ""), "error": msg.get("error"), "ms": _ms(began), "bootMs": msg.get("startMs"),
+                            "coldMs": msg.get("coldMs")}
+                try:
+                    reply = {"result": (resolve or self.tool)(msg.get("call"), msg.get("args") or {})}
+                except RuntimeError as error:
+                    reply = {"fatal": str(error)}
+                call("POST", f"/jobs/{job}/reply", reply)
+        except (urllib.error.URLError, OSError, ValueError, KeyError) as error:
+            return {"output": "", "ms": _ms(began), "error": f"the Hyperlight executor is unreachable ({error}). Its VM (vm-hyperlight-*) "
+                    "shuts down every night: start it with az vm start, or run with the subprocess sandbox"}
 
     def probe(self, task, catalog, scale):
         """What the catalog size costs, measured by the model: the first prompt of A and of C with the real tools, then
@@ -664,12 +711,12 @@ class Run:
         return {"status": 200 if not result.get("error") else 500, "mode": self.mode, "agent": self.agent["name"], "tier": self.agent.get("tier", ""),
                 "model": self.model, "modelCalls": self.model_calls, "toolCalls": self.tool_calls, "mcpCalls": self.mcp_calls, "promptTokens": prompt,
                 "completionTokens": completion, "totalTokens": prompt + completion, "costUsd": round(cost, 6),
-                "contextChars": self.context_chars, "elapsedMs": _ms(started), "traceId": self.trace_id,
+                "contextChars": self.context_chars, "elapsedMs": _ms(started), "traceId": self.trace_id, "sandbox": self.sandbox,
                 "startedAt": round(self.started_at * 1000), **result}
 
 
 def run(payload, deps):
-    """POST /api/codemode {agent, model, mode: tools | search | code | mesh | probe, task?, session?, catalog?, scale?}"""
+    """POST /api/codemode {agent, model, mode: tools | search | code | mesh | probe, task?, session?, catalog?, scale?, sandbox?}"""
     agent = deps["agent_by_name"](payload.get("agent", ""))
     if not agent:
         return 400, {"error": f"Unknown agent '{payload.get('agent')}'"}
@@ -683,6 +730,8 @@ def run(payload, deps):
             return 400, {"error": "catalog must be a number"}
         if not 10 <= mesh_size <= MAX_MESH_CATALOG:
             return 400, {"error": f"catalog must be 10-{MAX_MESH_CATALOG} operations"}
+    if payload.get("sandbox") not in (None, "", "subprocess", "hyperlight"):
+        return 400, {"error": "sandbox must be 'subprocess' or 'hyperlight'"}
     task = payload.get("task") or DEFAULT_TASK
     if not isinstance(task, str) or len(task) > 2000:
         return 400, {"error": "task must be text of at most 2,000 characters"}
@@ -694,7 +743,7 @@ def run(payload, deps):
         if not 4 <= catalog <= MAX_PROBE_TOOLS or not 1 <= scale <= 6:
             return 400, {"error": f"catalog must be 4-{MAX_PROBE_TOOLS} tools and scale 1-6"}
     started = time.perf_counter()
-    r = Run(deps, agent, {k: payload.get(k) for k in ("session", "noToken", "model")}, mode)
+    r = Run(deps, agent, {k: payload.get(k) for k in ("session", "noToken", "model", "sandbox")}, mode)
     try:
         if mode == "probe":
             return 200, {**r.summary(started, r.probe(task, catalog, scale)), "task": task}

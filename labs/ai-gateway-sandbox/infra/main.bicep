@@ -30,6 +30,9 @@ param purviewClientSecret string = ''
 @description('EXPERIMENTAL - client ID of the Foundry project managed identity approved as a gateway caller for the Foundry Toolbox (Code mode scenario, mode B). Set by infra/scripts/setup_toolbox.py.')
 param toolboxClientId string = ''
 
+@description('EXPERIMENTAL - deploy a small KVM VM that runs Code mode scripts in Hyperlight micro-VMs (azd env set HYPERLIGHT_EXECUTOR true)')
+param hyperlightExecutor bool = false
+
 // Written by the preprovision hook (infra/scripts/build_config.py) from ../sandbox-config.json
 var config = loadJsonContent('sandbox.generated.json')
 var lab = config.labParameters
@@ -95,6 +98,17 @@ module sandbox '../main.bicep' = {
   }
 }
 
+// EXPERIMENTAL - Hyperlight executor of the Code mode scenario (sandbox toggle on modes C and D)
+module hyperlight 'hyperlight.bicep' = if (hyperlightExecutor) {
+  name: 'hyperlight'
+  scope: rg
+  params: {
+    location: lab.agentLocation
+    subnetId: network.outputs.hyperlightSubnetId
+    tags: tags
+  }
+}
+
 // Same content as src/demo-config.private.config written by step 3 of the notebook
 var demoConfig = union(config.uiConfig, {
   inferenceBaseUrl: sandbox.outputs.inferenceBaseUrl
@@ -117,6 +131,7 @@ var demoConfig = union(config.uiConfig, {
   budgetSuspend: sandbox.outputs.budgetSuspend
   semanticCacheResource: sandbox.outputs.semanticCache
   entraModeResource: sandbox.outputs.entraMode
+  hyperlightUrl: hyperlightExecutor ? hyperlight.outputs.url : ''
 })
 
 module ui 'ui.bicep' = {

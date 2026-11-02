@@ -2153,6 +2153,7 @@ def public_config(user=None):
         "semanticCache": semantic_cache_config(),
         "semanticCacheResource": {k: v for k, v in (CONFIG.get("semanticCacheResource") or {}).items() if k in ("enabled", "redisName", "redisSku", "embeddingsModel")},
         "entraMode": public_entra_mode(),
+        "hyperlight": bool(CONFIG.get("hyperlightUrl")),  # code mode's optional Hyperlight executor (infra/hyperlight.bicep)
         "copilot": {"enabled": copilot_enabled(), "model": COPILOT_MODEL, "subscription": COPILOT_SUBSCRIPTION, "plan": COPILOT_PRODUCT},
         "links": {
             "workbook": f"{portal}{CONFIG['workbookId']}/workbook" if CONFIG.get("workbookId") else None,

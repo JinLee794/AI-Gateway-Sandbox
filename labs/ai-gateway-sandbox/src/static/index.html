@@ -288,6 +288,11 @@
   .cmfl .s.bad { background:#fde7e9; border-color:#f1bbbc; } .cmfl .s.good { background:#dff6dd; border-color:#9fd89f; }
   .cmfl .ar { color:#a19f9d; font-size:12px; }
   .cmfl .gwnote { font-size:11px; color:#323130; padding:4px 10px; border-radius:6px; background:#e8f1fb; border:1px solid #c7e0f4; }
+  .cmsbx { display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin-top:8px; font-size:11px; color:#605e5c; }
+  .cmsbx button { font:600 11px Segoe UI,sans-serif; padding:2px 9px; border-radius:12px; border:1px solid #e1dfdd; background:#fff; color:#323130; cursor:pointer; }
+  .cmsbx button.on { background:#005b70; border-color:#005b70; color:#fff; } .cmsbx button:disabled { opacity:.5; cursor:not-allowed; }
+  .cmsbx small { margin-left:4px; }
+  .cmpill.sbx.hl { background:#e3f2fd; color:#004578; font-weight:600; } .cmsc .sbxl { margin-top:4px; }
   .cmmore { margin-top:8px; } .cmmore .tb { display:flex; flex-wrap:wrap; gap:4px; align-items:center; font-size:11px; color:#605e5c; }
   .cmmore .tb button { font:600 11px Segoe UI,sans-serif; padding:2px 9px; border-radius:12px; border:1px solid #e1dfdd; background:#fff; color:#323130; cursor:pointer; }
   .cmmore .tb button:hover { border-color:#c8c6c4; background:#faf9f8; } .cmmore .tb button.on { background:#323130; border-color:#323130; color:#fff; }
@@ -7788,17 +7793,20 @@ const SCENARIOS = [
         + dg.row(dg.agent("gold"), dg.arrow("domain index"), dg.model(m, "search, then 1 script"), dg.arrow("code"), dg.node("Sandbox", "catalog search · runs script"), dg.arrow(), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool")); },
     explain: () => `<div class="scexplain"><h4>How the four modes work <span class="exptag">EXPERIMENTAL</span></h4>
       ${cmFlowHtml()}
+      ${cmSbxToggle()}
       ${cmMoreHtml()}</div>`,
     story: () => `The Gold <b>${tierAgent("gold").displayName}</b> runs one procurement task four times on <b>${cmModel()}</b>, against the same MCP server on the gateway: classic tool calling (A), tool search through a Foundry Toolbox (B), code mode (C), then search + execute over a 1,000-operation catalog (D). All answers should match; the takeaway compares the tokens each approach put in the model's context.`,
     async run() {
       const a = tierAgent("gold"), model = cmModel(), out = {};
       if (!await resetBudgets()) return;
       info(`Task: <i>${escapeHtml(CM_TASK)}</i>`);
+      const sandbox = cmSbxNow();
+      info(`C and D run their scripts in ${sandbox === "hyperlight" ? "a <b>Hyperlight micro-VM</b> (executor VM, snapshot restored per script)" : "a <b>subprocess</b> sandbox in the UI container"}.`);
       for (const [mode, label] of [["tools", "A · classic tool calling"], ["search", "B · tool search (Foundry Toolbox)"], ["code", "C · code mode"], ["mesh", "D · search + execute (context mesh)"]]) {
         if (!running) return;
         info(`<b>${label}</b>: running on the gateway… (20-40 s)`);
         const session = `${$("sessionId").value.trim()}-${mode}`, turn = cmConvoPending(a, model, mode, label, session);
-        const r = await cmRun({ agent: a.name, model, mode, task: CM_TASK, session });
+        const r = await cmRun({ agent: a.name, model, mode, task: CM_TASK, session, ...(mode === "code" || mode === "mesh" ? { sandbox } : {}) });
         out[mode] = r;
         if (curPart) (curPart.cm ||= {})[mode] = cmSlim(r);
         cmRecord(r, a, model, label);
@@ -7814,6 +7822,31 @@ const CM_TASK = "Find the electronics products. For each SKU, check inventory ac
   + "get supplier quotes for 500 units and pick the supplier with the lowest total cost (break ties by shorter lead time). Reply with one line per SKU: SKU, "
   + "product name, total units on hand, and either 'in stock' or the chosen supplier with its total cost and lead time.";
 function cmModel() { const al = tierOf(tierAgent("gold")).allowedModels || []; return ["gpt-4.1-mini", "gpt-4.1-nano"].find(m => al.includes(m)) || al[0]; }
+// Where C and D run the model's scripts: a subprocess in this app, or a Hyperlight micro-VM on the optional executor VM
+// (infra/hyperlight.bicep). The VM is private to the sandbox VNet, so only the hosted UI can use it.
+let cmSandbox = localStorage.getItem("cmSandbox") || "subprocess";
+const cmHlReady = () => !!(cfg?.hyperlight && cfg?.hosted);
+const cmSbxNow = () => cmSandbox === "hyperlight" && cmHlReady() ? "hyperlight" : "subprocess";
+function cmSbxToggle() {
+  const ready = cmHlReady(), now = cmSbxNow();
+  const b = (v, t, off) => `<button type="button" data-v="${v}" class="${now === v ? "on" : ""}"${off ? ` disabled title="${off}"` : ""} onclick="cmSetSbx(this)">${t}</button>`;
+  const why = !cfg?.hyperlight ? "Not deployed: azd env set HYPERLIGHT_EXECUTOR true, then azd provision" : "The executor VM is private to the sandbox VNet: use the hosted UI";
+  return `<div class="cmsbx"><span>C and D run scripts in</span>${b("subprocess", "📦 Subprocess")}${b("hyperlight", "🧊 Hyperlight micro-VM", ready ? "" : why)}
+    <small>${ready ? "Compare <b>ready in</b> on the C and D cards" : escapeHtml(why)}</small></div>`;
+}
+function cmSetSbx(btn) {
+  cmSandbox = btn.dataset.v; localStorage.setItem("cmSandbox", cmSandbox);
+  btn.parentElement.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === btn));
+}
+// One pill: which sandbox ran the script(s) and how long it took to be ready (interpreter start, or micro-VM snapshot restore)
+function cmSbxPill(r) {
+  if (!r || (r.mode !== "code" && r.mode !== "mesh") || (r.error && !r.answer)) return "";
+  const runs = r.mode === "mesh" ? (r.scripts || []) : [{ bootMs: r.scriptBootMs, coldMs: r.scriptColdMs }];
+  const boot = runs.map(s => s.bootMs).filter(v => v != null), cold = runs.find(s => s.coldMs != null)?.coldMs, hl = r.sandbox === "hyperlight";
+  const title = hl ? `Each script ran in a fresh Hyperlight micro-VM restored from a snapshot. Building the micro-VM the first time took ${cold ?? "?"} ms; every script after that only restores it.`
+    : "Each script ran in a new isolated Python process (python -I) with an AST allow-list, a timeout and a call cap.";
+  return `<span class="cmpill sbx${hl ? " hl" : ""}" title="${escapeHtml(title)}">${hl ? "🧊 Hyperlight" : "📦 subprocess"}${boot.length ? ` · ready in ${boot.map(v => `${v} ms`).join(" + ")}` : ""}${hl && cold != null ? ` <small>(cold build ${cold} ms, once)</small>` : ""}</span>`;
+}
 // Scenario 24's explain: each mode as a lane of steps, so the loop, the gateway hops and what reaches the model stand out.
 function cmFlowHtml() {
   let i = 0;
@@ -7853,8 +7886,15 @@ function cmMoreHtml() {
       ["🔁", "About 3 gateway requests per tool call (a new MCP session each time)"],
       ["💲", "Tool cost is estimated: <code>x-gw-*</code> headers don't come back through Foundry"],
       ["🧵", "<code>traceparent</code> passes through, so <b>Check the gateway logs</b> still finds B's calls"]])],
+    ["sbx", "🧊", "Hyperlight (CodeAct)", li([
+      ["📦", "<b>Subprocess</b>: a new <code>python -I</code> per script with an AST allow-list, timeout and call cap. Fine for a spike, not a security boundary"],
+      ["🧊", "<b>Hyperlight</b>: the same script in a WebAssembly micro-VM with its own hypervisor partition, no network and no filesystem"],
+      ["⚡", "Built once (~200 ms), snapshotted, then restored per script in a few ms: a fresh VM per script costs about what a subprocess start does"],
+      ["🔌", "Stub calls leave the VM only as host calls back to the UI, which makes the gateway call: the APIM key never enters the sandbox"],
+      ["🧠", "This is the CodeAct pattern Agent Framework ships as <code>HyperlightCodeActProvider</code> (<code>execute_code</code> + <code>call_tool</code>)"],
+      ["🖥️", "Needs KVM or MSHV: a D2s_v6 VM in the sandbox VNet (<code>HYPERLIGHT_EXECUTOR=true</code>), shut down nightly. Container Apps can't run it"]])],
     ["lim", "🧪", "Spike limits", li([
-      ["📦", "Sandbox: separate Python process, AST allow-list, timeout, call cap. Stands in for Hyperlight or ACA dynamic sessions"],
+      ["📦", "Sandbox: a subprocess by default (see Hyperlight). Hyperlight has no run timeout yet: the UI's 60 s deadline stops waiting, not the VM"],
       ["🔑", "Scripts run with the caller's credentials"],
       ["📐", "The MCP server sends no <code>outputSchema</code>; result shapes live in <code>codemode.py</code>"],
       ["📏", "3 small tools, so B costs more than A. Savings grow with catalog and result size (the POC targets ~120 tools)"],
@@ -8028,7 +8068,7 @@ function cmScoreboard(cols, A) {
       <div class="big">${tok(r).toLocaleString()} <small>tokens</small>${d != null ? ` <span class="dv ${d < 0 ? "dn" : "up"}">${d > 0 ? "+" : ""}${d}% vs A</span>` : ` <span class="dv">baseline</span>`}</div>
       <div class="bar"><i style="width:${(100 * tok(r) / maxTok).toFixed(1)}%"></i></div>
       <div class="st"><span><b>${(r.modelCalls || []).length}</b> model calls</span><span><b>${tools}</b> tool calls</span><span><b>${fmtLat(r.elapsedMs)}</b></span><span><b>${fmtUsd(usd(r))}</b></span></div>
-      ${cmStrip(r)}
+      ${cmStrip(r)}${cmSbxPill(r) ? `<div class="sbxl">${cmSbxPill(r)}</div>` : ""}
       <div class="ans${same === false ? " diff" : ""}" title="Compares the numbers in each answer with A's">${r.error && !r.answer ? `✕ ${escapeHtml(String(r.error).slice(0, 80))}` : same == null ? "Answer: the reference" : same ? "✓ Same answer as A" : "≠ Answer differs from A"}</div>
     </div>`; }).join("")}</div>`;
 }
@@ -8042,7 +8082,7 @@ function cmCodePanel(A, B, C, ok, D) {
   return `<div class="cmcodebox">
     <div class="cmch"><b>What code mode ran</b>
       <span class="cmpill">${lines} lines</span><span class="cmpill gw">${sites} lines call gateway tools → ${made} gateway calls</span>
-      ${C.scriptMs ? `<span class="cmpill">ran ${fmtLat(C.scriptMs)}</span>` : ""}<span class="cmpill">printed ${out.length.toLocaleString()} chars${A?.contextChars ? ` (A put ${A.contextChars.toLocaleString()} in context)` : ""}</span></div>
+      ${C.scriptMs ? `<span class="cmpill">ran ${fmtLat(C.scriptMs)}</span>` : ""}${cmSbxPill(C)}<span class="cmpill">printed ${out.length.toLocaleString()} chars${A?.contextChars ? ` (A put ${A.contextChars.toLocaleString()} in context)` : ""}</span></div>
     <div class="cmtabs">${tab("code", "Script the model wrote", true)}${tab("out", "What it printed → the model")}${tab("stubs", "Tool API shown to the model")}${searches.length ? tab("search", "What B searched for") : ""}${dScripts.length ? tab("mesh", "D's search + execute code") : ""}</div>
     <div class="cmpane" data-pane="code">${cmCodeView(code, tools)}<div class="cmleg"><span class="t">teal names</span> are the gateway's MCP tools: each call is entitled, priced and logged by APIM. Marked lines make those calls.</div></div>
     <div class="cmpane" data-pane="out" hidden><pre class="cmout">${escapeHtml(out)}</pre><div class="cmleg">Only this text went back to the model. Raw tool results stayed in the sandbox.</div></div>
@@ -8322,8 +8362,9 @@ function cmTlLocal(r) {
       : c.via === "search" && c.engine === "catalog" ? `<span class="surf script">Sandbox</span> search(code) over the catalog <span class="muted">· no gateway call</span>`
       : c.via === "search" ? `<span class="surf search">Foundry</span> tool_search <span class="muted">"${escapeHtml(c.query || "")}"</span>`
       : `${surfChip("tool")} ${c.via === "toolbox" ? "call_tool → " : c.via === "catalog" ? "unresolved → " : ""}<b>${escapeHtml(c.name)}</b>` }));
-  if (r.mode === "mesh") for (const w of windows) items.push({ start: w.startMs, dur: w.ms, cls: "script", label: `<span class="surf script">Sandbox</span> runs execute(code)`, title: "Every tool call inside this bar was made by the model's execute script" });
-  else if (r.scriptStartMs != null && r.scriptMs) items.push({ start: r.scriptStartMs, dur: r.scriptMs, cls: "script", label: `<span class="surf script">Sandbox</span> runs the model's script`, title: "Every tool call inside this bar was made by the script" });
+  const sbx = r.sandbox === "hyperlight" ? "Hyperlight" : "Sandbox";
+  if (r.mode === "mesh") for (const w of windows) items.push({ start: w.startMs, dur: w.ms, cls: "script", label: `<span class="surf script">${sbx}</span> runs execute(code)${w.bootMs != null ? ` <span class="muted">· ready in ${w.bootMs} ms</span>` : ""}`, title: "Every tool call inside this bar was made by the model's execute script" });
+  else if (r.scriptStartMs != null && r.scriptMs) items.push({ start: r.scriptStartMs, dur: r.scriptMs, cls: "script", label: `<span class="surf script">${sbx}</span> runs the model's script${r.scriptBootMs != null ? ` <span class="muted">· ready in ${r.scriptBootMs} ms</span>` : ""}`, title: "Every tool call inside this bar was made by the script" });
   items.sort((a, b) => a.start - b.start || (b.cls === "script") - (a.cls === "script"));
   return { items, span: Math.max(r.elapsedMs || 0, ...items.map(i => i.start + i.dur)) };
 }

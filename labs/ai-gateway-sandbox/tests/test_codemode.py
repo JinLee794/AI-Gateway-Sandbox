@@ -50,6 +50,40 @@ class CodeModeTests(unittest.TestCase):
         self.assertEqual(result["output"], "A 42\nB 42\n")
         self.assertEqual(calls, [("check-inventory", {"sku": "A"}), ("check-inventory", {"sku": "B"})])
 
+    def test_subprocess_sandbox_reports_when_it_was_ready(self):
+        result = codemode.Run({}, None, {}, "code").execute("print(1)", {})
+        self.assertEqual(result["output"], "1\n")
+        self.assertIsInstance(result["bootMs"], int)
+
+    def test_hyperlight_sandbox_needs_the_executor(self):
+        run = codemode.Run({"config": {}}, None, {"sandbox": "hyperlight"}, "code")
+        self.assertIn("HYPERLIGHT_EXECUTOR", run.execute("print(1)", {})["error"])
+        self.assertEqual(codemode.run({"agent": "a", "mode": "code", "sandbox": "docker"}, {"agent_by_name": lambda n: {"name": n}})[0], 400)
+
+    def test_hyperlight_sandbox_answers_the_executors_stub_calls(self):
+        import io, json
+        run = codemode.Run({"config": {"hyperlightUrl": "http://10.40.3.4:8080"}}, None, {"sandbox": "hyperlight"}, "code")
+        replies, script = [], [{"wait": True}, {"call": "check-inventory", "args": {"sku": "A"}},
+                               {"done": True, "output": "A 42\n", "error": None, "startMs": 3, "coldMs": 208}]
+
+        def fake_urlopen(request, timeout=None):
+            body = json.loads(request.data) if request.data else None
+            if request.full_url.endswith("/run"):
+                self.assertEqual(body["functions"], {"check_inventory": ["check-inventory", ["sku"]]})
+                answer = {"id": "j1"}
+            elif request.full_url.endswith("/reply"):
+                replies.append(body)
+                answer = {"ok": True}
+            else:
+                answer = script.pop(0)
+            return io.BytesIO(json.dumps(answer).encode())
+
+        with patch.object(codemode.urllib.request, "urlopen", side_effect=fake_urlopen), \
+                patch.object(run, "tool", side_effect=lambda name, args: {"onHand": 42}):
+            result = run.execute("print(check_inventory('A'))", {"check_inventory": ["check-inventory", ["sku"]]})
+        self.assertEqual((result["output"], result["bootMs"], result["coldMs"]), ("A 42\n", 3, 208))
+        self.assertEqual(replies, [{"result": {"onHand": 42}}])
+
     def test_execute_has_no_open_or_import_at_runtime(self):
         run = codemode.Run({}, None, {}, "code")
         self.assertIn("NameError", run.execute("open('x')", {})["error"])

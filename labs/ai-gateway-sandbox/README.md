@@ -583,6 +583,17 @@ python infra/scripts/setup_toolbox.py --approve-live   # --agent support-agent -
 
 It creates a `RemoteTool` connection (`apim-commerce-mcp`, project managed identity, audience `https://cognitiveservices.azure.com`) whose target is the gateway's MCP URL with the agent's subscription key in the `subscription-key` query string (a spike shortcut: the key is readable by anyone who can read the connection), creates the Toolbox with an `mcp` tool and `toolbox_search`, saves the project identity's app ID in `TOOLBOX_CLIENT_ID` so the next `azd provision` adds it to the gateway's Entra ID check (`--approve-live` also patches the deployed check now) and writes `foundryProjectEndpoint` and `toolboxName` to the local config. The hosted UI also needs `azd provision` once, which grants its identity the **Foundry User** role and adds the Foundry endpoint to its config.
 
+#### Hyperlight sandbox (scenario 24, optional)
+
+Modes C and D run the model's scripts in a subprocess by default. The **Hyperlight micro-VM** toggle in the scenario's explain runs them in a [Hyperlight](https://github.com/hyperlight-dev/hyperlight) WebAssembly micro-VM instead, the CodeAct pattern Agent Framework ships as `HyperlightCodeActProvider`. Hyperlight needs KVM or MSHV, which Container Apps doesn't expose, so it runs on a small executor VM:
+
+```bash
+azd env set HYPERLIGHT_EXECUTOR true
+azd provision
+```
+
+This adds [infra/hyperlight.bicep](infra/hyperlight.bicep): a `Standard_D2s_v6` Ubuntu VM (nested virtualization, about $70 a month if left on, shut down every night at 21:00 Central) with no public IP in the `snet-hyperlight` subnet, which accepts port 8080 only from the Container Apps subnet. A custom script installs `hyperlight-sandbox` 0.8 and [infra/hyperlight/executor.py](infra/hyperlight/executor.py) as a systemd service. The executor builds the micro-VM once (about 200 ms), snapshots it and restores the snapshot for every script (1–15 ms). Each stub call in the script leaves the micro-VM only as a host call that the executor parks until `app.py` answers it, so `app.py` still makes every gateway call and the subscription key never reaches the VM. Only the hosted UI can reach the executor; if the VM is stopped, start it with `az vm start -g <rg> -n vm-hyperlight-<suffix>`. Spike limits: the executor has no per-script timeout (the UI stops waiting after 60 s) and runs one script at a time.
+
 > [!NOTE]
 > The hosted UI image only contains `src/app.py` and `src/static`; the **See the pattern** GIFs are redirected to GitHub. Running the UI locally (`python src/app.py`) still works with a notebook deployment.
 
