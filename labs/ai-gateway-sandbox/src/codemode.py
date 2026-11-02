@@ -19,7 +19,7 @@ boundary such as Hyperlight or Azure Container Apps dynamic sessions.
 
 Standard library only; app.py passes in its http, auth and rate-limit helpers so this module has no global state.
 """
-import ast, json, queue, re, subprocess, sys, threading, time
+import ast, json, queue, re, secrets, subprocess, sys, threading, time
 
 MAX_ROUNDS = 8            # tool-calling rounds before the classic loop gives up
 MAX_TOOL_CALLS = 15       # tool calls per run, in either mode
@@ -187,6 +187,18 @@ class Run:
         self.model_calls, self.tool_calls = [], []
         self.seq = 0            # order of model and tool calls across both lists
         self.context_chars = 0  # tool output that entered the model's context
+        # One W3C trace per run, sent on every call. APIM (W3C correlation) logs it as OperationId on its App Insights
+        # requests and chargeback traces, and Foundry propagates it on the calls it relays, so all of a run's calls,
+        # including the Toolbox's, can be found in the logs by this id.
+        self.trace_id = secrets.token_hex(16)
+        self.started, self.started_at = time.perf_counter(), time.time()  # for each call's startMs (the run's timeline)
+
+    def _start_ms(self, elapsed=0.0):
+        """When a call that just took `elapsed` seconds started, in ms since the run began."""
+        return max(0, round((time.perf_counter() - self.started - elapsed) * 1000))
+
+    def _traceparent(self):
+        return f"00-{self.trace_id}-{secrets.token_hex(8)}-01"
 
     def _next(self):
         self.seq += 1
@@ -199,7 +211,8 @@ class Run:
             raise RuntimeError(limited)
 
     def _rpc(self, method, params=None, notify=False):
-        headers = {**self.deps["auth"](self.agent, self.payload, "tool"), "Accept": "application/json, text/event-stream"}
+        headers = {**self.deps["auth"](self.agent, self.payload, "tool"), "Accept": "application/json, text/event-stream",
+                   "traceparent": self._traceparent()}
         headers.pop("Apim-Debug-Authorization", None)
         if self.mcp_session:
             headers["Mcp-Session-Id"] = self.mcp_session
@@ -231,7 +244,8 @@ class Run:
         self._limit()
         status, headers, data, text, elapsed = self._rpc("tools/call", {"name": name, "arguments": arguments or {}})
         entry = {"seq": self._next(), "name": name, "args": arguments or {}, "status": status, "latencyMs": round(elapsed * 1000),
-                 "costUsd": _float(headers.get("x-gw-cost-usd")), "governance": headers.get("x-gw-governance")}
+                 "startMs": self._start_ms(elapsed), "costUsd": _float(headers.get("x-gw-cost-usd")), "governance": headers.get("x-gw-governance"),
+                 "requestId": headers.get("x-gw-request-id")}
         return self._record(entry, status, data, text)
 
     def _record(self, entry, status, data, text):
@@ -259,6 +273,7 @@ class Run:
 
     def _tb_rpc(self, method, params=None, notify=False):
         headers = {"Authorization": f"Bearer {self.deps['token'](FOUNDRY_AUDIENCE)}", "Accept": "application/json, text/event-stream"}
+        headers["traceparent"] = self._traceparent()
         if self.tb_session:
             headers["Mcp-Session-Id"] = self.tb_session
         body = {"jsonrpc": "2.0", "method": method, **({"params": params} if params is not None else {})}
@@ -291,14 +306,16 @@ class Run:
         if relayed and len([c for c in self.tool_calls if c.get("via") == "toolbox"]) >= MAX_TOOL_CALLS:
             raise RuntimeError(f"tool-call cap reached ({MAX_TOOL_CALLS})")
         self._limit()
-        status, _, data, text, elapsed = self._tb_rpc("tools/call", {"name": name, "arguments": arguments})
+        status, tb_headers, data, text, elapsed = self._tb_rpc("tools/call", {"name": name, "arguments": arguments})
         inner = str(arguments.get("name") or "")
         tool = inner.split("___")[-1] if relayed else name
         price = next((t.get("priceUsd", 0) for t in self.deps["config"].get("tools") or [] if t.get("name") == tool), 0)
         entry = {"seq": self._next(), "name": tool if relayed else name, "args": arguments.get("arguments") if relayed else arguments,
-                 "status": status, "latencyMs": round(elapsed * 1000), "costUsd": price if relayed and status == 200 else 0,
+                 "status": status, "latencyMs": round(elapsed * 1000), "startMs": self._start_ms(elapsed), "costUsd": price if relayed and status == 200 else 0,
                  "via": "toolbox" if relayed else "search", "governance": "Foundry Toolbox -> APIM (project managed identity)" if relayed else "Foundry tool search (no gateway call)"}
-        if not relayed:
+        if relayed:
+            entry["traceId"] = (tb_headers.get("x-request-id") or self.trace_id).replace("-", "")
+        else:
             entry["query"] = arguments.get("query")
         return self._record(entry, status, data, text)
 
@@ -307,7 +324,7 @@ class Run:
         body = {"model": self.model, "messages": messages, "max_tokens": MAX_TOKENS, "temperature": 0}
         if tools:
             body["tools"], body["tool_choice"] = tools, "auto"
-        headers = self.deps["auth"](self.agent, {**self.payload, "cacheScope": "off"}, "model")
+        headers = {**self.deps["auth"](self.agent, {**self.payload, "cacheScope": "off"}, "model"), "traceparent": self._traceparent()}
         headers.pop("Apim-Debug-Authorization", None)
         status, headers_out, text, elapsed = self.deps["http"]("POST", f"{self.deps['config']['inferenceBaseUrl']}/chat/completions", body, headers)
         lower = {k.lower(): v for k, v in headers_out.items()}
@@ -316,9 +333,11 @@ class Run:
         except ValueError:
             data = {}
         usage = data.get("usage") or {}
-        entry = {"seq": self._next(), "step": step, "status": status, "latencyMs": round(elapsed * 1000), "model": lower.get("x-gw-model-served") or self.model,
+        entry = {"seq": self._next(), "step": step, "status": status, "latencyMs": round(elapsed * 1000), "startMs": self._start_ms(elapsed),
+                 "model": lower.get("x-gw-model-served") or self.model,
                  "promptTokens": usage.get("prompt_tokens", 0), "completionTokens": usage.get("completion_tokens", 0),
-                 "costUsd": _float(lower.get("x-gw-cost-usd")), "messages": len(messages), "requestChars": len(json.dumps(body))}
+                 "costUsd": _float(lower.get("x-gw-cost-usd")), "messages": len(messages), "requestChars": len(json.dumps(body)),
+                 "requestId": lower.get("x-gw-request-id")}
         self.model_calls.append(entry)
         if status != 200:
             entry["error"] = self.deps["error_message"](status, data, text)
@@ -357,14 +376,16 @@ class Run:
             msg = self.chat(messages, "write the script" if attempt == 1 else "fix the script")
             code = extract_code(msg.get("content"))
             problem = check_code(code)
-            script = {"output": "", "error": f"rejected by the sandbox: {problem}"} if problem else self.execute(code, functions)
+            script_start = self._start_ms()
+            script =  {"output": "", "error": f"rejected by the sandbox: {problem}"} if problem else self.execute(code, functions)
             if not script.get("error"):
                 break
             messages += [{"role": "assistant", "content": msg.get("content") or ""},
                          {"role": "user", "content": f"The script failed: {script['error']}\nOutput so far:\n{script.get('output', '')[:1000]}\nReply with a corrected script."}]
         output = script.get("output", "")
         self.context_chars += len(output)
-        result = {"code": code, "stubs": stub_text, "scriptOutput": output, "scriptError": script.get("error"), "scriptMs": script.get("ms")}
+        result = {"code": code, "stubs": stub_text, "scriptOutput": output, "scriptError": script.get("error"), "scriptMs": script.get("ms"),
+                  "scriptStartMs": script_start}
         if script.get("error") and not output:
             return {**result, "answer": "", "error": f"the script failed: {script['error']}"}
         final = self.chat([{"role": "system", "content": ANSWER_SYSTEM},
@@ -419,7 +440,8 @@ class Run:
         return {"status": 200 if not result.get("error") else 500, "mode": self.mode, "agent": self.agent["name"], "tier": self.agent.get("tier", ""),
                 "model": self.model, "modelCalls": self.model_calls, "toolCalls": self.tool_calls, "promptTokens": prompt,
                 "completionTokens": completion, "totalTokens": prompt + completion, "costUsd": round(cost, 6),
-                "contextChars": self.context_chars, "elapsedMs": _ms(started), **result}
+                "contextChars": self.context_chars, "elapsedMs": _ms(started), "traceId": self.trace_id,
+                "startedAt": round(self.started_at * 1000), **result}
 
 
 def run(payload, deps):

@@ -914,6 +914,63 @@ def evidence(payload):
                  "note": "Diagnostic logs reach Log Analytics 2-5 minutes after the call - retry if a table is still empty."}
 
 
+def codemode_logs(payload):
+    """The gateway's own logs for scenario 24 runs, found by the run's W3C trace id (APIM logs it as OperationId, also on the
+    calls the Foundry Toolbox relays) and by the x-gw-request-id of each call the sandbox made directly (CorrelationId)."""
+    traces = [t for t in payload.get("traceIds") or [] if isinstance(t, str) and re.fullmatch(r"[0-9a-f]{32}", t)][:6]
+    ids = [i for i in payload.get("requestIds") or [] if isinstance(i, str) and re.fullmatch(r"[0-9a-fA-F-]{36}", i)][:200]
+    if not traces and not ids:
+        return 400, {"error": "traceIds (32 hex characters) or requestIds (x-gw-request-id GUIDs) are required"}
+    lets = f"let traces = dynamic({json.dumps(traces)}); let ids = dynamic({json.dumps(ids)}); "
+    # the chargeback record is written inside each billable call, so it carries both keys and links the relayed calls
+    # (known only by trace id) to their gateway CorrelationId
+    linked = ('let linked = AppTraces | where TimeGenerated > ago(1d) and tostring(Properties.record) == "chargeback" '
+              'and (OperationId in (traces) or tostring(Properties.requestId) in (ids)) | project id = tostring(Properties.requestId); '
+              'let all_ids = union (print id = "" | mv-expand id = ids to typeof(string)), linked | distinct id; ')
+    queries = {
+        "chargeback": ("AppTraces (chargeback)", "Who the gateway billed for each call: the caller it identified, the session and the cost",
+                       lets + 'AppTraces | where TimeGenerated > ago(1d) and tostring(Properties.record) == "chargeback" '
+                       'and (OperationId in (traces) or tostring(Properties.requestId) in (ids)) '
+                       '| project TimeGenerated, OperationId, RequestId = tostring(Properties.requestId), Surface = tostring(Properties.surface), '
+                       'Item = tostring(Properties.item), Via = tostring(Properties.via), Caller = tostring(Properties.caller), '
+                       'Session = tostring(Properties.session), CostUSD = round(tolong(Properties.costMicroUsd) / 1e6, 6) | order by TimeGenerated asc'),
+        "requests": ("AppRequests", "The MCP requests as App Insights saw them, by trace id: the client (user agent) and the tool",
+                     lets + 'AppRequests | where TimeGenerated > ago(1d) and OperationId in (traces) '
+                     '| project TimeGenerated, OperationId, Name, ResultCode, DurationMs, Method = tostring(Properties["gen_ai.operation.name"]), '
+                     'Tool = tostring(Properties["gen_ai.tool.name"]), UserAgent = tostring(Properties["user_agent.name"]), ClientIP '
+                     '| order by TimeGenerated asc'),
+        "gateway": ("ApiManagementGatewayLogs", "Every request: API, plan, subscription, status and caller IP",
+                    lets + linked + 'ApiManagementGatewayLogs | where TimeGenerated > ago(1d) and CorrelationId in (all_ids) '
+                    '| project TimeGenerated, CorrelationId, ApiId, ProductId, ApimSubscriptionId, Method, ResponseCode, TotalTime, CallerIpAddress '
+                    '| order by TimeGenerated asc'),
+        "mcp": ("ApiManagementGatewayMCPLog", "Every MCP message: method, tool, client and MCP session",
+                lets + linked + 'ApiManagementGatewayMCPLog | where TimeGenerated > ago(1d) and CorrelationId in (all_ids) '
+                '| project TimeGenerated, CorrelationId, Method, ToolName, ClientName, SessionId, Error | order by TimeGenerated asc'),
+    }
+    tables = {name: {"table": table, "tracks": tracks, "query": query, "portalLink": portal_logs_link(query), "rows": law_query(query)}
+              for name, (table, tracks, query) in queries.items()}
+    return 200, {"traceIds": traces, "requestIds": ids, "tables": tables,
+                 "note": "Diagnostic logs reach Log Analytics 2-5 minutes after the call - check again if a table is still empty."}
+
+
+def trace_timeline(payload):
+    """App Insights' end-to-end view of up to 6 W3C traces: every request APIM logged with the trace id as OperationId and the
+    backend calls it made for them (dependencies: the model, Content Safety, the MCP backend), with start time, duration and
+    parent, so the UI can draw the portal's transaction waterfall."""
+    traces = [t for t in payload.get("traceIds") or [] if isinstance(t, str) and re.fullmatch(r"[0-9a-f]{32}", t)][:6]
+    if not traces:
+        return 400, {"error": "traceIds (32 hex characters) are required"}
+    query = (f"let traces = dynamic({json.dumps(traces)}); "
+             'union (AppRequests | where TimeGenerated > ago(1d) and OperationId in (traces) | extend Kind = "request"), '
+             '(AppDependencies | where TimeGenerated > ago(1d) and OperationId in (traces) | extend Kind = "dependency") '
+             '| project TimeGenerated, OperationId, Id, ParentId, Kind, Name, Target, DependencyType, ResultCode, Success, DurationMs, '
+             'Method = tostring(Properties["gen_ai.operation.name"]), Tool = tostring(Properties["gen_ai.tool.name"]), '
+             'UserAgent = tostring(Properties["user_agent.name"]), Operation = OperationName '
+             '| order by TimeGenerated asc | take 1500')
+    return 200, {"traceIds": traces, "query": query, "portalLink": portal_logs_link(query), "rows": law_query(query),
+                 "note": "App Insights data reaches Log Analytics 2-5 minutes after the call."}
+
+
 def policy_evidence(payload):
     window = payload.get("window", "1h") if re.fullmatch(r"\d{1,3}[mhd]", payload.get("window", "1h")) else "1h"
     results = {}
@@ -2196,7 +2253,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json(500, {"error": scrub(str(error))})
         routes = {"/api/chat": chat, "/api/mcp": mcp, "/api/a2a": a2a, "/api/telemetry": telemetry, "/api/reset-budgets": reset_budgets,
                   "/api/trace": trace, "/api/evidence": evidence, "/api/policy-evidence": policy_evidence, "/api/policies": policies, "/api/flow-policies": flow_policies, "/api/entra-epoch": entra_epoch,
-                  "/api/chargeback": chargeback, "/api/budget-suspend": budget_suspend, "/api/budgets": budgets, "/api/responses": responses, "/api/image": image, "/api/codemode": codemode}
+                  "/api/chargeback": chargeback, "/api/budget-suspend": budget_suspend, "/api/budgets": budgets, "/api/responses": responses, "/api/image": image, "/api/codemode": codemode, "/api/codemode-logs": codemode_logs, "/api/trace-timeline": trace_timeline}
         handler = routes.get(self.path)
         if not handler:
             return self.send_json(404, {"error": "not found"})

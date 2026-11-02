@@ -276,6 +276,27 @@
   .cmgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:8px; margin-top:6px; }
   .cmgrid pre, .cmcode pre { margin:4px 0 0; padding:8px; background:#fff; border:1px solid #d6e6f5; border-radius:4px; font-size:11.5px; white-space:pre-wrap; max-height:320px; overflow:auto; }
   .cmcode { margin-top:6px; } .cmcode > summary { cursor:pointer; font-weight:600; color:var(--accent); }
+  .cmlogs { margin-top:10px; padding-top:8px; border-top:1px solid #c7e0f4; } .cmlogs > button { margin:0 8px; padding:2px 10px; font-size:12px; }
+  .cmlogs details.kq { margin-top:6px; } .cmlogs pre.kql { margin:6px 0 0; padding:6px; background:#f6f8fa; font-size:11px; white-space:pre-wrap; word-break:break-word; }
+  .cmlogtable { width:100%; table-layout:fixed; } .cmlogtable th, .cmlogtable td { text-align:left !important; white-space:normal; word-break:break-word; vertical-align:top; }
+  .cmlogtable tr > :first-child { width:28%; } .cmlogtable td code { font-size:11px; display:inline-block; margin:0 2px 2px 0; }
+  /* scenario 24 timeline: a portal-style waterfall (label | bar on a shared time axis | duration) */
+  .wf { font-size:12px; margin:4px 0 10px; }
+  .wfr { display:grid; grid-template-columns:minmax(0, 42%) minmax(0, 1fr) 58px; gap:8px; align-items:center; min-height:21px; border-bottom:1px solid #f3f2f1; }
+  .wfl { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .wfl .surf { font-size:10.5px; padding:0 5px; }
+  .wfr.dep .wfl { padding-left:22px; color:#605e5c; font-size:11.5px; } .wfr.dep .wfb i { opacity:.75; top:3px; bottom:3px; }
+  .wfb { position:relative; height:14px; background:linear-gradient(90deg, #edebe9 1px, transparent 1px) 0 0 / 25% 100%; }
+  .wfb i { position:absolute; top:1px; bottom:1px; min-width:2px; border-radius:2px; background:#0078d4; }
+  .wfb i.tool { background:#00838a; } .wfb i.search { background:#8764b8; } .wfb i.script { background:#ca5010; } .wfb i.safety { background:#c19c00; }
+  .wfb i.dep { background:#a19f9d; } .wfb i.err { background:#d13438; } .wfb i.m-tools { background:#0078d4; } .wfb i.m-search { background:#8764b8; } .wfb i.m-code { background:#107c10; }
+  .wfd { text-align:right; color:#605e5c; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .wfaxis { border-bottom:1px solid #c8c6c4; min-height:16px; } .wfaxis .wfb { background:none; display:flex; justify-content:space-between; color:#8a8886; font-size:10.5px; height:auto; }
+  .wfh { font-size:13px; margin:12px 0 2px; font-weight:600; } .wfh .muted { font-weight:400; } .wfh a, .wfh .wfre { margin-left:8px; font-size:12px; } .wfh .wfre { padding:2px 8px; }
+  .wftabs { display:flex; gap:4px; margin:12px 0 2px; flex-wrap:wrap; } .wftabs button { background:#fff; color:#323130; border:1px solid #c8c6c4; padding:3px 10px; font-size:12px; border-radius:14px; }
+  .wftabs button.on { background:#0078d4; border-color:#0078d4; color:#fff; } .wfmeta { font-size:12px; margin-bottom:2px; } .wfnote { font-size:11.5px; margin-top:6px; }
+  .wfmeta label { display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap; } .wfmeta input { width:auto; height:auto; margin:0; padding:0; }
+  .cmtlcard { align-self:start; position:sticky; top:130px; max-height:calc(100vh - 150px); overflow:auto; }
+  .surf.search { background:#f4effa; color:#5c2e91; } .surf.script { background:#fdf3ec; color:#8e3a0b; }
   .sclist .sctopic { position:sticky; top:-4px; z-index:1; font-size:10.5px; font-weight:700; color:#8a8886; text-transform:uppercase; letter-spacing:.7px; margin:6px -4px 2px; padding:6px 12px 5px;
     background:rgba(250,251,252,.94); backdrop-filter:blur(4px); border-bottom:1px solid #edf0f3; }
   .sclist .sctopic:first-child { margin-top:-4px; }
@@ -5121,6 +5142,7 @@ function renderRunDetail(run, s) {
     + `</tbody></table>` : "";
   const idxs = run.calls.slice().reverse(), pick = run.calls.includes(selCall) ? selCall : idxs[0];
   const rows = idxs.map(i => callView(session.calls[i], i).row.replace("<tr ", `<tr class="click${i === pick ? " sel" : ""}" `)).join("");
+  const cmModes = !agents.length ? runCmModes(run) : null;
   const busy = running ? " disabled" : "";
   $("runDetail").innerHTML = `
     <div class="rhead"><span class="rtag">#${run.n}</span><span class="kind ${run.kind}">${run.chip}</span><h2>${escapeHtml(run.title)}</h2>
@@ -5139,7 +5161,7 @@ function renderRunDetail(run, s) {
     </div>
     <div class="grid2">
       <div class="card"><h2>${run.req ? "The request you built" : run.kind === "demo" ? `Scenarios run (${run.parts.length})` : "What the scenario did"}</h2>${what}</div>
-      <div class="card"><h2>Cost by agent / user (USD)</h2><div class="scroll">${byAgent}</div>${byWhat ? `<h2 style="margin-top:18px">What the gateway decided</h2><div class="scroll">${byWhat}</div>` : ""}</div>
+      <div class="card${cmModes?.length ? " cmtlcard" : ""}">${cmModes?.length ? cmTimelineCard(run, cmModes) : `<h2>Cost by agent / user (USD)</h2><div class="scroll">${byAgent}</div>${byWhat ? `<h2 style="margin-top:18px">What the gateway decided</h2><div class="scroll">${byWhat}</div>` : ""}`}</div>
     </div>
     ${idxs.length ? `<div class="card" style="margin-top:16px"><h2>Requests in this run <span class="muted">(click one to inspect it)</span></h2><div class="scroll"><table>
       <thead><tr><th>Time</th><th>Agent / user</th><th>Session</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Governance</th><th>Tokens</th><th>Cost USD</th><th>Billed to</th><th>Backend</th><th>Latency</th><th>Detail</th><th>Evidence</th></tr></thead>
@@ -7689,7 +7711,7 @@ const SCENARIOS = [
       <li>A sandbox runs the script. Each function call becomes a real MCP <code>tools/call</code> through the gateway, with the agent's subscription key and Entra ID token.</li>
       <li>Only what the script <b>prints</b> goes back to the model, which writes the answer. Raw tool results never enter the model's context.</li></ol>
       <p><b>What the gateway still enforces:</b> in all three modes each tool call is a separate gateway call, checked and priced on its own. The plan's tool allow-list, per-call price, tool calls per minute, $ budgets and logs apply to model-written code and to Toolbox-relayed calls exactly as to classic tool calls, and the model calls still pass model governance and the token limit. Governance is per tool call, not per script or per search.</p>
-      <p><b>The trade-off in B:</b> the gateway sees the Toolbox, not the agent. Every B call arrives with the Toolbox connection's single subscription (here <code>support-agent</code>) and the Foundry project's identity (the caller trace reads <i>foundry-toolbox</i>), so per-agent plans, budgets and attribution collapse into one unless you run one Toolbox per plan. The Toolbox also opens a new MCP session upstream for each call, so the gateway logs about 3 requests per tool call. B's tool cost in the table is estimated from the catalog price, because the gateway's <code>x-gw-*</code> headers don't come back through Foundry.</p>
+      <p><b>The trade-off in B:</b> the gateway sees the Toolbox, not the agent. Every B call arrives with the Toolbox connection's single subscription (here <code>support-agent</code>) and the Foundry project's identity (the caller trace reads <i>foundry-toolbox</i>), so per-agent plans, budgets and attribution collapse into one unless you run one Toolbox per plan. The Toolbox also opens a new MCP session upstream for each call, so the gateway logs about 3 requests per tool call. B's tool cost in the table is estimated from the catalog price, because the gateway's <code>x-gw-*</code> headers don't come back through Foundry. Foundry does pass on the W3C <code>traceparent</code>, so every run sends one trace id on all its calls and <b>Check the gateway logs</b> finds B's relayed calls by it.</p>
       <p class="muted"><b>Spike limits:</b> the sandbox is a separate Python process with an AST allow-list, restricted built-ins, a timeout and a tool-call cap. It stands in for a real isolation boundary such as Hyperlight or Azure Container Apps dynamic sessions, and code mode's script runs with the caller's credentials. The gateway's MCP server sends no <code>outputSchema</code>, so the result shapes are documented in <code>codemode.py</code>; without them the model guessed field names and answered wrong. Savings grow with the size of tool results and the number of tools: this sandbox has 3 small tools, while vendor claims (for example 120K → 1.2K tokens) assume large catalogs. With 3 tools, B costs <b>more</b> than A: one search returns every schema plus Foundry metadata and adds a model round. Tool search pays off when the catalog is too big to advertise (the POC targets about 120 tools). B needs a one-time setup: <code>python infra/scripts/setup_toolbox.py --approve-live</code> creates the Toolbox and its connection (the subscription key sits in the connection URL, a spike shortcut), and approves the project identity in the gateway's Entra ID check.</p>
       <p class="muted"><b>Phase 2: Microsoft-Decision-1.</b> Decision-1 is a scoring model, not a generative one. It returns a probability for a yes/no, choice or score question, so it can't write the script or the answer; that stays with a chat model such as <code>gpt-4.1-mini</code>. It could gate a script before the sandbox runs it (is it in scope and safe?) or choose code mode or tool calling for each task. Both need a Decision-1 deployment and its own gateway route; not built yet.</p></div>`,
     story: () => `The Gold <b>${tierAgent("gold").displayName}</b> runs one procurement task three times on <b>${cmModel()}</b>, against the same MCP server on the gateway: classic tool calling (A), tool search through a Foundry Toolbox (B), then code mode (C). All answers should match; the takeaway compares the tokens each approach put in the model's context.`,
@@ -7700,9 +7722,12 @@ const SCENARIOS = [
       for (const [mode, label] of [["tools", "A · classic tool calling"], ["search", "B · tool search (Foundry Toolbox)"], ["code", "C · code mode"]]) {
         if (!running) return;
         info(`<b>${label}</b>: running on the gateway… (20-40 s)`);
-        const r = await cmRun({ agent: a.name, model, mode, task: CM_TASK, session: `${$("sessionId").value.trim()}-${mode}` });
+        const session = `${$("sessionId").value.trim()}-${mode}`, turn = cmConvoPending(a, model, mode, label, session);
+        const r = await cmRun({ agent: a.name, model, mode, task: CM_TASK, session });
         out[mode] = r;
+        if (curPart) (curPart.cm ||= {})[mode] = cmSlim(r);
         cmSteps(r, label);
+        cmConvoResult(turn, r, a, model, mode, label);
         if (r.error && !r.answer) info(`<b>${label}</b> failed: ${escapeHtml(r.error)}`);
       }
       takeaway(cmTakeaway(out.tools, out.search, out.code));
@@ -7719,17 +7744,54 @@ async function cmRun(body) {
     return await res.json().catch(() => ({ error: `/api/codemode answered HTTP ${res.status} without JSON` }));
   } catch (e) { return { error: `Can't reach the demo app (${e.message}). Is app.py still running?` }; }
 }
-function cmSteps(r, label) {
+function cmStepLines(r, label, withAgent = true) {
   const calls = [...(r.modelCalls || []).map(c => ({ ...c, kind: "model" })), ...(r.toolCalls || []).map(c => ({ ...c, kind: "tool" }))].sort((x, y) => x.seq - y.seq);
-  for (const c of calls) {
+  return calls.map(c => {
     const what = c.kind === "model"
       ? `${label.split(" ·")[0]} · model call <b>${escapeHtml(c.step)}</b> on <b>${escapeHtml(c.model || "")}</b> · ${c.messages} messages · <b>${c.promptTokens}</b>+${c.completionTokens} tokens`
       : c.via === "search"
       ? `${label.split(" ·")[0]} · Foundry <b>tool_search</b> <code>${escapeHtml(c.query || "")}</code> · ${c.resultChars} chars of schemas returned`
       : `${label.split(" ·")[0]} · ${c.via === "toolbox" ? "Toolbox relayed" : "called"} tool <b>${escapeHtml(c.name)}</b> <code>${escapeHtml(JSON.stringify(c.args))}</code> · ${c.resultChars} chars returned`;
-    $("scSteps").insertAdjacentHTML("beforeend", `<li><span class="status ${statusClass(c.status)}">${c.status}</span> ${surfChip(c.kind)} ${escapeHtml(r.agent || "")} ${what}`
-      + `${c.governance && c.governance !== "none" ? ` · <span class="gov">${escapeHtml(c.governance)}</span>` : ""} · ${fmtUsd(c.costUsd)} · <span class="muted">${fmtLat(c.latencyMs)}</span>${c.error ? ` · ${escapeHtml(String(c.error).slice(0, 120))}` : ""}</li>`);
-  }
+    return `<li><span class="status ${statusClass(c.status)}">${c.status}</span> ${surfChip(c.kind)} ${withAgent ? escapeHtml(r.agent || "") + " " : ""}${what}`
+      + `${c.governance && c.governance !== "none" ? ` · <span class="gov">${escapeHtml(c.governance)}</span>` : ""} · ${fmtUsd(c.costUsd)} · <span class="muted">${fmtLat(c.latencyMs)}</span>`
+      + `${c.requestId ? ` · <span class="muted" title="x-gw-request-id: CorrelationId in the gateway logs">id <code>${escapeHtml(c.requestId.slice(0, 8))}</code></span>` : c.traceId ? ` · <span class="muted" title="W3C trace id Foundry propagated: OperationId in App Insights">trace <code>${escapeHtml(c.traceId.slice(0, 8))}</code></span>` : ""}`
+      + `${c.error ? ` · ${escapeHtml(String(c.error).slice(0, 120))}` : ""}</li>`;
+  });
+}
+function cmSteps(r, label) { $("scSteps").insertAdjacentHTML("beforeend", cmStepLines(r, label).join("")); }
+// The conversation pane (when the page has one) shows each mode as a turn: the task, then the mode's answer and what it cost
+const CM_HOW = { tools: "every tool schema up front, one model round per tool step", search: "2 meta-tools (tool_search + call_tool); Foundry finds and relays the tools",
+                 code: "typed stubs; the model writes one script, a sandbox runs it" };
+const cmCaller = (r, mode, a) => mode === "search" ? `Foundry Toolbox (${r.toolboxPlan || "one subscription"})` : `${a.displayName} (its own key + Entra ID token)`;
+function cmConvoPending(a, model, mode, label, session) {
+  const box = $("convo"); if (!box) return null;
+  if (typeof cvDivider === "function" && typeof cv !== "undefined") cvDivider(box, `cm|${$("sessionId").value}`, `Scenario 24 · ${SCENARIOS.find(s => s.experimental)?.title || "Code mode"}`, $("sessionId").value);
+  const el = document.createElement("div"); el.className = "cv-turn";
+  el.innerHTML = `<div class="cv-u"><div class="cv-who"><b>${escapeHtml(a.displayName)}</b> <span class="badge ${a.tier}">${a.tier}</span> → ${surfChip("model")} ${escapeHtml(model)} · <b>${escapeHtml(label)}</b> <span>· ${escapeHtml(CM_HOW[mode])}</span></div>`
+    + `<div class="cv-txt">${mode === "tools" ? escapeHtml(CM_TASK) : `<span class="muted">Same task as A.</span>`}</div></div>`
+    + `<div class="cv-a"><span class="cv-typing" role="status" aria-label="Running ${escapeHtml(label)}"><i></i><i></i><i></i></span></div>`;
+  box.append(el); box.scrollTop = box.scrollHeight;
+  return el;
+}
+function cmConvoResult(el, r, a, model, mode, label) {
+  if (!el?.isConnected) return;
+  const ok = !r.error || r.answer, relayed = (r.toolCalls || []).filter(c => c.via !== "search"), searches = (r.toolCalls || []).filter(c => c.via === "search");
+  const usd = [...(r.modelCalls || []), ...(r.toolCalls || [])].reduce((s, c) => s + (c.costUsd || 0), 0);
+  const meta = [`<span class="status ${statusClass(ok ? 200 : 500)}">${ok ? 200 : "failed"}</span>`, `<b>${(r.totalTokens || 0).toLocaleString()}</b> tokens`,
+    `${(r.modelCalls || []).length} model calls`, `${relayed.length} tool calls through the gateway${searches.length ? ` + ${searches.length} search` : ""}`,
+    `${r.toolsAdvertised ?? "-"} tools advertised`, fmtUsd(usd), fmtLat(r.elapsedMs)];
+  const sec = (t) => `<div class="cv-sec">${t}</div>`;
+  let det = sec("Caller the gateway sees") + `<div class="cv-txt">${escapeHtml(cmCaller(r, mode, a))}</div>`
+    + sec("Every call, in order") + `<ul class="cv-steps">${cmStepLines(r, label, false).join("")}</ul>`;
+  if (mode === "code" && r.code) det += sec("The script the model wrote") + `<pre class="cv-pre">${escapeHtml(r.code)}</pre>`
+    + sec("What it printed (the only tool data the model saw)") + `<pre class="cv-pre">${escapeHtml(r.scriptOutput || r.scriptError || "")}</pre>`;
+  if (mode === "search" && searches.length) det += sec("What the model searched for") + `<pre class="cv-pre">${escapeHtml(searches.map(c => `tool_search "${c.query}"`).join("\n"))}</pre>`;
+  if (r.traceId) det += sec("Find it in the gateway logs") + `<div class="cv-txt">Trace id <code>${escapeHtml(r.traceId)}</code> (App Insights <code>OperationId</code>)${mode === "search" ? ", propagated by Foundry on the calls it relayed" : ""}. `
+    + `${(r.modelCalls || []).concat(r.toolCalls || []).filter(c => c.requestId).length} gateway request ids (<code>CorrelationId</code>) are in the call list. Use <b>Check the gateway logs</b> under the comparison.</div>`;
+  const body = ok ? (typeof cvMd === "function" ? cvMd(r.answer || "") : escapeHtml(r.answer || "")) : `<b>${escapeHtml(label)} failed</b>\n${escapeHtml(r.error || "")}`;
+  el.querySelector(".cv-a").outerHTML = `<div class="cv-a${ok ? "" : " err"}"><div class="cv-who">${escapeHtml(label)}</div><div class="cv-txt">${body}</div>`
+    + `<div class="cv-meta">${meta.join("<span>·</span>")}</div><details><summary>Details: how ${escapeHtml(label.split(" ·")[0])} got there</summary>${det}</details></div>`;
+  const box = $("convo"); box.scrollTop = box.scrollHeight;
 }
 function cmTakeaway(A, B, C) {
   if (!A || !C) return "The run stopped before all modes finished.";
@@ -7757,6 +7819,7 @@ function cmTakeaway(A, B, C) {
       ${row("Model calls", r => n(r.modelCalls))}
       ${row("Tools advertised to the model up front", r => r.toolsAdvertised || 0, undefined, false)}
       ${row("Tool calls through the gateway", r => n(relayed(r)), undefined, false)}
+      <tr><td>Caller the gateway sees on tool calls</td>${cols.map(([, r]) => `<td>${r === B ? "Foundry Toolbox" : escapeHtml(tierAgent("gold").displayName)}</td>`).join("")}</tr>
       ${row("Prompt tokens", r => r.promptTokens)}
       ${row("Completion tokens", r => r.completionTokens)}
       ${row("Total tokens", r => r.totalTokens)}
@@ -7769,7 +7832,156 @@ function cmTakeaway(A, B, C) {
     ${ok(B) ? `<details class="cmcode"><summary>What B searched for, and where Foundry sent the calls</summary><pre>${escapeHtml((B.toolCalls || []).filter(c => c.via === "search").map(c => `tool_search "${c.query}"`).join("\n") + `\n\nToolbox: ${B.toolbox || ""}\nUpstream: the gateway's MCP server, with ${B.toolboxPlan || "one subscription"}`)}</pre></details>` : ""}
     <details class="cmcode"><summary>The script the model wrote (C)</summary><pre>${escapeHtml(C.code || "")}</pre></details>
     <details class="cmcode"><summary>What the script printed: the only tool data the model saw (C)</summary><pre>${escapeHtml(C.scriptOutput || C.scriptError || "")}</pre></details>
-    <details class="cmcode"><summary>The functions the model was given (from MCP tools/list)</summary><pre>${escapeHtml(C.stubs || "")}</pre></details>`;
+    <details class="cmcode"><summary>The functions the model was given (from MCP tools/list)</summary><pre>${escapeHtml(C.stubs || "")}</pre></details>
+    ${cmLogsPanel(cols)}`;
+}
+// Log correlation: each run sends one W3C trace id on every call (APIM logs it as OperationId, and Foundry propagates it on the
+// calls the Toolbox relays) and each direct call returns its x-gw-request-id (CorrelationId), so a run's logs can be pulled and checked
+function cmLogsPanel(cols) {
+  const keys = cols.map(([h, r]) => ({ mode: h.split(" ·")[0], label: h, traceId: r.traceId || "", requestIds: [...(r.modelCalls || []), ...(r.toolCalls || [])].map(c => c.requestId).filter(Boolean),
+    models: (r.modelCalls || []).length, tools: (r.toolCalls || []).filter(c => c.via !== "search").length, toolbox: r.mode === "search" })).filter(k => k.traceId);
+  if (!keys.length) return "";
+  return `<div class="cmlogs"><b>Gateway logs for this run</b> <button class="secondary" data-runs="${escapeHtml(JSON.stringify(keys))}" onclick="cmCheckLogs(this)">Check the gateway logs</button>
+    <span class="muted">Trace ids: ${keys.map(k => `${k.mode} <code>${escapeHtml(k.traceId)}</code>`).join(" · ")}. Logs reach Log Analytics 2-5 minutes after the run.</span><div class="cmlogsOut"></div></div>`;
+}
+async function cmCheckLogs(btn) {
+  const keys = JSON.parse(btn.dataset.runs || "[]"), out = btn.parentElement.querySelector(".cmlogsOut");
+  btn.disabled = true; out.innerHTML = `<div class="muted">Querying Log Analytics…</div>`;
+  try {
+    const res = await fetch("/api/codemode-logs", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ traceIds: keys.map(k => k.traceId), requestIds: keys.flatMap(k => k.requestIds) }) });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+    const rows = (t) => Array.isArray(d.tables?.[t]?.rows) ? d.tables[t].rows : [];
+    const uniq = (xs) => [...new Set(xs.filter(Boolean))];
+    const cell = (xs) => xs.length ? xs.map(x => `<code>${escapeHtml(x)}</code>`).join(" ") : `<span class="muted">-</span>`;
+    const per = keys.map(k => {
+      const charge = rows("chargeback").filter(x => x.OperationId === k.traceId || k.requestIds.includes(x.RequestId));
+      const ids = new Set([...k.requestIds, ...charge.map(x => x.RequestId)]);
+      const gw = rows("gateway").filter(x => ids.has(x.CorrelationId)), mcp = rows("mcp").filter(x => ids.has(x.CorrelationId));
+      const ai = rows("requests").filter(x => x.OperationId === k.traceId);
+      const toolGw = gw.filter(x => x.ApiId === "commerce-mcp"), modelGw = gw.filter(x => x.ApiId !== "commerce-mcp");
+      return { k, charge, toolGw, modelGw, toolsLogged: mcp.filter(x => x.Method === "tools/call").length, ai,
+        callers: uniq(charge.filter(x => x.Surface === "tool").map(x => x.Caller)), subs: uniq(toolGw.map(x => x.ApimSubscriptionId)),
+        sessions: uniq(charge.map(x => x.Session)), agents: uniq(ai.map(x => x.UserAgent)), ips: uniq(toolGw.map(x => x.CallerIpAddress)) };
+    });
+    const ok = (n, of) => `<span class="status ${statusClass(n >= of ? 200 : n ? 429 : 500)}">${n} / ${of}</span>`;
+    const tr = (name, f) => `<tr><td>${name}</td>${per.map(p => `<td>${f(p)}</td>`).join("")}</tr>`;
+    const allFound = per.every(p => p.toolsLogged >= p.k.tools && p.modelGw.length >= p.k.models);
+    out.innerHTML = `<div class="${allFound ? "" : "muted"}" style="margin-top:6px">${allFound ? "Every call each mode made is in the gateway logs." : "Some calls aren't in the logs yet. Logs land 2-5 minutes after a call: check again shortly."}</div>
+      <table class="cmtable cmlogtable"><tr><th></th>${per.map(p => `<th>${escapeHtml(p.k.label)}</th>`).join("")}</tr>
+        ${tr("Tool calls in the MCP log (logged / made)", p => ok(p.toolsLogged, p.k.tools))}
+        ${tr("Model calls in the gateway log (logged / made)", p => ok(p.modelGw.length, p.k.models))}
+        ${tr("Chargeback records (model, tool and safety)", p => p.charge.length)}
+        ${tr("Caller the gateway billed the tool calls to", p => cell(p.callers))}
+        ${tr("Subscription on the tool calls", p => cell(p.subs))}
+        ${tr("Session on the chargeback", p => cell(p.sessions))}
+        ${tr("Client (App Insights user agent)", p => cell(p.agents))}
+        ${tr("Caller IP on the tool calls", p => cell(p.ips))}
+        ${tr("App Insights requests with the run's trace id", p => p.ai.length)}</table>
+      <div class="muted">A and C match by the <code>x-gw-request-id</code> each call returned (<code>CorrelationId</code>). Foundry doesn't return the gateway's ids for the calls it relays, so B matches by the trace id: Foundry passes the W3C <code>traceparent</code> on to the gateway, the gateway logs it as <code>OperationId</code>, and the chargeback record links it to each call's <code>CorrelationId</code>. Foundry doesn't forward other headers, so B's relayed tool calls read <i>no-session</i> (its model calls, made directly, keep the session).</div>
+      ${Object.values(d.tables || {}).map(t => { const n = Array.isArray(t.rows) ? t.rows.length : 0;
+        return `<details class="kq"><summary>${ico(EVT_ICON(t.table), "", "")}<span class="t"><code>${escapeHtml(t.table)}</code> ${escapeHtml(t.tracks)}</span><span class="cnt${n ? " has" : ""}">${Array.isArray(t.rows) ? n + " row" + (n === 1 ? "" : "s") : "error"}</span>${t.portalLink ? `<a href="${t.portalLink}" target="_blank" title="Run this query in the Azure portal">Portal ↗</a>` : ""}</summary>`
+          + `<div class="body">${barTable(t.rows)}<pre class="kql">${escapeHtml(t.query)}</pre></div></details>`; }).join("")}
+      <div class="muted">Checked ${new Date().toLocaleTimeString()}.</div>`;
+  } catch (e) { out.innerHTML = `<div class="muted">Couldn't query the logs: ${escapeHtml(e.message)}</div>`; }
+  btn.disabled = false; btn.textContent = "Check again";
+}
+// ---- Scenario 24 timeline (run detail): each mode's calls as the sandbox made them, and App Insights' end-to-end view of the same
+//      W3C trace (APIM's requests and the backend calls it made for them), drawn like the portal's transaction waterfall
+const CM_MODES = [["tools", "A · tool calling"], ["search", "B · tool search"], ["code", "C · code mode"]];
+const cmTlCache = new Map();  // "trace,trace,…" -> { state: loading | ok | err, rows, portalLink, at }
+let cmTlMode = null, cmTlDeps = false;
+const cmSlim = (r) => { const { stubs, code, scriptOutput, toolNamesAdvertised, task, ...rest } = r || {}; return rest; };
+function runCmModes(run) {
+  for (const p of run.parts || []) {
+    if (p.cm) return CM_MODES.filter(([m]) => p.cm[m]).map(([mode, label]) => ({ mode, label, traceId: p.cm[mode].traceId || "", r: p.cm[mode] }));
+    const m = /data-runs="([^"]*)"/.exec(p.takeaway || "");  // runs saved before the timeline: the trace ids are in the logs button
+    if (m) { const t = document.createElement("textarea"); t.innerHTML = m[1];
+      try { return JSON.parse(t.value).map(k => ({ mode: { A: "tools", B: "search", C: "code" }[k.mode] || k.mode, label: k.label, traceId: k.traceId, r: null })); } catch {} }
+  }
+  return null;
+}
+function wfRows(items, span) {  // items: { label (html), cls, start, dur (ms from the left edge), title, child }
+  const pct = (v) => Math.max(0, Math.min(100, 100 * v / span)), tick = (v) => span < 2000 ? Math.round(v) + " ms" : (v / 1000).toFixed(span < 10000 ? 1 : 0) + " s";
+  return `<div class="wf"><div class="wfr wfaxis"><div></div><div class="wfb">${[0, .25, .5, .75, 1].map(f => `<span>${tick(f * span)}</span>`).join("")}</div><div></div></div>`
+    + items.map(it => { const l = pct(it.start);
+      return `<div class="wfr${it.child ? " dep" : ""}" title="${escapeHtml(it.title || "")}"><div class="wfl">${it.label}</div>`
+        + `<div class="wfb"><i class="${it.cls}" style="left:${l.toFixed(2)}%;width:${Math.min(100 - l, Math.max(.4, pct(it.dur))).toFixed(2)}%"></i></div><div class="wfd">${fmtLat(it.dur)}</div></div>`; }).join("") + `</div>`;
+}
+function cmTlLocal(r) {
+  const calls = [...(r.modelCalls || []).map(c => ({ ...c, kind: "model" })), ...(r.toolCalls || []).map(c => ({ ...c, kind: "tool" }))].filter(c => c.startMs != null);
+  if (!calls.length) return null;
+  const inScript = (c) => r.scriptStartMs != null && c.startMs >= r.scriptStartMs && c.startMs <= r.scriptStartMs + (r.scriptMs || 0);
+  const items = calls.map(c => ({ start: c.startMs, dur: c.latencyMs, child: c.kind === "tool" && inScript(c), cls: c.status >= 400 ? "err" : c.kind === "model" ? "model" : c.via === "search" ? "search" : "tool",
+    title: c.requestId ? `x-gw-request-id ${c.requestId}` : c.traceId ? `trace ${c.traceId}` : "",
+    label: c.kind === "model" ? `${surfChip("model")} ${escapeHtml(c.step)} <span class="muted">· ${c.promptTokens}+${c.completionTokens} tokens</span>`
+      : c.via === "search" ? `<span class="surf search">Foundry</span> tool_search <span class="muted">"${escapeHtml(c.query || "")}"</span>`
+      : `${surfChip("tool")} ${c.via === "toolbox" ? "call_tool → " : ""}<b>${escapeHtml(c.name)}</b>` }));
+  if (r.scriptStartMs != null && r.scriptMs) items.push({ start: r.scriptStartMs, dur: r.scriptMs, cls: "script", label: `<span class="surf script">Sandbox</span> runs the model's script`, title: "Every tool call inside this bar was made by the script" });
+  items.sort((a, b) => a.start - b.start || (b.cls === "script") - (a.cls === "script"));
+  return { items, span: Math.max(r.elapsedMs || 0, ...items.map(i => i.start + i.dur)) };
+}
+function cmTlAi(rows, traceId) {
+  const mine = (rows || []).filter(x => x.OperationId === traceId);
+  if (!mine.length) return null;
+  const t = (x) => Date.parse(x.TimeGenerated), d = (x) => Number(x.DurationMs) || 0;
+  const t0 = Math.min(...mine.map(t)), span = Math.max(1, ...mine.map(x => t(x) - t0 + d(x)));
+  const reqs = mine.filter(x => x.Kind === "request"), deps = mine.filter(x => x.Kind === "dependency"), reqIds = new Set(reqs.map(x => x.Id));
+  const short = (n) => String(n || "").replace(/^(GET|POST|PUT|PATCH|DELETE) /, "").replace(/^\/(inference\/)?openai\/v1\//, "");
+  const depCls = (x) => /contentsafety/.test(x.Name) ? "safety" : /openai|completions/.test(x.Name) ? "model" : "dep";
+  const dep = (c) => ({ child: true, start: t(c) - t0, dur: d(c), cls: depCls(c), label: escapeHtml(short(c.Name)), title: `Backend call: ${c.Name}${c.Target ? ` → ${c.Target}` : ""} · ${c.ResultCode || ""}` });
+  const items = [];
+  for (const x of reqs) {
+    const tool = /\/mcp\b/.test(x.Name), err = +x.ResultCode >= 400, kids = deps.filter(c => c.ParentId === x.Id);
+    items.push({ start: t(x) - t0, dur: d(x), cls: err ? "err" : tool ? "tool" : "model", title: `${x.Name} · ${x.ResultCode} · ${x.Operation || ""}${kids.length ? ` · ${kids.length} backend calls` : ""}`,
+      label: `${surfChip(tool ? "tool" : "model")} ${tool ? `${escapeHtml(x.Method || "MCP")}${x.Tool ? ` <b>${escapeHtml(x.Tool)}</b>` : ""}` : escapeHtml(short(x.Name))}`
+        + `${x.UserAgent ? ` <span class="muted">· ${escapeHtml(x.UserAgent)}</span>` : ""}${err ? ` <span class="status err">${escapeHtml(x.ResultCode)}</span>` : ""}` });
+    if (cmTlDeps) items.push(...kids.map(dep));
+  }
+  if (cmTlDeps) items.push(...deps.filter(c => !reqIds.has(c.ParentId)).map(dep));
+  return { items, span, t0, reqs: reqs.length, deps: deps.length, agents: [...new Set(reqs.map(x => x.UserAgent).filter(Boolean))] };
+}
+async function cmTlLoad(key) {
+  cmTlCache.set(key, { state: "loading" });
+  try {
+    const res = await fetch("/api/trace-timeline", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ traceIds: key.split(",") }) });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+    if (!Array.isArray(d.rows)) throw new Error(d.rows?.error || "Log Analytics returned no table");
+    cmTlCache.set(key, { state: "ok", rows: d.rows, portalLink: d.portalLink, at: Date.now() });
+  } catch (e) { cmTlCache.set(key, { state: "err", error: e.message }); }
+  if ($("cmTl")) renderRuns();
+}
+function cmTimelineCard(run, modes) {
+  if (!modes.some(m => m.mode === cmTlMode)) cmTlMode = modes[0].mode;
+  const key = modes.map(m => m.traceId).filter(Boolean).join(","), ai = key ? cmTlCache.get(key) : null;
+  if (key && !ai) cmTlLoad(key);
+  const views = modes.map(m => ({ ...m, local: m.r ? cmTlLocal(m.r) : null, ai: ai?.state === "ok" ? cmTlAi(ai.rows, m.traceId) : null }));
+  const total = (v) => v.r?.elapsedMs ?? v.ai?.span;
+  const known = views.filter(v => total(v) != null), maxT = Math.max(1, ...known.map(total));
+  const overview = known.length ? wfRows(known.map(v => ({ start: 0, dur: total(v), cls: `m-${v.mode}`, title: v.r ? "End to end, as the sandbox timed it" : "First to last App Insights record of the trace",
+    label: `<b>${escapeHtml(v.label)}</b>${v.r ? ` <span class="muted">· ${(v.r.totalTokens || 0).toLocaleString()} tokens · ${(v.r.modelCalls || []).length} model calls</span>` : ""}` })), maxT) : "";
+  const v = views.find(x => x.mode === cmTlMode);
+  const tabs = `<div class="wftabs">${views.map(x => `<button class="${x.mode === cmTlMode ? "on" : ""}" onclick="cmTlMode='${x.mode}';renderRuns()">${escapeHtml(x.label)}</button>`).join("")}</div>`;
+  const local = v.local ? `<h3 class="wfh">What the sandbox did <span class="muted">· every call it made, timed by app.py${v.mode === "code" ? "; the tool calls inside the orange bar came from the model's script" : v.mode === "search" ? "; tool_search runs in Foundry, call_tool is relayed to the gateway" : ""}</span></h3>${wfRows(v.local.items, v.local.span)}`
+    : v.r ? "" : `<div class="muted wfh">This run was saved before per-call timing was recorded: only App Insights' view is available.</div>`;
+  const age = Date.now() - (run.ended || run.started), fresh = age < 6 * 60000;
+  let aiHtml;
+  if (!v.traceId) aiHtml = `<div class="muted">No trace id for this mode.</div>`;
+  else if (!ai || ai.state === "loading") aiHtml = `<div class="muted">Querying App Insights for trace <code>${escapeHtml(v.traceId)}</code>…</div>`;
+  else if (ai.state === "err") aiHtml = `<div class="muted">Couldn't query App Insights: ${escapeHtml(ai.error)}</div>`;
+  else if (!v.ai) aiHtml = `<div class="muted">No App Insights records for trace <code>${escapeHtml(v.traceId)}</code> yet.${fresh ? " They land 2-5 minutes after the run." : ""}</div>`;
+  else aiHtml = `<div class="muted wfmeta">${v.ai.reqs} gateway requests · ${v.ai.deps} backend calls · first to last ${fmtLat(v.ai.span)} · started ${new Date(v.ai.t0).toLocaleTimeString()}`
+    + `${v.ai.agents.length ? ` · client ${v.ai.agents.map(a => `<code>${escapeHtml(a)}</code>`).join(" ")}` : ""} · <label><input type="checkbox"${cmTlDeps ? " checked" : ""} onchange="cmTlDeps=this.checked;renderRuns()"> show backend calls</label></div>${wfRows(v.ai.items, v.ai.span)}`;
+  return `<div id="cmTl"><h2>Timeline <span class="muted">· how long each call took</span></h2>
+    ${overview ? `<h3 class="wfh">End to end, per mode</h3>${overview}` : ""}
+    ${tabs}${local}
+    <h3 class="wfh">What App Insights logged <span class="muted">· trace <code>${escapeHtml(v.traceId || "-")}</code> (OperationId)</span>
+      ${ai?.portalLink ? `<a href="${ai.portalLink}" target="_blank" title="Run this query in the Azure portal">Portal ↗</a>` : ""}
+      ${key ? `<button class="secondary wfre" onclick="cmTlCache.delete('${key}');renderRuns()"${ai?.state === "loading" ? " disabled" : ""}>↻ Refresh</button>` : ""}</h3>
+    ${aiHtml}
+    <div class="muted wfnote">Bars start when the call started and are as long as it took. ${v.mode === "search" ? "B's tool calls show up twice: as Foundry's relay (sandbox view) and as the requests the Toolbox (<code>ToolServer</code>) made to the gateway, usually initialize, tools/list and tools/call for each one." : "Each gateway request carries the run's <code>traceparent</code>, so App Insights files it under this trace."} The two views use different clocks, so compare durations rather than exact start times.</div></div>`;
 }
 // Entra-only mode helpers: personas the UI can call as (hosted: managed identities; local: the Azure CLI persona)
 const entraPersonas = () => (cfg?.entraMode?.personas || []).filter(p => p.available);
@@ -7883,7 +8095,8 @@ const SCENARIO_TOPICS = [
   ["Tools & agents", "MCP tools and A2A agents under the same plan", /^MCP tools|^A2A agent/i],
   ["Identity & safety", "Who may call, and what never reaches a model", /Zero trust|content safety/i],
   ["Routing & resilience", "Regions, failover and circuit breaking", /Load balancing/i],
-  ["Chargeback & evidence", "Who pays, and the proof in traces and logs", /Chargeback|Policy trace/i]];
+  ["Chargeback & evidence", "Who pays, and the proof in traces and logs", /Chargeback|Policy trace/i],
+  ["Experimental", "Spikes and proofs of concept, not part of Run all", /code mode/i]];
 // The picker: search (titles, what they show, their controls and policy names), topic chips with a "Start here" tour, a one-line
 // list and the selected scenario's preview with Run, Customize (prefills the request builder) and the matching flow example.
 const SC_TOUR = [/^Zero trust/, /^Model governance/, /^\$ budget exhausted/, /^Load balancing/, /^Chargeback by user/];  // identity → plan → budgets → routing → evidence

@@ -77,11 +77,82 @@ class CodeModeTests(unittest.TestCase):
         self.assertEqual((search["via"], search["query"], search["costUsd"]), ("search", "stock", 0))
         self.assertEqual((call["via"], call["name"], call["args"], call["costUsd"]), ("toolbox", "check-inventory", {"sku": "A"}, 0.002))
 
+    def test_every_toolbox_call_carries_the_runs_trace_id(self):
+        run = self._toolbox_run({"foundryProjectEndpoint": "https://f/api/projects/p"})
+        sent = []
+
+        def fake_http(method, url, body, headers, timeout=None):
+            sent.append(headers)
+            return 200, {"x-request-id": run.trace_id}, '{"jsonrpc":"2.0","id":1,"result":{"content":[{"type":"text","text":"{}"}]}}', 0.01
+
+        run.deps.update(http=fake_http, parse_rpc=lambda text: __import__("json").loads(text))
+        run.toolbox_tool("call_tool", {"name": "commerce___check-inventory", "arguments": {"sku": "A"}})
+        run.toolbox_tool("tool_search", {"query": "stock"})
+        self.assertRegex(run.trace_id, r"^[0-9a-f]{32}$")
+        parents = [h["traceparent"] for h in sent]
+        self.assertTrue(all(p.startswith(f"00-{run.trace_id}-") and p.endswith("-01") for p in parents), parents)
+        self.assertNotEqual(parents[0], parents[1])  # a new span per call, one trace per run
+        self.assertNotIn("Mcp-Session-Id", sent[0])
+        relayed, search = run.tool_calls
+        self.assertEqual(relayed["traceId"], run.trace_id)
+        self.assertNotIn("traceId", search)
+
+    def test_gateway_tool_calls_record_the_request_id_and_send_the_trace(self):
+        sent = []
+
+        def fake_http(method, url, body, headers, timeout=None):
+            sent.append(headers)
+            return 200, {"X-Gw-Request-Id": "11111111-2222-3333-4444-555555555555", "x-gw-cost-usd": "0.002"}, \
+                '{"jsonrpc":"2.0","id":1,"result":{"content":[{"type":"text","text":"{}"}]}}', 0.01
+
+        deps = {"config": {"mcpUrl": "https://gw/mcp"}, "demo_limit": lambda: None, "http": fake_http, "error_message": lambda s, d, t: "",
+                "auth": lambda agent, payload, surface: {"api-key": "k", "Apim-Debug-Authorization": "x"},
+                "parse_rpc": lambda text: __import__("json").loads(text)}
+        run = codemode.Run(deps, {"name": "a"}, {}, "tools")
+        run.tool("check-inventory", {"sku": "A"})
+        self.assertEqual(run.tool_calls[0]["requestId"], "11111111-2222-3333-4444-555555555555")
+        self.assertTrue(sent[0]["traceparent"].startswith(f"00-{run.trace_id}-"))
+        self.assertNotIn("Apim-Debug-Authorization", sent[0])
+
     def test_search_mode_needs_the_toolbox_setup(self):
         with self.assertRaisesRegex(RuntimeError, "setup_toolbox.py"):
             self._toolbox_run({}).toolbox_url()
         status, body = codemode.run({"agent": "a", "mode": "kong"}, {"agent_by_name": lambda n: {"name": n}})
         self.assertEqual((status, body["error"]), (400, "mode must be 'tools', 'search' or 'code'"))
+
+    def test_codemode_logs_validates_ids_and_queries_by_trace_and_correlation_id(self):
+        spec_app = importlib.util.spec_from_file_location("sandbox_app_cm", LAB / "src" / "app.py")
+        app = importlib.util.module_from_spec(spec_app)
+        spec_app.loader.exec_module(app)
+        self.assertEqual(app.codemode_logs({"traceIds": ["nope\") | take 1"], "requestIds": ["x"]})[0], 400)
+        queries = []
+        with patch.object(app, "law_query", side_effect=lambda q, *a: queries.append(q) or []), patch.object(app, "portal_logs_link", return_value=""):
+            status, body = app.codemode_logs({"traceIds": ["a" * 32, "bad"], "requestIds": ["11111111-2222-3333-4444-555555555555"]})
+        self.assertEqual((status, body["traceIds"]), (200, ["a" * 32]))
+        self.assertEqual(set(body["tables"]), {"chargeback", "requests", "gateway", "mcp"})
+        self.assertTrue(all(f'dynamic(["{"a" * 32}"])' in q and "11111111-2222-3333-4444-555555555555" in q for q in queries))
+
+    def test_trace_timeline_validates_ids_and_queries_requests_and_dependencies(self):
+        spec_app = importlib.util.spec_from_file_location("sandbox_app_tl", LAB / "src" / "app.py")
+        app = importlib.util.module_from_spec(spec_app)
+        spec_app.loader.exec_module(app)
+        self.assertEqual(app.trace_timeline({"traceIds": ["x\") | take 1"]})[0], 400)
+        with patch.object(app, "law_query", return_value=[]) as law, patch.object(app, "portal_logs_link", return_value=""):
+            status, body = app.trace_timeline({"traceIds": ["b" * 32, "bad"]})
+        query = law.call_args[0][0]
+        self.assertEqual((status, body["traceIds"], body["rows"]), (200, ["b" * 32], []))
+        for part in (f'dynamic(["{"b" * 32}"])', "AppRequests", "AppDependencies", "ParentId", "DurationMs"):
+            self.assertIn(part, query)
+
+    def test_calls_record_when_they_started_in_the_run(self):
+        def fake_http(method, url, body, headers, timeout=None):
+            return 200, {}, '{"jsonrpc":"2.0","id":1,"result":{"content":[{"type":"text","text":"{}"}]}}', 0.0
+        deps = {"config": {"mcpUrl": "https://gw/mcp"}, "demo_limit": lambda: None, "http": fake_http, "error_message": lambda s, d, t: "",
+                "auth": lambda agent, payload, surface: {}, "parse_rpc": lambda text: __import__("json").loads(text)}
+        run = codemode.Run(deps, {"name": "a"}, {}, "tools")
+        run.tool("check-inventory", {"sku": "A"})
+        self.assertGreaterEqual(run.tool_calls[0]["startMs"], 0)
+        self.assertIn("startedAt", run.summary(run.started, {}))
 
 
 if __name__ == "__main__":
