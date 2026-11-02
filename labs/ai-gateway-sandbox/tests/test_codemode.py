@@ -118,7 +118,52 @@ class CodeModeTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "setup_toolbox.py"):
             self._toolbox_run({}).toolbox_url()
         status, body = codemode.run({"agent": "a", "mode": "kong"}, {"agent_by_name": lambda n: {"name": n}})
-        self.assertEqual((status, body["error"]), (400, "mode must be 'tools', 'search', 'code' or 'probe'"))
+        self.assertEqual((status, body["error"]), (400, "mode must be 'tools', 'search', 'code', 'mesh' or 'probe'"))
+
+    def test_mesh_catalog_names_every_operation_domain_resource_verb(self):
+        entries, ops = codemode.mesh_catalog(TOOLS, 300)
+        self.assertEqual(len(entries), 300)
+        self.assertEqual({o: n for o, n in ops.items() if n}, {"commerce.inventory.check": "check-inventory", "commerce.quotes.get": "get-supplier-quote"})
+        self.assertTrue(all(len(e["id"].split(".")) == 3 for e in entries))
+        self.assertEqual(entries[0]["params"], {"sku": "str"})
+        self.assertEqual(codemode.mesh_catalog(TOOLS, 300)[0], entries)
+        index = codemode.mesh_index(entries)
+        self.assertIn("commerce (inventory, quotes)", index)
+        self.assertLess(len(index), len(__import__("json").dumps(entries)) / 20)
+
+    def test_mesh_searches_in_the_sandbox_and_executes_through_the_gateway(self):
+        import json
+        mcp, replies = [], iter([
+            {"tool_calls": [{"id": "1", "function": {"name": "search", "arguments": json.dumps(
+                {"code": "print([e['id'] for e in catalog if e['resource'] == 'inventory'])"})}}]},
+            {"tool_calls": [{"id": "2", "function": {"name": "execute", "arguments": json.dumps(
+                {"code": "r = call('commerce.inventory.check', sku='A')\nprint(r['sku'])\nprint(call('finance.invoices.get'))\nprint(call('nope.x.y'))"})}}]},
+            {"content": "done"}])
+
+        def fake_http(method, url, body, headers, timeout=None):
+            if url.endswith("/mcp"):
+                mcp.append(body["method"])
+                result = {"tools": TOOLS} if body["method"] == "tools/list" else {"content": [{"type": "text", "text": '{"sku": "A"}'}]}
+                return 200, {"mcp-session-id": "s", "x-gw-cost-usd": "0.002", "x-other": "1"}, json.dumps({"jsonrpc": "2.0", "id": 1, "result": result}), 0.0
+            return 200, {"x-gw-model-served": "m"}, json.dumps({"choices": [{"message": next(replies)}], "usage": {"prompt_tokens": 10, "completion_tokens": 1}}), 0.0
+
+        deps = {"config": {"mcpUrl": "https://gw/mcp", "inferenceBaseUrl": "https://gw/inference"}, "demo_limit": lambda: None, "http": fake_http,
+                "error_message": lambda s, d, t: "", "auth": lambda agent, payload, surface: {}, "parse_rpc": json.loads,
+                "agent_by_name": lambda n: {"name": n}}
+        with patch.object(codemode, "decoys", side_effect=lambda n, scale=1: [{"name": f"get-invoice-v{i + 2}" if i else "get-invoice",
+                                                                               "description": "x", "inputSchema": {}} for i in range(n)]):
+            status, body = codemode.run({"agent": "a", "mode": "mesh", "catalog": 20, "task": "t"}, deps)
+        self.assertEqual((status, body["answer"], body["toolsAdvertised"]), (200, "done", 2))
+        self.assertEqual(body["mesh"]["operations"], 20)
+        self.assertEqual([s["kind"] for s in body["scripts"]], ["search", "execute"])
+        self.assertIn("commerce.inventory.check", body["scripts"][0]["output"])
+        calls = [(c["name"], c.get("via"), c["status"]) for c in body["toolCalls"]]
+        self.assertEqual(calls, [("search", "search", 200), ("check-inventory", None, 200), ("finance.invoices.get", "catalog", 501), ("nope.x.y", "catalog", 404)])
+        self.assertEqual(mcp.count("tools/call"), 1)
+        self.assertEqual(body["toolCalls"][1]["headers"], {"x-gw-cost-usd": "0.002"})
+        self.assertEqual([c["method"] for c in body["mcpCalls"]], ["initialize", "notifications/initialized", "tools/list"])
+        self.assertEqual(body["modelCalls"][0]["headers"], {"x-gw-model-served": "m"})
+        self.assertEqual(codemode.run({"agent": "a", "mode": "mesh", "catalog": 5}, deps)[0], 400)
 
     def test_codemode_logs_validates_ids_and_queries_by_trace_and_correlation_id(self):
         spec_app = importlib.util.spec_from_file_location("sandbox_app_cm", LAB / "src" / "app.py")

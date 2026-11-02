@@ -101,24 +101,33 @@ def emit(*args, sep=" ", end="\n"):
     if size[0] > spec["maxOutput"]:
         raise RuntimeError("the script printed too much output")
     buf.write(text)
+def send(tool, arguments):
+    out.write(json.dumps({"call": tool, "args": arguments}) + "\n")
+    out.flush()
+    line = inp.readline()
+    if not line:
+        raise SystemExit(3)
+    reply = json.loads(line)
+    if reply.get("fatal"):
+        raise RuntimeError(reply["fatal"])
+    return reply["result"]
 def make(tool, params):
     def call(*args, **kwargs):
         arguments = dict(zip(params, args))
         arguments.update(kwargs)
-        out.write(json.dumps({"call": tool, "args": arguments}) + "\n")
-        out.flush()
-        line = inp.readline()
-        if not line:
-            raise SystemExit(3)
-        reply = json.loads(line)
-        if reply.get("fatal"):
-            raise RuntimeError(reply["fatal"])
-        return reply["result"]
+        return send(tool, arguments)
     return call
+def call(op, args=None, **kwargs):
+    arguments = dict(args or {})
+    arguments.update(kwargs)
+    return send(str(op), arguments)
 env = {"__builtins__": {name: getattr(builtins, name) for name in spec["builtins"]}}
 env["__builtins__"]["print"] = emit
 for fn, (tool, params) in spec["functions"].items():
     env[fn] = make(tool, params)
+if spec.get("generic"):
+    env["call"] = call
+env.update(spec.get("data") or {})
 error = None
 try:
     exec(compile(spec["code"], "<agent-script>", "exec"), env)
@@ -192,6 +201,84 @@ def catalog_cost(tools):
             "stubTokens": round(len(stubs(tools)) / CHARS_PER_TOKEN / n, 1), "method": f"estimate: {CHARS_PER_TOKEN} characters per token"}
 
 
+# ---- mode D (search + execute): the catalog stays on the server, behind one naming convention ----
+# Cloudflare's Code Mode MCP server and Kong's Context Mesh both give the model two tools over a catalog it never sees in full:
+# search(code) filters the catalog in a sandbox, execute(code) runs a script whose calls go through the gateway. What makes
+# search reliable at 1,000+ operations is a consistent naming convention, <domain>.<resource>.<verb>, so here every MCP tool
+# and every decoy gets one.
+MESH_CATALOG = 1000       # operations in D's catalog by default: the gateway's real tools plus decoys
+MAX_MESH_CATALOG = 5000
+REAL_OPS = {"search-products": ("commerce", "products", "search"), "check-inventory": ("commerce", "inventory", "check"),
+            "get-supplier-quote": ("commerce", "quotes", "get")}
+_DOMAIN_OF = {"invoice": "finance", "payment": "finance", "credit-memo": "finance", "budget-line": "finance", "cost-center": "finance",
+              "rebate": "finance", "shipment": "logistics", "pallet": "logistics", "carrier": "logistics", "customs-entry": "logistics",
+              "warehouse": "logistics", "tariff": "logistics", "vendor": "procurement", "contract": "procurement",
+              "purchase-request": "procurement", "order": "sales", "return": "sales", "forecast": "planning", "asset": "assets", "lease": "assets"}
+
+MESH_SYSTEM = """You are a procurement analyst. The API gateway has {count} operations, too many to list. You have two tools; both take Python code that runs in a sandbox:
+
+- search(code): `catalog` lists every operation as {{"id": "<domain>.<resource>.<verb>", "domain", "resource", "verb", "summary", "params": {{name: type}}, "returns": str}} ("?" after a type = optional). Filter on domain, resource and verb, and print only id, params and returns of the entries you need.
+- execute(code): call(op_id, **params) is one gateway call; it returns the JSON result as a dict (with the exact keys from "returns"), or {{"error": ..., "status": ...}} on a denial. Do all looping, filtering and arithmetic in the script and print only the facts the answer needs, one line per item.
+
+Domains (resources): {index}
+
+Sandbox: no imports, no names starting with "_", no str.format (use f-strings).
+Exactly three steps: one search covering every resource the task needs, one execute for the whole task, then the answer. Print errors instead of using failed results. Be precise with numbers; keep the answer short."""
+
+MESH_TOOLS = [{"type": "function", "function": {"name": name, "description": text, "parameters": {
+    "type": "object", "properties": {"code": {"type": "string", "description": "Python code for the sandbox"}}, "required": ["code"]}}}
+    for name, text in (("search", "Run Python over `catalog` (every operation on the gateway) and print the entries you need."),
+                       ("execute", "Run a Python script where call(op_id, **params) is one governed gateway call. Print only the facts the answer needs."))]
+
+
+def _plural(word):
+    return word if word.endswith("s") else word[:-1] + "ies" if word.endswith("y") else word + "s"
+
+
+def mesh_catalog(tools, size=MESH_CATALOG, scale=1):
+    """The catalog D searches: the real MCP tools plus decoys up to `size`, each as one operation named <domain>.<resource>.<verb>.
+    Returns (entries the model can search, {op id: MCP tool name or None for a decoy})."""
+    types = {"string": "str", "integer": "int", "number": "float", "boolean": "bool", "array": "list", "object": "dict"}
+    entries, ops = [], {}
+    for t in list(tools) + decoys(max(0, size - len(tools)), scale):
+        real = any(t is r for r in tools)
+        if t["name"] in REAL_OPS:
+            domain, resource, verb = REAL_OPS[t["name"]]
+        elif real:
+            verb, _, rest = t["name"].partition("-")
+            domain, resource = "commerce", _plural(rest or verb)
+        else:
+            verb, _, rest = t["name"].partition("-")
+            noun, _, version = rest.partition("-v") if re.search(r"-v\d+$", rest) else (rest, "", "")
+            domain, resource = _DOMAIN_OF.get(noun, "operations"), _plural(noun) + (f"-v{version}" if version else "")
+        schema = t.get("inputSchema") or {}
+        required = set(schema.get("required") or [])
+        params = {p: types.get((s or {}).get("type"), "str") + ("" if p in required else "?") for p, s in (schema.get("properties") or {}).items()}
+        returns = RESULT_SHAPES.get(t["name"]) if real else None
+        returns = returns or (json.dumps(t["outputSchema"], separators=(",", ":")) if t.get("outputSchema") else "dict")
+        op = f"{domain}.{resource}.{verb}"
+        entries.append({"id": op, "domain": domain, "resource": resource, "verb": verb, "summary": t.get("description") or t["name"],
+                        "params": params, "returns": returns})
+        ops[op] = t["name"] if real else None
+    return entries, ops
+
+
+def mesh_index(entries):
+    """The only part of the catalog in D's prompt: domains and their resources, with versions collapsed. It grows with the
+    number of resources, not operations."""
+    by = {}
+    for e in entries:
+        base, _, v = e["resource"].partition("-v") if re.search(r"-v\d+$", e["resource"]) else (e["resource"], "", "1")
+        res = by.setdefault(e["domain"], {})
+        res[base] = max(res.get(base, 1), int(v))
+    parts = []
+    for d, res in sorted(by.items()):
+        tops = set(res.values())
+        names = ", ".join(sorted(res)) if len(tops) == 1 else ", ".join(f"{r}{f' -v2..-v{n}' if n > 1 else ''}" for r, n in sorted(res.items()))
+        parts.append(f"{d} ({names}{f'; each also -v2..-v{tops.pop()}' if len(tops) == 1 and max(res.values()) > 1 else ''})")
+    return "; ".join(parts)
+
+
 def check_code(code):
     """AST allow-list for model-written code. Returns an error message, or None when the code may run."""
     if len(code) > MAX_CODE_CHARS:
@@ -225,7 +312,7 @@ class Run:
         self.model = payload.get("model") or "gpt-4.1-mini"
         self.mcp_session, self.rpc_id = None, 0
         self.tb_session = None  # Foundry Toolbox MCP session (search mode)
-        self.model_calls, self.tool_calls = [], []
+        self.model_calls, self.tool_calls, self.mcp_calls = [], [], []
         self.seq = 0            # order of model and tool calls across both lists
         self.context_chars = 0  # tool output that entered the model's context
         # One W3C trace per run, sent on every call. APIM (W3C correlation) logs it as OperationId on its App Insights
@@ -266,27 +353,35 @@ class Run:
         self.mcp_session = lower.get("mcp-session-id", self.mcp_session)
         return status, lower, self.deps["parse_rpc"](text) if text else {}, text, elapsed
 
+    def _handshake(self, method, params=None, notify=False):
+        """An MCP session call (initialize, notifications/initialized, tools/list): a real gateway request, kept for the run's request count."""
+        result = self._rpc(method, params, notify)
+        status, headers, _, _, elapsed = result
+        self.mcp_calls.append({"method": method, "status": status, "latencyMs": round(elapsed * 1000), "startMs": self._start_ms(elapsed),
+                               "requestId": headers.get("x-gw-request-id"), "headers": _gw(headers)})
+        return result
+
     def open_mcp(self):
         self._limit()
-        status, _, data, text, _ = self._rpc("initialize", {"protocolVersion": "2025-03-26", "capabilities": {},
-                                                            "clientInfo": {"name": "sandbox-code-mode", "version": "0.1"}})
+        status, _, data, text, _ = self._handshake("initialize", {"protocolVersion": "2025-03-26", "capabilities": {},
+                                                                  "clientInfo": {"name": "sandbox-code-mode", "version": "0.1"}})
         if status != 200:
             raise RuntimeError(f"MCP initialize failed ({status}): {self.deps['error_message'](status, data, text)}")
-        self._rpc("notifications/initialized", notify=True)
+        self._handshake("notifications/initialized", notify=True)
         self._limit()
-        status, _, data, text, _ = self._rpc("tools/list", {})
+        status, _, data, text, _ = self._handshake("tools/list", {})
         if status != 200 or "result" not in data:
             raise RuntimeError(f"MCP tools/list failed ({status}): {self.deps['error_message'](status, data, text)}")
         return data["result"].get("tools") or []
 
     def tool(self, name, arguments):
-        if len(self.tool_calls) >= MAX_TOOL_CALLS:
+        if len([c for c in self.tool_calls if not c.get("via")]) >= MAX_TOOL_CALLS:
             raise RuntimeError(f"tool-call cap reached ({MAX_TOOL_CALLS})")
         self._limit()
         status, headers, data, text, elapsed = self._rpc("tools/call", {"name": name, "arguments": arguments or {}})
         entry = {"seq": self._next(), "name": name, "args": arguments or {}, "status": status, "latencyMs": round(elapsed * 1000),
                  "startMs": self._start_ms(elapsed), "costUsd": _float(headers.get("x-gw-cost-usd")), "governance": headers.get("x-gw-governance"),
-                 "requestId": headers.get("x-gw-request-id")}
+                 "requestId": headers.get("x-gw-request-id"), "headers": _gw(headers)}
         return self._record(entry, status, data, text)
 
     def _record(self, entry, status, data, text):
@@ -378,7 +473,7 @@ class Run:
                  "model": lower.get("x-gw-model-served") or self.model,
                  "promptTokens": usage.get("prompt_tokens", 0), "completionTokens": usage.get("completion_tokens", 0),
                  "costUsd": _float(lower.get("x-gw-cost-usd")), "messages": len(messages), "requestChars": len(json.dumps(body)),
-                 "requestId": lower.get("x-gw-request-id")}
+                 "requestId": lower.get("x-gw-request-id"), "headers": _gw(lower)}
         self.model_calls.append(entry)
         if status != 200:
             entry["error"] = self.deps["error_message"](status, data, text)
@@ -432,8 +527,68 @@ class Run:
                            {"role": "user", "content": f"Task: {task}\n\nScript output:\n{output}"}], "write the answer")
         return {**result, "answer": final.get("content") or ""}
 
-    def execute(self, code, functions):
-        """Runs the script in a separate interpreter; each stub call becomes a governed MCP tools/call here."""
+    def run_mesh(self, task, tools, size=MESH_CATALOG):
+        """Mode D: two tools (search, execute) over a catalog that never enters the prompt; only its domain index does."""
+        entries, ops = mesh_catalog(tools, size)
+        index = mesh_index(entries)
+        system = MESH_SYSTEM.format(count=len(entries), index=index)
+        self.scripts = []
+        self.mesh_info = {"operations": len(entries), "realOps": [o for o, n in ops.items() if n], "index": index,
+                          "indexTokens": round(len(index) / CHARS_PER_TOKEN), "catalogTokens": round(len(json.dumps(entries)) / CHARS_PER_TOKEN),
+                          "sample": entries[:3] + entries[-2:]}
+
+        def resolve(op, args):
+            name = ops.get(op)
+            if name:
+                return self.tool(name, args)
+            known = op in ops
+            self.tool_calls.append({"seq": self._next(), "name": op, "args": args, "status": 404 if not known else 501, "latencyMs": 0,
+                                    "startMs": self._start_ms(), "costUsd": 0, "via": "catalog", "resultChars": 0,
+                                    "governance": "not resolved to a gateway tool (no call made)",
+                                    "error": "unknown operation id" if not known else "this operation has no backend in the sandbox"})
+            return {"error": self.tool_calls[-1]["error"], "status": self.tool_calls[-1]["status"]}
+
+        def dispatch(name, args):
+            code = (args or {}).get("code") or ""
+            kind = name if name in ("search", "execute") else "execute"
+            problem = check_code(code)
+            start = self._start_ms()
+            if problem:
+                script = {"output": "", "error": f"rejected by the sandbox: {problem}", "ms": 0}
+            elif kind == "search":
+                script = self.execute(code, {}, data={"catalog": entries})
+                self.tool_calls.append({"seq": self._next(), "name": "search", "args": {"code": code}, "status": 200 if not script.get("error") else 400,
+                                        "latencyMs": script.get("ms", 0), "startMs": start, "costUsd": 0, "via": "search", "engine": "catalog",
+                                        "governance": "runs in the sandbox over the catalog (no gateway call)", "resultChars": len(script.get("output", ""))})
+            else:
+                script = self.execute(code, {}, generic=True, resolve=resolve)
+            self.scripts.append({"kind": kind, "code": code, "output": script.get("output", ""), "error": script.get("error"),
+                                 "startMs": start, "ms": script.get("ms", 0)})
+            return {"output": script.get("output", "")[:MAX_TOOL_RESULT_CHARS], **({"error": script["error"]} if script.get("error") else {})}
+
+        messages = [{"role": "system", "content": system}, {"role": "user", "content": task}]
+        result = {"answer": "", "error": f"no answer after {MAX_ROUNDS} rounds"}
+        for rnd in range(1, MAX_ROUNDS + 1):
+            msg = self.chat(messages, f"round {rnd}", MESH_TOOLS)
+            calls = msg.get("tool_calls") or []
+            if not calls:
+                result = {"answer": msg.get("content") or ""}
+                break
+            messages.append({"role": "assistant", "content": msg.get("content"), "tool_calls": calls})
+            for c in calls:
+                fn = c.get("function") or {}
+                try:
+                    args = json.loads(fn.get("arguments") or "{}")
+                except ValueError:
+                    args = {}
+                out = json.dumps(dispatch(fn.get("name"), args))[:MAX_TOOL_RESULT_CHARS]
+                self.context_chars += len(out)
+                messages.append({"role": "tool", "tool_call_id": c.get("id"), "content": out})
+        return {**result, "scripts": self.scripts, "mesh": self.mesh_info}
+
+    def execute(self, code, functions, data=None, generic=False, resolve=None):
+        """Runs the script in a separate interpreter; each stub call becomes a governed MCP tools/call here.
+        `data` adds read-only values (D's catalog); `generic` adds call(op_id, **params), routed through `resolve`."""
         began = time.perf_counter()
         proc = subprocess.Popen([sys.executable, "-I", "-c", RUNNER], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, encoding="utf-8")
@@ -441,7 +596,8 @@ class Run:
         threading.Thread(target=lambda: [lines.put(l) for l in proc.stdout] + [lines.put(None)], daemon=True).start()
         deadline = time.time() + SCRIPT_TIMEOUT_S
         try:
-            proc.stdin.write(json.dumps({"code": code, "functions": functions, "builtins": SAFE_BUILTINS, "maxOutput": MAX_OUTPUT_CHARS}) + "\n")
+            proc.stdin.write(json.dumps({"code": code, "functions": functions, "builtins": SAFE_BUILTINS, "maxOutput": MAX_OUTPUT_CHARS,
+                                         "generic": generic, "data": data or {}}) + "\n")
             proc.stdin.flush()
             while True:
                 try:
@@ -458,7 +614,7 @@ class Run:
                 if msg.get("done"):
                     return {"output": msg.get("output", ""), "error": msg.get("error"), "ms": _ms(began)}
                 try:
-                    reply = {"result": self.tool(msg.get("call"), msg.get("args") or {})}
+                    reply = {"result": (resolve or self.tool)(msg.get("call"), msg.get("args") or {})}
                 except RuntimeError as error:
                     reply = {"fatal": str(error)}
                 proc.stdin.write(json.dumps(reply) + "\n")
@@ -506,20 +662,27 @@ class Run:
         completion = sum(c["completionTokens"] for c in self.model_calls)
         cost = sum(c["costUsd"] for c in self.model_calls) + sum(c["costUsd"] for c in self.tool_calls)
         return {"status": 200 if not result.get("error") else 500, "mode": self.mode, "agent": self.agent["name"], "tier": self.agent.get("tier", ""),
-                "model": self.model, "modelCalls": self.model_calls, "toolCalls": self.tool_calls, "promptTokens": prompt,
+                "model": self.model, "modelCalls": self.model_calls, "toolCalls": self.tool_calls, "mcpCalls": self.mcp_calls, "promptTokens": prompt,
                 "completionTokens": completion, "totalTokens": prompt + completion, "costUsd": round(cost, 6),
                 "contextChars": self.context_chars, "elapsedMs": _ms(started), "traceId": self.trace_id,
                 "startedAt": round(self.started_at * 1000), **result}
 
 
 def run(payload, deps):
-    """POST /api/codemode {agent, model, mode: tools | search | code | probe, task?, session?, catalog?, scale?}"""
+    """POST /api/codemode {agent, model, mode: tools | search | code | mesh | probe, task?, session?, catalog?, scale?}"""
     agent = deps["agent_by_name"](payload.get("agent", ""))
     if not agent:
         return 400, {"error": f"Unknown agent '{payload.get('agent')}'"}
     mode = payload.get("mode")
-    if mode not in ("tools", "search", "code", "probe"):
-        return 400, {"error": "mode must be 'tools', 'search', 'code' or 'probe'"}
+    if mode not in ("tools", "search", "code", "mesh", "probe"):
+        return 400, {"error": "mode must be 'tools', 'search', 'code', 'mesh' or 'probe'"}
+    if mode == "mesh":
+        try:
+            mesh_size = int(payload.get("catalog") or MESH_CATALOG)
+        except (TypeError, ValueError):
+            return 400, {"error": "catalog must be a number"}
+        if not 10 <= mesh_size <= MAX_MESH_CATALOG:
+            return 400, {"error": f"catalog must be 10-{MAX_MESH_CATALOG} operations"}
     task = payload.get("task") or DEFAULT_TASK
     if not isinstance(task, str) or len(task) > 2000:
         return 400, {"error": "task must be text of at most 2,000 characters"}
@@ -541,15 +704,25 @@ def run(payload, deps):
             result["toolbox"] = r.toolbox_url().split("?")[0]
             result["toolboxPlan"] = "the Toolbox connection's subscription (one plan for every caller)"
             result["autoPinned"] = [t.get("name") for t in tools if (t.get("_meta") or {}).get("com.microsoft.foundry/tool_visibility") == "auto_pinned"]
+        elif mode == "mesh":
+            tools = r.open_mcp()
+            result = r.run_mesh(task, tools, mesh_size)
         else:
             tools = r.open_mcp()
             result = r.run_tools(task, tools) if mode == "tools" else r.run_code(task, tools)
             result["catalog"] = catalog_cost(tools)
-        result["toolsAdvertised"] = len(tools)
+        result["toolsAdvertised"] = 2 if mode == "mesh" else len(tools)
         result["toolNamesAdvertised"] = [t.get("name") for t in tools]
     except RuntimeError as error:
         result = {"answer": "", "error": str(error)}
+        if getattr(r, "mesh_info", None):  # keep what D searched and ran before it failed
+            result.update(scripts=r.scripts, mesh=r.mesh_info, toolsAdvertised=2)
     return 200, {**r.summary(started, result), "task": task}
+
+
+def _gw(headers):
+    """The gateway's x-gw-* response headers (cost, governance, blocks, session, route): what the page records for each call."""
+    return {k: v for k, v in (headers or {}).items() if k.lower().startswith("x-gw-")}
 
 
 def _float(value):
