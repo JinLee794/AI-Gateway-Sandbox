@@ -297,6 +297,38 @@
   .wfmeta label { display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap; } .wfmeta input { width:auto; height:auto; margin:0; padding:0; }
   .cmtlcard { align-self:start; position:sticky; top:130px; max-height:calc(100vh - 150px); overflow:auto; }
   .surf.search { background:#f4effa; color:#5c2e91; } .surf.script { background:#fdf3ec; color:#8e3a0b; }
+  /* scenario 24 overview: per-mode scorecards, call strips and the model's script */
+  .cmov { display:flex; flex-direction:column; gap:10px; } .cmheadline { font-size:13.5px; line-height:1.5; }
+  .cmscore { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:8px; }
+  .cmsc { background:#fff; border:1px solid #d6e6f5; border-top:3px solid var(--mc, #0078d4); border-radius:6px; padding:8px 10px; display:flex; flex-direction:column; gap:5px; min-width:0; }
+  .cmsc.m-tools { --mc:#0078d4; } .cmsc.m-search { --mc:#8764b8; } .cmsc.m-code { --mc:#107c10; } .cmsc.win { box-shadow:0 0 0 1px var(--mc) inset; }
+  .cmsc .h { display:flex; align-items:center; gap:6px; font-size:13px; } .cmsc .ml { width:20px; height:20px; border-radius:50%; background:var(--mc); color:#fff; font-weight:700; font-size:11px; display:grid; place-items:center; flex:none; }
+  .cmsc .wtag { margin-left:auto; font-size:10.5px; font-weight:600; color:#0b5a0b; background:#dff6dd; border-radius:10px; padding:1px 7px; white-space:nowrap; }
+  .cmsc .how { font-size:11.5px; color:var(--muted); line-height:1.35; min-height:2.7em; }
+  .cmsc .big { font-size:22px; font-weight:700; font-variant-numeric:tabular-nums; line-height:1.1; } .cmsc .big small { font-size:12px; font-weight:400; color:var(--muted); }
+  .cmsc .dv { font-size:11.5px; font-weight:600; color:var(--muted); } .cmsc .dv.dn { color:#107c10; } .cmsc .dv.up { color:#a4262c; }
+  .cmsc .bar { height:6px; background:#f3f2f1; border-radius:3px; overflow:hidden; } .cmsc .bar i { display:block; height:100%; background:var(--mc); border-radius:3px; }
+  .cmsc .st { display:flex; flex-wrap:wrap; gap:2px 10px; font-size:11.5px; color:var(--muted); } .cmsc .st b { color:#323130; font-variant-numeric:tabular-nums; }
+  .cmsc .ans { font-size:11.5px; font-weight:600; color:#107c10; margin-top:auto; } .cmsc .ans.diff { color:#a4262c; }
+  .cstrip { display:flex; flex-wrap:wrap; align-items:center; gap:3px; font-size:10.5px; padding:5px 0; border-top:1px dashed #e1dfdd; }
+  .cs { border-radius:9px; padding:1px 6px; white-space:nowrap; font-weight:600; } .cs small { font-weight:400; opacity:.85; }
+  .cs.model { background:#deecf9; color:#004578; } .cs.tool { background:#e0f4f4; color:#005b60; } .cs.search { background:#f4effa; color:#5c2e91; } .cs.err { background:#fde7e9; color:#a4262c; }
+  .csbox { display:inline-flex; flex-wrap:wrap; align-items:center; gap:3px; border:1px solid #f1b78f; background:#fdf3ec; color:#8e3a0b; border-radius:6px; padding:2px 4px; font-weight:600; }
+  .csa { color:#a19f9d; }
+  .cmcodebox { background:#fff; border:1px solid #d6e6f5; border-radius:6px; overflow:hidden; }
+  .cmch { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:8px 10px 4px; font-size:13px; }
+  .cmpill { font-size:11px; background:#f3f2f1; color:#484644; border-radius:10px; padding:1px 8px; } .cmpill.gw { background:#e0f4f4; color:#005b60; font-weight:600; }
+  .cmtabs { display:flex; gap:2px; padding:0 8px; border-bottom:1px solid #edebe9; } .cmtabs button { background:none; color:#605e5c; border:0; border-bottom:2px solid transparent; border-radius:0; padding:5px 10px; font-size:12px; }
+  .cmtabs button.on { color:#0078d4; border-bottom-color:#0078d4; font-weight:600; }
+  .cmpane { padding:8px 10px; } .cmleg { font-size:11.5px; color:var(--muted); margin-top:6px; }
+  .cmpy { font:12px/1.55 ui-monospace, "Cascadia Code", Consolas, monospace; background:#f6f8fa; border:1px solid #eaeef2; border-radius:4px; max-height:380px; overflow:auto; padding:4px 0; }
+  .cmpy > div { display:flex; border-left:3px solid transparent; } .cmpy > div.gw { border-left-color:#00838a; background:#eef8f8; }
+  .cmpy .ln { flex:none; width:34px; text-align:right; padding-right:10px; color:#8c959f; user-select:none; } .cmpy .cx { white-space:pre; padding-right:12px; }
+  .cmpy .k { color:#cf222e; } .cmpy .s { color:#0a3069; } .cmpy .c { color:#6e7781; font-style:italic; } .cmpy .n { color:#0550ae; } .cmpy .b { color:#8250df; } .cmpy .f { color:#6639ba; }
+  .cmpy .t, .cmleg .t { color:#005b60; background:#c9ecec; border-radius:3px; padding:0 2px; font-weight:600; }
+  .cmpy.stubs { max-height:300px; } .cmpy.cv { max-height:300px; font-size:11.5px; }
+  pre.cmout { margin:0; padding:8px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:4px; font-size:12px; white-space:pre-wrap; max-height:300px; overflow:auto; }
+  .cmlong { font-size:12.5px; line-height:1.5; margin:6px 0; }
   .sclist .sctopic { position:sticky; top:-4px; z-index:1; font-size:10.5px; font-weight:700; color:#8a8886; text-transform:uppercase; letter-spacing:.7px; margin:6px -4px 2px; padding:6px 12px 5px;
     background:rgba(250,251,252,.94); backdrop-filter:blur(4px); border-bottom:1px solid #edf0f3; }
   .sclist .sctopic:first-child { margin-top:-4px; }
@@ -5129,7 +5161,11 @@ function renderRunDetail(run, s) {
   } else if (!run.parts.length) what = `<div class="muted">No scenario steps were recorded.</div>`;
   else {
     const one = run.parts.length === 1;
-    what = run.parts.map(p => { const ps = runStats(p), inner = `<div class="muted" style="font-size:13px">${p.story || ""}</div><ol class="rsteps">${p.steps || ""}</ol><div class="rtake">${p.takeaway || ""}</div>`;
+    what = run.parts.map(p => { const ps = runStats(p), cm = p.cm?.code?.code ? p.cm : null, isCm = cm || /class="cmtable/.test(p.takeaway || "");
+      // scenario 24: the overview (rebuilt from the saved results when it can be) leads; the long step log folds away
+      const take = cm ? cmTakeaway(cm.tools, cm.search, cm.code) : p.takeaway || "", n = (p.steps || "").split("<li").length - 1;
+      const inner = isCm ? `<div class="muted" style="font-size:13px">${p.story || ""}</div><div class="rtake cmrtake">${take}</div><details class="cmcode"><summary>Every step, in order (${n})</summary><ol class="rsteps">${p.steps || ""}</ol></details>`
+        : `<div class="muted" style="font-size:13px">${p.story || ""}</div><ol class="rsteps">${p.steps || ""}</ol><div class="rtake">${p.takeaway || ""}</div>`;
       return one ? inner : `<details class="rpart"><summary>${p.si + 1}. ${escapeHtml(p.title)} <span class="muted">· ${ps.calls} calls · ${fmtUsd(ps.cost)}${ps.blocked ? ` · ${ps.blocked} blocked` : ""}</span></summary>${inner}</details>`; }).join("");
   }
   const agents = Object.entries(s.by).sort((a, b) => b[1].cost - a[1].cost);
@@ -7783,7 +7819,7 @@ function cmConvoResult(el, r, a, model, mode, label) {
   const sec = (t) => `<div class="cv-sec">${t}</div>`;
   let det = sec("Caller the gateway sees") + `<div class="cv-txt">${escapeHtml(cmCaller(r, mode, a))}</div>`
     + sec("Every call, in order") + `<ul class="cv-steps">${cmStepLines(r, label, false).join("")}</ul>`;
-  if (mode === "code" && r.code) det += sec("The script the model wrote") + `<pre class="cv-pre">${escapeHtml(r.code)}</pre>`
+  if (mode === "code" && r.code) det += sec("The script the model wrote") + cmCodeView(r.code, cmToolSet(r), "cv")
     + sec("What it printed (the only tool data the model saw)") + `<pre class="cv-pre">${escapeHtml(r.scriptOutput || r.scriptError || "")}</pre>`;
   if (mode === "search" && searches.length) det += sec("What the model searched for") + `<pre class="cv-pre">${escapeHtml(searches.map(c => `tool_search "${c.query}"`).join("\n"))}</pre>`;
   if (r.traceId) det += sec("Find it in the gateway logs") + `<div class="cv-txt">Trace id <code>${escapeHtml(r.traceId)}</code> (App Insights <code>OperationId</code>)${mode === "search" ? ", propagated by Foundry on the calls it relayed" : ""}. `
@@ -7792,6 +7828,90 @@ function cmConvoResult(el, r, a, model, mode, label) {
   el.querySelector(".cv-a").outerHTML = `<div class="cv-a${ok ? "" : " err"}"><div class="cv-who">${escapeHtml(label)}</div><div class="cv-txt">${body}</div>`
     + `<div class="cv-meta">${meta.join("<span>·</span>")}</div><details><summary>Details: how ${escapeHtml(label.split(" ·")[0])} got there</summary>${det}</details></div>`;
   const box = $("convo"); box.scrollTop = box.scrollHeight;
+}
+// ---- Scenario 24 overview: one card per mode (tokens, calls, time, cost, a strip of its calls) and the model's script as code
+const cmFn = (n) => String(n || "").replace(/\W/g, "_");
+const CM_PY_KW = new Set("and as assert break continue def del elif else except False finally for from global if import in is lambda None nonlocal not or pass raise return True try while with yield".split(" "));
+const CM_PY_BI = new Set("print len range sorted sum min max int float str dict list set tuple enumerate zip round abs any all isinstance".split(" "));
+const cmNorm = (code) => String(code || "").replace(/^\s*```\w*\n?|\n?```\s*$/g, "").replace(/\t/g, "    ").split("\n").map(l => l.trimEnd()).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+function cmPyLines(code, tools) {  // [{ html, gw }]: highlighted lines; gw marks a line that calls one of the gateway's tools
+  const tok = /(#[^\n]*)|([rbfuRBFU]{0,2}(?:"""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'))|(\b\d+(?:\.\d+)?\b)|([A-Za-z_]\w*)/g;
+  const wrap = (cls, s) => s.split("\n").map(p => p ? `<span class="${cls}">${escapeHtml(p)}</span>` : "").join("\n");
+  const out = []; let last = 0, m;
+  while ((m = tok.exec(code))) {
+    out.push(escapeHtml(code.slice(last, m.index))); last = tok.lastIndex;
+    const [s, com, str, num, id] = m, call = /^\s*\(/.test(code.slice(last, last + 40));
+    out.push(com ? wrap("c", s) : str ? wrap("s", s) : num ? wrap("n", s) : CM_PY_KW.has(id) ? wrap("k", s)
+      : tools.has(id) ? `<span class="t" title="Gateway tool: each call is a real MCP tools/call through APIM">${escapeHtml(s)}</span>`
+      : CM_PY_BI.has(id) ? wrap("b", s) : call ? wrap("f", s) : escapeHtml(s));
+  }
+  out.push(escapeHtml(code.slice(last)));
+  const calls = tools.size ? new RegExp(`\\b(${[...tools].join("|")})\\s*\\(`) : null;
+  const raw = code.split("\n");
+  return out.join("").split("\n").map((html, i) => ({ html, gw: !!calls && calls.test(raw[i].replace(/#.*$/, "")) }));
+}
+const cmCodeView = (code, tools, cls = "") => { const ls = cmPyLines(cmNorm(code), tools);
+  return `<div class="cmpy ${cls}">${ls.map((l, i) => `<div class="${l.gw ? "gw" : ""}"${l.gw ? ' title="Calls a gateway tool"' : ""}><span class="ln">${i + 1}</span><span class="cx">${l.html || " "}</span></div>`).join("")}</div>`; };
+const cmToolSet = (C) => new Set([...(C.toolCalls || []).map(c => cmFn(c.name)), ...[...(C.stubs || "").matchAll(/def (\w+)\s*\(/g)].map(m => m[1])].filter(Boolean));
+function cmTab(btn, pane) {
+  const box = btn.closest(".cmcodebox");
+  box.querySelectorAll(".cmtabs button").forEach(b => b.classList.toggle("on", b === btn));
+  box.querySelectorAll(".cmpane").forEach(p => p.hidden = p.dataset.pane !== pane);
+}
+const cmFacts = (s) => (String(s || "").match(/\d+(?:\.\d+)?/g) || []).map(Number).sort((a, b) => a - b).join(",");
+function cmStrip(r) {  // the mode's calls in order, as chips; repeated tools fold into "×n", code mode's tool calls sit inside the script box
+  const calls = [...(r.modelCalls || []).map(c => ({ ...c, kind: "model" })), ...(r.toolCalls || []).map(c => ({ ...c, kind: "tool" }))].sort((x, y) => x.seq - y.seq);
+  const chip = (c, n) => c.kind === "model" ? `<span class="cs model" title="Model call ${escapeHtml(c.step)}: ${c.promptTokens} prompt + ${c.completionTokens} completion tokens">model <small>${(c.promptTokens + c.completionTokens).toLocaleString()} tok</small></span>`
+    : c.via === "search" ? `<span class="cs search" title="tool_search &quot;${escapeHtml(c.query || "")}&quot; in Foundry: ${c.resultChars} chars of schemas back">tool_search</span>`
+    : `<span class="cs tool${c.status >= 400 ? " err" : ""}" title="${c.via === "toolbox" ? "Relayed by the Foundry Toolbox" : "Called"} through the gateway">${escapeHtml(c.name)}${n > 1 ? ` <small>×${n}</small>` : ""}</span>`;
+  const groups = [];
+  for (const c of calls) {
+    const key = c.kind === "tool" && c.via !== "search" ? c.name : null, g = groups[groups.length - 1];
+    if (key && g?.key === key) g.n++; else groups.push({ c, key, n: 1 });
+  }
+  const scriptMode = r.mode === "code", html = [];
+  let box = null;
+  for (const g of groups) {
+    const inScript = scriptMode && g.c.kind === "tool";
+    if (inScript && !box) box = [];
+    if (!inScript && box) { html.push(`<span class="csbox" title="The sandbox ran the model's script; each call inside is a real gateway call">script${r.scriptMs ? ` <small>${fmtLat(r.scriptMs)}</small>` : ""} ${box.join("")}</span>`); box = null; }
+    (inScript ? box : html).push(chip(g.c, g.n));
+  }
+  if (box) html.push(`<span class="csbox">script ${box.join("")}</span>`);
+  return `<div class="cstrip">${html.join('<span class="csa">›</span>')}</div>`;
+}
+function cmScoreboard(cols, A) {
+  const tok = (r) => r.totalTokens || 0, maxTok = Math.max(1, ...cols.map(([, r]) => tok(r))), best = Math.min(...cols.map(([, r]) => tok(r)));
+  const usd = (r) => [...(r.modelCalls || []), ...(r.toolCalls || [])].reduce((s, c) => s + (c.costUsd || 0), 0), aFacts = cmFacts(A.answer);
+  return `<div class="cmscore">${cols.map(([h, r]) => {
+    const [letter, name] = h.split(" · "), win = tok(r) === best && cols.length > 1, d = A && r !== A && tok(A) ? Math.round(100 * (tok(r) - tok(A)) / tok(A)) : null;
+    const tools = (r.toolCalls || []).filter(c => c.via !== "search").length, same = r === A ? null : r.answer && cmFacts(r.answer) === aFacts;
+    return `<div class="cmsc m-${r.mode}${win ? " win" : ""}">
+      <div class="h"><span class="ml">${letter}</span><b>${escapeHtml(name)}</b>${win ? `<span class="wtag">fewest tokens</span>` : ""}</div>
+      <div class="how">${escapeHtml(CM_HOW[r.mode] || "")}</div>
+      <div class="big">${tok(r).toLocaleString()} <small>tokens</small>${d != null ? ` <span class="dv ${d < 0 ? "dn" : "up"}">${d > 0 ? "+" : ""}${d}% vs A</span>` : ` <span class="dv">baseline</span>`}</div>
+      <div class="bar"><i style="width:${(100 * tok(r) / maxTok).toFixed(1)}%"></i></div>
+      <div class="st"><span><b>${(r.modelCalls || []).length}</b> model calls</span><span><b>${tools}</b> tool calls</span><span><b>${fmtLat(r.elapsedMs)}</b></span><span><b>${fmtUsd(usd(r))}</b></span></div>
+      ${cmStrip(r)}
+      <div class="ans${same === false ? " diff" : ""}" title="Compares the numbers in each answer with A's">${r.error && !r.answer ? `✕ ${escapeHtml(String(r.error).slice(0, 80))}` : same == null ? "Answer: the reference" : same ? "✓ Same answer as A" : "≠ Answer differs from A"}</div>
+    </div>`; }).join("")}</div>`;
+}
+function cmCodePanel(A, B, C, ok) {
+  if (!C.code) return "";
+  const tools = cmToolSet(C), code = cmNorm(C.code), lines = code.split("\n").length, sites = cmPyLines(code, tools).filter(l => l.gw).length;
+  const made = (C.toolCalls || []).filter(c => c.via !== "search").length, out = C.scriptOutput || C.scriptError || "";
+  const searches = ok(B) ? (B.toolCalls || []).filter(c => c.via === "search") : [];
+  const tab = (id, label, on) => `<button class="${on ? "on" : ""}" onclick="cmTab(this,'${id}')">${label}</button>`;
+  return `<div class="cmcodebox">
+    <div class="cmch"><b>What code mode ran</b>
+      <span class="cmpill">${lines} lines</span><span class="cmpill gw">${sites} lines call gateway tools → ${made} gateway calls</span>
+      ${C.scriptMs ? `<span class="cmpill">ran ${fmtLat(C.scriptMs)}</span>` : ""}<span class="cmpill">printed ${out.length.toLocaleString()} chars${A?.contextChars ? ` (A put ${A.contextChars.toLocaleString()} in context)` : ""}</span></div>
+    <div class="cmtabs">${tab("code", "Script the model wrote", true)}${tab("out", "What it printed → the model")}${tab("stubs", "Functions it was given")}${searches.length ? tab("search", "What B searched for") : ""}</div>
+    <div class="cmpane" data-pane="code">${cmCodeView(code, tools)}<div class="cmleg"><span class="t">teal names</span> are the gateway's MCP tools: each call is entitled, priced and logged by APIM. Marked lines make those calls.</div></div>
+    <div class="cmpane" data-pane="out" hidden><pre class="cmout">${escapeHtml(out)}</pre><div class="cmleg">Only this text went back to the model. Raw tool results stayed in the sandbox.</div></div>
+    <div class="cmpane" data-pane="stubs" hidden>${cmCodeView(C.stubs || "", tools, "stubs")}<div class="cmleg">Generated by app.py from MCP <code>tools/list</code>, with the result shapes the server doesn't publish.</div></div>
+    ${searches.length ? `<div class="cmpane" data-pane="search" hidden><pre class="cmout">${escapeHtml(searches.map(c => `tool_search "${c.query}"  → ${c.resultChars} chars of schemas`).join("\n") + `\n\nToolbox: ${B.toolbox || ""}\nUpstream: the gateway's MCP server, with ${B.toolboxPlan || "one subscription"}`)}</pre></div>` : ""}
+  </div>`;
 }
 function cmTakeaway(A, B, C) {
   if (!A || !C) return "The run stopped before all modes finished.";
@@ -7814,7 +7934,15 @@ function cmTakeaway(A, B, C) {
       + `Every mode's tool calls reached the gateway (${n(relayed(A))} · ${n(relayed(B))} · ${n(relayed(C))}), each one entitled, priced and rate-limited; B's arrived as the Foundry project, not the agent.`
     : `Tool search (B) didn't run: ${escapeHtml(B?.error || "no result")}`;
   const th = cols.map(([h]) => `<th>${h}</th>`).join("");
-  return `${head}
+  const short = ok(A) && ok(C) ? `<b>C · code mode</b> used <b>${pct(A.totalTokens, C.totalTokens)}% fewer tokens</b> than A in ${n(C.modelCalls)} model calls instead of ${n(A.modelCalls)}`
+      + (ok(B) ? `; <b>B · tool search</b> used ${B.totalTokens > A.totalTokens ? `${-pct(A.totalTokens, B.totalTokens)}% more (with ${A.toolsAdvertised} tools, ${(B.toolCalls || []).some(c => c.via === "search") ? "the search adds a round" : "the Toolbox's meta-tools and metadata add tokens"})` : `${pct(A.totalTokens, B.totalTokens)}% fewer`}` : "")
+      + `. Every tool call still went through the gateway (${cols.map(([, r]) => n(relayed(r))).join(" · ")}).`
+    : head;
+  return `<div class="cmov"><div class="cmheadline">${short}</div>
+    ${cmScoreboard(cols, ok(A) ? A : null)}
+    ${cmCodePanel(A, B, C, ok)}
+    <details class="cmcode"><summary>Answers side by side</summary><div class="cmgrid">${cols.map(([h, r]) => `<div><b>${h.split(" ·")[0]} · answer</b><pre>${escapeHtml(r.answer || r.error || "")}</pre></div>`).join("")}</div></details>
+    <details class="cmcode"><summary>Full comparison: tokens, context, cost and what the numbers mean</summary><p class="cmlong">${head}</p>
     <table class="cmtable"><tr><th></th>${th}</tr>
       ${row("Model calls", r => n(r.modelCalls))}
       ${row("Tools advertised to the model up front", r => r.toolsAdvertised || 0, undefined, false)}
@@ -7827,13 +7955,8 @@ function cmTakeaway(A, B, C) {
       ${row("Model cost", modelUsd, fmtUsd)}
       ${row("Tool cost (priced per call; B estimated)", toolUsd, fmtUsd, false)}
       ${row("End to end", r => r.elapsedMs, fmtLat)}</table>
-    <div class="muted">Prompt tokens per round. A: ${rounds(A)}${ok(B) ? ` · B: ${rounds(B)}` : ""} · C: ${rounds(C)}. C's script ran in ${fmtLat(C.scriptMs)}.</div>
-    <div class="cmgrid">${cols.map(([h, r]) => `<div><b>${h.split(" ·")[0]} · answer</b><pre>${escapeHtml(r.answer || r.error || "")}</pre></div>`).join("")}</div>
-    ${ok(B) ? `<details class="cmcode"><summary>What B searched for, and where Foundry sent the calls</summary><pre>${escapeHtml((B.toolCalls || []).filter(c => c.via === "search").map(c => `tool_search "${c.query}"`).join("\n") + `\n\nToolbox: ${B.toolbox || ""}\nUpstream: the gateway's MCP server, with ${B.toolboxPlan || "one subscription"}`)}</pre></details>` : ""}
-    <details class="cmcode"><summary>The script the model wrote (C)</summary><pre>${escapeHtml(C.code || "")}</pre></details>
-    <details class="cmcode"><summary>What the script printed: the only tool data the model saw (C)</summary><pre>${escapeHtml(C.scriptOutput || C.scriptError || "")}</pre></details>
-    <details class="cmcode"><summary>The functions the model was given (from MCP tools/list)</summary><pre>${escapeHtml(C.stubs || "")}</pre></details>
-    ${cmLogsPanel(cols)}`;
+    <div class="muted">Prompt tokens per round. A: ${rounds(A)}${ok(B) ? ` · B: ${rounds(B)}` : ""} · C: ${rounds(C)}. C's script ran in ${fmtLat(C.scriptMs)}.</div></details>
+    ${cmLogsPanel(cols)}</div>`;
 }
 // Log correlation: each run sends one W3C trace id on every call (APIM logs it as OperationId, and Foundry propagates it on the
 // calls the Toolbox relays) and each direct call returns its x-gw-request-id (CorrelationId), so a run's logs can be pulled and checked
@@ -7892,7 +8015,7 @@ async function cmCheckLogs(btn) {
 const CM_MODES = [["tools", "A · tool calling"], ["search", "B · tool search"], ["code", "C · code mode"]];
 const cmTlCache = new Map();  // "trace,trace,…" -> { state: loading | ok | err, rows, portalLink, at }
 let cmTlMode = null, cmTlDeps = false;
-const cmSlim = (r) => { const { stubs, code, scriptOutput, toolNamesAdvertised, task, ...rest } = r || {}; return rest; };
+const cmSlim = (r) => { const { toolNamesAdvertised, task, ...rest } = r || {}; return rest; };  // keeps the script, its output and stubs for the run detail
 function runCmModes(run) {
   for (const p of run.parts || []) {
     if (p.cm) return CM_MODES.filter(([m]) => p.cm[m]).map(([mode, label]) => ({ mode, label, traceId: p.cm[mode].traceId || "", r: p.cm[mode] }));
