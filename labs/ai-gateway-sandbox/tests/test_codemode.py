@@ -118,7 +118,7 @@ class CodeModeTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "setup_toolbox.py"):
             self._toolbox_run({}).toolbox_url()
         status, body = codemode.run({"agent": "a", "mode": "kong"}, {"agent_by_name": lambda n: {"name": n}})
-        self.assertEqual((status, body["error"]), (400, "mode must be 'tools', 'search' or 'code'"))
+        self.assertEqual((status, body["error"]), (400, "mode must be 'tools', 'search', 'code' or 'probe'"))
 
     def test_codemode_logs_validates_ids_and_queries_by_trace_and_correlation_id(self):
         spec_app = importlib.util.spec_from_file_location("sandbox_app_cm", LAB / "src" / "app.py")
@@ -153,6 +153,47 @@ class CodeModeTests(unittest.TestCase):
         run.tool("check-inventory", {"sku": "A"})
         self.assertGreaterEqual(run.tool_calls[0]["startMs"], 0)
         self.assertIn("startedAt", run.summary(run.started, {}))
+
+    def test_decoys_are_unique_deterministic_and_grow_with_scale(self):
+        tools = codemode.decoys(1000)
+        self.assertEqual(len({t["name"] for t in tools}), 1000)
+        self.assertEqual(tools, codemode.decoys(1000))
+        self.assertFalse({t["name"] for t in tools} & {"check-inventory", "get-supplier-quote", "search-products"})
+        one, four = codemode.catalog_cost(codemode.decoys(50)), codemode.catalog_cost(codemode.decoys(50, 4))
+        self.assertGreater(four["defTokens"], 3 * one["defTokens"])
+        self.assertGreater(four["stubTokens"], 3 * one["stubTokens"])
+        self.assertEqual(codemode.catalog_cost(TOOLS)["tools"], 2)
+
+    def test_probe_measures_first_prompts_with_one_completion_token(self):
+        import json
+        chats = []
+
+        def fake_http(method, url, body, headers, timeout=None):
+            if url.endswith("/mcp"):
+                result = {"tools": TOOLS} if body["method"] == "tools/list" else {}
+                return 200, {"mcp-session-id": "s"}, json.dumps({"jsonrpc": "2.0", "id": 1, "result": result}), 0.0
+            chats.append(body)
+            if len(body.get("tools") or []) > codemode.OPENAI_TOOL_LIMIT:
+                return 400, {}, '{"error":{"message":"too many tools"}}', 0.0
+            return 200, {}, json.dumps({"choices": [{"message": {}}], "usage": {"prompt_tokens": len(json.dumps(body)) // 4, "completion_tokens": 1}}), 0.0
+
+        deps = {"config": {"mcpUrl": "https://gw/mcp", "inferenceBaseUrl": "https://gw/inference"}, "demo_limit": lambda: None, "http": fake_http,
+                "error_message": lambda s, d, t: "too many tools", "auth": lambda agent, payload, surface: {}, "parse_rpc": json.loads,
+                "agent_by_name": lambda n: {"name": n}}
+        status, body = codemode.run({"agent": "a", "mode": "probe", "catalog": 50}, deps)
+        p = body["probe"]
+        self.assertEqual((status, p["realTools"], p["decoys"], p["catalog"]), (200, 2, 48, 50))
+        self.assertTrue(all(c["max_tokens"] == 1 for c in chats))
+        self.assertEqual(len(chats), 4)
+        self.assertTrue(all(c.get("tool_choice") == "none" for c in chats if c.get("tools")))
+        self.assertGreater(p["perToolTokens"]["tools"], 10)
+        self.assertGreater(p["perToolTokens"]["code"], 10)
+        status, body = codemode.run({"agent": "a", "mode": "probe", "catalog": 200}, deps)
+        a_big = next(x for x in body["probe"]["points"] if x["mode"] == "tools" and x["tools"] == 200)
+        self.assertIn("error", a_big)
+        self.assertNotIn("tools", body["probe"]["perToolTokens"])
+        self.assertIn("code", body["probe"]["perToolTokens"])
+        self.assertEqual(codemode.run({"agent": "a", "mode": "probe", "catalog": 5000}, deps)[0], 400)
 
 
 if __name__ == "__main__":

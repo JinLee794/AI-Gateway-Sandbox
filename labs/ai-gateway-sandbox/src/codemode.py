@@ -151,6 +151,47 @@ def stubs(tools):
     return "\n\n".join(lines)
 
 
+def definitions(tools):
+    """The function definitions classic tool calling sends to the model."""
+    return [{"type": "function", "function": {"name": t["name"], "description": t.get("description") or t["name"],
+                                              "parameters": t.get("inputSchema") or {"type": "object", "properties": {}}}} for t in tools]
+
+
+# ---- catalog size: decoy tools that stand in for a bigger catalog, and what each tool costs in the prompt ----
+CHARS_PER_TOKEN = 4       # rough estimate until a probe measures the model's own count
+MAX_PROBE_TOOLS = 300     # the probe sends one prompt with this many tools at most (code mode at 300 ≈ 25K tokens)
+OPENAI_TOOL_LIMIT = 128   # tools per chat completions request
+_NOUNS = ("invoice", "shipment", "order", "return", "contract", "vendor", "warehouse", "pallet", "carrier", "customs-entry", "rebate",
+          "purchase-request", "budget-line", "cost-center", "asset", "lease", "payment", "credit-memo", "forecast", "tariff")
+_VERBS = ("get", "list", "create", "update", "cancel", "approve", "summarize", "audit", "export", "reconcile")
+
+
+def decoys(count, scale=1):
+    """Deterministic tools shaped like the gateway's (a name, a one-line description, 2 typed parameters and a result shape).
+    scale multiplies the parameters and the description, like the 3-6x larger schemas of real enterprise APIs."""
+    scale = max(1, min(int(scale or 1), 8))
+    tools = []
+    for i in range(max(0, int(count))):
+        verb, noun = _VERBS[i % len(_VERBS)], _NOUNS[(i // len(_VERBS)) % len(_NOUNS)]
+        suffix = f"-v{i // (len(_VERBS) * len(_NOUNS)) + 1}" if i >= len(_VERBS) * len(_NOUNS) else ""
+        name = f"{verb}-{noun}{suffix}"
+        props = {"id": {"type": "string", "description": f"The {noun.replace('-', ' ')} id."}, "region": {"type": "string"}}
+        for p in range(2 * (scale - 1)):
+            props[f"filter{p + 1}"] = {"type": "string", "description": f"Optional filter {p + 1} on the {noun.replace('-', ' ')} records."}
+        detail = " Returns the matching records with their status, amounts and the dates they last changed." * (scale - 1)
+        tools.append({"name": name, "description": f"{verb.capitalize()} {noun.replace('-', ' ')} records.{detail}",
+                      "inputSchema": {"type": "object", "properties": props, "required": ["id"]},
+                      "outputSchema": {"type": "object", "properties": {"id": {"type": "string"}, "amountUsd": {"type": "number"}}}})
+    return tools
+
+
+def catalog_cost(tools):
+    """Estimated prompt tokens per tool: as a tool definition (classic tool calling) and as a typed stub (code mode)."""
+    n = max(1, len(tools))
+    return {"tools": len(tools), "defTokens": round(len(json.dumps(definitions(tools))) / CHARS_PER_TOKEN / n, 1),
+            "stubTokens": round(len(stubs(tools)) / CHARS_PER_TOKEN / n, 1), "method": f"estimate: {CHARS_PER_TOKEN} characters per token"}
+
+
 def check_code(code):
     """AST allow-list for model-written code. Returns an error message, or None when the code may run."""
     if len(code) > MAX_CODE_CHARS:
@@ -319,11 +360,11 @@ class Run:
             entry["query"] = arguments.get("query")
         return self._record(entry, status, data, text)
 
-    def chat(self, messages, step, tools=None):
+    def chat(self, messages, step, tools=None, max_tokens=MAX_TOKENS, tool_choice="auto"):
         self._limit()
-        body = {"model": self.model, "messages": messages, "max_tokens": MAX_TOKENS, "temperature": 0}
+        body = {"model": self.model, "messages": messages, "max_tokens": max_tokens, "temperature": 0}
         if tools:
-            body["tools"], body["tool_choice"] = tools, "auto"
+            body["tools"], body["tool_choice"] = tools, tool_choice
         headers = {**self.deps["auth"](self.agent, {**self.payload, "cacheScope": "off"}, "model"), "traceparent": self._traceparent()}
         headers.pop("Apim-Debug-Authorization", None)
         status, headers_out, text, elapsed = self.deps["http"]("POST", f"{self.deps['config']['inferenceBaseUrl']}/chat/completions", body, headers)
@@ -347,11 +388,10 @@ class Run:
     # ---- the three modes ----
     def run_tools(self, task, tools, dispatch=None, system=TOOLS_SYSTEM):
         dispatch = dispatch or self.tool
-        definitions = [{"type": "function", "function": {"name": t["name"], "description": t.get("description") or t["name"],
-                                                         "parameters": t.get("inputSchema") or {"type": "object", "properties": {}}}} for t in tools]
+        defs = definitions(tools)
         messages = [{"role": "system", "content": system}, {"role": "user", "content": task}]
         for rnd in range(1, MAX_ROUNDS + 1):
-            msg = self.chat(messages, f"round {rnd}", definitions)
+            msg = self.chat(messages, f"round {rnd}", defs)
             calls = msg.get("tool_calls") or []
             if not calls:
                 return {"answer": msg.get("content") or ""}
@@ -433,6 +473,34 @@ class Run:
                 except OSError:
                     pass
 
+    def probe(self, task, catalog, scale):
+        """What the catalog size costs, measured by the model: the first prompt of A and of C with the real tools, then
+        padded with decoys to `catalog` tools. Each call asks for 1 completion token, so it costs the prompt and nothing else;
+        tool_choice "none" keeps A's tool definitions in the prompt but stops the model from starting a tool call it can't finish."""
+        real = self.open_mcp()
+        extra = decoys(catalog - len(real), scale)
+        if not extra:
+            raise RuntimeError(f"the catalog must be bigger than the {len(real)} real tools")
+        points = []
+        for mode, tools in (("tools", real), ("tools", real + extra), ("code", real), ("code", real + extra)):
+            label = f"{'A' if mode == 'tools' else 'C'} · first prompt with {len(tools)} tools"
+            try:
+                if mode == "tools":
+                    self.chat([{"role": "system", "content": TOOLS_SYSTEM}, {"role": "user", "content": task}], label, definitions(tools), max_tokens=1, tool_choice="none")
+                else:
+                    self.chat([{"role": "system", "content": CODE_SYSTEM.format(stubs=stubs(tools))}, {"role": "user", "content": task}], label, max_tokens=1)
+                points.append({"mode": mode, "tools": len(tools), "promptTokens": self.model_calls[-1]["promptTokens"]})
+            except RuntimeError as error:
+                points.append({"mode": mode, "tools": len(tools), "error": str(error)[:300]})
+        per_tool = {}
+        for mode in ("tools", "code"):
+            base, big = [p for p in points if p["mode"] == mode]
+            if "promptTokens" in base and "promptTokens" in big:
+                per_tool[mode] = round((big["promptTokens"] - base["promptTokens"]) / len(extra), 1)
+        return {"answer": "", "probe": {"catalog": len(real) + len(extra), "realTools": len(real), "decoys": len(extra), "scale": scale,
+                                        "points": points, "perToolTokens": per_tool, "openaiToolLimit": OPENAI_TOOL_LIMIT,
+                                        "estimate": {"real": catalog_cost(real), "decoys": catalog_cost(extra)}}}
+
     def summary(self, started, result):
         prompt = sum(c["promptTokens"] for c in self.model_calls)
         completion = sum(c["completionTokens"] for c in self.model_calls)
@@ -445,19 +513,28 @@ class Run:
 
 
 def run(payload, deps):
-    """POST /api/codemode {agent, model, mode: tools | search | code, task?, session?}"""
+    """POST /api/codemode {agent, model, mode: tools | search | code | probe, task?, session?, catalog?, scale?}"""
     agent = deps["agent_by_name"](payload.get("agent", ""))
     if not agent:
         return 400, {"error": f"Unknown agent '{payload.get('agent')}'"}
     mode = payload.get("mode")
-    if mode not in ("tools", "search", "code"):
-        return 400, {"error": "mode must be 'tools', 'search' or 'code'"}
+    if mode not in ("tools", "search", "code", "probe"):
+        return 400, {"error": "mode must be 'tools', 'search', 'code' or 'probe'"}
     task = payload.get("task") or DEFAULT_TASK
     if not isinstance(task, str) or len(task) > 2000:
         return 400, {"error": "task must be text of at most 2,000 characters"}
+    if mode == "probe":
+        try:
+            catalog, scale = int(payload.get("catalog") or 100), int(payload.get("scale") or 1)
+        except (TypeError, ValueError):
+            return 400, {"error": "catalog and scale must be numbers"}
+        if not 4 <= catalog <= MAX_PROBE_TOOLS or not 1 <= scale <= 6:
+            return 400, {"error": f"catalog must be 4-{MAX_PROBE_TOOLS} tools and scale 1-6"}
     started = time.perf_counter()
     r = Run(deps, agent, {k: payload.get(k) for k in ("session", "noToken", "model")}, mode)
     try:
+        if mode == "probe":
+            return 200, {**r.summary(started, r.probe(task, catalog, scale)), "task": task}
         if mode == "search":
             tools = r.open_toolbox()
             result = r.run_tools(task, tools, r.toolbox_tool, SEARCH_SYSTEM)
@@ -467,6 +544,7 @@ def run(payload, deps):
         else:
             tools = r.open_mcp()
             result = r.run_tools(task, tools) if mode == "tools" else r.run_code(task, tools)
+            result["catalog"] = catalog_cost(tools)
         result["toolsAdvertised"] = len(tools)
         result["toolNamesAdvertised"] = [t.get("name") for t in tools]
     except RuntimeError as error:

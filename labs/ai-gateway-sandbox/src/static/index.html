@@ -329,6 +329,19 @@
   .cmpy.stubs { max-height:300px; } .cmpy.cv { max-height:300px; font-size:11.5px; }
   pre.cmout { margin:0; padding:8px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:4px; font-size:12px; white-space:pre-wrap; max-height:300px; overflow:auto; }
   .cmlong { font-size:12.5px; line-height:1.5; margin:6px 0; }
+  .cmwi { background:#fff; border:1px solid #d6e6f5; border-radius:6px; padding:8px 10px; } .cmwi > summary { cursor:pointer; font-weight:600; color:var(--accent); font-size:13px; }
+  .cmwi .tag { font-size:10.5px; font-weight:600; color:#0b5a0b; background:#dff6dd; border-radius:10px; padding:1px 7px; margin-left:6px; }
+  .wictl { display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; margin:8px 0 4px; font-size:12.5px; } .wictl label { display:flex; align-items:center; gap:6px; white-space:nowrap; margin:0; font-weight:400; }
+  .wictl input[type=range] { width:180px; } .wictl b.n { min-width:52px; font-variant-numeric:tabular-nums; } .wictl select, .wiprobe select { width:auto; font-size:12px; padding:1px 4px; }
+  .wicards { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:6px; margin:6px 0; }
+  .wic { border:1px solid #e1dfdd; border-left:4px solid var(--mc); border-radius:5px; padding:4px 8px; font-size:11.5px; color:var(--muted); }
+  .wic b { display:block; font-size:17px; color:#323130; font-variant-numeric:tabular-nums; } .wic.win { background:#f1faf1; } .wic.off b { color:#a4262c; font-size:13px; }
+  .wic.m-tools, .wil.m-tools { --mc:#0078d4; } .wic.m-search, .wil.m-search { --mc:#8764b8; } .wic.m-code, .wil.m-code { --mc:#107c10; }
+  svg.wichart { width:100%; max-width:720px; height:auto; display:block; font:10.5px "Segoe UI", sans-serif; }
+  svg.wichart .ax { stroke:#c8c6c4; } svg.wichart .gr { stroke:#f3f2f1; } svg.wichart text { fill:#605e5c; }
+  .wilg { display:flex; flex-wrap:wrap; gap:4px 14px; font-size:11.5px; } .wil::before { content:""; display:inline-block; width:14px; height:3px; background:var(--mc); vertical-align:middle; margin-right:5px; }
+  .wibe { margin:6px 0; padding-left:18px; font-size:12.5px; line-height:1.55; }
+  .wiprobe { margin-top:8px; padding-top:8px; border-top:1px dashed #d6e6f5; font-size:12.5px; } .wiprobe button { margin:0 6px; padding:2px 10px; font-size:12px; }
   .sclist .sctopic { position:sticky; top:-4px; z-index:1; font-size:10.5px; font-weight:700; color:#8a8886; text-transform:uppercase; letter-spacing:.7px; margin:6px -4px 2px; padding:6px 12px 5px;
     background:rgba(250,251,252,.94); backdrop-filter:blur(4px); border-bottom:1px solid #edf0f3; }
   .sclist .sctopic:first-child { margin-top:-4px; }
@@ -7941,6 +7954,7 @@ function cmTakeaway(A, B, C) {
   return `<div class="cmov"><div class="cmheadline">${short}</div>
     ${cmScoreboard(cols, ok(A) ? A : null)}
     ${cmCodePanel(A, B, C, ok)}
+    ${cmWhatIf(A, B, C, ok)}
     <details class="cmcode"><summary>Answers side by side</summary><div class="cmgrid">${cols.map(([h, r]) => `<div><b>${h.split(" ·")[0]} · answer</b><pre>${escapeHtml(r.answer || r.error || "")}</pre></div>`).join("")}</div></details>
     <details class="cmcode"><summary>Full comparison: tokens, context, cost and what the numbers mean</summary><p class="cmlong">${head}</p>
     <table class="cmtable"><tr><th></th>${th}</tr>
@@ -7957,6 +7971,139 @@ function cmTakeaway(A, B, C) {
       ${row("End to end", r => r.elapsedMs, fmtLat)}</table>
     <div class="muted">Prompt tokens per round. A: ${rounds(A)}${ok(B) ? ` · B: ${rounds(B)}` : ""} · C: ${rounds(C)}. C's script ran in ${fmtLat(C.scriptMs)}.</div></details>
     ${cmLogsPanel(cols)}</div>`;
+}
+// ---- Scenario 24 catalog what-if: replays this run's measured calls at a bigger tool catalog, with no model calls. Every call that
+//      carries the catalog (all of A's rounds, C's script prompt) grows by tools × schema size × tokens per tool, and every raw tool
+//      result that reached the model's context grows with the result size. "Measure with the model" calibrates tokens per tool.
+const CM_WI_MAX = 1000, CM_WI_LIMIT = 128;  // OpenAI accepts at most 128 tools per chat completions request
+function cmWiCalls(r, mode) {
+  if (!r?.modelCalls?.length) return null;
+  const tools = (r.toolCalls || []).filter(t => t.seq != null), chars = (xs) => xs.reduce((s, t) => s + (t.resultChars || 0), 0) / 4;
+  return r.modelCalls.map(c => { const before = tools.filter(t => t.seq < c.seq);
+    return [c.promptTokens || 0, c.completionTokens || 0, mode === "tools" || (mode === "code" && /script/.test(c.step || "")) ? 1 : 0,
+      Math.round(chars(before.filter(t => t.via === "search"))), mode === "code" ? 0 : Math.round(chars(before.filter(t => t.via !== "search")))]; });
+}
+const cmWiData = (A, B, C, ok) => ({ n0: A.toolsAdvertised || C.toolsAdvertised || 3, est: !(A.catalog && C.catalog),
+  t: { tools: A.catalog?.defTokens || 45, code: C.catalog?.stubTokens || 85 },
+  m: { tools: cmWiCalls(A, "tools"), search: ok(B) ? cmWiCalls(B, "search") : null, code: cmWiCalls(C, "code") } });
+function cmWiTok(d, mode, N, s, r, cal) {  // tokens for the whole run; Infinity when the mode can't run at this size
+  const calls = d.m[mode]; if (!calls) return null;
+  if (mode === "tools" && N > CM_WI_LIMIT) return Infinity;
+  const t = (d.t[mode] || 0) * (cal?.[mode] || 1);
+  return Math.round(calls.reduce((sum, [p, c, k, rs, rt]) => sum + p + c + k * (N * s - d.n0) * t + (s - 1) * rs + (r - 1) * rt, 0));
+}
+const CM_WI_MODES = [["tools", "A · tool calling"], ["search", "B · tool search"], ["code", "C · code mode"]];
+const cmWiN = (d, v) => Math.round(d.n0 * Math.pow(CM_WI_MAX / d.n0, v / 1000));
+// The run detail is rebuilt while the page polls, so each panel's state (open, controls, calibration, probe result) is kept per run
+const cmWiState = new Map();
+const cmWiLive = (key) => [...document.querySelectorAll(".cmwi")].find(x => x.dataset.d === key);
+function cmWhatIf(A, B, C, ok) {
+  if (!ok(A) || !ok(C) || !A.modelCalls?.length) return "";
+  const d = cmWiData(A, B, C, ok), key = JSON.stringify(d), st = cmWiState.get(key) || {};
+  const v = st.v ?? Math.round(1000 * Math.log(100 / d.n0) / Math.log(CM_WI_MAX / d.n0)), s = st.s ?? 1, r = st.r ?? 1, pn = st.pn ?? 25;
+  return `<details class="cmwi" data-d="${escapeHtml(key)}"${st.cal ? ` data-cal="${escapeHtml(JSON.stringify(st.cal))}"` : ""}${st.open ? " open" : ""} ontoggle="cmWiToggle(this)">
+    <summary>What if the catalog had 10, 100 or 1,000 tools? Replay this run at any size<span class="tag">no model calls</span></summary>
+    <div class="wictl"><label>Tools in the catalog <input type="range" min="0" max="1000" value="${v}" oninput="cmWiRender(this.closest('.cmwi'))"><b class="n"></b></label>
+      <label>Schema size <select onchange="cmWiRender(this.closest('.cmwi'))" title="Real enterprise APIs often have 3-6x larger schemas than this sandbox's 3 small tools">
+        ${[1, 2, 4, 6].map(x => `<option value="${x}"${x === s ? " selected" : ""}>${x}× this sandbox's</option>`).join("")}</select></label>
+      <label>Tool result size <select onchange="cmWiRender(this.closest('.cmwi'))">${[1, 3, 10].map(x => `<option value="${x}"${x === r ? " selected" : ""}>${x}×</option>`).join("")}</select></label></div>
+    <div class="wiout"></div>
+    <div class="wiprobe"><b>Check the estimate with the model</b>
+      <select class="wipn" title="Catalog size for the probe" onchange="cmWiSave(this.closest('.cmwi'))">${[25, 50, 100].map(x => `<option value="${x}"${x === pn ? " selected" : ""}>${x} tools</option>`).join("")}</select>
+      <button class="secondary"${st.busy ? " disabled" : ""} onclick="cmWiProbe(this)">${st.busy ? "Measuring…" : st.probe ? "Measure again" : "Measure with the model"}</button>
+      <span class="muted">4 calls with <code>max_tokens: 1</code>: A's and C's first prompt with ${d.n0} tools, then padded with decoy tools. Under a cent of tokens, plus the gateway's Content Safety screening of C's longer prompt (billed per 1,000 characters). The model's own token count replaces the estimate.</span>
+      <div class="wiprobeOut">${st.probe || ""}</div></div>
+  </details>`;
+}
+function cmWiSave(root, extra = {}) {
+  const [range] = root.querySelectorAll(".wictl input"), [sSel, rSel] = root.querySelectorAll(".wictl select"), key = root.dataset.d;
+  cmWiState.set(key, { ...(cmWiState.get(key) || {}), open: root.open, v: +range.value, s: +sSel.value, r: +rSel.value, pn: +root.querySelector(".wipn").value, ...extra });
+}
+function cmWiToggle(root) { cmWiSave(root); if (root.open) cmWiRender(root); }
+function cmWiChart(d, s, r, cal, N) {
+  const W = 720, H = 230, L = 52, R = 14, T = 12, B = 30, w = W - L - R, h = H - T - B, lo = Math.log(d.n0), hi = Math.log(CM_WI_MAX);
+  const grid = [...new Set(Array.from({ length: 90 }, (_, i) => cmWiN(d, i * 1000 / 89)).concat([CM_WI_LIMIT]))].sort((a, b) => a - b);
+  const series = CM_WI_MODES.filter(([m]) => d.m[m]).map(([m, label]) => ({ m, label, pts: grid.map(n => [n, cmWiTok(d, m, n, s, r, cal)]).filter(([, y]) => Number.isFinite(y)) }));
+  const ys = series.flatMap(x => x.pts.map(([, y]) => y)), y0 = Math.pow(10, Math.floor(Math.log10(Math.min(...ys)))), y1 = Math.pow(10, Math.ceil(Math.log10(Math.max(...ys))));
+  const X = (n) => L + w * (Math.log(n) - lo) / (hi - lo), Y = (y) => T + h - h * (Math.log(y) - Math.log(y0)) / (Math.log(y1) - Math.log(y0));
+  const col = { tools: "#0078d4", search: "#8764b8", code: "#107c10" }, fmtK = (y) => y >= 1000 ? (y / 1000).toLocaleString() + "K" : String(y);
+  const yt = []; for (let e = Math.log10(y0); e <= Math.log10(y1); e++) for (const k of [1, 3]) { const y = k * Math.pow(10, e); if (y >= y0 && y <= y1) yt.push(y); }
+  const xt = [d.n0, 10, 30, 100, 300, 1000].filter((n, i, a) => n >= d.n0 && a.indexOf(n) === i);
+  let svg = yt.map(y => `<line class="gr" x1="${L}" x2="${W - R}" y1="${Y(y).toFixed(1)}" y2="${Y(y).toFixed(1)}"/><text x="${L - 6}" y="${(Y(y) + 3).toFixed(1)}" text-anchor="end">${fmtK(y)}</text>`).join("")
+    + xt.map(n => `<line class="gr" x1="${X(n).toFixed(1)}" x2="${X(n).toFixed(1)}" y1="${T}" y2="${T + h}"/><text x="${X(n).toFixed(1)}" y="${H - 14}" text-anchor="middle">${n}</text>`).join("")
+    + `<line class="ax" x1="${L}" x2="${W - R}" y1="${T + h}" y2="${T + h}"/><line class="ax" x1="${L}" x2="${L}" y1="${T}" y2="${T + h}"/>`
+    + `<text x="${L + w / 2}" y="${H - 2}" text-anchor="middle">tools in the catalog (log scale)</text><text x="12" y="${T + h / 2}" transform="rotate(-90 12 ${T + h / 2})" text-anchor="middle">tokens per run (log)</text>`;
+  if (d.m.tools) svg += `<line x1="${X(CM_WI_LIMIT).toFixed(1)}" x2="${X(CM_WI_LIMIT).toFixed(1)}" y1="${T}" y2="${T + h}" stroke="#a4262c" stroke-dasharray="2 3"/>`
+    + `<text x="${(X(CM_WI_LIMIT) + 4).toFixed(1)}" y="${T + 10}" fill="#a4262c" style="fill:#a4262c">A's limit: ${CM_WI_LIMIT} tools per request</text>`;
+  svg += series.map(x => `<polyline fill="none" stroke="${col[x.m]}" stroke-width="2.2" points="${x.pts.map(([n, y]) => `${X(n).toFixed(1)},${Y(y).toFixed(1)}`).join(" ")}"/>`).join("");
+  svg += `<line x1="${X(N).toFixed(1)}" x2="${X(N).toFixed(1)}" y1="${T}" y2="${T + h}" stroke="#323130" stroke-dasharray="4 3"/>`
+    + series.map(x => { const y = cmWiTok(d, x.m, N, s, r, cal); return Number.isFinite(y) ? `<circle cx="${X(N).toFixed(1)}" cy="${Y(y).toFixed(1)}" r="4" fill="${col[x.m]}"/>` : ""; }).join("");
+  return `<svg class="wichart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Tokens per run for each mode as the tool catalog grows">${svg}</svg>`;
+}
+function cmWiCross(d, s, r, cal, x, y) {  // the first catalog size where y uses fewer tokens than x: { n, limit } or null
+  if (!d.m[x] || !d.m[y]) return undefined;
+  for (let n = d.n0; n <= CM_WI_MAX; n++) { const a = cmWiTok(d, x, n, s, r, cal), b = cmWiTok(d, y, n, s, r, cal); if (b < a) return { n, limit: a === Infinity }; }
+  return null;
+}
+function cmWiRender(root) {
+  const d = JSON.parse(root.dataset.d), cal = root.dataset.cal ? JSON.parse(root.dataset.cal) : null;
+  const [range] = root.querySelectorAll(".wictl input"), [sSel, rSel] = root.querySelectorAll(".wictl select"), s = +sSel.value, r = +rSel.value, N = cmWiN(d, +range.value);
+  root.querySelector(".wictl b.n").textContent = N.toLocaleString();
+  cmWiSave(root);
+  const tok = Object.fromEntries(CM_WI_MODES.map(([m]) => [m, cmWiTok(d, m, N, s, r, cal)])), best = Math.min(...Object.values(tok).filter(Number.isFinite));
+  const cards = CM_WI_MODES.filter(([m]) => d.m[m]).map(([m, label]) => tok[m] === Infinity
+    ? `<div class="wic m-${m} off">${label}<b>Can't run</b>${N} tools is over the API's ${CM_WI_LIMIT}-tool limit</div>`
+    : `<div class="wic m-${m}${tok[m] === best ? " win" : ""}">${label}<b>${tok[m].toLocaleString()}</b>tokens${tok[m] === best ? " · fewest" : ` · ${(tok[m] / best).toFixed(1)}× the fewest`}</div>`).join("");
+  const at = (m, n) => { const v = cmWiTok(d, m, n, s, r, cal); return v == null ? "-" : v === Infinity ? `<span class="muted">over the limit</span>` : v.toLocaleString(); };
+  const sizes = [10, 100, 1000].filter(n => n >= d.n0), win = (n) => { const vs = CM_WI_MODES.filter(([m]) => d.m[m]).map(([m, l]) => [l.split(" ·")[0], cmWiTok(d, m, n, s, r, cal)]).filter(([, v]) => Number.isFinite(v)); return vs.sort((a, b) => a[1] - b[1])[0]?.[0] || "-"; };
+  const be = [], ba = cmWiCross(d, s, r, cal, "tools", "search"), bc = cmWiCross(d, s, r, cal, "code", "search"), ca = cmWiCross(d, s, r, cal, "tools", "code");
+  if (ba !== undefined) be.push(!ba ? "B never uses fewer tokens than A here." : ba.limit ? `B stays above A until A hits the ${CM_WI_LIMIT}-tool limit; past it only B and C can run.` : `<b>B beats A from ${ba.n} tools</b>: from there advertising every schema on every round costs more than B's search round.`);
+  if (bc !== undefined) be.push(!bc ? `<b>C stays ahead of B up to ${CM_WI_MAX.toLocaleString()} tools</b> with these sizes: C's stubs grow with the catalog but are sent once.` : `<b>B beats C from ${bc.n} tools</b>: C sends every stub once, B sends none, so a big catalog eventually costs C more than B's extra rounds.`);
+  if (ca !== undefined) be.push(!ca ? "C never beats A here." : ca.n === d.n0 ? `<b>C beats A at every size</b>, already at ${d.n0} tools: one script instead of a round per step, and raw results stay out of the context.` : `<b>C beats A from ${ca.n} tools.</b>`);
+  root.querySelector(".wiout").innerHTML = `<div class="wicards">${cards}</div>${cmWiChart(d, s, r, cal, N)}
+    <div class="wilg">${CM_WI_MODES.filter(([m]) => d.m[m]).map(([m, l]) => `<span class="wil m-${m}">${l}</span>`).join("")}<span class="muted">dashed line: the size you picked</span></div>
+    <ul class="wibe">${be.map(x => `<li>${x}</li>`).join("")}</ul>
+    <table class="cmtable"><tr><th>Tools in the catalog</th>${CM_WI_MODES.filter(([m]) => d.m[m]).map(([, l]) => `<th>${l}</th>`).join("")}<th>Fewest tokens</th></tr>
+      ${sizes.map(n => `<tr><td>${n.toLocaleString()}</td>${CM_WI_MODES.filter(([m]) => d.m[m]).map(([m]) => `<td>${at(m, n)}</td>`).join("")}<td>${win(n)}</td></tr>`).join("")}</table>
+    <div class="muted">Replays this run's own calls: each call that carries the catalog (all of A's rounds, C's script prompt) grows by tools × ${cal ? "measured" : d.est ? "assumed" : "estimated"} tokens per tool
+      (A ${(d.t.tools * (cal?.tools || 1)).toFixed(0)}, C ${(d.t.code * (cal?.code || 1)).toFixed(0)} at 1×${cal ? ", calibrated by the probe" : ", about 4 characters per token until you measure"}), and each raw tool result that reached the model grows with the result size.
+      B's prompt doesn't carry the catalog, so it stays flat. It assumes every mode takes the same path at any size, which tokens can't show: with big catalogs A picks wrong tools more often and B's search can miss.
+      Short tasks (1-2 tool calls) favor A, because C always pays for a script prompt and an answer call. Combining B and C (search, then stubs for only the tools found) would keep both advantages; it isn't built here.</div>`;
+}
+async function cmWiProbe(btn) {
+  const root0 = btn.closest(".cmwi"), key = root0.dataset.d, catalog = +root0.querySelector(".wipn").value, scale = +root0.querySelector(".wictl select").value;
+  const busy = `<div class="muted">Measuring ${catalog} tools at ${scale}× schema size…</div>`;
+  cmWiSave(root0, { busy: true, probe: busy });
+  btn.disabled = true; btn.textContent = "Measuring…"; root0.querySelector(".wiprobeOut").innerHTML = busy;
+  const res = await cmRun({ agent: tierAgent("gold").name, model: cmModel(), mode: "probe", catalog, scale, session: `${$("sessionId").value.trim()}-probe-${Date.now().toString(36)}` });
+  const p = res.probe, prev = cmWiState.get(key) || {};
+  const finish = (html, cal) => {
+    cmWiState.set(key, { ...prev, busy: false, probe: html, ...(cal ? { cal: { ...(prev.cal || {}), ...cal } } : {}) });
+    const root = cmWiLive(key);
+    if (!root) return;
+    if (cal) root.dataset.cal = JSON.stringify(cmWiState.get(key).cal);
+    const b = root.querySelector(".wiprobe button"); b.disabled = false; b.textContent = "Measure again";
+    root.querySelector(".wiprobeOut").innerHTML = html;
+    if (root.open) cmWiRender(root);
+  };
+  if (!p) return finish(`<div class="muted">The probe failed: ${escapeHtml(res.error || "no result")}</div>`);
+  const pt = (m, n) => p.points.find(x => x.mode === m && x.tools === n) || {}, est = { tools: p.estimate.decoys.defTokens, code: p.estimate.decoys.stubTokens };
+  const cal = {};
+  for (const m of ["tools", "code"]) if (p.perToolTokens[m] != null && est[m]) cal[m] = +(p.perToolTokens[m] / est[m]).toFixed(3);
+  const why = (e) => /content safety/i.test(e) ? "blocked by the gateway's Content Safety (the padded prompt is too large to screen)"
+    : /call volume quota|budget/i.test(e) ? "over the gateway's $ budget for this session or plan" : /tools|128/i.test(e) && /400/.test(e) ? `rejected by the API: at most ${p.openaiToolLimit} tools per request` : e.slice(0, 90);
+  const cell = (m, n) => { const x = pt(m, n); return x.error ? `<span class="status err">rejected</span> <span class="muted" title="${escapeHtml(x.error)}">${escapeHtml(why(x.error))}</span>` : (x.promptTokens ?? "-").toLocaleString(); };
+  const pred = (m) => { const b = pt(m, p.realTools).promptTokens; return b == null ? "-" : Math.round(b + p.decoys * est[m]).toLocaleString(); };
+  finish(`<table class="cmtable"><tr><th></th><th>A · tool calling</th><th>C · code mode</th></tr>
+      <tr><td>First prompt with the ${p.realTools} real tools (measured)</td><td>${cell("tools", p.realTools)}</td><td>${cell("code", p.realTools)}</td></tr>
+      <tr><td>First prompt with ${p.catalog} tools (measured)</td><td>${cell("tools", p.catalog)}</td><td>${cell("code", p.catalog)}</td></tr>
+      <tr><td>What the estimate predicted for ${p.catalog} tools</td><td>${pred("tools")}</td><td>${pred("code")}</td></tr>
+      <tr><td>Tokens per added tool: estimate → measured</td>${["tools", "code"].map(m => `<td>${est[m]} → <b>${p.perToolTokens[m] ?? "-"}</b></td>`).join("")}</tr></table>
+    <div class="muted">${p.decoys} decoy tools at ${p.scale}× schema size, shaped like the gateway's. ${res.modelCalls?.length || 0} model calls, ${fmtUsd(res.costUsd)}, ${fmtLat(res.elapsedMs)}.
+      ${Object.keys(cal).length ? "The chart above now uses the measured tokens per tool." : "Nothing was measured, so the chart keeps the estimate."}
+      ${p.perToolTokens.tools && p.perToolTokens.code ? ` Per tool, C's stubs (${p.perToolTokens.code}) cost ${p.perToolTokens.code > p.perToolTokens.tools ? "more" : "less"} than A's native definitions (${p.perToolTokens.tools}): the API packs function schemas tightly. C wins on round trips, because A re-sends its whole list on every turn.` : ""}
+      ${["tools", "code"].some(m => /content safety/i.test(pt(m, p.catalog).error || "")) ? " Content Safety screens prompt text, so C's stubs count toward its size limit while A's tool definitions don't: a guardrail cost that also grows with the catalog. Try a smaller size." : ""}
+      ${pt("tools", p.catalog).error && /400/.test(pt("tools", p.catalog).error) ? ` A's padded prompt was rejected: one request can carry at most ${p.openaiToolLimit} tools, so past that A needs tool search or code mode.` : ""}</div>`, Object.keys(cal).length ? cal : null);
 }
 // Log correlation: each run sends one W3C trace id on every call (APIM logs it as OperationId, and Foundry propagates it on the
 // calls the Toolbox relays) and each direct call returns its x-gw-request-id (CorrelationId), so a run's logs can be pulled and checked
