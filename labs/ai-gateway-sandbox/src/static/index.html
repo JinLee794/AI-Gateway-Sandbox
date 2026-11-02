@@ -288,6 +288,15 @@
   .cmfl .s.bad { background:#fde7e9; border-color:#f1bbbc; } .cmfl .s.good { background:#dff6dd; border-color:#9fd89f; }
   .cmfl .ar { color:#a19f9d; font-size:12px; }
   .cmfl .gwnote { font-size:11px; color:#323130; padding:4px 10px; border-radius:6px; background:#e8f1fb; border:1px solid #c7e0f4; }
+  .cmmore { margin-top:8px; } .cmmore .tb { display:flex; flex-wrap:wrap; gap:4px; align-items:center; font-size:11px; color:#605e5c; }
+  .cmmore .tb button { font:600 11px Segoe UI,sans-serif; padding:2px 9px; border-radius:12px; border:1px solid #e1dfdd; background:#fff; color:#323130; cursor:pointer; }
+  .cmmore .tb button:hover { border-color:#c8c6c4; background:#faf9f8; } .cmmore .tb button.on { background:#323130; border-color:#323130; color:#fff; }
+  .cmmore .pn { margin-top:6px; padding:8px 10px; background:#fff; border:1px solid #e1dfdd; border-radius:6px; font-size:11.5px; animation:cmflIn .25s both; }
+  .cmmore ul { list-style:none; margin:0; padding:0; display:grid; gap:4px; } .cmmore li { display:flex; gap:7px; } .cmmore li > i { font-style:normal; flex:none; }
+  .cmmore table { border-collapse:collapse; width:100%; table-layout:fixed; } .cmmore th:first-child { width:26px; } .cmmore td, .cmmore th { white-space:normal; overflow:visible; text-overflow:clip; max-width:none; } .cmmore td code { white-space:nowrap; } .cmmore th { text-align:left; font-weight:600; color:#605e5c; font-size:10.5px; padding:0 6px 3px; }
+  .cmmore td { padding:4px 6px; border-top:1px solid #f3f2f1; vertical-align:top; } .cmmore td.bad { color:#a4262c; } .cmmore td.good { color:#0e700e; }
+  .cmmore .k { display:inline-grid; place-items:center; width:18px; height:18px; border-radius:50%; color:#fff; font-size:10px; }
+  .cmmore .k.a { background:#0078d4; } .cmmore .k.b { background:#8764b8; } .cmmore .k.c { background:#107c10; } .cmmore .k.d { background:#c239b3; }
   .cmnm { display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin:4px 0; font:600 11px ui-monospace,Consolas,monospace; }
   .cmnm span { padding:2px 7px; border-radius:4px; color:#fff; } .cmnm small { font:400 10px Segoe UI,sans-serif; color:#605e5c; margin-right:6px; }
   .scexplain details { margin-top:6px; } .scexplain summary { cursor:pointer; font-weight:600; color:#323130; }
@@ -7765,7 +7774,7 @@ const SCENARIOS = [
     } },
   { title: "Code mode vs tool search vs tool calling vs search + execute", experimental: true, slow: true, runLabel: "about 3 minutes",
     cost: "4 runs · ≈ 40 calls · < $0.04",
-    gist: "Experimental: the same procurement task four times against the gateway's MCP server. A: classic tool calling. B: Foundry Toolbox tool search, where the model starts with 2 meta-tools and Foundry relays each call to the gateway. C: code mode, where the model writes one script and only its printed result comes back. D: search + execute (the Cloudflare and Kong Context Mesh pattern), where the model searches a 1,000-operation catalog with code and then calls operations by id.",
+    gist: "Experimental: one procurement task four ways (tool calling, Foundry tool search, code mode, search + execute), compared by the tokens each puts in the model's context.",
     policies: ["MCP tool entitlement", "tool pricing", "rate-limit-by-key (tool calls/min)", "llm-token-limit"],
     controls: ["tool-ent", "tool-price", "tool-rate", "model-price"],
     preview: () => { const m = cmModel();
@@ -7779,22 +7788,7 @@ const SCENARIOS = [
         + dg.row(dg.agent("gold"), dg.arrow("domain index"), dg.model(m, "search, then 1 script"), dg.arrow("code"), dg.node("Sandbox", "catalog search · runs script"), dg.arrow(), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool")); },
     explain: () => `<div class="scexplain"><h4>How the four modes work <span class="exptag">EXPERIMENTAL</span></h4>
       ${cmFlowHtml()}
-      <details><summary>What each mode does, step by step</summary>
-      <ol><li><b>A · classic tool calling.</b> The model gets every MCP tool schema, asks for tools one round at a time, and every raw tool result is appended to the conversation and sent again on the next round. The context grows with every call.</li>
-      <li><b>B · tool search (Foundry Toolbox), the approved POC.</b> A Foundry Toolbox (<code>agent-ready-apis</code>) puts the gateway's MCP server behind two meta-tools. The model calls <code>tool_search</code> with a description of what it needs and gets back only the matching schemas, then invokes them through <code>call_tool</code>. Foundry also <b>auto-pins</b> tools it has seen used and lists them up front next to the 2 meta-tools, so after a few runs a small catalog is advertised in full again. Foundry relays each call to the gateway with the project's managed identity and the subscription key stored in the Toolbox connection, so the gateway still checks, prices and logs every call.</li>
-      <li><b>C · code mode (phase 2).</b> app.py turns the MCP <code>tools/list</code> into typed Python functions. The model writes <b>one script</b> that loops, filters and does the arithmetic.</li>
-      <li>A sandbox runs the script. Each function call becomes a real MCP <code>tools/call</code> through the gateway, with the agent's subscription key and Entra ID token.</li>
-      <li>Only what the script <b>prints</b> goes back to the model, which writes the answer. Raw tool results never enter the model's context.</li>
-      <li><b>D · search + execute (context mesh).</b> The pattern Cloudflare uses for its API and Kong Context Mesh uses for its catalog: the model gets two tools, <code>search(code)</code> and <code>execute(code)</code>, and a domain index instead of the catalog. Here the catalog has 1,000 operations: the 3 real tools plus generated decoys, all normalized to <code>domain.resource.verb</code> ids (for example <code>commerce.inventory.check</code>). <code>search</code> runs the model's code over the catalog in the sandbox, with no gateway call. <code>execute</code> runs a script whose <code>call(op_id, args)</code> resolves the id to a gateway tool and makes a real MCP <code>tools/call</code>; decoy ids return 501.</li></ol></details>
-      <details><summary>Why naming matters for D</summary>
-      <div class="cmnm"><span style="background:#0078d4">commerce</span>.<span style="background:#8764b8">inventory</span>.<span style="background:#c239b3">check</span>
-        <small>domain · resource · verb</small> <code>op.startswith("commerce.inventory.")</code></div>
-      <p>With consistent names the model can find operations by pattern (<code>op.startswith("commerce.inventory.")</code>) instead of reading schemas, so the prompt grows with the number of domains and resources, not operations. Cloudflare can do this because its API is uniform; Kong's Context Mesh does it by normalizing many upstream APIs into one catalog first. Inconsistent names push the work back into search, and the model reads more.</p></details>
-      <details><summary>What the gateway still enforces</summary><p>In all four modes each tool call is a separate gateway call, checked and priced on its own. The plan's tool allow-list, per-call price, tool calls per minute, $ budgets and logs apply to model-written code and to Toolbox-relayed calls exactly as to classic tool calls, and the model calls still pass model governance and the token limit. Governance is per tool call, not per script or per search.</p></details>
-      <details><summary>The trade-off in B (Foundry Toolbox)</summary><p>The gateway sees the Toolbox, not the agent. Every B call arrives with the Toolbox connection's single subscription (here <code>support-agent</code>) and the Foundry project's identity (the caller trace reads <i>foundry-toolbox</i>), so per-agent plans, budgets and attribution collapse into one unless you run one Toolbox per plan. The Toolbox also opens a new MCP session upstream for each call, so the gateway logs about 3 requests per tool call. B's tool cost in the table is estimated from the catalog price, because the gateway's <code>x-gw-*</code> headers don't come back through Foundry. Foundry does pass on the W3C <code>traceparent</code>, so every run sends one trace id on all its calls and <b>Check the gateway logs</b> finds B's relayed calls by it.</p></details>
-      <details><summary>Spike limits and Phase 2</summary>
-      <p class="muted"><b>Spike limits:</b> the sandbox is a separate Python process with an AST allow-list, restricted built-ins, a timeout and a tool-call cap. It stands in for a real isolation boundary such as Hyperlight or Azure Container Apps dynamic sessions, and code mode's script runs with the caller's credentials. The gateway's MCP server sends no <code>outputSchema</code>, so the result shapes are documented in <code>codemode.py</code>; without them the model guessed field names and answered wrong. Savings grow with the size of tool results and the number of tools: this sandbox has 3 small tools, while vendor claims (for example 120K → 1.2K tokens) assume large catalogs. With 3 tools, B costs <b>more</b> than A: one search returns every schema plus Foundry metadata and adds a model round. Tool search pays off when the catalog is too big to advertise (the POC targets about 120 tools). B needs a one-time setup: <code>python infra/scripts/setup_toolbox.py --approve-live</code> creates the Toolbox and its connection (the subscription key sits in the connection URL, a spike shortcut), and approves the project identity in the gateway's Entra ID check.</p>
-      <p class="muted"><b>Phase 2: Microsoft-Decision-1.</b> Decision-1 is a scoring model, not a generative one. It returns a probability for a yes/no, choice or score question, so it can't write the script or the answer; that stays with a chat model such as <code>gpt-4.1-mini</code>. It could gate a script before the sandbox runs it (is it in scope and safe?) or choose code mode or tool calling for each task. Both need a Decision-1 deployment and its own gateway route; not built yet.</p></details></div>`,
+      ${cmMoreHtml()}</div>`,
     story: () => `The Gold <b>${tierAgent("gold").displayName}</b> runs one procurement task four times on <b>${cmModel()}</b>, against the same MCP server on the gateway: classic tool calling (A), tool search through a Foundry Toolbox (B), code mode (C), then search + execute over a 1,000-operation catalog (D). All answers should match; the takeaway compares the tokens each approach put in the model's context.`,
     async run() {
       const a = tierAgent("gold"), model = cmModel(), out = {};
@@ -7836,8 +7830,46 @@ function cmFlowHtml() {
   return `<div class="cmfl">${lanes.map(([m, l, t, sub, [cls, tag], steps]) =>
     `<div class="ln m-${m}"><div class="hd"><span class="lt">${l}</span><b>${t}</b><small>${sub}</small><span class="cx ${cls}">${tag}</span></div>
       <div class="st">${steps.join(`<span class="ar">→</span>`)}</div></div>`).join("")}
-    <div class="gwnote">🛡️ In every lane, each tool call is its own gateway call: allow-listed, priced, rate-limited, budgeted and logged.</div>
+    <div class="gwnote">🛡️ In every lane, each tool call is its own gateway call: allow-listed, priced, rate-limited, budgeted and logged. Model calls still pass the token limit.</div>
   </div>`;
+}
+
+// The explain's reference notes: closed tabs, one short panel at a time, so the lanes stay the focus.
+function cmMoreHtml() {
+  const li = items => `<ul>${items.map(([ic, t]) => `<li><i>${ic}</i><span>${t}</span></li>`).join("")}</ul>`;
+  const tabs = [
+    ["how", "🔧", "Under the hood", `<table><tr><th></th><th>Model sees</th><th>Runs where</th><th>Back to the model</th></tr>
+      <tr><td><b class="k a">A</b></td><td>every tool schema</td><td>gateway, one call per round</td><td class="bad">every raw result</td></tr>
+      <tr><td><b class="k b">B</b></td><td><code>tool_search</code> + <code>call_tool</code> (+ auto-pinned tools)</td><td>Foundry relays → gateway</td><td class="bad">matched schemas + raw results</td></tr>
+      <tr><td><b class="k c">C</b></td><td>typed Python stubs from <code>tools/list</code></td><td>sandbox script → gateway</td><td class="good">only <code>print()</code> output</td></tr>
+      <tr><td><b class="k d">D</b></td><td><code>search</code> + <code>execute</code> + a domain index</td><td>sandbox searches 1,000 ops (no gateway), then calls → gateway</td><td class="good">search hits + <code>print()</code></td></tr></table>`],
+    ["name", "🏷️", "Naming (D)", `<div class="cmnm"><span style="background:#0078d4">commerce</span>.<span style="background:#8764b8">inventory</span>.<span style="background:#c239b3">check</span><small>domain · resource · verb</small></div>` + li([
+      ["🔍", `Find ops by pattern (<code>startswith("commerce.inventory.")</code>), not by reading schemas`],
+      ["📈", "The prompt grows with domains, not operations"],
+      ["☁️", "Cloudflare: one uniform API. Kong Context Mesh: normalizes many APIs into one catalog"],
+      ["⚠️", "Messy names push work back into search, and the model reads more"]])],
+    ["b", "⚖️", "B trade-off", li([
+      ["👤", "The gateway sees the Toolbox, not the agent: one subscription (<code>support-agent</code>), caller <i>foundry-toolbox</i>. Per-agent plans and budgets collapse unless you run one Toolbox per plan"],
+      ["🔁", "About 3 gateway requests per tool call (a new MCP session each time)"],
+      ["💲", "Tool cost is estimated: <code>x-gw-*</code> headers don't come back through Foundry"],
+      ["🧵", "<code>traceparent</code> passes through, so <b>Check the gateway logs</b> still finds B's calls"]])],
+    ["lim", "🧪", "Spike limits", li([
+      ["📦", "Sandbox: separate Python process, AST allow-list, timeout, call cap. Stands in for Hyperlight or ACA dynamic sessions"],
+      ["🔑", "Scripts run with the caller's credentials"],
+      ["📐", "The MCP server sends no <code>outputSchema</code>; result shapes live in <code>codemode.py</code>"],
+      ["📏", "3 small tools, so B costs more than A. Savings grow with catalog and result size (the POC targets ~120 tools)"],
+      ["⚙️", "B setup: <code>python infra/scripts/setup_toolbox.py --approve-live</code>"]])],
+    ["p2", "🔮", "Phase 2: Decision-1", li([
+      ["🎯", "Decision-1 scores (yes/no, choice, score); it can't write the script or the answer"],
+      ["🚦", "Could gate a script before it runs, or pick a mode per task"],
+      ["🚧", "Needs its own deployment and gateway route; not built yet"]])]];
+  return `<div class="cmmore"><div class="tb"><span>More:</span>${tabs.map(([k, ic, t]) => `<button type="button" data-k="${k}" onclick="cmMoreTab(this)">${ic} ${t}</button>`).join("")}</div>
+    ${tabs.map(([k, , , body]) => `<div class="pn" data-k="${k}" hidden>${body}</div>`).join("")}</div>`;
+}
+function cmMoreTab(b) {
+  const w = b.closest(".cmmore"), on = !b.classList.contains("on");
+  w.querySelectorAll(".tb button").forEach(x => x.classList.toggle("on", on && x === b));
+  w.querySelectorAll(".pn").forEach(p => p.hidden = !(on && p.dataset.k === b.dataset.k));
 }
 
 // /api/codemode makes its gateway calls server-side, so they never pass through record(): add one record per real gateway request
