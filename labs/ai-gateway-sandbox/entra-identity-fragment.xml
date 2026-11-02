@@ -25,6 +25,8 @@
             <application-id>{agent-client-id}</application-id>
             <!-- Hosted demo UI workload identity: App Service (notebook, hostDemoUi) or Container Apps (azd up); empty when the UI is not hosted -->
             {ui-client-application-id}
+            <!-- Experimental: Foundry project managed identity, used by the Foundry Toolbox (tool search) to call MCP tools; empty unless toolboxClientId is set -->
+            {toolbox-client-application-id}
         </client-application-ids>
         <audiences>
             <audience>https://cognitiveservices.azure.com</audience>
@@ -34,6 +36,7 @@
         var jwt = (Jwt)context.Variables["entraToken"];
         var appId = jwt.Claims.GetValueOrDefault("appid", jwt.Claims.GetValueOrDefault("azp", ""));
         if (appId == "{agent-client-id}") { return "sourcing-agent (managed identity)"; }
+        if (appId == "{toolbox-client-id}") { return "foundry-toolbox (project managed identity)"; }
         if (appId == "{ui-client-id}") {
             // The hosted demo UI forwards the Easy Auth signed-in user; only trusted on a token of the UI's own identity
             var presenter = context.Request.Headers.GetValueOrDefault("x-demo-presenter", "");

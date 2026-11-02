@@ -233,7 +233,7 @@ class CopilotTests(unittest.TestCase):
         mapping = re.findall(r'\[/(.+?)/, "([a-z]+)"\]', html[html.index("const AG_SC_STORY = ["):html.index("const agScStory")])
         self.assertLessEqual({sid for _, sid in mapping}, stories)
         titles = re.findall(r'^  \{ title: "([^"]+)"', html, re.M)
-        self.assertEqual(len(titles), 23)
+        self.assertEqual(len(titles), 24)
         for title in titles:
             self.assertTrue(any(re.search(rx, title) for rx, _ in mapping), title)
 

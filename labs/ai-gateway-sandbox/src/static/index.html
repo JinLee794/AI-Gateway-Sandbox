@@ -267,6 +267,15 @@
   .scrow .c { color:var(--muted); font-size:11px; font-weight:400; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .scrow.off { color:#8a8886; } .scrow.off .t { text-decoration:line-through; text-decoration-color:#a19f9d; } .scrow.off .n { background:#e1dfdd; color:#8a8886; }
   .scrow .offtag, .scpv .offtag, .scexp .offtag { flex:0 0 auto; font-size:10px; font-weight:700; letter-spacing:.06em; padding:1px 6px; border-radius:10px; background:#edebe9; color:#605e5c; border:1px solid #c8c6c4; }
+  .exptag { flex:0 0 auto; font-size:10px; font-weight:700; letter-spacing:.06em; padding:1px 6px; border-radius:10px; background:#fff4ce; color:#8a5a00; border:1px solid #f2c94c; vertical-align:middle; }
+  .scexplain { margin-top:10px; padding:10px 12px; background:#fffcf0; border:1px solid #f2e2a8; border-left:3px solid #f2c94c; border-radius:4px; font-size:12.5px; line-height:1.45; }
+  .scexplain h4 { margin:0 0 6px; font-size:13px; display:flex; gap:8px; align-items:center; } .scexplain ol { margin:4px 0 6px; padding-left:20px; } .scexplain li { margin:2px 0; }
+  .scexplain p { margin:6px 0 0; } #scExplain:empty { display:none; }
+  .cmtable { border-collapse:collapse; margin:8px 0; font-size:12.5px; } .cmtable th, .cmtable td { padding:3px 10px; border-bottom:1px solid #d6e6f5; text-align:right; } .cmtable th:first-child, .cmtable td:first-child { text-align:left; }
+  .cmtable td.win { font-weight:700; color:#107c10; }
+  .cmgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:8px; margin-top:6px; }
+  .cmgrid pre, .cmcode pre { margin:4px 0 0; padding:8px; background:#fff; border:1px solid #d6e6f5; border-radius:4px; font-size:11.5px; white-space:pre-wrap; max-height:320px; overflow:auto; }
+  .cmcode { margin-top:6px; } .cmcode > summary { cursor:pointer; font-weight:600; color:var(--accent); }
   .sclist .sctopic { position:sticky; top:-4px; z-index:1; font-size:10.5px; font-weight:700; color:#8a8886; text-transform:uppercase; letter-spacing:.7px; margin:6px -4px 2px; padding:6px 12px 5px;
     background:rgba(250,251,252,.94); backdrop-filter:blur(4px); border-bottom:1px solid #edf0f3; }
   .sclist .sctopic:first-child { margin-top:-4px; }
@@ -1334,6 +1343,7 @@
         <select id="scRunSel" hidden aria-label="Scenario runs in this session: pick one to see its diagram, takeaway and steps, and its calls in the request log"></select></div>
       <div id="scFlow" aria-label="Scenario path"></div>
       <div id="scTakeaway"></div>
+      <div id="scExplain"></div>
       <div class="scpol" id="scPol" aria-label="Policies behind this scenario"></div>
       <div class="scmore">
         <details id="scMoreBox"><summary>Details <span class="muted">· what the scenario does and how the gateway decides</span></summary>
@@ -5665,7 +5675,7 @@ const AG_SC_STORY = [[/^Same question/, "every"], [/^Model governance/, "downgra
   [/^\$ budget exhausted/, "budget"], [/^MCP tools/, "tool"], [/^A2A agent/, "obo"], [/^One \$ budget/, "mixed"], [/^Chargeback|^Policy trace/, "records"],
   [/^Runaway session/, "session"], [/^Zero trust/, "notoken"], [/^Load balancing/, "failover"], [/content safety/, "safety"], [/^Over budget/, "suspend"],
   [/^Responses API/, "responses"], [/^Images/, "images"], [/^One app, many users/, "enduser"], [/^Semantic cache/, "cache"],
-  [/^Entra only: no key/, "entra"], [/^Entra only: team/, "team"], [/^Entra only: the plan/, "downgrade"]];
+  [/^Entra only: no key/, "entra"], [/^Entra only: team/, "team"], [/^Entra only: the plan/, "downgrade"], [/^Code mode/, "tool"]];
 const agScStory = (i) => (AG_SC_STORY.find(([re]) => re.test(SCENARIOS[i].title)) || [])[1];
 // 2. One model call on the wire: [kind, here, on the tier, why]
 const AG_WIRE = [
@@ -7659,7 +7669,107 @@ const SCENARIOS = [
       takeaway(out.map(([g, r]) => `<b>${escapeHtml(g.displayName)}</b> (<span class="badge ${g.tier}">${g.tier}</span>): <b>${r.status}</b>${r.status === 200 ? `, served <b>${escapeHtml(hdr(r, "x-gw-model-served") || "-")}</b>` : ` <code>${escapeHtml(hdr(r, "x-gw-blocked-by") || "")}</code>`}`).join(" · ")
         + `. One API, no keys: the security group the caller is in decides what they may use.`);
     } },
+  { title: "Code mode vs tool search vs tool calling", experimental: true, slow: true, runLabel: "about 2 minutes",
+    cost: "3 runs · ≈ 30 calls · < $0.03",
+    gist: "Experimental: the same procurement task three times against the gateway's MCP server. A: classic tool calling. B: Foundry Toolbox tool search, where the model starts with 2 meta-tools and Foundry relays each call to the gateway. C: code mode, where the model writes one script and only its printed result comes back.",
+    policies: ["MCP tool entitlement", "tool pricing", "rate-limit-by-key (tool calls/min)", "llm-token-limit"],
+    controls: ["tool-ent", "tool-price", "tool-rate", "model-price"],
+    preview: () => { const m = cmModel();
+      return dg.note("<b>A · classic tool calling</b>: every schema and every raw result goes into the model's context, round after round")
+        + dg.row(dg.agent("gold"), dg.arrow("3 schemas + all results"), dg.model(m, "one call per round"), dg.arrow("tool_calls"), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool"))
+        + dg.note("<b>B · tool search (Foundry Toolbox)</b>: the model sees only <code>tool_search</code> + <code>call_tool</code>; Foundry finds tools and relays each call to the gateway with the project's identity")
+        + dg.row(dg.agent("gold"), dg.arrow("2 meta-tools"), dg.model(m, "searches, then calls"), dg.arrow("call_tool"), dg.node("Foundry Toolbox", "tool search · relay"), dg.arrow("each call"), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool"))
+        + dg.note("<b>C · code mode</b>: the model writes one script; a sandbox runs it and only what it prints goes back")
+        + dg.row(dg.agent("gold"), dg.arrow("typed stubs"), dg.model(m, "writes 1 script"), dg.arrow("script"), dg.node("Sandbox", "runs the script"), dg.arrow("each call"), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool"))
+        + dg.note("Either way every tool call is a separate gateway call: the plan's tool allow-list, per-call price, calls/min and $ budget still apply."); },
+    explain: () => `<div class="scexplain"><h4>How the three modes work <span class="exptag">EXPERIMENTAL</span></h4>
+      <ol><li><b>A · classic tool calling.</b> The model gets every MCP tool schema, asks for tools one round at a time, and every raw tool result is appended to the conversation and sent again on the next round. The context grows with every call.</li>
+      <li><b>B · tool search (Foundry Toolbox), the approved POC.</b> A Foundry Toolbox (<code>agent-ready-apis</code>) puts the gateway's MCP server behind two meta-tools. The model calls <code>tool_search</code> with a description of what it needs and gets back only the matching schemas, then invokes them through <code>call_tool</code>. Foundry also <b>auto-pins</b> tools it has seen used and lists them up front next to the 2 meta-tools, so after a few runs a small catalog is advertised in full again. Foundry relays each call to the gateway with the project's managed identity and the subscription key stored in the Toolbox connection, so the gateway still checks, prices and logs every call.</li>
+      <li><b>C · code mode (phase 2).</b> app.py turns the MCP <code>tools/list</code> into typed Python functions. The model writes <b>one script</b> that loops, filters and does the arithmetic.</li>
+      <li>A sandbox runs the script. Each function call becomes a real MCP <code>tools/call</code> through the gateway, with the agent's subscription key and Entra ID token.</li>
+      <li>Only what the script <b>prints</b> goes back to the model, which writes the answer. Raw tool results never enter the model's context.</li></ol>
+      <p><b>What the gateway still enforces:</b> in all three modes each tool call is a separate gateway call, checked and priced on its own. The plan's tool allow-list, per-call price, tool calls per minute, $ budgets and logs apply to model-written code and to Toolbox-relayed calls exactly as to classic tool calls, and the model calls still pass model governance and the token limit. Governance is per tool call, not per script or per search.</p>
+      <p><b>The trade-off in B:</b> the gateway sees the Toolbox, not the agent. Every B call arrives with the Toolbox connection's single subscription (here <code>support-agent</code>) and the Foundry project's identity (the caller trace reads <i>foundry-toolbox</i>), so per-agent plans, budgets and attribution collapse into one unless you run one Toolbox per plan. The Toolbox also opens a new MCP session upstream for each call, so the gateway logs about 3 requests per tool call. B's tool cost in the table is estimated from the catalog price, because the gateway's <code>x-gw-*</code> headers don't come back through Foundry.</p>
+      <p class="muted"><b>Spike limits:</b> the sandbox is a separate Python process with an AST allow-list, restricted built-ins, a timeout and a tool-call cap. It stands in for a real isolation boundary such as Hyperlight or Azure Container Apps dynamic sessions, and code mode's script runs with the caller's credentials. The gateway's MCP server sends no <code>outputSchema</code>, so the result shapes are documented in <code>codemode.py</code>; without them the model guessed field names and answered wrong. Savings grow with the size of tool results and the number of tools: this sandbox has 3 small tools, while vendor claims (for example 120K → 1.2K tokens) assume large catalogs. With 3 tools, B costs <b>more</b> than A: one search returns every schema plus Foundry metadata and adds a model round. Tool search pays off when the catalog is too big to advertise (the POC targets about 120 tools). B needs a one-time setup: <code>python infra/scripts/setup_toolbox.py --approve-live</code> creates the Toolbox and its connection (the subscription key sits in the connection URL, a spike shortcut), and approves the project identity in the gateway's Entra ID check.</p>
+      <p class="muted"><b>Phase 2: Microsoft-Decision-1.</b> Decision-1 is a scoring model, not a generative one. It returns a probability for a yes/no, choice or score question, so it can't write the script or the answer; that stays with a chat model such as <code>gpt-4.1-mini</code>. It could gate a script before the sandbox runs it (is it in scope and safe?) or choose code mode or tool calling for each task. Both need a Decision-1 deployment and its own gateway route; not built yet.</p></div>`,
+    story: () => `The Gold <b>${tierAgent("gold").displayName}</b> runs one procurement task three times on <b>${cmModel()}</b>, against the same MCP server on the gateway: classic tool calling (A), tool search through a Foundry Toolbox (B), then code mode (C). All answers should match; the takeaway compares the tokens each approach put in the model's context.`,
+    async run() {
+      const a = tierAgent("gold"), model = cmModel(), out = {};
+      info(`Task: <i>${escapeHtml(CM_TASK)}</i>`);
+      for (const [mode, label] of [["tools", "A · classic tool calling"], ["search", "B · tool search (Foundry Toolbox)"], ["code", "C · code mode"]]) {
+        if (!running) return;
+        info(`<b>${label}</b>: running on the gateway… (20-40 s)`);
+        const r = await cmRun({ agent: a.name, model, mode, task: CM_TASK, session: `${$("sessionId").value.trim()}-${mode}` });
+        out[mode] = r;
+        cmSteps(r, label);
+        if (r.error && !r.answer) info(`<b>${label}</b> failed: ${escapeHtml(r.error)}`);
+      }
+      takeaway(cmTakeaway(out.tools, out.search, out.code));
+    } },
 ];
+// Code mode scenario (experimental): POST /api/codemode runs one mode end to end in app.py (see codemode.py)
+const CM_TASK = "Find the electronics products. For each SKU, check inventory across all warehouses. For every SKU with fewer than 150 units on hand in total, "
+  + "get supplier quotes for 500 units and pick the supplier with the lowest total cost (break ties by shorter lead time). Reply with one line per SKU: SKU, "
+  + "product name, total units on hand, and either 'in stock' or the chosen supplier with its total cost and lead time.";
+function cmModel() { const al = tierOf(tierAgent("gold")).allowedModels || []; return ["gpt-4.1-mini", "gpt-4.1-nano"].find(m => al.includes(m)) || al[0]; }
+async function cmRun(body) {
+  try {
+    const res = await fetch("/api/codemode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, noToken: authOpts({}).noToken }) });
+    return await res.json().catch(() => ({ error: `/api/codemode answered HTTP ${res.status} without JSON` }));
+  } catch (e) { return { error: `Can't reach the demo app (${e.message}). Is app.py still running?` }; }
+}
+function cmSteps(r, label) {
+  const calls = [...(r.modelCalls || []).map(c => ({ ...c, kind: "model" })), ...(r.toolCalls || []).map(c => ({ ...c, kind: "tool" }))].sort((x, y) => x.seq - y.seq);
+  for (const c of calls) {
+    const what = c.kind === "model"
+      ? `${label.split(" ·")[0]} · model call <b>${escapeHtml(c.step)}</b> on <b>${escapeHtml(c.model || "")}</b> · ${c.messages} messages · <b>${c.promptTokens}</b>+${c.completionTokens} tokens`
+      : c.via === "search"
+      ? `${label.split(" ·")[0]} · Foundry <b>tool_search</b> <code>${escapeHtml(c.query || "")}</code> · ${c.resultChars} chars of schemas returned`
+      : `${label.split(" ·")[0]} · ${c.via === "toolbox" ? "Toolbox relayed" : "called"} tool <b>${escapeHtml(c.name)}</b> <code>${escapeHtml(JSON.stringify(c.args))}</code> · ${c.resultChars} chars returned`;
+    $("scSteps").insertAdjacentHTML("beforeend", `<li><span class="status ${statusClass(c.status)}">${c.status}</span> ${surfChip(c.kind)} ${escapeHtml(r.agent || "")} ${what}`
+      + `${c.governance && c.governance !== "none" ? ` · <span class="gov">${escapeHtml(c.governance)}</span>` : ""} · ${fmtUsd(c.costUsd)} · <span class="muted">${fmtLat(c.latencyMs)}</span>${c.error ? ` · ${escapeHtml(String(c.error).slice(0, 120))}` : ""}</li>`);
+  }
+}
+function cmTakeaway(A, B, C) {
+  if (!A || !C) return "The run stopped before all modes finished.";
+  const ok = (r) => r && (!r.error || r.answer), pct = (a, c) => a ? Math.round(100 * (a - c) / a) : 0;
+  const cols = [["A · tool calling", A], ...(ok(B) ? [["B · tool search", B]] : []), ["C · code mode", C]];
+  const row = (name, get, fmt = (v) => Number(v || 0).toLocaleString(), lower = true) => {
+    const vals = cols.map(([, r]) => get(r)), best = Math.min(...vals);
+    return `<tr><td>${name}</td>${vals.map(v => `<td${lower && v === best && vals.some(x => x !== best) ? ' class="win"' : ""}>${fmt(v)}</td>`).join("")}</tr>`;
+  };
+  const n = (xs) => (xs || []).length, relayed = (r) => (r.toolCalls || []).filter(c => c.via !== "search");
+  const modelUsd = (r) => (r.modelCalls || []).reduce((s, c) => s + c.costUsd, 0), toolUsd = (r) => (r.toolCalls || []).reduce((s, c) => s + c.costUsd, 0);
+  const rounds = (r) => (r.modelCalls || []).map(c => c.promptTokens).join(" → ") || "-";
+  let head = ok(A) && ok(C)
+    ? `Code mode sent the model <b>${pct(A.totalTokens, C.totalTokens)}% fewer tokens</b> than classic tool calling (${C.totalTokens.toLocaleString()} vs ${A.totalTokens.toLocaleString()}) in ${n(C.modelCalls)} model calls instead of ${n(A.modelCalls)}. `
+      + `Raw tool output in the model's context went from ${A.contextChars.toLocaleString()} to ${C.contextChars.toLocaleString()} characters. `
+    : `One of the runs failed: A ${escapeHtml(A.error || "ok")} · C ${escapeHtml(C.error || "ok")}. `;
+  head += ok(B)
+    ? `Tool search (B) used <b>${B.totalTokens.toLocaleString()}</b> tokens, ${B.totalTokens > A.totalTokens ? `<b>${-pct(A.totalTokens, B.totalTokens)}% more</b> than A: with only ${A.toolsAdvertised} tools a single search returns every schema and adds a model round, so search only pays off on large catalogs` : `${pct(A.totalTokens, B.totalTokens)}% fewer than A`}. `
+      + (B.autoPinned?.length ? `Foundry also auto-pinned ${B.autoPinned.length} tools it had seen used (<code>${B.autoPinned.map(escapeHtml).join("</code>, <code>")}</code>) and advertised them up front next to its 2 meta-tools. ` : "")
+      + `Every mode's tool calls reached the gateway (${n(relayed(A))} · ${n(relayed(B))} · ${n(relayed(C))}), each one entitled, priced and rate-limited; B's arrived as the Foundry project, not the agent.`
+    : `Tool search (B) didn't run: ${escapeHtml(B?.error || "no result")}`;
+  const th = cols.map(([h]) => `<th>${h}</th>`).join("");
+  return `${head}
+    <table class="cmtable"><tr><th></th>${th}</tr>
+      ${row("Model calls", r => n(r.modelCalls))}
+      ${row("Tools advertised to the model up front", r => r.toolsAdvertised || 0, undefined, false)}
+      ${row("Tool calls through the gateway", r => n(relayed(r)), undefined, false)}
+      ${row("Prompt tokens", r => r.promptTokens)}
+      ${row("Completion tokens", r => r.completionTokens)}
+      ${row("Total tokens", r => r.totalTokens)}
+      ${row("Tool output in the model's context (chars)", r => r.contextChars)}
+      ${row("Model cost", modelUsd, fmtUsd)}
+      ${row("Tool cost (priced per call; B estimated)", toolUsd, fmtUsd, false)}
+      ${row("End to end", r => r.elapsedMs, fmtLat)}</table>
+    <div class="muted">Prompt tokens per round. A: ${rounds(A)}${ok(B) ? ` · B: ${rounds(B)}` : ""} · C: ${rounds(C)}. C's script ran in ${fmtLat(C.scriptMs)}.</div>
+    <div class="cmgrid">${cols.map(([h, r]) => `<div><b>${h.split(" ·")[0]} · answer</b><pre>${escapeHtml(r.answer || r.error || "")}</pre></div>`).join("")}</div>
+    ${ok(B) ? `<details class="cmcode"><summary>What B searched for, and where Foundry sent the calls</summary><pre>${escapeHtml((B.toolCalls || []).filter(c => c.via === "search").map(c => `tool_search "${c.query}"`).join("\n") + `\n\nToolbox: ${B.toolbox || ""}\nUpstream: the gateway's MCP server, with ${B.toolboxPlan || "one subscription"}`)}</pre></details>` : ""}
+    <details class="cmcode"><summary>The script the model wrote (C)</summary><pre>${escapeHtml(C.code || "")}</pre></details>
+    <details class="cmcode"><summary>What the script printed: the only tool data the model saw (C)</summary><pre>${escapeHtml(C.scriptOutput || C.scriptError || "")}</pre></details>
+    <details class="cmcode"><summary>The functions the model was given (from MCP tools/list)</summary><pre>${escapeHtml(C.stubs || "")}</pre></details>`;
+}
 // Entra-only mode helpers: personas the UI can call as (hosted: managed identities; local: the Azure CLI persona)
 const entraPersonas = () => (cfg?.entraMode?.personas || []).filter(p => p.available);
 function entraPersona(group) {  // undefined: any persona with a group; "": a persona without one
@@ -7721,6 +7831,7 @@ async function runScenario(s) {
   $("scenario").dataset.mode = "guided";
   $("scenario").classList.remove("hidden"); $("scSteps").innerHTML = "";
   $("scTitle").textContent = s.title; $("scStory").innerHTML = s.story(); $("scTakeaway").innerHTML = "";
+  $("scExplain").innerHTML = s.explain ? s.explain() : "";
   scPolicyStrip(s); polMapSel = SCENARIOS.indexOf(s); pxSel = null;
   if (psec === "explorer" && curTab === "why") renderExplorer();
   $("scFlow").innerHTML = ""; $("scFlowMore").innerHTML = "";
@@ -7854,7 +7965,7 @@ function scRow(i) {
   return `<button type="button" class="scrow${s.off ? " off" : ""}${on ? " sel" : ""}" data-i="${i}" role="option" aria-selected="${on}" tabindex="${on ? 0 : -1}" title="${escapeHtml(s.gist || "")}">`
     + `<span class="n">${i + 1}</span><span class="tt"><span class="t">${s.title}</span>${s.off ? "" : `<span class="c">${escapeHtml(s.cost)}</span>`}</span>`
     + (rt ? `<span class="scag ${rt[0]}" title="AI Gateway tier: ${rt[1]}. Select it, then pick ◆ AI Gateway tier to see how it runs there.">AI GW</span>` : "")
-    + `${s.off ? `<span class="offtag">OFF</span>` : ""}</button>`;
+    + `${s.off ? `<span class="offtag">OFF</span>` : s.experimental ? `<span class="exptag" title="Experimental spike">EXPERIMENTAL</span>` : ""}</button>`;
 }
 // a diagram on show: parts arrive in order (--i) and the wires pulse
 function dgLive(root) {
@@ -7923,10 +8034,10 @@ function scPaneHtml(i, inline) {
     + `<button type="button" data-act="gw" data-gw="tier" class="${tier ? "on" : ""}" aria-pressed="${tier}">◆ AI Gateway tier</button></div><span class="agk ${rt[2]}">${rt[1]}</span></div>` : "";
   return (inline ? `<div class="gist">${s.gist || ""}</div>` : `<div class="ph"><span class="n">${i + 1}</span><div><b>${s.title}</b><div class="gist">${s.gist || ""}</div></div></div>`)
     + tog
-    + `<div class="meta"><span>${escapeHtml(s.cost)}</span><span>${escapeHtml(scTopicOf(i))}</span>${k >= 0 ? `<span class="tour">★ Start here · step ${k + 1} of ${tour.length}</span>` : ""}</div>
-    ${tier ? agPickHtml(i) : `${dgm}${chips ? `<div class="scpol"><span class="muted">Policies behind it:</span>${chips}</div>` : ""}`}
+    + `<div class="meta"><span>${escapeHtml(s.cost)}</span><span>${escapeHtml(scTopicOf(i))}</span>${s.experimental ? `<span class="exptag">EXPERIMENTAL · not in Run all</span>` : ""}${k >= 0 ? `<span class="tour">★ Start here · step ${k + 1} of ${tour.length}</span>` : ""}</div>
+    ${s.explain ? s.explain() : ""}${tier ? agPickHtml(i) : `${dgm}${chips ? `<div class="scpol"><span class="muted">Policies behind it:</span>${chips}</div>` : ""}`}
     <div class="scacts">${s.off ? `<span class="offtag">OFF</span><span class="offnote">Not deployed in this sandbox: ${escapeHtml(s.cost.replace(/^off · /, ""))}</span>`
-      : `<button type="button" class="scrun" data-i="${i}"${running ? " disabled" : ""}>▶ Run${s.slow ? " (takes minutes)" : ""}</button>`}
+      : `<button type="button" class="scrun" data-i="${i}"${running ? " disabled" : ""}>▶ Run${s.runLabel ? ` (${s.runLabel})` : s.slow ? " (takes minutes)" : ""}</button>`}
       ${scTry(s) ? `<button type="button" class="secondary" data-act="custom" title="Fill in the request builder with this scenario's caller, target and prompt; change anything, then send it yourself">✎ Customize${inline ? "" : " in the builder"}</button>` : ""}
       ${flow ? `<button type="button" class="secondary" data-act="play" data-flow="${flow}" title="Play the matching example in the gateway flow, without sending a call">▶ Example in the flow</button>` : ""}</div>`
     + (inline ? "" : `<div class="fine">Every scenario sends a small, fixed number of real calls through the gateway to Foundry. Call counts and costs are upper bounds.</div>`);

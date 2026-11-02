@@ -52,6 +52,12 @@ param demoUiSku string = 'B1'
 @description('Client ID of the hosted demo UI managed identity, approved as a gateway caller (set by azd up; empty for the notebook)')
 param uiClientId string = ''
 
+@description('Principal ID of the hosted demo UI managed identity (set by azd up). Granted Foundry User on the primary Foundry account so the experimental Code mode scenario can call the Foundry Toolbox MCP endpoint.')
+param uiPrincipalId string = ''
+
+@description('EXPERIMENTAL - application (client) ID of the primary Foundry project managed identity, approved as a gateway caller so a Foundry Toolbox (tool search) can call the MCP tools through APIM. Set by infra/scripts/setup_toolbox.py (azd env TOOLBOX_CLIENT_ID); empty = not approved.')
+param toolboxClientId string = ''
+
 @description('Blocked before spend - Azure AI Content Safety at the gateway: enabled, shieldPrompt, thresholds (Hate, Sexual, SelfHarm, Violence: 0-7), microUsdPerRecord, surfaces (model, tool, agent), blocklist (name, pattern), location (optional). Tiers opt in with contentSafety: true. Empty or enabled: false deploys nothing.')
 param contentSafetyConfig object = {}
 
@@ -348,7 +354,24 @@ resource entraIdentityFragment 'Microsoft.ApiManagement/service/policyFragments@
       '{agent-client-id}': agentIdentity.properties.clientId
       '{ui-client-application-id}': empty(demoUiClientId) ? '' : '<application-id>${demoUiClientId}</application-id>'
       '{ui-client-id}': empty(demoUiClientId) ? 'none' : demoUiClientId
+      '{toolbox-client-application-id}': empty(toolboxClientId) ? '' : '<application-id>${toolboxClientId}</application-id>'
+      '{toolbox-client-id}': empty(toolboxClientId) ? 'none' : toolboxClientId
     }), loadTextContent('entra-identity-fragment.xml'), (xml, placeholder) => replace(xml, placeholder.key, placeholder.value))
+  }
+}
+
+// EXPERIMENTAL (Code mode scenario, mode B): the hosted UI calls the Foundry Toolbox MCP endpoint of the primary project
+resource primaryFoundryAccount 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
+  name: '${primaryFoundryName}-${resourceSuffix}'
+}
+resource uiFoundryUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(uiPrincipalId)) {
+  name: guid(primaryFoundryAccount.id, uiPrincipalId, 'foundry-user')
+  scope: primaryFoundryAccount
+  dependsOn: [foundryModule]
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '53ca6127-db72-4b80-b1b0-d745d6d5456d')
+    principalId: uiPrincipalId
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -1128,6 +1151,7 @@ output foundryBackends array = [for (config, i) in aiServicesConfig: {
   priority: config.?priority ?? 1
   endpoint: foundryModule[i].outputs.extendedAIServicesConfig[0].endpoint
 }]
+output foundryProjectEndpoint string = foundryModule[primaryFoundryIndex].outputs.extendedAIServicesConfig[0].foundryProjectEndpoint
 output appInsightsId string = appInsightsModule.outputs.id
 output appInsightsAppId string = appInsightsModule.outputs.appId
 output appInsightsName string = appInsightsModule.outputs.name

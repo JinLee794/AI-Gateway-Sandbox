@@ -22,6 +22,9 @@
     },
     "purviewClientSecret": {
       "value": "${PURVIEW_CLIENT_SECRET=}"
+    },
+    "toolboxClientId": {
+      "value": "${TOOLBOX_CLIENT_ID=}"
     }
   }
 }

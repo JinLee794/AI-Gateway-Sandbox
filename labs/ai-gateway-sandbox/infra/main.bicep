@@ -27,6 +27,9 @@ param serviceManagementReference string = ''
 @secure()
 param purviewClientSecret string = ''
 
+@description('EXPERIMENTAL - client ID of the Foundry project managed identity approved as a gateway caller for the Foundry Toolbox (Code mode scenario, mode B). Set by infra/scripts/setup_toolbox.py.')
+param toolboxClientId string = ''
+
 // Written by the preprovision hook (infra/scripts/build_config.py) from ../sandbox-config.json
 var config = loadJsonContent('sandbox.generated.json')
 var lab = config.labParameters
@@ -78,6 +81,8 @@ module sandbox '../main.bicep' = {
     imagesConfig: lab.?imagesConfig ?? { enabled: false }
     semanticCacheConfig: lab.?semanticCacheConfig ?? { enabled: false }
     uiClientId: uiIdentity.outputs.clientId
+    uiPrincipalId: uiIdentity.outputs.principalId
+    toolboxClientId: toolboxClientId
     contentSafetyConfig: lab.?contentSafetyConfig ?? {}
     purviewDlpConfig: lab.?purviewDlpConfig ?? {}
     purviewClientSecret: purviewClientSecret
@@ -108,6 +113,7 @@ var demoConfig = union(config.uiConfig, {
   logAnalyticsResourceId: sandbox.outputs.logAnalyticsResourceId
   agentIdentityClientId: sandbox.outputs.agentIdentityClientId
   foundryBackends: sandbox.outputs.foundryBackends
+  foundryProjectEndpoint: sandbox.outputs.foundryProjectEndpoint
   budgetSuspend: sandbox.outputs.budgetSuspend
   semanticCacheResource: sandbox.outputs.semanticCache
   entraModeResource: sandbox.outputs.entraMode

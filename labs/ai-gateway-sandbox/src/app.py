@@ -753,6 +753,15 @@ def image(payload):
     return 200, result
 
 
+def codemode(payload):
+    """Experimental code mode spike: one task run as classic MCP tool calling or as a model-written script (see codemode.py)."""
+    if HERE not in sys.path:
+        sys.path.insert(0, HERE)
+    import codemode as engine
+    return engine.run(payload, {"http": http, "auth": gateway_auth, "config": CONFIG, "demo_limit": demo_limit, "token": az_token,
+                                "agent_by_name": agent_by_name, "parse_rpc": parse_rpc, "error_message": error_message})
+
+
 def mcp(payload):
     """MCP client: initialize a session on the gateway's MCP server, then tools/list or tools/call with the agent's key."""
     agent = agent_by_name(payload.get("agent", ""))
@@ -2187,11 +2196,11 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json(500, {"error": scrub(str(error))})
         routes = {"/api/chat": chat, "/api/mcp": mcp, "/api/a2a": a2a, "/api/telemetry": telemetry, "/api/reset-budgets": reset_budgets,
                   "/api/trace": trace, "/api/evidence": evidence, "/api/policy-evidence": policy_evidence, "/api/policies": policies, "/api/flow-policies": flow_policies, "/api/entra-epoch": entra_epoch,
-                  "/api/chargeback": chargeback, "/api/budget-suspend": budget_suspend, "/api/budgets": budgets, "/api/responses": responses, "/api/image": image}
+                  "/api/chargeback": chargeback, "/api/budget-suspend": budget_suspend, "/api/budgets": budgets, "/api/responses": responses, "/api/image": image, "/api/codemode": codemode}
         handler = routes.get(self.path)
         if not handler:
             return self.send_json(404, {"error": "not found"})
-        inspect = handler in (chat, mcp, a2a, responses, image)
+        inspect = handler in (chat, mcp, a2a, responses, image, codemode)
         _capture.calls = [] if inspect else None
         _capture.timing = [] if inspect else None
         _capture.presenter = signed_in_user(self.headers)
