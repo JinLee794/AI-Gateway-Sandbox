@@ -7695,6 +7695,7 @@ const SCENARIOS = [
     story: () => `The Gold <b>${tierAgent("gold").displayName}</b> runs one procurement task three times on <b>${cmModel()}</b>, against the same MCP server on the gateway: classic tool calling (A), tool search through a Foundry Toolbox (B), then code mode (C). All answers should match; the takeaway compares the tokens each approach put in the model's context.`,
     async run() {
       const a = tierAgent("gold"), model = cmModel(), out = {};
+      if (!await resetBudgets()) return;
       info(`Task: <i>${escapeHtml(CM_TASK)}</i>`);
       for (const [mode, label] of [["tools", "A · classic tool calling"], ["search", "B · tool search (Foundry Toolbox)"], ["code", "C · code mode"]]) {
         if (!running) return;
