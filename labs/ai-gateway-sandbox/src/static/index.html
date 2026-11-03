@@ -1304,7 +1304,8 @@
   @media (min-width:1101px) { .bench .cvcol:has(#convo:empty), .bench:has(.launch.collapsed) .cvcol:has(#convo:empty) { min-height:400px; } }
   /* Wide screens: the launch bar spans the top, the conversation sits left and a live rail (scenario card, stats, request log)
      sits right; the gateway flow / session overview keep the full width below. #bench and #sessionArea dissolve into one grid
-     (the run overlay busy() puts on #sessionArea is placed over the rail). An open request log moves under the conversation (evLogPlace). */
+     (the run overlay busy() puts on #sessionArea is placed over the rail). The summary stays in the rail; opened, the full log is a
+     slide-over drawer on the right (no backdrop, so the gateway flow behind it stays usable; ✕ or Esc closes it). */
   @media (min-width:1500px) {
     #tab-happened { display:grid; grid-template-columns:minmax(0,7fr) minmax(480px,5fr); column-gap:16px; align-items:start; position:relative; }
     #tab-happened > *, #sessionArea > * { grid-column:1 / -1; min-width:0; }
@@ -1316,7 +1317,18 @@
     #sessRail > #evLogCard { order:2; } #sessRail > .idlehint { order:3; }
     #sessRail #evLogCard .evlsum { flex-wrap:wrap; row-gap:4px; }
     #sessionArea > .busy { grid-column:2 / 3; grid-row:2 / 3; margin-bottom:16px; }
+    #evLogBody { position:fixed; top:0; right:0; bottom:0; width:clamp(700px, 44vw, 1040px); z-index:105; display:flex; flex-direction:column;
+                 padding:0; border-top:0; background:var(--bg); box-shadow:-8px 0 24px rgba(0,0,0,.18); animation:evlIn .18s ease-out; }
+    #evLogBody[hidden] { display:none; }
+    #evLogBody .evldhead { display:flex; }
+    #evLogBody .evlbar { margin:0; padding:8px 16px; background:#fff; border-bottom:1px solid var(--divider); }
+    #evLogBody #evLogWrap { flex:1; max-height:none; margin:12px 16px 84px; background:#fff; }  /* bottom room for the Copilot button */
+    #evLogCard:has(#evLogBody:not([hidden])) .evlsum { background:var(--accent-light); }
   }
+  .evldhead { display:none; align-items:center; gap:10px; padding:12px 16px; background:#fff; border-bottom:1px solid var(--divider); }
+  .evldhead b { font-size:15px; } .evldhead .sp { flex:1; } .evldhead button { height:28px; padding:0 10px; }
+  @keyframes evlIn { from { transform:translateX(40px); opacity:0; } }
+  @media (prefers-reduced-motion: reduce) { #evLogBody { animation:none !important; } }
   /* Very wide screens: the page is centred (main), so the header lines up with it */
   .pagehead { padding-left:max(24px, calc((100vw - 2200px) / 2 + 24px)); padding-right:max(24px, calc((100vw - 2200px) / 2 + 24px)); }
   /* Request inspector: the redacted HTTP calls app.py made through APIM for one result */
@@ -1534,7 +1546,9 @@
         <span class="evllast" id="evLogLast"></span>
         <span class="evlopen" id="evLogOpen">Show all</span>
       </div>
-      <div class="evlbody" id="evLogBody" hidden>
+      <div class="evlbody" id="evLogBody" hidden role="region" aria-label="Request log">
+      <div class="evldhead"><b>Request log</b><span class="evlstat" id="evLogCount2"></span><span class="sp"></span>
+        <button class="secondary" id="evLogClose" title="Close (Esc)" aria-label="Close the request log">✕</button></div>
       <div class="evlbar">
         <span class="muted evlhelp">Newest first. Click a request (or use ↑ / ↓) to replay it in the gateway flow below with its policy trace and Log Analytics rows.</span>
         <select id="evRunFilter" aria-label="Show requests from"></select>
@@ -6973,20 +6987,18 @@ function vtable(row) { // one log record: the fields that matter first, the rest
 // Request log (under the scenario card): pick a call to replay it in the gateway flow and load its trace and logs.
 // It is scoped like the scenario card: evFilterRun is "all" or a scEntries() key (one scenario of a run, or a whole run).
 let evFilterRun = "all", evBlockedOnly = false, evAllPinned = false;  // evAllPinned: "All requests" picked, so new runs don't re-scope the log
-let evLogOpen = localStorage.getItem("evLogOpen") === "1";  // collapsed to its one-line summary unless opened
+let evLogOpen = localStorage.getItem("evLogOpen") === "1" && !matchMedia("(min-width:1500px)").matches;  // collapsed to its one-line summary unless opened (wide screens: the drawer never reopens by itself)
 function evLogSetOpen(on, remember = true) {
   evLogOpen = on; if (remember) localStorage.setItem("evLogOpen", on ? "1" : "0");
   $("evLogBody").hidden = !on; $("evLogSum").setAttribute("aria-expanded", on ? "true" : "false");
   $("evLogOpen").textContent = on ? "Hide" : "Show all";
-  evLogPlace();
 }
-// On wide screens the log summary sits in the rail beside the conversation; opened, the full table moves under the conversation.
-function evLogPlace() {
-  const card = $("evLogCard"), rail = $("sessRail"), out = evLogOpen && matchMedia("(min-width:1500px)").matches;
-  if (out && card.parentElement === rail) rail.after(card);
-  else if (!out && card.parentElement !== rail) $("kpiBar").before(card);
-}
-matchMedia("(min-width:1500px)").addEventListener("change", evLogPlace);
+// On wide screens the open log is a drawer (CSS): ✕ and Esc close it and give focus back to the summary
+const evLogDrawer = () => !$("evLogBody").hidden && getComputedStyle($("evLogBody")).position === "fixed";
+$("evLogClose").onclick = () => { evLogSetOpen(false); $("evLogSum").focus(); };
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("inspDrawer").hidden && evLogDrawer()) { evLogSetOpen(false); $("evLogSum").focus(); }
+});
 // the collapsed line: the selected request if one is open in the flow, else the newest one
 function evLogSummary(idxs) {
   const i = idxs.includes(evIndex) ? evIndex : idxs[0], r = session.calls[i];
@@ -7034,7 +7046,7 @@ function renderEvLog() {
   sel.innerHTML = `<option value="all">All requests</option>` + entries.map(e => `<option value="${e.key}">${escapeHtml(scEntryLabel(e, 52))}</option>`).join("");
   sel.value = evFilterRun; $("evBlockedOnly").checked = evBlockedOnly;
   const idxs = evLogIdxs(), blocked = idxs.filter(i => isBlocked(session.calls[i])).length;
-  $("evLogCount").innerHTML = session.calls.length ? `<b>${idxs.length}</b> request${idxs.length === 1 ? "" : "s"}${blocked && !evBlockedOnly ? ` · <span class="bad">${blocked} blocked</span>` : ""}` : "";
+  $("evLogCount").innerHTML = $("evLogCount2").innerHTML = session.calls.length ? `<b>${idxs.length}</b> request${idxs.length === 1 ? "" : "s"}${blocked && !evBlockedOnly ? ` · <span class="bad">${blocked} blocked</span>` : ""}` : "";
   evLogSummary(idxs);
   $("evLog").innerHTML = idxs.length ? idxs.map(i => evLogRow(session.calls[i], i)).join("")
     : `<tr><td colspan="11" class="muted" style="padding:16px">${session.calls.length ? "No requests match this filter." : "No requests yet. Run a guided scenario or send a request, and every call shows up here."}</td></tr>`;
