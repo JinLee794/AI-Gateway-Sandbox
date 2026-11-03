@@ -44,7 +44,7 @@
   select:focus, textarea:focus, input:focus { outline:none; border-color:var(--accent); box-shadow:inset 0 -2px 0 var(--accent); }
   textarea { resize:vertical; min-height:72px; }
   label { color:var(--text); font-size:13px; font-weight:600; display:block; margin:12px 0 4px; }
-  main { padding:0 24px 32px; max-width:1680px; }
+  main { padding:0 24px 32px; max-width:2200px; margin:0 auto; }
   .card { background:var(--panel); border-radius:6px; padding:16px 18px; box-shadow:var(--shadow); }
   .card h2 { font-size:16px; margin:0 0 12px; font-weight:600; display:flex; align-items:center; gap:8px; }
   .card h2 .step { width:22px; height:22px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; display:inline-grid; place-items:center; }
@@ -1300,6 +1300,25 @@
   @media (min-width:1101px) { .bench:has(.launch.collapsed) .cvcol { min-height:clamp(520px, calc(100vh - 170px), 760px); } }
   @media (max-width:1100px) { .bench { grid-template-columns:1fr; } .cvcol, .bench:has(.launch.collapsed) .cvcol { min-height:0; }
     .cvcol > #cvCard { position:static; } .cvcol > #cvCard .convo { flex:none; min-height:300px; max-height:600px; } .cv-empty { flex:none; min-height:300px; } }
+  /* An empty conversation stays compact; it grows to the viewport once there is something to read */
+  @media (min-width:1101px) { .bench .cvcol:has(#convo:empty), .bench:has(.launch.collapsed) .cvcol:has(#convo:empty) { min-height:400px; } }
+  /* Wide screens: the launch bar spans the top, the conversation sits left and a live rail (scenario card, stats, request log)
+     sits right; the gateway flow / session overview keep the full width below. #bench and #sessionArea dissolve into one grid
+     (the run overlay busy() puts on #sessionArea is placed over the rail). An open request log moves under the conversation (evLogPlace). */
+  @media (min-width:1500px) {
+    #tab-happened { display:grid; grid-template-columns:minmax(0,7fr) minmax(480px,5fr); column-gap:16px; align-items:start; position:relative; }
+    #tab-happened > *, #sessionArea > * { grid-column:1 / -1; min-width:0; }
+    #sessionArea { display:contents; }
+    #tab-happened .launch { grid-column:1 / -1; grid-row:1; }
+    #tab-happened .cvcol, #tab-happened > .bench:not(:has(.launch.collapsed)) { grid-column:1; grid-row:2; margin-bottom:16px; }
+    #sessionArea > #sessRail { grid-column:2; grid-row:2; display:flex; flex-direction:column; gap:12px; margin-bottom:16px; }
+    #sessRail > * { margin:0; } #sessRail > #kpiBar { order:1; grid-template-columns:repeat(3, minmax(0,1fr)); }
+    #sessRail > #evLogCard { order:2; } #sessRail > .idlehint { order:3; }
+    #sessRail #evLogCard .evlsum { flex-wrap:wrap; row-gap:4px; }
+    #sessionArea > .busy { grid-column:2 / 3; grid-row:2 / 3; margin-bottom:16px; }
+  }
+  /* Very wide screens: the page is centred (main), so the header lines up with it */
+  .pagehead { padding-left:max(24px, calc((100vw - 2200px) / 2 + 24px)); padding-right:max(24px, calc((100vw - 2200px) / 2 + 24px)); }
   /* Request inspector: the redacted HTTP calls app.py made through APIM for one result */
   .insp { margin-top:12px; border:1px solid var(--border); border-radius:4px; background:var(--panel); }
   .insp > summary { cursor:pointer; padding:8px 12px; font-weight:600; font-size:13px; display:flex; align-items:center; gap:8px; list-style:none; }
@@ -1494,6 +1513,7 @@
   </div>
 
   <section class="idle" id="sessionArea">
+    <div class="sessrail" id="sessRail">
     <div class="card hidden" id="scenario">
       <div class="schead"><h2 id="scTitle"></h2>
         <select id="scRunSel" hidden aria-label="Scenario runs in this session: pick one to see its diagram, takeaway and steps, and its calls in the request log"></select></div>
@@ -1537,6 +1557,7 @@
       <div class="kpi lat" title="End-to-end latency per call as measured by the demo app: app → APIM gateway (policies) → backend and back"><div class="l">Latency p50 · p95</div><div class="v" id="kLat">-</div></div>
     </div>
     <div class="idlehint">Results show up here. Run a guided scenario, <i>or</i> build your own request and press <b>Send</b>, <i>or</i> just type a message in the conversation.</div>
+    </div><!-- /sessRail -->
       <div class="psub" role="tablist" aria-label="What happened views" style="grid-template-columns:repeat(2,1fr)">
         <button class="on" data-psec="investigate" role="tab"><img class="ico" src="/icons/trace.svg" alt=""><span><b>Gateway flow</b><small>each call through the gateway · trace · logs</small></span></button>
         <button data-psec="live" role="tab"><img class="ico" src="/icons/metrics.svg" alt=""><span><b>Session overview</b><small>signals · outcomes · latency · run history</small></span></button>
@@ -6957,7 +6978,15 @@ function evLogSetOpen(on, remember = true) {
   evLogOpen = on; if (remember) localStorage.setItem("evLogOpen", on ? "1" : "0");
   $("evLogBody").hidden = !on; $("evLogSum").setAttribute("aria-expanded", on ? "true" : "false");
   $("evLogOpen").textContent = on ? "Hide" : "Show all";
+  evLogPlace();
 }
+// On wide screens the log summary sits in the rail beside the conversation; opened, the full table moves under the conversation.
+function evLogPlace() {
+  const card = $("evLogCard"), rail = $("sessRail"), out = evLogOpen && matchMedia("(min-width:1500px)").matches;
+  if (out && card.parentElement === rail) rail.after(card);
+  else if (!out && card.parentElement !== rail) $("kpiBar").before(card);
+}
+matchMedia("(min-width:1500px)").addEventListener("change", evLogPlace);
 // the collapsed line: the selected request if one is open in the flow, else the newest one
 function evLogSummary(idxs) {
   const i = idxs.includes(evIndex) ? evIndex : idxs[0], r = session.calls[i];
