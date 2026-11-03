@@ -82,6 +82,7 @@
   .badge { font-size:11px; padding:1px 8px; border-radius:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; border:1px solid transparent; }
   .badge.gold { background:var(--gold); color:#8a5300; border-color:#f2d58a; } .badge.silver { background:var(--silver); color:#484644; border-color:#c8c6c4; }
   .badge.bronze { background:var(--bronze); color:#8e3c14; border-color:#f4b9a0; }
+  .badge.codemode-lab { background:#e8f0fe; color:#1a4fa0; border-color:#b5cbf4; }
   .row { display:flex; gap:10px; } .row > * { flex:1; }
   .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
   .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
@@ -3539,7 +3540,7 @@ function initGwMode() {
 }
 
 function renderPlans() {
-  const tiers = cfg.tiers, cell = (html) => `<td>${html}</td>`;
+  const tiers = cfg.tiers.filter(t => !t.experimental), cell = (html) => `<td>${html}</td>`;
   const row = (label, f) => `<tr><td>${label}</td>${tiers.map(t => cell(f(t))).join("")}</tr>`;
   const grp = (label) => `<tr><td class="grp" colspan="${tiers.length + 1}">${label}</td></tr>`;
   const yes = `<span class="yes">✓</span>`, no = `<span class="no">—</span>`;
@@ -5299,7 +5300,7 @@ $("btnSim").onclick = async () => {
   setRunning(true); let i = 0; const inflight = [];
   const pick = (xs) => xs[Math.floor(Math.random() * xs.length)];
   while (running && i < SIM_REQUESTS) {
-    const a = pick(cfg.agents);
+    const a = pick(cfg.agents.filter(x => !tierOf(x).experimental));
     if (cfg.tools.length && Math.random() < 0.3) {
       const t = pick(cfg.tools).name;
       $("runStatus").textContent = `Simulating… request ${++i}/${SIM_REQUESTS}: ${a.name} → tool ${t}`;
@@ -7784,20 +7785,20 @@ const SCENARIOS = [
     controls: ["tool-ent", "tool-price", "tool-rate", "model-price"],
     preview: () => { const m = cmModel();
       return dg.note("<b>A · tool calling</b>: every schema and every raw result goes back to the model")
-        + dg.row(dg.agent("gold"), dg.arrow("3 schemas"), dg.model(m, "one call per round"), dg.arrow("tool_calls"), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool"))
+        + dg.row(dg.agent(cmTier()), dg.arrow("3 schemas"), dg.model(m, "one call per round"), dg.arrow("tool_calls"), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool"))
         + dg.note("<b>B · tool search</b>: Foundry Toolbox finds each tool and relays the call")
-        + dg.row(dg.agent("gold"), dg.arrow("2 meta-tools"), dg.model(m, "searches, then calls"), dg.arrow("call_tool"), dg.node("Foundry Toolbox", "find · relay"), dg.arrow(), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool"))
+        + dg.row(dg.agent(cmTier()), dg.arrow("2 meta-tools"), dg.model(m, "searches, then calls"), dg.arrow("call_tool"), dg.node("Foundry Toolbox", "find · relay"), dg.arrow(), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool"))
         + dg.note("<b>C · code mode</b>: one script; only what it prints goes back")
-        + dg.row(dg.agent("gold"), dg.arrow("typed stubs"), dg.model(m, "writes 1 script"), dg.arrow("script"), dg.node("Sandbox", "runs the script"), dg.arrow(), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool"))
+        + dg.row(dg.agent(cmTier()), dg.arrow("typed stubs"), dg.model(m, "writes 1 script"), dg.arrow("script"), dg.node("Sandbox", "runs the script"), dg.arrow(), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool"))
         + dg.note("<b>D · search + execute</b>: search a 1,000-op catalog, then run one script")
-        + dg.row(dg.agent("gold"), dg.arrow("domain index"), dg.model(m, "search, then 1 script"), dg.arrow("code"), dg.node("Sandbox", "catalog search · runs script"), dg.arrow(), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool")); },
+        + dg.row(dg.agent(cmTier()), dg.arrow("domain index"), dg.model(m, "search, then 1 script"), dg.arrow("code"), dg.node("Sandbox", "catalog search · runs script"), dg.arrow(), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool")); },
     explain: () => `<div class="scexplain"><h4>How the four modes work <span class="exptag">EXPERIMENTAL</span></h4>
       ${cmFlowHtml()}
       ${cmSbxToggle()}
       ${cmMoreHtml()}</div>`,
-    story: () => `The Gold <b>${tierAgent("gold").displayName}</b> runs one procurement task four times on <b>${cmModel()}</b>, against the same MCP server on the gateway: classic tool calling (A), tool search through a Foundry Toolbox (B), code mode (C), then search + execute over a 1,000-operation catalog (D). All answers should match; the takeaway compares the tokens each approach put in the model's context.`,
+    story: () => `The <b>${cmAgent().displayName}</b> (<span class="badge ${cmTier()}">${cmTier()}</span>, its own plan and $ budget, so these runs never drain Gold) runs one procurement task four times on <b>${cmModel()}</b>, against the same MCP server on the gateway: classic tool calling (A), tool search through a Foundry Toolbox (B), code mode (C), then search + execute over a 1,000-operation catalog (D). All answers should match; the takeaway compares the tokens each approach put in the model's context.`,
     async run() {
-      const a = tierAgent("gold"), model = cmModel(), out = {};
+      const a = cmAgent(), model = cmModel(), out = {};
       if (!await resetBudgets()) return;
       info(`Task: <i>${escapeHtml(CM_TASK)}</i>`);
       const sandbox = cmSbxNow();
@@ -7821,7 +7822,10 @@ const SCENARIOS = [
 const CM_TASK = "Find the electronics products. For each SKU, check inventory across all warehouses. For every SKU with fewer than 150 units on hand in total, "
   + "get supplier quotes for 500 units and pick the supplier with the lowest total cost (break ties by shorter lead time). Reply with one line per SKU: SKU, "
   + "product name, total units on hand, and either 'in stock' or the chosen supplier with its total cost and lead time.";
-function cmModel() { const al = tierOf(tierAgent("gold")).allowedModels || []; return ["gpt-4.1-mini", "gpt-4.1-nano"].find(m => al.includes(m)) || al[0]; }
+// Scenario 24 bills its own experimental plan (codemode-lab in sandbox-config.json); Gold only before that plan is deployed
+function cmAgent() { return tierAgent("codemode-lab") || tierAgent("gold"); }
+function cmTier() { return cmAgent()?.tier || "gold"; }
+function cmModel() { const al = tierOf(cmAgent()).allowedModels || []; return ["gpt-4.1-mini", "gpt-4.1-nano"].find(m => al.includes(m)) || al[0]; }
 // Where C and D run the model's scripts: a subprocess in this app, or a Hyperlight micro-VM on the optional executor VM
 // (infra/hyperlight.bicep). The VM is private to the sandbox VNet, so only the hosted UI can use it.
 let cmSandbox = localStorage.getItem("cmSandbox") || "subprocess";
@@ -7882,7 +7886,7 @@ function cmMoreHtml() {
       ["☁️", "Cloudflare: one uniform API. Kong Context Mesh: normalizes many APIs into one catalog"],
       ["⚠️", "Messy names push work back into search, and the model reads more"]])],
     ["b", "⚖️", "B trade-off", li([
-      ["👤", "The gateway sees the Toolbox, not the agent: one subscription (<code>support-agent</code>), caller <i>foundry-toolbox</i>. Per-agent plans and budgets collapse unless you run one Toolbox per plan"],
+      ["👤", `The gateway sees the Toolbox, not the agent: one subscription (<code>${escapeHtml(cmAgent().name)}</code>, the one in the Toolbox connection), caller <i>foundry-toolbox</i>. Per-agent plans and budgets collapse unless you run one Toolbox per plan`],
       ["🔁", "About 3 gateway requests per tool call (a new MCP session each time)"],
       ["💲", "Tool cost is estimated: <code>x-gw-*</code> headers don't come back through Foundry"],
       ["🧵", "<code>traceparent</code> passes through, so <b>Check the gateway logs</b> still finds B's calls"]])],
@@ -8132,7 +8136,7 @@ function cmTakeaway(A, B, C, D) {
       ${row("Model calls", r => n(r.modelCalls))}
       ${row("Tools advertised to the model up front", r => r.toolsAdvertised || 0, undefined, false)}
       ${row("Tool calls through the gateway", r => n(relayed(r)), undefined, false)}
-      <tr><td>Caller the gateway sees on tool calls</td>${cols.map(([, r]) => `<td>${r === B ? "Foundry Toolbox" : escapeHtml(tierAgent("gold").displayName)}</td>`).join("")}</tr>
+      <tr><td>Caller the gateway sees on tool calls</td>${cols.map(([, r]) => `<td>${r === B ? "Foundry Toolbox" : escapeHtml(cmAgent().displayName)}</td>`).join("")}</tr>
       ${row("Prompt tokens", r => r.promptTokens)}
       ${row("Completion tokens", r => r.completionTokens)}
       ${row("Total tokens", r => r.totalTokens)}
@@ -8246,8 +8250,8 @@ async function cmWiProbe(btn) {
   const busy = `<div class="muted">Measuring ${catalog} tools at ${scale}× schema size…</div>`;
   cmWiSave(root0, { busy: true, probe: busy });
   btn.disabled = true; btn.textContent = "Measuring…"; root0.querySelector(".wiprobeOut").innerHTML = busy;
-  const res = await cmRun({ agent: tierAgent("gold").name, model: cmModel(), mode: "probe", catalog, scale, session: `${$("sessionId").value.trim()}-probe-${Date.now().toString(36)}` });
-  cmRecord(res, tierAgent("gold"), cmModel(), "catalog probe");
+  const res = await cmRun({ agent: cmAgent().name, model: cmModel(), mode: "probe", catalog, scale, session: `${$("sessionId").value.trim()}-probe-${Date.now().toString(36)}` });
+  cmRecord(res, cmAgent(), cmModel(), "catalog probe");
   const p = res.probe, prev = cmWiState.get(key) || {};
   const finish = (html, cal) => {
     cmWiState.set(key, { ...prev, busy: false, probe: html, ...(cal ? { cal: { ...(prev.cal || {}), ...cal } } : {}) });

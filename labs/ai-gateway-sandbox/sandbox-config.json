@@ -38,6 +38,13 @@
       "maxOutputTokens": 2000, "tpm": 250000, "tokenQuota": 20000000, "tokenQuotaPeriod": "Monthly", "budgetUsd": 25.00, "sessionBudgetUsd": 5.00,
       "allowedTools": ["search-products", "check-inventory", "get-supplier-quote"], "toolCallsPerMinute": 120,
       "allowedAgents": [], "agentCallsPerMinute": 1, "internal": true
+    },
+    {
+      "name": "codemode-lab", "displayName": "Code mode lab", "description": "Experimental plan for the code mode scenario (24): its own $ budget, token quota and rate limits, so repeated A/B/C/D runs never drain Gold",
+      "allowedModels": ["gpt-4.1-mini", "gpt-4.1-nano"], "fallbackModel": "gpt-4.1-mini", "onDisallowedModel": "downgrade",
+      "maxOutputTokens": 2000, "tpm": 50000, "tokenQuota": 2000000, "tokenQuotaPeriod": "Monthly", "budgetUsd": 2.00, "sessionBudgetUsd": 0.10,
+      "allowedTools": ["search-products", "check-inventory", "get-supplier-quote"], "toolCallsPerMinute": 120,
+      "allowedAgents": [], "agentCallsPerMinute": 1, "contentSafety": true, "experimental": true
     }
   ],
   "budgetPeriodSeconds": 2592000,
@@ -103,7 +110,8 @@
     { "name": "user-alice", "displayName": "Alice Chen", "tier": "gold", "kind": "user", "team": "Customer Care", "costCenter": "CC-1001" },
     { "name": "user-ben", "displayName": "Ben Okafor", "tier": "silver", "kind": "user", "team": "Customer Care", "costCenter": "CC-1001" },
     { "name": "user-chloe", "displayName": "Chloe Martin", "tier": "bronze", "kind": "user", "team": "Marketing", "costCenter": "CC-3003" },
-    { "name": "user-dev", "displayName": "Dev Patel", "tier": "gold", "kind": "user", "team": "Supply Chain", "costCenter": "CC-2002" }
+    { "name": "user-dev", "displayName": "Dev Patel", "tier": "gold", "kind": "user", "team": "Supply Chain", "costCenter": "CC-2002" },
+    { "name": "codemode-agent", "displayName": "Code Mode Lab Agent", "tier": "codemode-lab", "kind": "agent", "team": "Platform Engineering", "costCenter": "CC-4004" }
   ],
   "responses": {
     "$comment": "Responses API (POST /responses, previous_response_id, stored responses). Cached input tokens are priced at cachedInputPrices (USD per 1M tokens); models not listed pay the full input price. Reading a stored response (GET /responses/{id}) is free. Follow-up calls stick to the backend that stored the response.",

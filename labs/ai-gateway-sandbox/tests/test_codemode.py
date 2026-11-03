@@ -275,5 +275,26 @@ class CodeModeTests(unittest.TestCase):
         self.assertEqual(codemode.run({"agent": "a", "mode": "probe", "catalog": 5000}, deps)[0], 400)
 
 
+class CodeModePlanTests(unittest.TestCase):
+    """Scenario 24 bills its own experimental plan, so its runs can't drain Gold's budgets and quotas."""
+
+    def test_codemode_plan_is_isolated_from_gold(self):
+        import json
+        config = json.loads((LAB / "sandbox-config.json").read_text(encoding="utf-8"))
+        tiers = {t["name"]: t for t in config["tiers"]}
+        plan = tiers["codemode-lab"]
+        self.assertTrue(plan.get("experimental"))
+        self.assertFalse(plan.get("internal"), "the UI shows its budget and costs, so it must stay a public plan")
+        self.assertIn("gpt-4.1-mini", plan["allowedModels"])
+        self.assertEqual(sorted(plan["allowedTools"]), sorted(t["name"] for t in config["tools"]))
+        self.assertGreaterEqual(plan["sessionBudgetUsd"], 0.05, "one A/B/C/D run costs about $0.02-0.04")
+        agents = [a for a in config["agents"] if a["tier"] == "codemode-lab"]
+        self.assertEqual([a["name"] for a in agents], ["codemode-agent"])
+        self.assertEqual(agents[0]["kind"], "agent")
+        self.assertNotIn("codemode-lab", config["semanticCache"]["tiers"], "cache hits would skew the token comparison")
+        self.assertNotIn("codemode-agent", config["budgetSuspend"]["subscriptions"])
+        self.assertNotIn("codemode-lab", [g["tier"] for g in config["entraMode"]["groups"]])
+
+
 if __name__ == "__main__":
     unittest.main()

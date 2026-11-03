@@ -1,7 +1,7 @@
 """EXPERIMENTAL - set up mode B of the "Code mode vs tool calling" scenario: a Foundry Toolbox with tool search in front of
 the gateway's MCP server.
 
-    python infra/scripts/setup_toolbox.py [--approve-live] [--agent support-agent] [--toolbox agent-ready-apis]
+    python infra/scripts/setup_toolbox.py [--approve-live] [--agent codemode-agent] [--toolbox agent-ready-apis]
 
 Run it from labs/ai-gateway-sandbox after the sandbox is deployed (it reads src/demo-config.private.config). Idempotent.
 
@@ -64,7 +64,7 @@ def call(method, url, resource, body=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--agent", default="support-agent", help="agent whose APIM subscription (plan) pays for the tool calls")
+    parser.add_argument("--agent", default="codemode-agent", help="agent whose APIM subscription (plan) pays for the tool calls")
     parser.add_argument("--toolbox", default="agent-ready-apis")
     parser.add_argument("--approve-live", action="store_true", help="also patch the deployed entra-identity fragment now")
     args = parser.parse_args()
