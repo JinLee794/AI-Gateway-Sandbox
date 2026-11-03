@@ -70,8 +70,8 @@
   }
 
   // ---------- What the copilot can see: the user's view, session and the calls this page sent ----------
-  const TAB_NAMES = { happened: "What happened", why: "Why: policies", cost: "What it cost", proof: "Proof: logs & monitoring" };
-  const PSEC_NAMES = { investigate: "Gateway flow", live: "Session overview", explorer: "Policy explorer", tier: "AI Gateway tier", spend: "Budgets & spend", plans: "Plans & prices",
+  const TAB_NAMES = { happened: "Try it: what happened", why: "Why: policies", cost: "What it cost", proof: "Proof: logs & monitoring" };
+  const PSEC_NAMES = { investigate: "Gateway flow", live: "Session overview", explorer: "Policy explorer", tier: "AI Gateway", spend: "Budgets & spend", plans: "Plans & prices",
     chargeback: "Chargeback", telemetry: "Logs & telemetry", monitor: "Azure Monitor" };
   function viewLabel() {
     const tab = typeof curTab !== "undefined" ? curTab : "happened", sub = typeof psec !== "undefined" ? psec : "";
@@ -82,7 +82,7 @@
       if (sub === "investigate" && typeof evIndex !== "undefined" && evIndex >= 0 && !byId("evPanel")?.classList.contains("hidden")) s += ` (evidence of call #${evIndex + 1} open)`;
     }
     const m = typeof mode !== "undefined" ? mode : "";
-    if (m && !byId("launch")?.classList.contains("collapsed")) s += ` · launch panel: ${m === "build" ? "request builder" : "guided scenarios"}`;
+    if (m && byId("launch")?.classList.contains("pop")) s += ` · pop-out open: ${m === "build" ? "request builder" : "guided scenarios"}`;
     return s;
   }
   function ctxLine() {
@@ -231,17 +231,19 @@
   }
 
   // ---------- UI actions streamed by the agent ----------
-  const VIEW_NAMES = { scenarios: "Guided scenarios", builder: "Request builder", conversation: "Conversation", live: "What happened › Session overview", runs: "What happened › Run history",
-    "policies.investigate": "What happened › Gateway flow", "policies.pipeline": "Why: policies › Policy explorer", "policies.deployed": "Why: policies › Policy explorer (by document)",
-    "policies.tier": "Why: policies › AI Gateway tier",
+  const VIEW_NAMES = { scenarios: "Try it › Guided scenarios", builder: "Try it › Request builder", conversation: "Try it › Conversation", live: "Try it › Session overview", runs: "Try it › Run history",
+    "policies.investigate": "Try it › Gateway flow", "policies.pipeline": "Why: policies › Policy explorer", "policies.deployed": "Why: policies › Policy explorer (by document)",
+    "policies.tier": "Why: policies › AI Gateway",
     spend: "What it cost › Budgets & spend", plans: "What it cost › Plans & prices", chargeback: "What it cost › Chargeback",
     "policies.telemetry": "Proof › Logs & telemetry", monitor: "Proof › Azure Monitor" };
   function flash(el) { if (!el) return; el.classList.remove("cop-flash"); void el.offsetWidth; el.classList.add("cop-flash"); setTimeout(() => el.classList.remove("cop-flash"), 1500); }
   function goView(view) {
     if (!view) return null;
-    if (view === "scenarios" || view === "builder") { page("setMode")(view === "builder" ? "build" : "guided"); page("collapseLaunch")(false); return byId("launch"); }
+    // the scenarios, the request builder and the conversation live on the first tab (Try it: what happened)
+    if (view === "scenarios" || view === "builder" || view === "conversation") page("showTab")("happened");
+    if (view === "scenarios" || view === "builder") { page("setMode")(view === "builder" ? "build" : "guided"); page("collapseLaunch")(false); return byId("lbody"); }
     if (view === "conversation") return byId("cvCard");
-    // view names predate the four tabs; showTab / showPsec map them (runs -> What happened, chargeback -> What it cost, monitor -> Proof, ...)
+    // view names predate the four tabs; showTab / showPsec map them (runs -> Try it, chargeback -> What it cost, monitor -> Proof, ...)
     const [tab, sub] = view.split(".");
     page("showTab")(tab); if (sub) page("showPsec")(sub);
     if (tab === "runs" && byId("tab-runs")) byId("tab-runs").open = true;

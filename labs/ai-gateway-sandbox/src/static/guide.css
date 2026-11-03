@@ -1,0 +1,62 @@
+/* First-run guide: the ? Guide toggle, a spotlight that dims the page around one element (the page stays clickable) and the step card (see guide.js) */
+.tabs .gd-btn { display:inline-flex; align-items:center; gap:6px; align-self:center; height:30px; padding:0 12px 0 6px; margin-right:4px; border-radius:15px;
+  font-size:13px; font-weight:600; color:#5c2e91; background:#f7f3fc; border:1px solid #d9cbee; }
+.tabs .gd-btn:hover:not(:disabled), .tabs .gd-btn:focus-visible { color:#5c2e91; background:#efe6fa; border:1px solid #8764b8; }
+.tabs .gd-btn .q { display:grid; place-items:center; width:20px; height:20px; border-radius:50%; color:#fff; background:#8764b8; font-size:12px; font-weight:700; }
+.tabs .gd-btn.on { color:#fff; background:#5c2e91; border-color:#5c2e91; } .tabs .gd-btn.on .q { background:#fff; color:#5c2e91; }
+.tabs .gd-btn.hello { animation:gdHello 1.1s ease-out 2; }
+@keyframes gdHello { 0% { box-shadow:0 0 0 0 rgba(135,100,184,.6); } 100% { box-shadow:0 0 0 12px rgba(135,100,184,0); } }
+
+.gd-dim { position:fixed; inset:0; z-index:185; background:rgba(16,24,40,.55); animation:gdFade .2s ease-out; }
+.gd-hole { position:fixed; z-index:185; pointer-events:none; border-radius:10px; box-shadow:0 0 0 3px #8764b8, 0 0 0 9999px rgba(16,24,40,.5);
+  transition:left .25s ease, top .25s ease, width .25s ease, height .25s ease; }
+.gd-hole.pulse::after { content:""; position:absolute; inset:-3px; border-radius:12px; border:3px solid #c239b3; animation:gdPulse 1.6s ease-out infinite; }
+@keyframes gdPulse { 0% { opacity:.9; transform:scale(1); } 100% { opacity:0; transform:scale(1.06); } }
+@keyframes gdFade { from { opacity:0; } }
+
+.gd-card { position:fixed; z-index:190; width:min(400px, calc(100vw - 24px)); background:#fff; color:var(--text, #242424); border-radius:12px; overflow:hidden;
+  box-shadow:0 25.6px 57.6px rgba(0,0,0,.24), 0 4.8px 14.4px rgba(0,0,0,.18); animation:gdIn .2s ease-out; font-size:13.5px; line-height:1.5; }
+.gd-card.wide { width:min(560px, calc(100vw - 24px)); }
+@keyframes gdIn { from { opacity:0; transform:translateY(8px); } }
+.gd-card .gd-top { display:flex; align-items:center; gap:8px; padding:10px 10px 0 16px; }
+.gd-card .gd-kick { font-size:11px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:#8764b8; }
+.gd-card .gd-dots { display:flex; gap:3px; margin-left:auto; }
+.gd-card .gd-dots i { width:6px; height:6px; border-radius:50%; background:#e1dfdd; } .gd-card .gd-dots i.on { background:#8764b8; } .gd-card .gd-dots i.done { background:#c8b6e2; }
+.gd-card .gd-x { width:28px; height:28px; padding:0; border:0; border-radius:6px; background:transparent; color:#605e5c; font-size:15px; line-height:1; }
+.gd-card .gd-x:hover:not(:disabled) { background:#f3f2f1; color:#242424; border:0; }
+.gd-card h3 { margin:4px 16px 6px; font-size:16.5px; line-height:1.3; }
+.gd-card .gd-body { padding:0 16px; color:#424242; }
+.gd-card .gd-body p { margin:0 0 8px; }
+.gd-card .gd-body ul { margin:0 0 8px; padding-left:18px; } .gd-card .gd-body li { margin:2px 0; }
+.gd-card .gd-body b { color:#242424; }
+.gd-card .gd-val { margin:2px 0 10px; padding:8px 10px; border-radius:8px; background:#f7f3fc; border-left:3px solid #8764b8; color:#3b2a57; font-size:13px; }
+.gd-card .gd-val::before { content:"Why it matters · "; font-weight:700; }
+.gd-card .gd-live { display:flex; align-items:center; gap:8px; margin:0 0 10px; padding:7px 10px; border-radius:8px; background:#f3f9fd; color:#004e8c; font-size:12.5px; }
+.gd-card .gd-live.ok { background:#f1faf1; color:#0e700e; } .gd-card .gd-live.wait { background:#fff8f0; color:#8a3707; }
+.gd-card .gd-live .spin { width:12px; height:12px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:gdSpin .8s linear infinite; flex:none; }
+@keyframes gdSpin { to { transform:rotate(360deg); } }
+.gd-card .gd-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin:4px 0 10px; }
+.gd-card .gd-grid div { padding:8px 10px; border:1px solid #edebe9; border-radius:8px; font-size:12.5px; color:#605e5c; }
+.gd-card .gd-grid div b { display:block; font-size:13px; color:#242424; }
+.gd-card .gd-foot { display:flex; align-items:center; gap:8px; padding:10px 16px 14px; }
+.gd-card .gd-timer { display:flex; align-items:center; gap:10px; padding:2px 16px 0; }
+.gd-card .gd-bar { flex:1; height:3px; border-radius:2px; background:#edebe9; overflow:hidden; }
+.gd-card .gd-bar i { display:block; height:100%; width:0; background:#8764b8; }
+.gd-card .gd-timer.paused .gd-bar i { background:#c8c6c4; }
+.gd-card .gd-timer.off .gd-bar { visibility:hidden; }
+.gd-card .gd-auto { display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 9px; border-radius:12px; font-size:12px; font-weight:600; font-variant-numeric:tabular-nums; background:#f4effa; color:#5c2e91; border:1px solid #e3d7f2; white-space:nowrap; }
+.gd-card .gd-auto:hover:not(:disabled) { background:#ebe2f6; color:#4b2578; border:1px solid #d5c4ec; }
+.gd-card .gd-auto[aria-pressed="false"] { background:#fff; color:#605e5c; border-color:#d1d1d1; }
+.gd-card .gd-auto[aria-pressed="false"] .ic { opacity:.55; }
+.gd-card .gd-auto[aria-pressed="false"]:hover:not(:disabled) { background:#f5f5f5; color:#242424; border-color:#c7c7c7; }
+.gd-card .gd-foot .sp { flex:1; }
+.gd-card .gd-foot button { height:32px; padding:0 14px; border-radius:6px; font-weight:600; }
+.gd-card .gd-foot .gd-ghost { background:transparent; color:#605e5c; border:1px solid transparent; }
+.gd-card .gd-foot .gd-ghost:hover:not(:disabled) { background:#f3f2f1; color:#242424; border:1px solid transparent; }
+.gd-card .gd-foot .gd-sec { background:#fff; color:#242424; border:1px solid #d1d1d1; }
+.gd-card .gd-foot .gd-sec:hover:not(:disabled) { background:#f5f5f5; color:#242424; border:1px solid #c7c7c7; }
+.gd-card .gd-foot .gd-do { background:#5c2e91; color:#fff; border:1px solid #5c2e91; }
+.gd-card .gd-foot .gd-do:hover:not(:disabled) { background:#4b2578; color:#fff; border:1px solid #4b2578; }
+.gd-card .gd-hint { padding:0 16px; margin-top:-2px; font-size:12px; color:#8a8886; }
+@media (prefers-reduced-motion: reduce) { .gd-hole, .gd-card, .gd-dim { transition:none; animation:none; } .gd-hole.pulse::after, .tabs .gd-btn.hello { animation:none; } }
+@media (max-width:640px) { .tabs .gd-btn .t { display:none; } .tabs .gd-btn { padding:0 5px; } }

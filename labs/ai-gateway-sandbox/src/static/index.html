@@ -7,6 +7,7 @@
 <link rel="icon" href="data:,">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="/copilot.css">
+<link rel="stylesheet" href="/guide.css">
 <style>
   :root { --bg:#f3f2f1; --panel:#ffffff; --panel2:#faf9f8; --border:#e1dfdd; --divider:#edebe9; --text:#323130; --muted:#605e5c;
           --accent:#0078d4; --accent-hover:#106ebe; --accent-light:#eff6fc; --ok:#107c10; --ok-bg:#dff6dd; --warn:#8a3707; --warn-bg:#fff4ce;
@@ -55,6 +56,27 @@
   .tabs .viewsel { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); white-space:nowrap; }
   .tabs .viewsel select { height:28px; max-width:420px; font-size:12.5px; }
   .tabs .viewsel.run select { border-color:#e0b000; background:#fff8e6; font-weight:600; }
+  /* The tab row heads the page: the first tab is the workbench (scenarios, builder, conversation and what happened), the others explain a run */
+  #tabsRow { position:sticky; top:0; z-index:22; background:var(--bg); margin:0 -4px 0; padding:4px 4px 0; }
+  #tabsRow .tico { font-size:10px; color:var(--accent); margin-right:2px; }
+  @media (max-width: 900px) { #tabsRow { gap:14px; overflow-x:auto; scrollbar-width:thin; } #tabsRow button.nudge::before { right:-6px; top:6px; } }
+  #tabsRow button.nudge::before { content:""; position:absolute; top:9px; right:-8px; width:7px; height:7px; border-radius:50%; background:#d83b01; box-shadow:0 0 0 2px var(--bg); }
+  #tabsRow button[data-tab="happened"].run .tico { animation:tico 1s ease-in-out infinite; } @keyframes tico { 50% { opacity:.25; } }
+  /* Where to look next: after a run, the tabs that explain it */
+  .scnext { display:flex; flex-wrap:wrap; gap:8px; align-items:stretch; margin-top:10px; } .scnext[hidden] { display:none; }
+  .scnext > .h { flex:0 0 100%; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  .scnext .nx { display:flex; flex-direction:column; align-items:flex-start; gap:1px; height:auto; min-height:44px; padding:6px 12px; text-align:left; border:1px solid var(--border); border-radius:6px;
+    background:#fff; color:var(--text); font-weight:400; font-size:12px; line-height:1.3; max-width:300px; }
+  .scnext .nx:hover:not(:disabled) { border-color:var(--accent); background:var(--accent-light); color:var(--text); }
+  .scnext .nx b { font-size:12.5px; color:var(--accent); } .scnext .nx b::after { content:" ›"; }
+  .scnext .nx small { color:var(--muted); font-size:11.5px; }
+  .scnext .nx.pri { border-color:var(--accent); box-shadow:inset 3px 0 0 var(--accent); }
+  .tryback { position:sticky; top:var(--tabsH, 45px); z-index:21; display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:6px 0 4px; padding:8px 12px; box-shadow:0 2px 6px rgba(0,0,0,.06); border:1px solid #c7e0f4; border-radius:6px; background:var(--accent-light); font-size:12.5px; }
+  .tryback[hidden] { display:none; }
+  .tryback .back { height:28px; padding:0 12px; font-size:12px; }
+  .tryback .scnext { margin:0; gap:6px; align-items:center; } .tryback .scnext .nx { min-height:28px; padding:3px 10px; flex-direction:row; align-items:center; gap:6px; }
+  .tryback .scnext .nx small { display:none; } .tryback .scnext .nx.here { display:none; }
+  #launch, #cvCard, #scenario, #polMapCard, #cbLedger, #agTier { scroll-margin-top:calc(var(--tabsH, 45px) + var(--backH, 0px) + 8px); }
   /* Viewing an earlier run: its report replaces the session overview content until "Back to the live session" */
   #tab-live.runmode > :not(#tab-runs):not(#runBanner) { display:none !important; }
   #tab-live.runmode #tab-runs { margin-top:0 !important; border:0; padding:0; background:transparent; box-shadow:none; }
@@ -91,7 +113,7 @@
   .kpi { background:var(--panel); border-radius:6px; padding:12px 16px; box-shadow:var(--shadow); border-top:3px solid var(--accent); }
   .kpi.ok { border-top-color:var(--ok); } .kpi.bad { border-top-color:#d13438; } .kpi.cost { border-top-color:#8764b8; } .kpi.lat { border-top-color:#038387; }
   .kpi .v { font-size:26px; font-weight:600; margin-top:2px; } .kpi .l { color:var(--muted); font-size:12px; } .kpi .v small { font-size:60%; font-weight:400; color:var(--muted); white-space:nowrap; } .kpi.lat .v { white-space:nowrap; }
-  /* the session KPIs above the four tabs: a slim status strip */
+  /* the session KPIs on the Try it tab: a slim status strip */
   #kpiBar { grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:10px; }
   #kpiBar .kpi { padding:6px 12px; display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:0 8px; border-top-width:2px; }
   #kpiBar .kpi .v { font-size:17px; margin:0; white-space:nowrap; } #kpiBar .kpi .l { font-size:11.5px; }
@@ -521,7 +543,7 @@
   .pxdetail details.full { margin-top:12px; } .pxdetail details.full > summary { cursor:pointer; color:var(--accent); font-size:12.5px; } .pxdetail details.full pre.xml { max-height:560px; }
   .pxdetail.flash { animation:lensHit 1s both; }
   @media (max-width:1000px) { .pxbody { grid-template-columns:1fr; } .pxlist { position:static; max-height:320px; } }
-  /* Why › AI Gateway tier: compatibility of each control with the managed tier (same / works differently / classic only) */
+  /* Why › AI Gateway: compatibility of each control with AI Gateway (same / works differently / classic only) */
   .agk { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; white-space:nowrap; }
   .agk::before { content:""; width:9px; height:9px; border-radius:50%; flex:0 0 9px; box-sizing:border-box; }
   .agk.same { color:#0b6a0b; } .agk.same::before { background:#107c10; }
@@ -529,21 +551,6 @@
   .agk.classic { color:#605e5c; } .agk.classic::before { border:1.5px solid #8a8886; }
   .pxlist .it .agk { flex:0 0 auto; margin-left:2px; } .pxlist .it.out .agk { opacity:.5; }
   .pxdetail .agadopt { border-left-color:#8a8886; margin-top:8px; }
-  /* AI Gateway tier in the scenario picker: the row badge, the filter chip, the v2 / tier toggle and the tier view */
-  .scrow .scag { flex:none; font-size:9.5px; font-weight:800; letter-spacing:.04em; padding:1px 6px; border-radius:9px; border:1.5px solid; line-height:14px; }
-  .scag.same { color:#0b5a0b; border-color:#107c10; background:#dff6dd; }
-  .scag.differs { color:#6b4100; border-color:#c19c00; background:#fff4ce; }
-  .scag.partly { color:#6b4100; border-color:#c19c00; background:linear-gradient(90deg, #fff4ce 50%, #fff 50%); }
-  .scag.classic { color:#605e5c; border-color:#c8c6c4; border-style:dashed; background:#fff; }
-  .scchips button.ag { border-color:#8764b8; color:#5c2e91; } .scchips button.ag.on { background:#f4effa; border-color:#8764b8; color:#5c2e91; } .scchips button.ag.on .k { color:#5c2e91; }
-  .sctopic.ag { color:#5c2e91; }
-  .scgw { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:8px 0 2px; font-size:12px; }
-  .scgw .seg button { height:26px; font-size:12px; padding:0 10px; } .scgw .seg button[data-gw="tier"].on { background:#8764b8; }
-  .agpick { margin-top:6px; }
-  .agpick .rt { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px; } .agpick .rt a { margin-left:auto; font-size:12px; }
-  .agpick .elh { font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; margin:12px 0 6px; }
-  .agpick .agnote { margin-top:8px; display:flex; gap:10px; align-items:flex-start; padding:8px 12px; border-radius:6px; background:var(--panel2); font-size:12.5px; line-height:1.45; }
-  .agpick .agnote .agk { flex:none; margin-top:2px; }
   table.agsteps { margin-top:8px; font-size:12px; table-layout:fixed; }
   table.agsteps th, table.agsteps td { white-space:normal; padding:5px 8px; vertical-align:top; }
   table.agsteps thead th { font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; }
@@ -804,7 +811,7 @@
   #agTier .agcode .s { font-weight:700; font-size:15px; padding:0 6px; border-radius:4px; background:#f3f2f1; }
   #agTier .agcode .s.new { background:#fff4ce; color:#8a5300; } #agTier .agcode .sub { margin-top:4px; font-size:10.5px; color:var(--muted); word-break:break-word; }
   #agTier .agcode .arr { color:var(--muted); } #agTier .agcode.same { border-left:3px solid #107c10; } #agTier .agcode.chg { border-left:3px solid #c19c00; }
-  /* 3. What you build with: pairs of building blocks, an arrow pulses from the sandbox's to the tier's */
+  /* 3. What you build with: pairs of building blocks, an arrow pulses from the sandbox's to AI Gateway's */
   #agTier .agblocks { display:grid; gap:6px; }
   #agTier .agpair { display:grid; grid-template-columns:1fr 44px 1fr; align-items:center; gap:4px; padding:5px 8px; border-radius:6px; border:1px solid transparent; cursor:default; }
   #agTier .agpair:hover, #agTier .agpair:focus-visible { background:var(--accent-light); border-color:#c7e0f4; }
@@ -943,7 +950,7 @@
   .s401 { background:var(--bad-bg); color:var(--bad); }
   a.ev { cursor:pointer; }
   /* Scenario preview: hover card with a small diagram of what a guided scenario does */
-  .preview { position:fixed; z-index:50; width:540px; max-width:calc(100vw - 16px); max-height:calc(100vh - 16px); overflow-y:auto; background:#fff; border-radius:8px; padding:14px 16px 12px;
+  .preview { position:fixed; z-index:135; width:540px; max-width:calc(100vw - 16px); max-height:calc(100vh - 16px); overflow-y:auto; background:#fff; border-radius:8px; padding:14px 16px 12px;
              box-shadow:0 25.6px 57.6px rgba(0,0,0,.22),0 4.8px 14.4px rgba(0,0,0,.18); opacity:0; visibility:hidden; transform:translateX(-6px); transition:opacity .12s, transform .12s; }
   .preview.show { opacity:1; visibility:visible; transform:none; }
   .preview .ph { display:flex; gap:10px; align-items:flex-start; }
@@ -1066,26 +1073,54 @@
   #scFlow .dr > * { opacity:0; animation:scHop .35s ease-out forwards; animation-delay:calc(var(--i, 0) * 140ms); }
   @keyframes scHop { from { opacity:0; transform:translateX(-6px); } to { opacity:1; transform:none; } }
   @media (prefers-reduced-motion: reduce) { #scFlow .dr > * { animation:none; opacity:1; } }
-  /* Launch panel: choose ONE way to drive the gateway (guided scenario OR your own request); it collapses to a sticky bar while results are in focus */
+  /* Launch bar: one sticky line above the conversation. ▶ Scenarios and ✎ Build a request open their panel (#lbody) as a pop-out over the page */
   .card h2.lh, .lbody h2 { font-size:15px; margin:0 0 10px; font-weight:600; display:flex; align-items:center; gap:8px; }
   .lbody h2 .step { width:22px; height:22px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; display:inline-grid; place-items:center; }
   .launch { background:var(--panel); border-radius:6px; box-shadow:var(--shadow); margin:16px 0; border-top:3px solid var(--accent); }
-  .launch.collapsed { position:sticky; top:0; z-index:20; box-shadow:0 6.4px 14.4px rgba(0,0,0,.13),0 1.2px 3.6px rgba(0,0,0,.11); }
+  .launch.collapsed { position:sticky; top:var(--tabsH, 45px); z-index:20; box-shadow:0 6.4px 14.4px rgba(0,0,0,.13),0 1.2px 3.6px rgba(0,0,0,.11); }
   .lbar { display:flex; align-items:center; gap:10px; padding:12px 18px; flex-wrap:wrap; }
-  .launch:not(.collapsed) .lbar { border-bottom:1px solid var(--divider); }
   .lbar .q { font-weight:600; font-size:16px; margin-right:6px; } .launch.collapsed .lbar .q { display:none; }
   .lbar .sp { flex:1; }
   .modes { display:flex; align-items:center; gap:8px; }
   .mode { background:#fff; color:var(--text); border:1px solid var(--border); border-radius:6px; height:auto; padding:8px 14px 8px 10px; font-weight:400; display:inline-flex; align-items:center; gap:10px; text-align:left; }
   .mode:hover:not(:disabled) { background:#faf9f8; border-color:#8a8886; color:var(--text); }
-  .mode.active, .mode.active:hover:not(:disabled) { border-color:var(--accent); background:var(--accent-light); box-shadow:inset 0 0 0 1px var(--accent); }
   .mode .ic { width:28px; height:28px; border-radius:50%; background:#edebe9; color:var(--muted); display:grid; place-items:center; font-size:13px; flex:0 0 28px; }
-  .mode.active .ic { background:var(--accent); color:#fff; }
   .mode b { display:block; font-size:14px; font-weight:600; } .mode small { display:block; color:var(--muted); font-size:12px; font-weight:400; }
-  .launch.collapsed .mode { padding:4px 12px 4px 6px; } .launch.collapsed .mode small { display:none; } .launch.collapsed .mode b { font-size:13px; }
-  .launch.collapsed .mode .ic { width:22px; height:22px; flex-basis:22px; font-size:11px; }
-  .launch.collapsed .mode:not(.active) { opacity:.75; }
+  .launch.collapsed .mode { padding:4px 14px 4px 6px; } .launch.collapsed .mode small { display:none; } .launch.collapsed .mode b { font-size:13.5px; }
+  .launch.collapsed .mode .ic { width:24px; height:24px; flex-basis:24px; font-size:11px; }
+  /* in the bar both are launchers (no selected state): ▶ Scenarios is the primary one */
+  .lbar .mode[data-mode="guided"] { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .lbar .mode[data-mode="guided"]:hover:not(:disabled) { background:var(--accent-hover); border-color:var(--accent-hover); color:#fff; }
+  .lbar .mode[data-mode="guided"] .ic { background:#fff; color:var(--accent); }
+  .lbar .mode[data-mode="build"]:hover:not(:disabled) { background:var(--accent-light); border-color:var(--accent); color:#005a9e; }
   .modes .or { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; background:var(--bg); border-radius:10px; padding:2px 8px; }
+  /* the pop-out: a fixed panel over a dimmed page (not a modal <dialog>, so the copilot, its spotlights and hover cards stay above it) */
+  .launch.pop { z-index:130; }
+  .launch.pop::before { content:""; position:fixed; inset:0; z-index:1; background:rgba(0,0,0,.38); animation:busyIn .15s ease-out; }
+  .launch.pop .lbody { position:fixed; z-index:2; inset:0; margin:auto; width:min(1120px, calc(100vw - 48px)); height:min(800px, calc(100vh - 48px)); padding:0;
+    display:flex; flex-direction:column; overflow:hidden; background:var(--panel); border-radius:8px; border-top:3px solid var(--accent);
+    box-shadow:0 25.6px 57.6px rgba(0,0,0,.22),0 4.8px 14.4px rgba(0,0,0,.18); animation:lpIn .16s ease-out; }
+  @keyframes lpIn { from { opacity:0; translate:0 8px; } }
+  .lphead { display:flex; align-items:center; gap:14px; padding:10px 12px 10px 16px; border-bottom:1px solid var(--divider); flex:none; }
+  .lptabs { display:inline-flex; border:1px solid var(--border); border-radius:6px; overflow:hidden; flex:none; }
+  .lptab { background:#fff; color:var(--text); border:0; border-radius:0; height:34px; padding:0 16px; font-weight:600; font-size:13.5px; }
+  .lptab + .lptab { border-left:1px solid var(--border); }
+  .lptab:hover:not(:disabled) { background:#f3f2f1; border-color:var(--border); color:var(--text); }
+  .lptab.active, .lptab.active:hover:not(:disabled) { background:var(--accent); color:#fff; }
+  .lphint { flex:1; min-width:0; color:var(--muted); font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lpx { flex:none; background:transparent; color:var(--muted); border:0; width:34px; height:34px; padding:0; font-size:17px; border-radius:6px; }
+  .lpx:hover:not(:disabled) { background:#f3f2f1; border-color:transparent; color:var(--text); }
+  .launch.pop #mode-guided:not(.hidden) { flex:1 1 0; min-height:0; display:flex; flex-direction:column; padding:12px 16px 16px; }
+  .launch.pop #mode-guided .scenarios { flex:1 1 0; }
+  .launch.pop #mode-guided .scpick { flex:1 1 0; height:auto; }
+  /* the request builder scrolls inside the pop-out and keeps Send / Burst at its bottom */
+  .launch.pop #mode-build:not(.hidden) { flex:1 1 0; min-height:0; overflow:auto; overscroll-behavior:contain; display:flex; flex-direction:column; padding:14px 18px 0; }
+  .launch.pop #mode-build .actions { margin-top:auto; position:sticky; bottom:0; z-index:2; background:var(--panel); padding:12px 0 14px; border-top:1px solid var(--divider); }
+  .launch.pop #mode-build .adv { margin-bottom:16px; }
+  /* the builder is short until Advanced opens: size its pop-out to the form (still centred, capped, scrolling inside) */
+  .launch.pop .lbody:has(> #mode-build:not(.hidden)) { height:fit-content; max-height:min(800px, calc(100vh - 48px)); }
+  .launch.pop .lbody:has(> #mode-build:not(.hidden)) #mode-build { flex:0 1 auto; }
+  @media (max-width:760px) { .launch.pop .lbody { width:100vw; height:100dvh; border-radius:0; } .lphint { display:none; } }
   .lsum { font-size:13px; max-width:480px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-left:12px; border-left:1px solid var(--divider); }
   .lstat { display:inline-flex; align-items:center; gap:6px; max-width:460px; } .lstat #runStatus { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .lstat .live { width:8px; height:8px; border-radius:50%; background:var(--ok); display:none; animation:pulse 1.2s ease-in-out infinite; flex:0 0 8px; }
@@ -1186,7 +1221,7 @@
   .rkv { grid-template-columns:130px 1fr; }
   #runDetail tr.click.sel td { background:var(--accent-light); }
   /* Policies & evidence: request log (under the scenario card, above the gateway flow) */
-  #evLogCard { scroll-margin-top:84px; margin-bottom:16px; } #evLogCard[hidden] { display:none; }
+  #evLogCard { scroll-margin-top:var(--stickyH, 130px); margin-bottom:16px; } #evLogCard[hidden] { display:none; }
   .evwho b { font-weight:600; } .evwho .badge { font-size:9.5px; padding:0 6px; margin-left:2px; } .evwho small { display:block; color:var(--muted); font-size:11px; }
   #evLog td.tgt { white-space:nowrap; }
   /* scenario card: the dropdown of this session's scenario runs stands in for the title */
@@ -1202,11 +1237,11 @@
   #evLog td { padding-top:5px; padding-bottom:5px; }
   #evLog tr.click.sel td { background:var(--accent-light); } #evLog tr.click.sel td:first-child { box-shadow:inset 3px 0 0 var(--accent); font-weight:600; }
   .evnav { margin-left:auto; display:inline-flex; gap:6px; align-items:center; font-size:12px; font-weight:400; } .evnav button { height:26px; padding:0 10px; font-size:12px; }
-  #evPanel { margin-top:16px; scroll-margin-top:84px; }
+  #evPanel { margin-top:16px; scroll-margin-top:var(--stickyH, 130px); }
   .runempty { padding:40px; text-align:center; color:var(--muted); }
   @media (max-width:1180px) { .runs { grid-template-columns:1fr; } .rlist { position:static; max-height:320px; } .rkpis { grid-template-columns:repeat(3,1fr); } }
   @media (max-width:760px) { .modes { flex-wrap:wrap; } }
-  /* Workbench: configure on the left, converse on the right (stacked on narrow screens). Agent plan details live in a hover card. */
+  /* Workbench: the launch bar (one line) above the conversation; ▶ Scenarios / ✎ Build a request open as a pop-out. Agent plan details live in a hover card. */
   .bench { display:grid; grid-template-columns:minmax(440px,5fr) minmax(0,6fr); gap:16px; margin:16px 0; align-items:stretch; }
   .bench .launch { margin:0; min-width:0; }
   .bench:has(.launch.collapsed) { display:contents; } .bench:has(.launch.collapsed) .launch { margin:16px 0; }
@@ -1228,49 +1263,9 @@
   .preview .ptip .name { font-weight:600; display:flex; justify-content:space-between; align-items:center; gap:8px; }
   .preview .ptip .meta { font-size:12px; line-height:1.6; color:var(--muted); margin-top:6px; }
   .preview .ptip .hint { font-size:11px; color:var(--muted); margin-top:8px; border-top:1px solid var(--divider); padding-top:6px; }
-  /* Minimized: the launch panel shrinks to a slim rail (side by side only) and the conversation takes the width */
-  .rlab { display:none; }
-  #btnMini, #btnToggle { display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px 0 10px; font-size:13px; font-weight:600; border-color:#8a8886; }
-  #btnMini .mi, #btnToggle .mi { font-size:17px; line-height:1; margin-top:-2px; } #btnToggle .mi { font-size:12px; margin-top:0; }
-  #btnMini:hover:not(:disabled), #btnToggle:hover:not(:disabled) { background:var(--accent-light); border-color:var(--accent); color:#005a9e; }
-  @media (min-width:1101px) {
-    .launch:not(.collapsed) #btnToggle { display:none; }  /* side by side, « (minimize to a rail) collapses the open panel; a run shrinks it to the strip */
-    .bench:has(.launch.mini) { grid-template-columns:52px minmax(0,1fr); }
-    .bench:has(.launch.mini) .cvcol { min-height:0; }
-    /* Side by side, the bench fits the screen: the scenario list / request builder scrolls inside its panel and the
-       conversation matches that height (about half of the old full-list height); ⤢ Expand opens it full screen */
-    .bench:not(:has(.launch.collapsed)) { height:clamp(440px, calc(100vh - 210px), 620px); }
-    .bench .launch:not(.collapsed):not(.mini) { display:flex; flex-direction:column; min-height:0; }
-    .bench .launch:not(.collapsed):not(.mini) .lbody { flex:1 1 0; min-height:0; overflow:auto; overscroll-behavior:contain; }
-    .bench .launch:not(.collapsed):not(.mini) .lbody:has(> #mode-guided:not(.hidden)) { display:flex; flex-direction:column; overflow:hidden; }
-    .bench .launch:not(.collapsed):not(.mini) #mode-guided { flex:1 1 0; min-height:0; display:flex; flex-direction:column; }
-    .bench .launch:not(.collapsed):not(.mini) #mode-guided .scenarios { flex:1 1 0; }
-    .bench .launch:not(.collapsed):not(.mini) #mode-guided .scpick { flex:1 1 0; height:auto; }
-    /* the request builder fills the panel and keeps Send / Burst at its bottom, in view while ⚙ Advanced scrolls */
-    .bench .launch:not(.collapsed):not(.mini) .lbody:has(> #mode-build:not(.hidden)) { display:flex; flex-direction:column; padding-bottom:0; }
-    .bench .launch:not(.collapsed):not(.mini) #mode-build { flex:1 0 auto; display:flex; flex-direction:column; }
-    .bench .launch:not(.collapsed):not(.mini) #mode-build .actions { margin-top:auto; position:sticky; bottom:0; z-index:2; background:var(--panel);
-      padding:12px 0 14px; border-top:1px solid var(--divider); }
-    .bench .launch:not(.collapsed):not(.mini) #mode-build .adv { margin-bottom:16px; }
-    .bench:has(.launch.collapsed) .cvcol { min-height:clamp(440px, calc(100vh - 210px), 620px); }
-    .launch.mini .lbody, .launch.mini .lsum, .launch.mini #runStatus, .launch.mini #btnToggle, .launch.mini .sp, .launch.mini .mode > span:not(.ic), .launch.mini #btnAgain .lbl { display:none; }
-    .launch.mini .lbar { flex-direction:column; flex-wrap:nowrap; height:100%; padding:8px 0; gap:8px; border-bottom:0; }
-    .launch.mini #btnMini { order:-1; }
-    .launch.mini .modes { flex:none; flex-direction:column; gap:6px; }
-    .launch.mini .mode, .launch.mini .mode:hover:not(:disabled), .launch.mini .mode.active { flex:none; width:36px; height:36px; padding:0; justify-content:center; border-color:transparent; background:transparent; box-shadow:none; }
-    .launch.mini .mode .ic { width:28px; height:28px; flex-basis:28px; font-size:13px; }
-    .launch.mini #btnMini, .launch.mini #btnAgain, .launch.mini #btnStop { width:40px; padding:0; font-size:12px; }
-    .launch.mini #btnMini { flex-direction:column; gap:0; height:46px; font-size:10px; background:var(--accent); border-color:var(--accent); color:#fff; }
-    .launch.mini #btnMini .mi { font-size:18px; margin:0; } .launch.mini #btnMini:hover:not(:disabled) { background:var(--accent-hover); color:#fff; }
-    .launch.mini .rlab { display:block; flex:1; writing-mode:vertical-rl; transform:rotate(180deg); background:none; border:0; height:auto; padding:8px 0; color:var(--muted); font-weight:600; font-size:12px; letter-spacing:.3px; cursor:pointer; }
-    .launch.mini .rlab:hover { color:var(--accent); }
-    /* the Keys + Entra | Entra only switch: two short stacked buttons in the rail */
-    .launch.mini .gwmode { flex-direction:column; width:40px; flex:none; }
-    .launch.mini .gwmode button { width:40px; height:26px; padding:0; font-size:10.5px; }
-    .launch.mini .gwmode .full { display:none; } .launch.mini .gwmode .short { display:inline; }
-  }
   .gwmode .short { display:none; }
-  @media (max-width:1100px) { #btnMini { display:none; } .bench { grid-template-columns:1fr; } .cvcol, .bench:has(.launch.collapsed) .cvcol { min-height:0; }
+  @media (min-width:1101px) { .bench:has(.launch.collapsed) .cvcol { min-height:clamp(440px, calc(100vh - 210px), 620px); } }
+  @media (max-width:1100px) { .bench { grid-template-columns:1fr; } .cvcol, .bench:has(.launch.collapsed) .cvcol { min-height:0; }
     .cvcol > #cvCard { position:static; } .cvcol > #cvCard .convo { flex:none; min-height:220px; max-height:560px; } }
   /* Request inspector: the redacted HTTP calls app.py made through APIM for one result */
   .insp { margin-top:12px; border:1px solid var(--border); border-radius:4px; background:var(--panel); }
@@ -1331,14 +1326,24 @@
 </div>
 
 <main>
+    <div class="tabs" id="tabsRow" role="tablist" aria-label="Sandbox views">
+      <button class="active" data-tab="happened" title="Run a scenario or send your own request, chat with the models, and see each call through the gateway"><span class="tico" aria-hidden="true">▶</span> Try it: what happened</button>
+      <button data-tab="why" title="The controls on this gateway, the policy behind each one and its deployed lines">Why: policies</button>
+      <button data-tab="cost" title="Budgets, plans and prices, and who pays for what">What it cost</button>
+      <button data-tab="proof" title="Where the evidence lands: Log Analytics, Application Insights and Azure Monitor">Proof: logs &amp; monitoring</button>
+      <span class="tabsp"></span>
+      <label class="viewsel" title="Show the live session, or the report of an earlier run (its calls, cost and gateway decisions)">Viewing <select id="viewSel" aria-label="Show the live session or an earlier run"><option value="live">● Live session</option></select></label>
+    </div>
+  <div class="tryback" id="tryBack" hidden></div>
+  <div id="tab-happened">
   <div class="bench" id="bench">
-  <section class="launch" id="launch">
+  <section class="launch collapsed" id="launch">
     <div class="lbar">
       <span class="q">How do you want to drive the gateway?</span>
-      <div class="modes" role="tablist" aria-label="Choose one">
-        <button class="mode active" data-mode="guided" role="tab" aria-selected="true" title="Run a guided scenario"><span class="ic">▶</span><span><b>Scenarios</b><small>find one · preview it · run it</small></span></button>
+      <div class="modes" role="group" aria-label="Drive the gateway">
+        <button class="mode active" data-mode="guided" aria-haspopup="dialog" aria-expanded="false" title="Find a guided scenario, preview it and run it (opens a pop-out)"><span class="ic">▶</span><span><b>Scenarios</b><small>find one · preview it · run it</small></span></button>
         <span class="or">or</span>
-        <button class="mode" data-mode="build" role="tab" aria-selected="false" title="Build your own request"><span class="ic">✎</span><span><b>Build a request</b><small>pick a caller, a target and a prompt</small></span></button>
+        <button class="mode" data-mode="build" aria-haspopup="dialog" aria-expanded="false" title="Build your own request: pick a caller, a target and a prompt (opens a pop-out)"><span class="ic">✎</span><span><b>Build a request</b><small>pick a caller, a target and a prompt</small></span></button>
       </div>
       <span class="lsum hidden" id="lsum"></span>
       <div class="gwmode" id="gwMode" role="radiogroup" aria-label="How callers authenticate">
@@ -1350,11 +1355,16 @@
       <button class="secondary hidden" id="btnStop">Stop</button>
       <button class="secondary hidden" id="btnAgain" title="Run again">↻<span class="lbl"> Run again</span></button>
       <button class="hidden" id="btnNext"></button>
-      <button class="secondary" id="btnToggle" title="Fold this panel to a one-line bar, so the results get the room"><span class="mi">▴</span><span class="ml">Hide</span></button>
-      <button class="rlab" id="rlab" title="Expand the panel">Scenarios &amp; request builder</button>
-      <button class="secondary" id="btnMini" title="Hide this panel to a slim rail, so the conversation gets the full width" aria-expanded="true"><span class="mi">«</span><span class="ml">Hide</span></button>
     </div>
-    <div class="lbody" id="lbody">
+    <div class="lbody hidden" id="lbody" role="dialog" aria-modal="true" aria-labelledby="lpTabs">
+    <div class="lphead">
+      <div class="lptabs" id="lpTabs" role="tablist" aria-label="Scenarios or build a request">
+        <button type="button" class="lptab active" data-mode="guided" role="tab" aria-selected="true">▶ Scenarios</button>
+        <button type="button" class="lptab" data-mode="build" role="tab" aria-selected="false">✎ Build a request</button>
+      </div>
+      <span class="lphint" id="lpHint"></span>
+      <button type="button" class="lpx" id="lpClose" title="Close (Esc)" aria-label="Close">✕</button>
+    </div>
     <div class="guided" id="mode-guided">
       <div class="scenarios" id="scenarios"></div>
     </div>
@@ -1446,8 +1456,9 @@
       <div class="schead"><h2 id="scTitle"></h2>
         <select id="scRunSel" hidden aria-label="Scenario runs in this session: pick one to see its diagram, takeaway and steps, and its calls in the request log"></select></div>
       <div id="scFlow" aria-label="Scenario path"></div>
-      <div id="scTakeaway"></div>
       <div id="scExplain"></div>
+      <div id="scTakeaway"></div>
+      <div class="scnext" id="scLook" hidden role="navigation" aria-label="Where to look next"></div>
       <div class="scpol" id="scPol" aria-label="Policies behind this scenario"></div>
       <div class="scmore">
         <details id="scMoreBox"><summary>Details <span class="muted">· what the scenario does and how the gateway decides</span></summary>
@@ -1477,16 +1488,6 @@
       <div class="kpi lat" title="End-to-end latency per call as measured by the demo app: app → APIM gateway (policies) → backend and back"><div class="l">Latency p50 · p95</div><div class="v" id="kLat">-</div></div>
     </div>
     <div class="idlehint">Results show up here. Run a guided scenario, <i>or</i> build your own request and press <b>Send</b>, <i>or</i> just type a message in the conversation.</div>
-    <div class="tabs">
-      <button class="active" data-tab="happened" title="Each call through the gateway: the flow, its trace and its logs">What happened</button>
-      <button data-tab="why" title="The controls on this gateway, the policy behind each one and its deployed lines">Why: policies</button>
-      <button data-tab="cost" title="Budgets, plans and prices, and who pays for what">What it cost</button>
-      <button data-tab="proof" title="Where the evidence lands: Log Analytics, Application Insights and Azure Monitor">Proof: logs &amp; monitoring</button>
-      <span class="tabsp"></span>
-      <label class="viewsel" title="Show the live session, or the report of an earlier run (its calls, cost and gateway decisions)">Viewing <select id="viewSel" aria-label="Show the live session or an earlier run"><option value="live">● Live session</option></select></label>
-    </div>
-
-    <div id="tab-happened">
       <div class="psub" role="tablist" aria-label="What happened views" style="grid-template-columns:repeat(2,1fr)">
         <button class="on" data-psec="investigate" role="tab"><img class="ico" src="/icons/trace.svg" alt=""><span><b>Gateway flow</b><small>each call through the gateway · trace · logs</small></span></button>
         <button data-psec="live" role="tab"><img class="ico" src="/icons/metrics.svg" alt=""><span><b>Session overview</b><small>signals · outcomes · latency · run history</small></span></button>
@@ -1498,7 +1499,7 @@
            window.gwFlow.pattern(key, start)    opens the GIF lightbox; any element with data-pat="key[:index]" opens it too -->
       <div id="gwFlowSection">
       <style>
-        #gwFlow { margin-top:16px; scroll-margin-top:84px; }
+        #gwFlow { margin-top:16px; scroll-margin-top:var(--stickyH, 130px); }
         .gwf-bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:8px 0 10px; }
         .gwf-bar .sp { flex:1; }
         .gwf-bar button { height:28px; padding:0 12px; font-size:12px; }
@@ -1722,7 +1723,7 @@
         .prim.compact .prim-grid { grid-template-columns:1fr; }
         .prim.compact .prim-end { flex-basis:76px; padding:6px; } .prim.compact .prim-arr { flex-basis:56px; }
         .term { border-bottom:1px dotted currentColor; cursor:help; outline:none; } .term:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-        .primer-pop { position:fixed; z-index:90; width:min(640px, calc(100vw - 24px)); background:#fff; border:1px solid var(--border); border-radius:8px; padding:12px 14px;
+        .primer-pop { position:fixed; z-index:136; width:min(640px, calc(100vw - 24px)); background:#fff; border:1px solid var(--border); border-radius:8px; padding:12px 14px;
           box-shadow:0 6.4px 14.4px rgba(0,0,0,.13),0 1.2px 3.6px rgba(0,0,0,.11); }
         .primer-pop[hidden] { display:none; }
         .primer-pop .ph { display:flex; align-items:baseline; gap:8px; margin-bottom:8px; } .primer-pop .ph b { font-size:13px; flex:1; } .primer-pop .ph a { font-size:12px; }
@@ -3046,12 +3047,13 @@
         </div>
         </details>
       </div><!-- /psec live -->
-    </div>
+  </section>
+  </div><!-- /tab-happened -->
 
     <div id="tab-why" class="hidden">
       <div class="psub" role="tablist" aria-label="Why: policies views" style="grid-template-columns:repeat(2,1fr)">
         <button class="on" data-psec="explorer" role="tab"><img class="ico" src="/icons/policy.svg" alt=""><span><b>Policy explorer</b><small>every control, its policy and deployed lines</small></span></button>
-        <button data-psec="tier" role="tab"><img class="ico" src="/icons/ai-gateway.svg" alt=""><span><b>AI Gateway tier</b><small>what changes · what carries over</small></span></button>
+        <button data-psec="tier" role="tab"><img class="ico" src="/icons/ai-gateway.svg" alt=""><span><b>AI Gateway</b><small>its own product · what carries over</small></span></button>
       </div>
       <div class="psec" data-psec="explorer">
       <div class="card" id="polMapCard">
@@ -3075,7 +3077,7 @@
       <div class="card agcust" id="agCust" style="margin-top:16px"></div>
       <div class="card agtldr" id="agTldr" style="margin-top:16px"></div>
       <div class="card" style="margin-top:16px">
-        <h2><img class="hico" src="/icons/ai-gateway.svg" alt="">Same call, two gateways <span class="muted">this sandbox (API Management v2) vs. the AI Gateway tier</span> <span class="info" tabindex="0" data-tip="The AI Gateway tier is a separate resource type (Microsoft.ApiManagement/aigateways) with its own portal (ai.gateway.azure.com) and Azure CLI extension (az aigateway). Instead of XML policies, you add managed policies at Gateway scope or to one model, alias or MCP server. Pick a call below to watch what each gateway does with it.">i</span></h2>
+        <h2><img class="hico" src="/icons/ai-gateway.svg" alt="">Same call, two gateways <span class="muted">this sandbox (API Management v2) vs. AI Gateway</span> <span class="info" tabindex="0" data-tip="AI Gateway isn't a tier of API Management v2: it's a deployment type and product of its own (Microsoft.ApiManagement/aigateways) with its own portal (ai.gateway.azure.com) and Azure CLI extension (az aigateway). Instead of XML policies, you add managed policies at Gateway scope or to one model, alias or MCP server. Pick a call below to watch what each gateway does with it.">i</span></h2>
         <div class="agstories" id="agStories" role="group" aria-label="Pick a call"></div>
         <div class="agrace" id="agRace"></div>
         <div class="agnote" id="agNote" aria-live="polite"></div>
@@ -3093,16 +3095,16 @@
         </div>
       </div>
       <div class="card" style="margin-top:16px">
-        <h2><img class="hico" src="/icons/policy.svg" alt="">Every control on this gateway <span class="muted">hover a tile to see its AI Gateway tier equivalent · click to open it in the Policy explorer</span></h2>
+        <h2><img class="hico" src="/icons/policy.svg" alt="">Every control on this gateway <span class="muted">hover a tile to see its AI Gateway equivalent · click to open it in the Policy explorer</span></h2>
         <div class="agmeter" id="agMeter"></div>
         <div class="aglanes" id="agLanes"></div>
         <div class="agpeek" id="agPeek" aria-live="polite"></div>
         <details class="agtable"><summary>Show as a table</summary><div id="agControls"></div></details>
       </div>
       <div class="card" style="margin-top:16px">
-        <h2><img class="hico" src="/icons/plan.svg" alt="">The guided scenarios on the AI Gateway tier <span class="muted">one bar segment per control it shows · click a scenario to compare it on both gateways</span></h2>
+        <h2><img class="hico" src="/icons/plan.svg" alt="">The guided scenarios on AI Gateway <span class="muted">one bar segment per control it shows · click a scenario to compare it on both gateways</span></h2>
         <div id="agScenarios"></div>
-        <p class="muted agsrc">Based on the Azure AI Gateway tier labs (October 2026), the <a href="https://learn.microsoft.com/azure/api-management/ai-gateway-overview" target="_blank">AI Gateway tier (preview) docs ↗</a> and the product group's field guide <i>When to add AI Gateway to Foundry</i> (AI Gateway is GA on November 17, 2026). Marked <span class="agga">GA</span>: what the field guide describes for general availability that the preview docs don't list yet. Check the <a href="https://ai.gateway.azure.com" target="_blank">AI Gateway portal ↗</a> docs before you plan a migration.</p>
+        <p class="muted agsrc">Based on the Azure AI Gateway labs (October 2026), the <a href="https://learn.microsoft.com/azure/api-management/ai-gateway-overview" target="_blank">AI Gateway (preview) docs ↗</a> and the product group's field guide <i>When to add AI Gateway to Foundry</i> (AI Gateway is GA on November 17, 2026). Marked <span class="agga">GA</span>: what the field guide describes for general availability that the preview docs don't list yet. Check the <a href="https://ai.gateway.azure.com" target="_blank">AI Gateway portal ↗</a> docs before you plan a migration.</p>
       </div>
       </div><!-- /psec tier -->
     </div>
@@ -3223,7 +3225,6 @@
       </div>
       </div><!-- /psec monitor -->
     </div>
-  </section>
 </main>
 <div id="topbar" role="progressbar" aria-label="Loading"></div>
 <div class="toast" id="toast"></div>
@@ -4286,7 +4287,7 @@ function cvFull(on) {
 }
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("cvCard").classList.contains("full")) cvFull(false); });
 document.addEventListener("mousedown", (e) => { const c = $("cvCard"); if (c.classList.contains("full") && !c.contains(e.target) && !e.target.closest?.("#scPreview, .toast")) cvFull(false); });
-function cvChange() { setMode("build"); collapseLaunch(false); $("launch").scrollIntoView({ block: "start", behavior: "smooth" }); }
+function cvChange() { setMode("build"); collapseLaunch(false); }
 function cvNewSession() { $("btnNewSession").click(); }
 function cvTake() {  // the conversation box's text becomes the builder's prompt, task or tool arguments
   const text = $("cvInput").value.trim();
@@ -4820,31 +4821,37 @@ function setRunning(on, label = "") {
   $("btnStop").classList.toggle("hidden", !on); $("runStatus").textContent = label;
   $("launch").classList.toggle("running", on);
   releaseRunBusy(); fillScRunSel();
-  if (on) { rememberRun(label);
-            if (!sideBySide() || (/^(scenario|demo)$/.test(curRun?.kind) && !$("launch").classList.contains("mini"))) collapseLaunch(true);
+  document.querySelector('#tabsRow button[data-tab="happened"]').classList.toggle("run", on);
+  if (on) { rememberRun(label); nxSeen = new Set(); nxRender();
+            collapseLaunch(true);  // close the pop-out: the conversation and the gateway flow show the run
             $("sessionArea").classList.remove("idle");
             runBusy = busy($("sessionArea"), label || "Running…", "Waiting for the gateway to answer. Results appear here as they arrive.", true); }
-  else endRun();
+  else { endRun(); nxRender(); }
   updateLaunch();
 }
-// Launch panel: the user picks ONE mode (guided scenario OR build your own). When it is stacked above the conversation (narrow screens),
-// a run collapses it to a sticky bar so the results get the focus; side by side it stays open next to the conversation.
-let mode = "guided", lastBtn = null, lastRun = null;
+// Launch bar: one sticky line above the conversation. ▶ Scenarios and ✎ Build a request open ONE mode in a pop-out over the page
+// (#lbody); starting a run closes it, so the conversation and the gateway flow get the screen.
+let mode = "guided", lastBtn = null, lastRun = null, lpReturn = null;
 function sideBySide() { return matchMedia("(min-width:1101px)").matches; }
+const LP_HINT = { guided: "Pick a scenario to see what it shows and the policies behind it, then ▶ Run it. The results play out in the conversation.",
+                  build: "Pick a caller, a target and a prompt, then Send. The answer and the gateway's decision appear in the conversation." };
 function setMode(m) {
   mode = m; hidePreview(); callerMenu(false);
-  document.querySelectorAll(".modes .mode").forEach(b => { const on = b.dataset.mode === m; b.classList.toggle("active", on); b.setAttribute("aria-selected", on); });
+  document.querySelectorAll(".modes .mode").forEach(b => b.classList.toggle("active", b.dataset.mode === m));
+  document.querySelectorAll(".lptab").forEach(b => { const on = b.dataset.mode === m; b.classList.toggle("active", on); b.setAttribute("aria-selected", on); });
+  $("lpHint").textContent = LP_HINT[m] || "";
   $("mode-guided").classList.toggle("hidden", m !== "guided"); $("mode-build").classList.toggle("hidden", m !== "build");
   const card = $("scenario");  // the results card belongs to one mode: don't leave a scenario's story up while building a request (or vice versa)
   if (!running && card.dataset.mode && card.dataset.mode !== m) card.classList.add("hidden");
 }
-function collapseLaunch(c) {
-  if (!c) miniLaunch(false);
-  const L = $("launch"); if (L.classList.contains("collapsed") === c) return;
-  L.classList.toggle("collapsed", c); $("lbody").classList.toggle("hidden", c); hidePreview();
-  const top = document.querySelector("main").offsetTop;
-  if (c && scrollY > top) scrollTo({ top });
-  if (!c && L.getBoundingClientRect().top < 0) L.scrollIntoView({ block: "start" });
+function collapseLaunch(c) {  // c = close the pop-out; false opens it on the current mode
+  const L = $("launch"); if (L.classList.contains("pop") === !c) return;
+  L.classList.toggle("pop", !c); $("lbody").classList.toggle("hidden", c); hidePreview();
+  document.querySelectorAll(".lbar .mode").forEach(b => b.setAttribute("aria-expanded", !c && b.dataset.mode === mode));
+  if (c) { callerMenu(false); const a = document.activeElement;
+           if (lpReturn?.isConnected && (!a || a === document.body || $("lbody").contains(a))) lpReturn.focus({ preventScroll: true });
+           lpReturn = null; }
+  else { lpReturn = document.activeElement; requestAnimationFrame(() => (mode === "guided" ? $("scSearch") : $("callerBtn"))?.focus({ preventScroll: true })); }
   updateLaunch();
 }
 function snapshotRequest(b) {
@@ -4872,11 +4879,8 @@ function rememberRun(label) {
   lastRun = { btn: b, si: run.kind === "scenario" ? run.si : null, text: run.text, mode: b.closest("#mode-guided") ? "guided" : "build", n: curRun.n };
 }
 function updateLaunch() {
-  const collapsed = $("launch").classList.contains("collapsed");
-  $("btnToggle").innerHTML = collapsed ? `<span class="mi">▾</span><span class="ml">Show</span>` : `<span class="mi">▴</span><span class="ml">Hide</span>`;
-  $("btnToggle").title = collapsed ? "Show the scenarios and request builder again" : "Fold this panel to a one-line bar, so the results get the room";
   $("btnAgain").classList.toggle("hidden", running || !lastRun);
-  $("lsum").classList.toggle("hidden", !collapsed || !lastRun);
+  $("lsum").classList.toggle("hidden", !lastRun);
   if (lastRun) {
     const run = runs.find(r => r.n === lastRun.n), n = run ? run.calls.length : 0, cost = run ? run.calls.reduce((t, i) => t + callCost(session.calls[i] || {}), 0) : 0;
     $("lsum").innerHTML = `<span class="muted">${running ? "Running" : "Last run"} #${lastRun.n}:</span> ${escapeHtml(lastRun.text)}`
@@ -4894,20 +4898,17 @@ function updateLaunch() {
 $("btnNext").onclick = () => { const i = Number($("btnNext").dataset.i); if (running || !SCENARIOS[i]) return; setMode("guided"); scRun(i); };
 $("lbody").addEventListener("click", e => { const b = e.target.closest("button"); if (b && !b.disabled) lastBtn = b; }, true);
 document.querySelectorAll(".modes .mode").forEach(b => b.onclick = () => { setMode(b.dataset.mode); collapseLaunch(false); });
-$("btnToggle").onclick = () => collapseLaunch(!$("launch").classList.contains("collapsed"));
-// Minimize (side by side only): the panel becomes a slim rail with the mode icons, so the conversation gets the width. Remembered across reloads.
-function miniLaunch(on) {
-  const L = $("launch"); if (L.classList.contains("mini") === on) return;
-  if (on && L.classList.contains("collapsed")) { L.classList.remove("collapsed"); $("lbody").classList.remove("hidden"); }
-  L.classList.toggle("mini", on); hidePreview();
-  $("btnMini").innerHTML = on ? `<span class="mi">»</span><span class="ml">Show</span>` : `<span class="mi">«</span><span class="ml">Hide</span>`;
-  $("btnMini").title = on ? "Show the scenarios and request builder again" : "Hide this panel to a slim rail, so the conversation gets the full width";
-  $("btnMini").setAttribute("aria-expanded", !on);
-  try { localStorage.setItem("sbx.mini", on ? "1" : ""); } catch {}
-  updateLaunch();
-}
-$("btnMini").onclick = () => miniLaunch(!$("launch").classList.contains("mini"));
-$("rlab").onclick = () => miniLaunch(false);
+document.querySelectorAll(".lptab").forEach(b => b.onclick = () => { setMode(b.dataset.mode); (b.dataset.mode === "guided" ? $("scSearch") : $("callerBtn"))?.focus({ preventScroll: true }); });
+$("lpClose").onclick = () => collapseLaunch(true);
+// the pop-out closes on the dimmed page around it (a press that starts and ends there) and on Esc, after any menu, hover card or search inside it
+let lpDown = false;
+$("launch").addEventListener("mousedown", e => { lpDown = e.target === $("launch"); });
+$("launch").addEventListener("click", e => { if (e.target === $("launch") && lpDown && $("launch").classList.contains("pop")) collapseLaunch(true); lpDown = false; });
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape" || !$("launch").classList.contains("pop")) return;
+  if (!$("callerMenu").hidden || document.querySelector(".primer-pop:not([hidden])") || (e.target.id === "scSearch" && scQ) || e.target.closest?.(".cop-panel")) return;
+  collapseLaunch(true);
+}, true);
 $("btnAgain").onclick = () => { if (!lastRun) return; setMode(lastRun.mode); if (lastRun.si != null) scRun(lastRun.si); else lastRun.btn.click(); };
 $("lsum").onclick = () => { if (lastRun) openRun(lastRun.n); };
 
@@ -5017,6 +5018,7 @@ function scShow(key) {
   }
   if (evFilterRun !== key) { evFilterRun = key; evIndex = -1; }
   evAllPinned = false;
+  scNudge(e.part ? e.part.si : null, e.part ? e.part.calls : e.calls);
   fillScRunSel(); renderEvLog();
 }
 $("scRunSel").onchange = (e) => scShow(e.target.value);
@@ -5035,6 +5037,7 @@ function showRequestCard(run) {
   run.sessionStart = prior;
   const card = $("scenario"); card.dataset.mode = "build"; card.classList.remove("hidden");
   $("scTitle").textContent = `Your request: ${q.who} → ${q.target}`;
+  nxItems = []; nxTitle = $("scTitle").textContent; nxRender();
   scSetActive(`${run.n}`);
   const sess = !sid ? `No <code>x-session-id</code>: these calls aren't tied to a session.`
     : prior.calls ? `Adds to session <span class="sess">${escapeHtml(sid)}</span>, which already has <b>${prior.calls}</b> call${prior.calls === 1 ? "" : "s"} (${fmtUsd(prior.cost)}) from this page. Press <b>New session</b> to start a fresh one.`
@@ -5073,7 +5076,8 @@ function requestTakeaway(run) {
 }
 function endRun() {
   if (!curRun) return;
-  if (curRun.req && $("scenario").dataset.mode === "build") { requestTakeaway(curRun); curRun.card = snapCard(); }
+  if (curRun.req && $("scenario").dataset.mode === "build") { requestTakeaway(curRun); curRun.card = snapCard(); scNudge(null, curRun.calls); }
+  else if (!curRun.parts.length && curRun.calls.length) { scNudge(null, curRun.calls); nxTitle = curRun.title || ""; }  // e.g. a message typed in the conversation
   snapPart(curPart);
   Object.assign(curRun, { ended: Date.now(), status: stopRequested ? "stopped" : "finished" });
   if (curRun.kind === "custom" && !curRun.calls.length) runs.splice(runs.indexOf(curRun), 1); // e.g. invalid tool JSON: nothing reached the gateway
@@ -5396,6 +5400,8 @@ function showTab(tab) {
   document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("active", x.dataset.tab === top));
   curTab = top;
   for (const t of ["happened", "why", "cost", "proof"]) $("tab-" + t).classList.toggle("hidden", top !== t);
+  nxSeen.add(top); document.querySelector(`#tabsRow button[data-tab="${top}"]`)?.classList.remove("nudge"); nxBack();
+  document.documentElement.style.setProperty("--tabsH", $("tabsRow").offsetHeight + "px");
   if (tab === "runs") { $("tab-runs").open = true; }
   if ((top === "why" || top === "proof") && !policiesLoaded) { policiesLoaded = true; loadPolicies(); loadPolicyEvidence(); }
   if (sec) showPsec(sec); else showPsec(document.querySelector(`#tab-${top} .psub button.on`)?.dataset.psec || document.querySelector(`#tab-${top} div.psec`)?.dataset.psec || "");
@@ -5641,10 +5647,10 @@ const POL_CONTROLS = {
     w: "One counter per caller (<code>oid</code>), so one member can't drain the whole team budget.",
     u: "Copy the block next to the team budget." },
 };
-// ---------- AI Gateway tier: each control's managed equivalent ----------
-// [compatibility, the tier's equivalent, what differs]. same: a managed policy or feature does the job; differs: a managed
+// ---------- AI Gateway: each control's managed equivalent ----------
+// [compatibility, AI Gateway's equivalent, what differs]. same: a managed policy or feature does the job; differs: a managed
 // equivalent with the differences noted; classic: no managed equivalent yet, the control stays XML on a classic or v2 gateway.
-// Source: the Azure AI Gateway tier labs (Oct 2026). Keep one entry per POL_CONTROLS id (the tier view lists unmapped ids as classic).
+// Source: the Azure AI Gateway labs (Oct 2026). Keep one entry per POL_CONTROLS id (the AI Gateway view lists unmapped ids as classic).
 const AG_KIND = { same: ["Same", "A managed policy or feature does the same job."],
   differs: ["Works differently", "A managed equivalent exists, configured differently or with a narrower scope."],
   classic: ["Classic only", "No managed equivalent yet: stays an XML policy on an API Management classic or v2 gateway."] };
@@ -5677,14 +5683,14 @@ const AG_TIER = {
   "safety-price": ["classic", "", "The safety check isn't priced into a budget."],
   "safety-ledger": ["classic", "", "No chargeback line for the safety check."],
   "suspend": ["classic", "", "A caller over its Cost limit stays blocked (403) until the next period or a higher amount; revoke its key in Access › Keys to switch it off."],
-  "resp-affinity": ["classic", "", "Not covered by the tier labs: Responses API calls pass through."],
+  "resp-affinity": ["classic", "", "Not covered by the AI Gateway labs: Responses API calls pass through."],
   "resp-price": ["differs", "Built-in cost estimate", "Cost is estimated by token category; the labs don't say how cached input is priced."],
-  "img-ent": ["classic", "", "Image generation isn't covered by the tier's policies."],
+  "img-ent": ["classic", "", "Image generation isn't covered by AI Gateway's policies."],
   "img-price": ["classic", "", "Images aren't priced: a Cost limit counts tokens."],
   "img-rate": ["classic", "", "A request rate limit counts calls, not images."],
-  "sem-cache": ["classic", "", "No semantic cache policy in the tier."],
-  "sem-scope": ["classic", "", "No semantic cache policy in the tier."],
-  "sem-price": ["classic", "", "No semantic cache policy in the tier."],
+  "sem-cache": ["classic", "", "No semantic cache policy in AI Gateway."],
+  "sem-scope": ["classic", "", "No semantic cache policy in AI Gateway."],
+  "sem-price": ["classic", "", "No semantic cache policy in AI Gateway."],
   "entra-only-token": ["same", "Keyless access with Microsoft Entra ID", "Call with an Entra token that carries a data-plane role: no API key."],
   "entra-group-plan": ["differs", "Roles for groups + Cost limit claim overrides", "Grant data-plane roles to security groups, and give a claim combination such as <code>groups</code> its own Cost limit amount. There's no plan object that bundles models, limits and a budget."],
   "entra-model-ent": ["differs", "Models User role per alias", "Grant the group the role on the aliases it may use. No downgrade."],
@@ -5694,7 +5700,7 @@ const AG_TIER = {
 };
 const agOf = (id) => AG_TIER[id] || ["classic", "", "Not mapped yet."];
 const agHtml = (k, text = true) => `<span class="agk ${k}" title="${AG_KIND[k][0]}: ${AG_KIND[k][1]}">${text ? AG_KIND[k][0] : ""}</span>`;
-// ---------- Why › AI Gateway tier: the visual comparison ----------
+// ---------- Why › AI Gateway: the visual comparison ----------
 // 1. Same call, two gateways: one lane per gateway, one node per stage. A story walks a dot through both lanes at once and
 //    stops it where that gateway stops the call; the badges between the lanes say how each stage maps.
 const AG_STAGES = ["client", "access", "limits", "budget", "safety", "route", "model"];
@@ -5704,7 +5710,7 @@ const AG_LANES = {
     limits: ["policy", "Token limit", "llm-token-limit"], budget: ["cost-budgets", "$ budgets", "plan · session · end user"],
     safety: ["policy", "Content safety", "llm-content-safety"], route: ["backend-pool", "Backend pool", "priority · retry · breaker"],
     model: ["foundry-models", "Foundry", "managed identity"] } },
-  tier: { ico: "ai-gateway", t: "AI Gateway tier", sub: "managed policies", nodes: {
+  tier: { ico: "ai-gateway", t: "AI Gateway", sub: "managed policies", nodes: {
     client: ["users", "App", "OpenAI SDK"], access: ["key", "Access", "runtime key · Entra role"],
     limits: ["policy", "Token rate limit", "per identity"], budget: ["cost-budgets", "Cost limit", "per identity · models only"],
     safety: ["policy", "Content safety", "managed policy"], route: ["foundry-models", "Alias", "priority · weight"],
@@ -5714,7 +5720,7 @@ const AG_STAGE_MAP = { client: "same", access: "differs", limits: "same", budget
 const AG_STORIES = [
   { id: "ok", label: "Normal call", code: "200", hot: [], k: "same",
     classic: { status: 200, end: "answered" }, tier: { status: 200, end: "answered" },
-    note: "<b>Same answer.</b> Here XML policies decide; on the tier, managed policies do. The app changes its base URL." },
+    note: "<b>Same answer.</b> Here XML policies decide; on AI Gateway, managed policies do. The app changes its base URL." },
   { id: "tpm", label: "Too many tokens a minute", code: "429", hot: ["limits"], k: "same",
     classic: { stop: "limits", flag: "429", status: 429, end: "Retry-After" }, tier: { stop: "limits", flag: "429", status: 429, end: "Retry-After" },
     note: "<b>Same 429 with Retry-After.</b> <code>llm-token-limit</code> becomes a Token rate limit, counted per caller identity." },
@@ -5723,58 +5729,58 @@ const AG_STORIES = [
     note: "<b>Both stop the call before the model runs; the error code changes.</b> The Cost limit counts model tokens at public prices. Here one budget also pays for tools, agent tasks, images and safety checks." },
   { id: "safety", label: "Unsafe prompt", code: "403 → 400", hot: ["safety"], k: "differs",
     classic: { stop: "safety", flag: "blocked", status: 403, end: "<code>llm-content-safety</code>" }, tier: { stop: "safety", flag: "blocked", status: 400, end: "content safety" },
-    note: "<b>Blocked before spend on both, with a different status:</b> 403 here, 400 on the tier. Check error handling that expects 403." },
+    note: "<b>Blocked before spend on both, with a different status:</b> 403 here, 400 on AI Gateway. Check error handling that expects 403." },
   { id: "session", label: "Runaway session", code: "403 → 200", hot: ["budget"], k: "classic",
     classic: { stop: "budget", flag: "session cap", status: 403, end: "<code>session-budget</code>" }, tier: { flag: "no session cap", flagAt: "budget", warn: true, status: 200, end: "keeps spending" },
-    note: "<b>The tier has no session counter.</b> A looping conversation runs until the caller's whole Cost limit is spent." },
+    note: "<b>AI Gateway has no session counter.</b> A looping conversation runs until the caller's whole Cost limit is spent." },
   { id: "obo", label: "An agent works for a user", code: "who pays?", hot: ["budget"], k: "classic",
     classic: { flag: "bills the user", flagAt: "budget", status: 200, end: "user pays" }, tier: { flag: "bills the agent", flagAt: "budget", warn: true, status: 200, end: "agent pays" },
-    note: "<b>Same answers, different payer.</b> Here the agent's model calls are billed to the user it works for (<code>x-gw-on-behalf-of</code>). The tier counts spend against whoever calls: the agent." },
+    note: "<b>Same answers, different payer.</b> Here the agent's model calls are billed to the user it works for (<code>x-gw-on-behalf-of</code>). AI Gateway counts spend against whoever calls: the agent." },
   // the stories below play inside a scenario's comparison (chip: false keeps them out of the picker above the lanes)
   { id: "every", chip: false, label: "Every model, priced", hot: ["budget"], k: "differs",
     classic: { flag: "rate card $", flagAt: "budget", status: 200, end: "priced from <code>model-pricing</code>" }, tier: { flag: "public price", flagAt: "budget", status: 200, end: "estimated cost" },
-    note: "<b>Both price every call, from different price lists.</b> Here the <code>model-pricing</code> rate card (internal prices, PTU allocations) prices the tokens; the tier estimates cost from public pricing." },
+    note: "<b>Both price every call, from different price lists.</b> Here the <code>model-pricing</code> rate card (internal prices, PTU allocations) prices the tokens; AI Gateway estimates cost from public pricing." },
   { id: "downgrade", chip: false, label: "Model not in the plan", hot: ["access"], k: "differs",
     classic: { flag: "↓ cheaper model", flagAt: "access", warn: true, status: 200, end: "downgraded" }, tier: { stop: "access", flag: "no role on alias", status: 403, end: "denied" },
-    note: "<b>Here a plan can swap in a cheaper model and still answer; the tier can only deny.</b> A caller without the Models User role on an alias gets 403. Retargeting an alias changes it for every caller, not one plan." },
+    note: "<b>Here a plan can swap in a cheaper model and still answer; AI Gateway can only deny.</b> A caller without the Models User role on an alias gets 403. Retargeting an alias changes it for every caller, not one plan." },
   { id: "outcap", chip: false, label: "Asks for 4,000 tokens", hot: ["limits"], k: "classic",
     classic: { flag: "max_tokens → 300", flagAt: "limits", warn: true, status: 200, end: "capped output" }, tier: { flag: "uncapped", flagAt: "limits", warn: true, status: 200, end: "up to 4,000 tokens" },
-    note: "<b>The tier has no output cap.</b> Here the plan rewrites <code>max_tokens</code> so one call has a bounded worst-case cost; on the tier the app's own value goes through." },
+    note: "<b>AI Gateway has no output cap.</b> Here the plan rewrites <code>max_tokens</code> so one call has a bounded worst-case cost; on AI Gateway the app's own value goes through." },
   { id: "tool", chip: false, label: "Premium MCP tool", hot: ["budget"], k: "differs",
     relabel: { route: ["mcp", "MCP server", "tools/call"], model: ["mcp", "Commerce tools", "REST API"] },
     classic: { flag: "$0.002 charged", flagAt: "budget", status: 200, end: "priced per call" }, tier: { flag: "not priced", flagAt: "budget", warn: true, status: 200, end: "free to the budget" },
-    note: "<b>The tool call goes through on both; only here does it cost money.</b> The tier governs tools with tool availability and a request rate limit, the same for every caller, and its Cost limit counts model tokens only." },
+    note: "<b>The tool call goes through on both; only here does it cost money.</b> AI Gateway governs tools with tool availability and a request rate limit, the same for every caller, and its Cost limit counts model tokens only." },
   { id: "mixed", chip: false, label: "Tools and agents spent the budget", hot: ["budget"], k: "classic",
     classic: { stop: "budget", flag: "shared $ spent", status: 403, end: "<code>quota-by-key</code>" }, tier: { flag: "only tokens counted", flagAt: "budget", warn: true, status: 200, end: "keeps going" },
-    note: "<b>Here models, tool calls and agent tasks draw on one $ budget</b>, so tool and agent spend can use it up. The tier's Cost limit sees model tokens only, so the same caller keeps going." },
+    note: "<b>Here models, tool calls and agent tasks draw on one $ budget</b>, so tool and agent spend can use it up. AI Gateway's Cost limit sees model tokens only, so the same caller keeps going." },
   { id: "records", chip: false, label: "Who spent what", hot: ["model"], k: "differs",
     classic: { flag: "user · team · session", flagAt: "model", status: 200, end: "chargeback record" }, tier: { flag: "tid · oid claims", flagAt: "model", status: 200, end: "OpenTelemetry" },
-    note: "<b>Both record every call; the evidence differs.</b> Here each call writes a chargeback record (user, team, cost center, session) and lands in the <code>ApiManagementGateway*</code> tables. The tier exports Entra claims with OpenTelemetry traces and token metrics." },
+    note: "<b>Both record every call; the evidence differs.</b> Here each call writes a chargeback record (user, team, cost center, session) and lands in the <code>ApiManagementGateway*</code> tables. AI Gateway exports Entra claims with OpenTelemetry traces and token metrics." },
   { id: "notoken", chip: false, label: "Key but no Entra token", hot: ["access"], k: "differs",
     classic: { stop: "access", flag: "no Entra token", status: 401, end: "<code>validate-azure-ad-token</code>" }, tier: { flag: "key is enough", flagAt: "access", warn: true, status: 200, end: "answered" },
-    note: "<b>Here every call needs the key and an Entra token; on the tier either one is a credential.</b> To require Entra ID on the tier, call with tokens and don't issue runtime keys." },
+    note: "<b>Here every call needs the key and an Entra token; on AI Gateway either one is a credential.</b> To require Entra ID on AI Gateway, call with tokens and don't issue runtime keys." },
   { id: "failover", chip: false, label: "Primary region throttles", hot: ["route"], k: "differs",
     classic: { flag: "429 → France Central", flagAt: "route", status: 200, end: "served by the other region" }, tier: { flag: "failover (GA)", flagAt: "route", status: 200, end: "another resource or provider" },
     note: "<b>Here a 429 from Sweden Central is retried in France Central</b> and the circuit breaker keeps traffic there. At GA the field guide lists failover to another resource or provider in your deployment order; the preview labs show alias priority and weight only, and no circuit breaker setting." },
   { id: "suspend", chip: false, label: "The next call after overspend", hot: ["access", "budget"], k: "differs",
     classic: { stop: "access", flag: "key suspended", status: 401, end: "until reactivated" }, tier: { stop: "budget", flag: "$ spent", status: 403, end: "<code>LlmCostQuotaExceeded</code> until the next period" },
-    note: "<b>Both stop the caller; here the key itself is switched off.</b> A Logic App suspends the subscription, so every API rejects it. On the tier the Cost limit keeps answering 403 until its period renews; revoke the key to switch it off." },
+    note: "<b>Both stop the caller; here the key itself is switched off.</b> A Logic App suspends the subscription, so every API rejects it. On AI Gateway the Cost limit keeps answering 403 until its period renews; revoke the key to switch it off." },
   { id: "responses", chip: false, label: "Responses follow-up", hot: ["route"], k: "classic",
     classic: { flag: "sticky region", flagAt: "route", status: 200, end: "cached input cheaper" }, tier: { flag: "not covered", flagAt: "route", warn: true, status: 200, end: "cost by token category" },
-    note: "<b>Here a follow-up goes back to the region that stored the response</b>, cached input is priced lower and another plan gets 404. The tier labs don't cover Responses affinity or ownership." },
+    note: "<b>Here a follow-up goes back to the region that stored the response</b>, cached input is priced lower and another plan gets 404. AI Gateway labs don't cover Responses affinity or ownership." },
   { id: "images", chip: false, label: "Generate an image", hot: ["budget"], k: "classic",
     relabel: { model: ["foundry-models", "gpt-image-1-mini", "per image"] },
-    classic: { flag: "$0.011 / image", flagAt: "budget", status: 200, end: "priced per image" }, tier: { flag: "not priced", flagAt: "budget", warn: true, status: "?", end: "images aren't in the tier's policies" },
-    note: "<b>Here images are entitled, rate-limited and priced per image</b> (model × quality × size) from the same $ budget. The tier's policies count tokens and calls, not images." },
+    classic: { flag: "$0.011 / image", flagAt: "budget", status: 200, end: "priced per image" }, tier: { flag: "not priced", flagAt: "budget", warn: true, status: "?", end: "images aren't in AI Gateway's policies" },
+    note: "<b>Here images are entitled, rate-limited and priced per image</b> (model × quality × size) from the same $ budget. AI Gateway's policies count tokens and calls, not images." },
   { id: "enduser", chip: false, label: "One app, user over their cap", hot: ["budget"], k: "differs",
     classic: { stop: "budget", flag: "ana's $ spent", status: 403, end: "<code>end-user-budget</code>" }, tier: { flag: "header ignored", flagAt: "budget", warn: true, status: 200, end: "app's budget only" },
-    note: "<b>Here the app names its user in <code>x-gw-end-user</code> and each user has a cap.</b> On the tier a user gets a counter only by calling with their own Entra token; a header doesn't count." },
+    note: "<b>Here the app names its user in <code>x-gw-end-user</code> and each user has a cap.</b> On AI Gateway a user gets a counter only by calling with their own Entra token; a header doesn't count." },
   { id: "cache", chip: false, label: "Same question, other words", hot: ["route"], k: "classic",
     classic: { halt: "route", flag: "cache hit", status: 200, end: "$0.000001 lookup" }, tier: { flag: "no cache", flagAt: "route", warn: true, status: 200, end: "full token price" },
-    note: "<b>Here a similar question is answered from Azure Managed Redis without calling the model</b>, billed only the embedding lookup. The tier has no semantic cache policy, so every call reaches the model." },
+    note: "<b>Here a similar question is answered from Azure Managed Redis without calling the model</b>, billed only the embedding lookup. AI Gateway has no semantic cache policy, so every call reaches the model." },
   { id: "entra", chip: false, label: "Keyless call", hot: ["access"], k: "differs",
     classic: { flag: "group → plan", flagAt: "access", status: 200, end: "answered" }, tier: { flag: "role on alias", flagAt: "access", status: 200, end: "answered" },
-    note: "<b>Keyless on both.</b> Here the caller's security group picks a plan (models, limits, budget); on the tier the group gets a data-plane role, and a Cost limit override can give a claim combination its own amount." },
+    note: "<b>Keyless on both.</b> Here the caller's security group picks a plan (models, limits, budget); on AI Gateway the group gets a data-plane role, and a Cost limit override can give a claim combination its own amount." },
   { id: "team", chip: false, label: "Team budget spent", hot: ["budget"], k: "classic",
     classic: { stop: "budget", flag: "team $ spent", status: 403, end: "<code>group-budget</code>" }, tier: { flag: "own counter", flagAt: "budget", warn: true, status: 200, end: "until his own limit" },
     note: "<b>Here Ana and Raj draw on their team's shared budget.</b> Tier overrides never pool callers: each member has an own counter, so a team can spend members × amount." },
@@ -5786,19 +5792,19 @@ const AG_SC_STORY = [[/^Same question/, "every"], [/^Model governance/, "downgra
   [/^Responses API/, "responses"], [/^Images/, "images"], [/^One app, many users/, "enduser"], [/^Semantic cache/, "cache"],
   [/^Entra only: no key/, "entra"], [/^Entra only: team/, "team"], [/^Entra only: the plan/, "downgrade"], [/^Code mode/, "tool"]];
 const agScStory = (i) => (AG_SC_STORY.find(([re]) => re.test(SCENARIOS[i].title)) || [])[1];
-// 2. One model call on the wire: [kind, here, on the tier, why]
+// 2. One model call on the wire: [kind, here, on AI Gateway, why]
 const AG_WIRE = [
   ["chg", "POST https://&lt;apim&gt;<mark>/inference/openai/v1</mark>/chat/completions", "POST https://&lt;gateway&gt;<mark>/default/models/openai/v1</mark>/chat/completions", "New host and path: change the SDK's base URL."],
   ["same", "api-key: &lt;subscription key&gt;", "api-key: &lt;runtime API key&gt;", "Same header; the key comes from Access › Keys."],
   ["same", "Authorization: Bearer &lt;Entra token&gt;", "Authorization: Bearer &lt;Entra token&gt;", "The caller needs an AI Gateway data-plane role."],
   ["same", "\"model\": \"gpt-4.1-mini\"", "\"model\": \"gpt-4.1-mini\"", "A Foundry import gets a default alias with the model's name."],
   ["same", "\"messages\": [ … ]", "\"messages\": [ … ]", ""],
-  ["drop", "x-session-id: s-42", "x-session-id: s-42", "No session cap or ledger on the tier: the header has no effect."],
+  ["drop", "x-session-id: s-42", "x-session-id: s-42", "No session cap or ledger on AI Gateway: the header has no effect."],
   ["drop", "x-gw-end-user: ana.lopez", "x-gw-end-user: ana.lopez", "Per-user budgets need each user's own Entra token."],
 ];
 const AG_CODES = [["same", "No or bad credential", "401", "401"], ["same", "Over a token or request rate", "429", "429", "Retry-After"],
   ["chg", "Over a $ budget", "403", "403", "LlmCostQuotaExceeded"], ["chg", "Unsafe content", "403", "400"]];
-// 3. The building blocks: [icon, here, icon, on the tier, detail, no tier asset]
+// 3. The building blocks: [icon, here, icon, on AI Gateway, detail, no tier asset]
 const AG_BLOCKS = [
   ["apim", "API Management v2", "ai-gateway", "AI Gateway resource", "A separate resource type, <code>Microsoft.ApiManagement/aigateways</code>, managed in ai.gateway.azure.com and with <code>az aigateway</code>."],
   ["policy", "XML + C# expressions", "policy", "Managed policy settings", "No XML: each policy is a type with settings, such as amount, period, counter and overrides."],
@@ -5884,7 +5890,7 @@ async function agPlayAll() {
   }
 }
 // A scenario's comparison, opened in place under its row of tiles: its call story in two lanes, then each of its controls
-// side by side with the tier's equivalent
+// side by side with AI Gateway's equivalent
 let agScSel = null;
 function agScClose() { agScSel = null; $("agScenarios").querySelector(".agscd")?.remove(); $("agScenarios").querySelectorAll("[data-agsc]").forEach(b => { b.classList.remove("on"); b.setAttribute("aria-expanded", "false"); }); }
 function agScOpen(i) {
@@ -5896,15 +5902,16 @@ function agScOpen(i) {
   const row = [...grid.querySelectorAll("[data-agsc]")].filter(b => b.offsetTop === tile.offsetTop), last = row[row.length - 1];
   const cs = (s.controls || []).filter(id => POL_CONTROLS[id]), story = agScStory(i), [, label, k] = agScRate(cs);
   const pane = document.createElement("div");
-  pane.className = "agscd"; pane.id = "agScDetail"; pane.setAttribute("role", "region"); pane.setAttribute("aria-label", `Scenario ${i + 1} on the AI Gateway tier`);
+  pane.className = "agscd"; pane.id = "agScDetail"; pane.setAttribute("role", "region"); pane.setAttribute("aria-label", `Scenario ${i + 1} on AI Gateway`);
   pane.innerHTML = `<div class="hd"><span class="n">${i + 1}</span><div><b>${escapeHtml(s.title)}</b> <span class="agk ${k}">${label}</span><small>${s.gist || ""}</small></div><span class="sp"></span>`
       + `<button type="button" class="lnk" data-agopen="${i}" title="Open it in the scenario picker to run it">Run it ↗</button><button type="button" class="x" data-agclose aria-label="Close">✕</button></div>`
-    + (story ? `<div class="elh">${escapeHtml(AG_STORIES.find(x => x.id === story).label)}: what each gateway does <button type="button" class="lnk" data-agreplay>↻ Replay</button></div><div class="agrace mini">${agRaceHtml()}</div><div class="agnote"></div>` : "")
+    + (story ? `<div class="elh">${escapeHtml(AG_STORIES.find(x => x.id === story).label)}: what each gateway does <button type="button" class="lnk" data-agreplay>↻ Replay</button></div><div class="agrace mini">${agRaceHtml()}</div><div class="agnote"></div>`
+      + `<div class="elh">Step by step</div>${agStepsHtml(story)}` : "")
     + `<div class="elh">The ${cs.length} control${cs.length === 1 ? "" : "s"} it shows, side by side</div><div class="agpairs">`
     + cs.map((id, j) => { const c = POL_CONTROLS[id], [ck, eq, nt] = agOf(id);
         return `<div class="agpr ${ck}" style="animation-delay:${120 + j * 110}ms"><button type="button" class="side l" data-agc="${id}" title="Open in the Policy explorer"><small>This sandbox</small><b>${escapeHtml(c.s)}</b><code>${escapeHtml(c.p)}</code></button>`
           + `<div class="link"><span class="agk ${ck}">${AG_KIND[ck][0]}</span><i></i></div>`
-          + `<div class="side r"><small>AI Gateway tier</small><b>${eq || "No managed equivalent yet"}</b><span>${nt}</span></div></div>`; }).join("")
+          + `<div class="side r"><small>AI Gateway</small><b>${eq || "No managed equivalent yet"}</b><span>${nt}</span></div></div>`; }).join("")
     + `</div>` + (story ? `<div class="elh">What the data looks like</div>${agDataHtml(i)}` : "");
   last.after(pane);
   pane.scrollIntoView({ behavior: agRM() ? "auto" : "smooth", block: "nearest" });
@@ -5916,7 +5923,6 @@ function agScRate(cs) {
   return cl === cs.length ? ["classic", "Needs classic", "classic"] : cl ? ["partly", "Partly carries over", "differs"]
     : df ? ["differs", "Carries over, with changes", "differs"] : ["same", "Carries over", "same"];
 }
-const AG_RANK = { same: 0, differs: 1, partly: 2, classic: 3 };
 const agScRating = (i) => { const cs = (SCENARIOS[i]?.controls || []).filter(id => POL_CONTROLS[id]); return cs.length ? agScRate(cs) : null; };
 // How the scenario's call runs, stage by stage, on each gateway: ✓ passed, ⚑ something happened there, ✕ stopped, — never reached
 function agLaneCells(p) {
@@ -5934,7 +5940,7 @@ function agStepsHtml(id) {
   const name = (lane, st) => ((s.relabel || {})[st] || AG_LANES[lane].nodes[st])[1];
   const cell = (c, lane, st) => `<td class="${c.k}"><span class="g">${sym[c.k]}</span>${c.k === "skip" ? `<span class="nm">not reached</span>` : `<span class="nm">${escapeHtml(name(lane, st))}</span>${c.t ? `<span class="fl">${escapeHtml(c.t)}</span>` : ""}`}</td>`;
   const res = (p) => { const c = String(p.status)[0]; return `<td class="res"><span class="st ${c === "2" ? "s2" : c === "4" || c === "5" ? "s4" : "sq"}">${p.status}</span><span class="nm">${p.end}</span></td>`; };
-  return `<table class="agsteps"><thead><tr><th></th><th>API Management v2</th><th>AI Gateway tier</th></tr></thead><tbody>`
+  return `<table class="agsteps"><thead><tr><th></th><th>API Management v2</th><th>AI Gateway</th></tr></thead><tbody>`
     + AG_STAGES.map((st, k) => `<tr class="${a[k].k !== b[k].k || a[k].t !== b[k].t ? "diff" : ""}" style="animation-delay:${k * 70}ms"><th>${k + 1}</th>${cell(a[k], "classic", st)}${cell(b[k], "tier", st)}</tr>`).join("")
     + `<tr class="end" style="animation-delay:${AG_STAGES.length * 70}ms"><th>⇒</th>${res(s.classic)}${res(s.tier)}</tr></tbody></table>`;
 }
@@ -5953,8 +5959,8 @@ function agRealCall(i) {
 }
 const AG_HDRS = ["x-gw-tier", "x-gw-caller", "x-gw-model-served", "x-gw-governance", "x-gw-blocked-by", "x-gw-block-reason", "x-gw-cost-usd", "x-gw-session", "x-gw-end-user", "x-gw-route", "x-gw-semantic-cache", "x-gw-request-id"];
 const agPlain = (h) => String(h || "").replace(/<[^>]+>/g, "");
-// What the data looks like: the sandbox's real response headers and log rows next to an illustrative AI Gateway tier response,
-// trace and metric. Nothing on the tier side comes from a live gateway, and it says so.
+// What the data looks like: the sandbox's real response headers and log rows next to an illustrative AI Gateway response,
+// trace and metric. Nothing on the AI Gateway side comes from a live gateway, and it says so.
 function agDataHtml(i) {
   const id = agScStory(i), s = AG_STORIES.find(x => x.id === id); if (!s) return "";
   const real = agRealCall(i), line = (k, v, cls = "") => `<div class="agkv ${cls}"><span>${escapeHtml(k)}</span><b>${escapeHtml(v)}</b></div>`;
@@ -5971,7 +5977,7 @@ function agDataHtml(i) {
       + `<div class="resp"><div class="sl">HTTP ${c.status}</div>${line("x-gw-tier", "gold")}${stop ? line("x-gw-blocked-by", agPlain(c.end), "bad") : line("x-gw-cost-usd", "0.000163")}${line("x-gw-session", "s-42")}${line("x-gw-request-id", "7f3c9a1e-…")}</div>`
       + `<div class="tables">Lands in <code>ApiManagementGatewayLogs</code>${stop ? "" : ", <code>ApiManagementGatewayLlmLog</code>"} and a chargeback record in <code>AppTraces</code>, joined on the request id.</div>`;
   }
-  // the tier side: status, body, the policy spans the call went through, and the token metric when the model answered
+  // the AI Gateway side: status, body, the policy spans the call went through, and the token metric when the model answered
   const t = s.tier, cells = agLaneCells(t), c0 = String(t.status)[0];
   const body = t.stop === "budget" ? `{"error": {"code": "LlmCostQuotaExceeded"}}` : t.stop === "limits" ? "Retry-After: 12" : t.stop === "access" ? `{"error": {"code": "401"}}` : t.stop === "safety" ? `{"error": {"code": "content_filter"}}` : "";
   const spans = AG_STAGES.slice(1).map((st, k) => [st, cells[k + 1]]).filter(([, c]) => c.k !== "skip")
@@ -5983,17 +5989,8 @@ function agDataHtml(i) {
     + (reached ? `<div class="metric"><code>gen_ai_client_token_usage</code> {gen_ai.request.model, <code>azure.ai_gateway.identity.claims.oid</code>}</div>` : "")
     + `<div class="tables">Lands in Application Insights through OpenTelemetry (or any OTLP endpoint), with no <code>x-gw-*</code> headers.</div>`;
   return `<div class="agdata"><div class="col v2"><div class="hd">API Management v2 <small>this sandbox</small></div>${left}</div>`
-    + `<div class="col tier"><div class="hd">AI Gateway tier <small>illustrative</small></div>${right}</div></div>`
-    + `<div class="agdfine">The tier side follows the AI Gateway tier labs and the OpenTelemetry GenAI conventions; exact field names and error bodies may differ.</div>`;
-}
-// the picker's "AI Gateway tier" view of a scenario: how it runs step by step on both gateways, then what the data looks like
-function agPickHtml(i) {
-  const id = agScStory(i), s = AG_STORIES.find(x => x.id === id), rt = agScRating(i);
-  if (!s) return `<div class="muted">No AI Gateway tier comparison for this scenario.</div>`;
-  return `<div class="agpick">${rt ? `<div class="rt"><span class="muted">The call: <b>${escapeHtml(s.label)}</b></span>`
-      + `<a href="#" data-act="tiercmp" data-i="${i}">Every control side by side ›</a></div>` : ""}`
-    + agStepsHtml(id) + `<div class="agnote on">${agHtml(s.k)}<span>${s.note}</span></div>`
-    + `<div class="elh">What the data looks like</div>${agDataHtml(i)}</div>`;
+    + `<div class="col tier"><div class="hd">AI Gateway <small>illustrative</small></div>${right}</div></div>`
+    + `<div class="agdfine">The AI Gateway side follows the AI Gateway labs and the OpenTelemetry GenAI conventions; exact field names and error bodies may differ.</div>`;
 }
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("[data-agev]"); if (!b) return;
@@ -6009,7 +6006,7 @@ function agPeek(id) {
   const c = POL_CONTROLS[id], [k, eq, note] = agOf(id);
   box.className = "agpeek";
   box.innerHTML = `<div class="side"><small>This sandbox · ${POL_LEVELS[c.l][0]}</small><b>${escapeHtml(c.s)}</b> <code>${escapeHtml(c.p)}</code></div><div class="arr">→</div>`
-    + `<div class="side"><small>AI Gateway tier · ${AG_KIND[k][0]}</small><b>${eq || "No managed equivalent yet"}</b></div><div class="note">${note}</div>`;
+    + `<div class="side"><small>AI Gateway · ${AG_KIND[k][0]}</small><b>${eq || "No managed equivalent yet"}</b></div><div class="note">${note}</div>`;
 }
 function agTiles() {
   const ids = Object.keys(POL_CONTROLS);
@@ -6032,11 +6029,11 @@ function agTable() {
       return `<tr class="agrow" data-agc="${id}" title="Open in the Policy explorer"><td>${escapeHtml(c.s)}</td><td><code>${escapeHtml(c.p)}</code></td><td>${agHtml(k)}</td><td>${eq ? `<b>${eq}</b>` : `<span class="muted">none yet</span>`}</td><td>${note}</td></tr>`;
     }).join("");
   }).join("");
-  $("agControls").innerHTML = `<table><thead><tr><th>Control</th><th>Here</th><th>Tier</th><th>AI Gateway tier equivalent</th><th>What differs</th></tr></thead><tbody>${rows}</tbody></table>`;
+  $("agControls").innerHTML = `<table><thead><tr><th>Control</th><th>Here</th><th>Carries over</th><th>AI Gateway equivalent</th><th>What differs</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 // ---------- Field guide: when to add AI Gateway to Foundry, and what it means for customers ----------
 // Source: the product group's field guide "When to add AI Gateway to Foundry" (AI Gateway is GA on November 17, 2026).
-// A need: [id, your need, Foundry on its own, what AI Gateway adds, how the tier does it (or the caveat), GA-only per the guide, sandbox scenarios that show it]
+// A need: [id, your need, Foundry on its own, what AI Gateway adds, how AI Gateway does it (or the caveat), GA-only per the guide, sandbox scenarios that show it]
 const AG_FG = [
   { k: "Shared models", q: "Do many apps, teams or customers share the same models?", p: "Give each one its own access and limits, on the same deployments.",
     c: "#ca5010", sq: "Do many apps, teams or customers share the same models?", x: "apps", v: ["🔑", "Its own limits and access, per app", "On the same shared deployments, and apps never hold model keys."], caps: [["Limit per app"], ["No model keys in apps"], ["Usage per caller"]],     who: "Platform team, app owners, FinOps",
@@ -6090,7 +6087,8 @@ const AG_FAQ = [
     ["Which projects should stay on direct deployments for now?", "Projects that use Foundry IQ, agent memory, agent optimization, synthetic data for evaluations, or realtime audio and vision models: these don't work through model connections yet."],
     ["Does AI Gateway replace Foundry's controls?", "No. Foundry keeps governing what's built in it. The gateway adds rules that span apps, teams, subscriptions and providers."]]],
   ["Choosing and running the gateway", [
-    ["Why choose the AI Gateway tier?", "It's the API Management tier built for AI workloads: the models and tools apps and agents call. Add a provider's models once and make them available to any number of Foundry projects; other tiers connect them one project at a time, or once per Foundry account. Tools work the same way: one MCP endpoint, and each project adds that URL."],
+    ["Isn't it just another API Management tier?", "No. API Management v2 is a general-purpose API management service for any API. AI Gateway is a new deployment type and a product of its own (Microsoft.ApiManagement/aigateways, with its own portal and CLI), built only for AI and agentic workloads. Being separate gives the AI Gateway team the agility to ship at the pace customers' agentic workloads are changing, without being tied to a general-purpose service."],
+    ["Why choose AI Gateway?", "It's built for AI workloads: the models and tools apps and agents call. Add a provider's models once and make them available to any number of Foundry projects; API Management v2 connects them one project at a time, or once per Foundry account. Tools work the same way: one MCP endpoint, and each project adds that URL."],
     ["Who owns the gateway?", "The platform team sets it up and owns its rules. App teams keep their Foundry projects, deployments and agents."],
     ["How do Agent 365, Foundry and AI Gateway fit together?", "Foundry builds and runs the agents. Agent 365 manages them, including which tools each may use. AI Gateway governs the calls they make to models and tools, with block and allow rules set at the gateway or from Agent 365."]]],
 ];
@@ -6102,7 +6100,7 @@ function agFgSee(res) {
   const hits = SCENARIOS.map((s, i) => [s, i]).filter(([s]) => res.some(re => re.test(s.title)));
   if (!hits.length) return "";
   return `<div class="agsee">` + hits.map(([s, i]) => { const rt = agScRating(i);
-    return `<button type="button" data-agopen="${i}" title="Open it in the scenario picker${rt ? `. On the AI Gateway tier this demo: ${rt[1]}` : ""}">${rt ? agHtml(rt[2], false) : ""}${escapeHtml(s.title)}</button>`; }).join("") + `</div>`;
+    return `<button type="button" data-agopen="${i}" title="Open it in the scenario picker${rt ? `. On AI Gateway this demo: ${rt[1]}` : ""}">${rt ? agHtml(rt[2], false) : ""}${escapeHtml(s.title)}</button>`; }).join("") + `</div>`;
 }
 // the picture: who calls -> (AI Gateway) -> Foundry and models, redrawn from the three answers
 function agFgPic() {
@@ -6157,7 +6155,7 @@ function agCustStack() {
     + `<div class="agly ${id === "gw" ? "gw " : ""}${on.has(id) ? "hi" : "dim"}"><img src="/icons/${ic}.svg" alt=""><span class="nm">${nm}</span><span class="sy">${sy}${chg}</span><span class="ow">${ow}</span></div>`).join("");
 }
 // private network, both directions: A = a Foundry agent reaches the gateway (PG field guide FAQ);
-// B = the gateway reaches private models and tools (Learn: Configure private networking for AI Gateway tier)
+// B = the gateway reaches private models and tools (Learn: Configure private networking for AI Gateway)
 const AG_PN = [
   ["Agent subnet", "Foundry's outbound VNet integration sends the agent's calls into your VNet."],
   ["Private DNS", "Resolves the gateway's hostname to its private IP, not a public one."],
@@ -6207,7 +6205,7 @@ function agPrivNet() {
       + lk("", "out")
       + nd(0, `<img src="/icons/foundry-models.svg" alt="">`, "Models &amp; tools", "", "Foundry, Azure OpenAI, APIs, MCP servers", "ext")
     + `</div>` + steps(4, 8)
-    + `<div class="note">Keep the outbound subnet separate from the private endpoint subnet; the same VNet can hold both. Lane B follows <a href="https://learn.microsoft.com/azure/api-management/ai-gateway-configure-private-networking" target="_blank" rel="noopener">Configure private networking for AI Gateway tier</a> (preview). The Microsoft account team can help validate the setup.</div></div>`;
+    + `<div class="note">Keep the outbound subnet separate from the private endpoint subnet; the same VNet can hold both. Lane B follows <a href="https://learn.microsoft.com/azure/api-management/ai-gateway-configure-private-networking" target="_blank" rel="noopener">Configure private networking for AI Gateway</a> (preview). The Microsoft account team can help validate the setup.</div></div>`;
 }
 function agPnHl(v) {
   const p = $("agPn"); if (!p) return;
@@ -6264,7 +6262,7 @@ function renderTier() {
   // 0. the TL;DR: the reassurance first, then what to set up differently, then the custom logic with no managed equivalent yet
   const col = (k, ic, h, items) => `<div class="agtl ${k}"><div class="h"><span class="g">${ic}</span>${h}</div><ul>${items.map(x => `<li>${x}</li>`).join("")}</ul></div>`;
   $("agTldr").innerHTML = `<div class="hl"><span class="tag">TL;DR</span><div><b>Same AI gateway jobs, packaged as managed policies.</b>`
-      + `<p>The AI Gateway tier is a tier of Azure API Management. It takes the controls most AI gateways need and makes them settings you pick in a portal, instead of XML you write and maintain. <b>For those controls, your apps see the same behaviour.</b></p></div></div>`
+      + `<p><b>AI Gateway isn't a tier of API Management v2.</b> It's a new deployment type and a product of its own, built only for AI and agentic workloads, while API Management v2 stays the general-purpose API management service. Being separate lets the AI Gateway team ship at the pace customers' agentic workloads are changing. It takes the controls most AI gateways need and makes them settings you pick in a portal, instead of XML you write and maintain. <b>For those controls, your apps see the same behaviour.</b></p></div></div>`
     + `<div class="cols">`
     + col("same", "✓", "Works the same for your apps", [
         "<b>Same SDKs and payloads:</b> OpenAI-compatible calls, the <code>api-key</code> header and Entra ID tokens",
@@ -6280,7 +6278,7 @@ function renderTier() {
         "Billing an agent's spend <b>to the user it works for</b>",
         "<b>Session and per-user</b> $ caps, the <b>semantic cache</b>, output caps"])
     + `</div>`
-    + `<div class="agbl"><b>Bottom line:</b> start with Foundry, and add a gateway when one of the field guide's three scenarios applies. When you do, and the gateway uses the common controls, <b>the AI Gateway tier does the same job with less to build and maintain.</b> `
+    + `<div class="agbl"><b>Bottom line:</b> start with Foundry, and add a gateway when one of the field guide's three scenarios applies. When you do, and the gateway uses the common controls, <b>AI Gateway does the same job with less to build and maintain.</b> `
     + `If you rely on custom XML, like this sandbox's FinOps logic, API Management v2 keeps running it. <span class="muted">${by.same.length + by.differs.length} of ${n} controls in this sandbox have a managed equivalent; the cards below show each one.</span></div>`;
   // 1. the race
   if (!$("agRace").children.length) {
@@ -6292,8 +6290,8 @@ function renderTier() {
   if (!agStory) setTimeout(() => agPlay("ok"), agRM() ? 0 : 350);
   // 2. the wire and the status codes
   const gut = { same: "✓", chg: "~", drop: "✕" };
-  $("agWire").innerHTML = `<div class="agwire"><div class="r h"><div class="g"></div><div>This sandbox</div><div>AI Gateway tier</div></div>`
-    + AG_WIRE.map(([k, a, b, why], i) => `<div class="r ${k}" style="animation-delay:${i * 90}ms"><div class="g" title="${{ same: "Unchanged", chg: "Changes", drop: "No effect on the tier" }[k]}">${gut[k]}</div><div>${a}</div><div>${b}</div>${why ? `<div class="why">${why}</div>` : ""}</div>`).join("") + `</div>`;
+  $("agWire").innerHTML = `<div class="agwire"><div class="r h"><div class="g"></div><div>This sandbox</div><div>AI Gateway</div></div>`
+    + AG_WIRE.map(([k, a, b, why], i) => `<div class="r ${k}" style="animation-delay:${i * 90}ms"><div class="g" title="${{ same: "Unchanged", chg: "Changes", drop: "No effect on AI Gateway" }[k]}">${gut[k]}</div><div>${a}</div><div>${b}</div>${why ? `<div class="why">${why}</div>` : ""}</div>`).join("") + `</div>`;
   requestAnimationFrame(() => $("agWire").firstElementChild.classList.add("on"));
   $("agCodes").innerHTML = `<div class="agcodes">` + AG_CODES.map(([k, l, a, b, sub]) => `<div class="agcode ${k}"><div class="l">${l}</div><div class="p"><span class="s">${a}</span><span class="arr">→</span><span class="s${k === "chg" ? " new" : ""}">${b}</span></div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>`).join("") + `</div>`;
   // 3. the building blocks
@@ -6533,7 +6531,7 @@ function pxCtlHtml(id) {
     + (tiers.length > 1 ? `<div class="tiers">Plan: ${tiers.map(t => `<button type="button" class="pc${doc === "product:" + t ? " cur" : ""}" data-pxt="${escapeHtml(t)}">${escapeHtml(tierName(t))}</button>`).join("")}<span>the same control, with each plan's own values</span></div>` : "")
     + lines
     + `<div class="adopt"><b>To use it yourself:</b> ${c.u}</div>`
-    + (([k, eq, note]) => `<div class="adopt agadopt"><b>On the AI Gateway tier:</b> ${agHtml(k)} ${eq ? `<b>${eq}</b>. ` : ""}${note} <a href="#" data-pxag>Compare every control →</a></div>`)(agOf(id))
+    + (([k, eq, note]) => `<div class="adopt agadopt"><b>On AI Gateway:</b> ${agHtml(k)} ${eq ? `<b>${eq}</b>. ` : ""}${note} <a href="#" data-pxag>Compare every control →</a></div>`)(agOf(id))
     + `<div class="meta">${doc ? `<span>In <a href="#" data-pxdoc="${escapeHtml(doc)}">${escapeHtml(polDocLabel(doc))}</a>${xml ? ` · ${polStat(xml).lines} lines` : ""}</span>` : ""}`
     + `${uses.length ? `<span>Shown in ${uses.map(([sc, k]) => `<a href="#" data-pmsc="${k}" title="${escapeHtml(sc.title)}">scenario ${k + 1}</a>${sc.off ? "" : ` <a href="#" class="pxrun" data-runsc="${k}" title="Open scenario ${k + 1} in the scenario picker, ready to run">▶</a>`}`).join(", ")}</span>` : ""}`
     + `${demo ? `<a href="#" class="pat" data-pxdemo="${demo}">Watch it in the gateway flow</a>` : ""}</div>`;
@@ -6603,6 +6601,80 @@ function scPolicyStrip(s) {
   $("scPol").innerHTML = chips ? `<span class="muted">Policies behind it:</span>` + chips + `<a href="#" class="pat" data-sc="${i}">How each one is built</a>` : "";
   $("scPol").querySelectorAll("[data-sc]").forEach(b => b.onclick = (e) => { e.preventDefault(); openPolMap(i, b.dataset.ctl); });
 }
+// ---------- Where to look next: after a scenario or request, the other tabs that explain it ----------
+// A scenario's controls pick the sections: its policies (Why), its budgets, plans or chargeback (What it cost), its evidence (Proof)
+// and, when it has controls, how it carries over to AI Gateway. The card shows them as buttons, the tab row marks those tabs
+// with a dot, and the other tabs repeat them in a strip with a way back to Try it.
+const NX_COST = {
+  chargeback: ["chargeback", "obo", "session"],
+  spend: ["budget", "session-budget", "eu-budget", "group-budget", "member-budget", "suspend", "safety-ledger", "cost-metric"],
+  plans: ["model-ent", "out-cap", "tpm", "tool-ent", "tool-rate", "agent-ent", "img-ent", "img-rate", "entra-group-plan", "entra-model-ent", "entra-tpm",
+          "content-safety", "model-price", "tool-price", "agent-price", "img-price", "resp-price", "sem-price", "safety-price"],
+};
+const NX_TAB = { why: "Why: policies", cost: "What it cost", proof: "Proof" };
+let nxItems = [], nxTitle = "", nxSeen = new Set();  // nxSeen: tabs visited since the last run (their dot is cleared)
+const nxSec = (psec) => { const b = document.querySelector(`.psub button[data-psec="${psec}"]`); return { name: b?.querySelector("b")?.textContent || psec, sub: b?.querySelector("small")?.textContent || "" }; };
+function nxGo(tab, psec) { showPsec(psec); const m = document.querySelector("main"); if (scrollY > m.offsetTop) scrollTo({ top: m.offsetTop }); }
+function scNudge(si, calls = []) {
+  const s = si != null ? SCENARIOS[si] : null, cs = (s?.controls || []).filter(id => POL_CONTROLS[id]);
+  const cl = calls.map(i => session.calls[i]).filter(Boolean), blocked = cl.filter(isBlocked).length, cost = cl.reduce((t, c) => t + callCost(c), 0);
+  const items = [];
+  // Why: the policies behind it (a scenario opens its own map; a request opens the explorer)
+  const names = cs.map(id => POL_CONTROLS[id].s);
+  items.push({ tab: "why", psec: "explorer", name: "Policy explorer",
+    sub: blocked ? `why ${blocked} of ${cl.length} call${cl.length === 1 ? " was" : "s were"} blocked${names.length ? ": " + names.slice(0, 2).join(", ") : ""}`
+      : names.length ? names.slice(0, 3).join(" · ") + (names.length > 3 ? ` · +${names.length - 3}` : "") : "the controls each call passed",
+    go: () => s ? openPolMap(si) : nxGo("why", "explorer") });
+  // What it cost: the section that matches most of its controls (chargeback, then budgets, then plans on a tie)
+  let cost_ = "spend";
+  if (s) { const n = (k) => cs.filter(id => NX_COST[k].includes(id)).length; cost_ = s.tab === "chargeback" ? "chargeback" : ["chargeback", "spend", "plans"].reduce((a, k) => n(k) > n(a) ? k : a, "spend"); }
+  const cSec = nxSec(cost_);
+  items.push({ tab: "cost", psec: cost_, name: cSec.name, sub: (cl.length ? `${fmtUsd(cost)} across ${cl.length} call${cl.length === 1 ? "" : "s"} · ` : "") + cSec.sub, go: () => nxGo("cost", cost_) });
+  // Proof: Azure Monitor for the cost metric and chargeback, otherwise the logs and the live KQL
+  const proof = s && (s.tab === "monitor" || cs.some(id => id === "cost-metric" || id === "chargeback")) ? "monitor" : "telemetry", pSec = nxSec(proof);
+  items.push({ tab: "proof", psec: proof, name: pSec.name, sub: pSec.sub, go: () => nxGo("proof", proof) });
+  if (s && cs.length) {
+    const [, label] = agScRate(cs);
+    items.push({ tab: "why", psec: "tier", name: "AI Gateway", sub: label, go: () => { showTab("why"); showPsec("tier"); if (agScSel !== si) agScOpen(si); } });
+  }
+  // the first stop: where the scenario's own evidence lives, else the policy that blocked a call, else what it cost
+  const pri = s?.tab === "monitor" || s?.tab === "policies" ? 2 : s?.tab === "chargeback" ? 1 : blocked ? 0 : s ? 0 : 1;
+  items.unshift(...items.splice(pri, 1)); items[0].pri = true;
+  nxItems = items; nxTitle = s ? `${si + 1}. ${s.title}` : $("scTitle").textContent;
+  nxRender();
+}
+function nxClear() { nxItems = []; nxTitle = ""; nxRender(); }
+function nxHtml() {
+  return `<span class="h">Where to look next</span>` + nxItems.map((x, k) =>
+    `<button type="button" class="nx${x.pri ? " pri" : ""}${x.tab === curTab ? " here" : ""}" data-nx="${k}" title="${escapeHtml(`${NX_TAB[x.tab]} › ${x.name}`)}"><b>${NX_TAB[x.tab]} › ${escapeHtml(x.name)}</b><small>${escapeHtml(x.sub)}</small></button>`).join("");
+}
+function nxRender() {
+  const box = $("scLook"); box.hidden = !nxItems.length || running; box.innerHTML = box.hidden ? "" : nxHtml();
+  const tabs = new Set(nxItems.map(x => x.tab));
+  document.querySelectorAll("#tabsRow button[data-tab]").forEach(b => { if (!tabs.has(b.dataset.tab)) b.classList.remove("nudge"); });
+  if (!running) tabs.forEach(t => { if (t !== curTab && !nxSeen.has(t)) document.querySelector(`#tabsRow button[data-tab="${t}"]`)?.classList.add("nudge"); });
+  nxBack();
+}
+function nxBack() {
+  const b = $("tryBack"), on = curTab !== "happened" && (nxItems.length || scShownKey);
+  b.hidden = !on;
+  if (!on) { b.innerHTML = ""; document.documentElement.style.setProperty("--backH", "0px"); return; }
+  b.innerHTML = `<button type="button" class="back" data-nxback title="Back to the scenarios, the conversation and the gateway flow">← Back to Try it</button>`
+    + (nxTitle ? `<span class="muted">from <b>${escapeHtml(nxTitle)}</b></span>` : "")
+    + (nxItems.some(x => x.tab !== curTab) ? `<span class="sp" style="flex:1"></span><div class="scnext">${nxHtml().replace(/<span class="h">[^<]*<\/span>/, `<span class="muted">Also look at:</span>`)}</div>` : "");
+  document.documentElement.style.setProperty("--backH", (b.offsetHeight + 10) + "px");
+}
+document.addEventListener("click", (e) => {
+  const x = e.target.closest("[data-nx]"), back = e.target.closest("[data-nxback]");
+  if (back) {
+    showTab("happened");
+    const sc = $("scenario"), l = $("launch"), tgt = sc.classList.contains("hidden") ? l : sc;
+    const off = $("tabsRow").offsetHeight + (tgt !== l && l.classList.contains("collapsed") ? l.offsetHeight : 0) + 8;
+    scrollTo({ top: Math.max(0, tgt.getBoundingClientRect().top + scrollY - off) });
+    return;
+  }
+  if (x && nxItems[+x.dataset.nx]) nxItems[+x.dataset.nx].go();
+});
 
 // ---------- Policies at work: beside the gateway flow, what each control did to the replayed call ----------
 // polHit(id, r): "pass" (applied, call went on), "warn" (applied and changed the call), "stop" (refused it), or null (not involved),
@@ -8495,6 +8567,7 @@ async function runScenario(s) {
   $("scenario").classList.remove("hidden"); $("scSteps").innerHTML = "";
   $("scTitle").textContent = s.title; $("scStory").innerHTML = s.story(); $("scTakeaway").innerHTML = "";
   $("scExplain").innerHTML = s.explain ? s.explain() : "";
+  nxItems = []; nxTitle = `${SCENARIOS.indexOf(s) + 1}. ${s.title}`; nxRender();
   scPolicyStrip(s); polMapSel = SCENARIOS.indexOf(s); pxSel = null;
   if (psec === "explorer" && curTab === "why") renderExplorer();
   $("scFlow").innerHTML = ""; $("scFlowMore").innerHTML = "";
@@ -8510,11 +8583,12 @@ async function runScenario(s) {
   if (curRun) { snapPart(curPart); curPart = { si: SCENARIOS.indexOf(s), title: s.title, calls: [] }; curRun.parts.push(curPart); scSetActive(`${curRun.n}.${curRun.parts.length - 1}`); }
   if (!s.tab && !(curTab === "happened" && psec === "investigate")) showPsec("investigate");  // scenarios play out in the gateway flow
   // show the collapsed scenarios strip and the conversation under it (the run streams its prompts and answers there)
-  const strip = $("launch").offsetHeight, cv = $("cvCard").getBoundingClientRect().top;  // the strip is sticky: put the conversation just under it
+  const strip = $("tabsRow").offsetHeight + $("launch").offsetHeight, cv = $("cvCard").getBoundingClientRect().top;  // the tab row and the strip are sticky: put the conversation just under them
   if (cv < strip || cv > strip + 160) scrollTo({ top: scrollY + cv - strip - 10, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   try { await awaitResetAhead(); if (running) await s.run(); } catch (e) { info("Scenario failed: " + escapeHtml(e.message)); }
   finally { $("sessionId").value = buildSession; $("endUser").value = buildEndUser; $("cacheScope").value = buildScope; cvCtx(); }
   snapPart(curPart);
+  scNudge(SCENARIOS.indexOf(s), curPart?.calls || []);
 }
 let previewHideTimer;
 function placePreview(p, r) {
@@ -8561,16 +8635,12 @@ function scTour() {
 }
 function scHay(i) {
   const s = SCENARIOS[i], ctl = (s.controls || []).map(id => POL_CONTROLS[id]).filter(Boolean).map(c => `${c.c} ${c.p} ${c.s}`);
-  const tp = SCENARIO_TOPICS.find(t => t[0] === scTopicOf(i)), rt = agScRating(i);
-  return [s.title, s.gist, scTopicOf(i), tp?.[1], ...(s.policies || []), ...(s.controls || []), ...ctl, rt ? `ai gateway tier ${rt[1]}` : ""].join(" ").toLowerCase();
+  const tp = SCENARIO_TOPICS.find(t => t[0] === scTopicOf(i));
+  return [s.title, s.gist, scTopicOf(i), tp?.[1], ...(s.policies || []), ...(s.controls || []), ...ctl].join(" ").toLowerCase();
 }
-// "◆ AI Gateway tier": every scenario with a tier comparison, from the ones that carry over to the ones that need classic
-const scAgOrder = () => SCENARIOS.map((s, i) => i).filter(i => scVisible(SCENARIOS[i]) && (!SCENARIOS[i].off || scShowOff) && agScRating(i))
-  .sort((x, y) => AG_RANK[agScRating(x)[0]] - AG_RANK[agScRating(y)[0]] || x - y);
 function scOrder() {  // the scenario indices the list shows, in order
   const words = scQ.toLowerCase().split(/\s+/).filter(Boolean), names = SC_TOPIC_NAMES();
   if (!words.length && scTopic === "start") return scTour();
-  if (!words.length && scTopic === "aigw") return scAgOrder();
   return SCENARIOS.map((s, i) => i).filter(i => {
     const s = SCENARIOS[i];
     if (!scVisible(s) || (s.off && !scShowOff && !words.length)) return false;
@@ -8625,10 +8695,9 @@ function scFlowDemo(s) {
 }
 function scPlay(id) { showPsec("investigate"); $("gwFlow")?.scrollIntoView({ behavior: "smooth", block: "center" }); window.gwFlow?.play(id); }
 function scRow(i) {
-  const s = SCENARIOS[i], on = i === scSel, rt = agScRating(i);
+  const s = SCENARIOS[i], on = i === scSel;
   return `<button type="button" class="scrow${s.off ? " off" : ""}${on ? " sel" : ""}" data-i="${i}" role="option" aria-selected="${on}" tabindex="${on ? 0 : -1}" title="${escapeHtml(s.gist || "")}">`
     + `<span class="n">${i + 1}</span><span class="tt"><span class="t">${s.title}</span>${s.off ? "" : `<span class="c">${escapeHtml(s.cost)}</span>`}</span>`
-    + (rt ? `<span class="scag ${rt[0]}" title="AI Gateway tier: ${rt[1]}. Select it, then pick ◆ AI Gateway tier to see how it runs there.">AI GW</span>` : "")
     + `${s.off ? `<span class="offtag">OFF</span>` : s.experimental ? `<span class="exptag" title="Experimental spike">EXPERIMENTAL</span>` : ""}</button>`;
 }
 // a diagram on show: parts arrive in order (--i) and the wires pulse
@@ -8665,18 +8734,16 @@ addEventListener("resize", () => { clearTimeout(dgFitT); dgFitT = setTimeout(() 
 function scRender() {
   const order = scOrder(), searching = !!scQ.trim(), live = SCENARIOS.map((s, i) => i).filter(i => scVisible(SCENARIOS[i]));
   const on = live.filter(i => !SCENARIOS[i].off), off = live.length - on.length, count = (n) => on.filter(i => scTopicOf(i) === n).length;
-  if (scTopic !== "start" && scTopic !== "all" && scTopic !== "aigw" && !count(scTopic)) scTopic = "start";
-  const chip = (k, label, n, tip = "") => `<button type="button" data-topic="${escapeHtml(k)}" class="${!searching && scTopic === k ? "on" : ""}${k === "aigw" ? " ag" : ""}" aria-pressed="${!searching && scTopic === k}"${tip ? ` title="${escapeHtml(tip)}"` : ""}>${label}<span class="k">${n}</span></button>`;
+  if (scTopic !== "start" && scTopic !== "all" && !count(scTopic)) scTopic = "start";
+  const chip = (k, label, n, tip = "") => `<button type="button" data-topic="${escapeHtml(k)}" class="${!searching && scTopic === k ? "on" : ""}" aria-pressed="${!searching && scTopic === k}"${tip ? ` title="${escapeHtml(tip)}"` : ""}>${label}<span class="k">${n}</span></button>`;
   $("scChips").innerHTML = chip("start", "★ Start here", scTour().length, gwMode === "entra" ? "The Entra-only scenarios, in order" : "Five scenarios in story order: identity → plan → budgets → routing → evidence")
     + chip("all", "All", on.length)
-    + chip("aigw", "◆ AI Gateway tier", scAgOrder().length, "Every scenario compared with the AI Gateway tier of API Management, grouped by how it carries over. Select one, then pick ◆ AI Gateway tier in its preview.")
     + (gwMode === "entra" ? "" : SC_TOPIC_NAMES().filter(count).map(n => chip(n, escapeHtml(SC_SHORT[n] || n), count(n), (SCENARIO_TOPICS.find(t => t[0] === n) || [])[1] || "")).join(""))
     + (off ? `<label class="offchk" title="Scenarios whose feature isn't deployed in this sandbox"><input type="checkbox" id="scOff"${scShowOff ? " checked" : ""}> not deployed (${off})</label>` : "");
   if (!order.includes(scSel)) scSel = order[0] ?? null;
   let html = "", last = null;
   for (const i of order) {
     if (scTopic === "all" && !searching && scTopicOf(i) !== last) { last = scTopicOf(i); html += `<div class="sctopic">${escapeHtml(last)}</div>`; }
-    if (scTopic === "aigw" && !searching && agScRating(i)[1] !== last) { last = agScRating(i)[1]; html += `<div class="sctopic ag">◆ ${escapeHtml(last)}</div>`; }
     html += scRow(i);
   }
   $("scList").innerHTML = html || `<div class="scempty">No scenario matches “${escapeHtml(scQ.trim())}”. Try a control or policy name, e.g. <i>quota-by-key</i>, <i>semantic cache</i> or <i>failover</i>.</div>`;
@@ -8687,19 +8754,16 @@ function scRender() {
   scPane();
 }
 const scInline = () => $("scenarios").clientWidth < 700;  // same threshold as the side-by-side container query
-let scExpanded = true, scDiagram = true, scGw = "v2";  // in the inline layout: whether the selected row is open, and its diagram; which gateway the preview shows
+let scExpanded = false, scDiagram = true;  // in the inline layout: whether the selected row is open (rows start folded), and its diagram
 function scPaneHtml(i, inline) {
-  const s = SCENARIOS[i], rt = agScRating(i), tier = scGw === "tier" && !!rt;
+  const s = SCENARIOS[i];
   let dgm = "";
-  if (!tier) try { if (s.preview) dgm = `<div class="dgm">${s.preview()}</div>`; } catch (e) { console.warn("scenario preview failed", e); }
+  try { if (s.preview) dgm = `<div class="dgm">${s.preview()}</div>`; } catch (e) { console.warn("scenario preview failed", e); }
   if (inline && dgm) dgm = `<details class="scdg"${scDiagram ? " open" : ""}><summary>Diagram</summary>${dgm}</details>`;  // compact rows: the diagram opens on demand
   const tour = scTour(), k = tour.indexOf(i), flow = scFlowDemo(s), chips = scPolChips(s);
-  const tog = rt ? `<div class="scgw"><span class="muted">Runs on</span><div class="seg" role="group" aria-label="Show it on"><button type="button" data-act="gw" data-gw="v2" class="${tier ? "" : "on"}" aria-pressed="${!tier}">API Management v2</button>`
-    + `<button type="button" data-act="gw" data-gw="tier" class="${tier ? "on" : ""}" aria-pressed="${tier}">◆ AI Gateway tier</button></div><span class="agk ${rt[2]}">${rt[1]}</span></div>` : "";
   return (inline ? `<div class="gist">${s.gist || ""}</div>` : `<div class="ph"><span class="n">${i + 1}</span><div><b>${s.title}</b><div class="gist">${s.gist || ""}</div></div></div>`)
-    + tog
     + `<div class="meta"><span>${escapeHtml(s.cost)}</span><span>${escapeHtml(scTopicOf(i))}</span>${s.experimental ? `<span class="exptag">EXPERIMENTAL · not in Run all</span>` : ""}${k >= 0 ? `<span class="tour">★ Start here · step ${k + 1} of ${tour.length}</span>` : ""}</div>
-    ${s.explain ? s.explain() : ""}${tier ? agPickHtml(i) : `${dgm}${chips ? `<div class="scpol"><span class="muted">Policies behind it:</span>${chips}</div>` : ""}`}
+    ${s.explain ? s.explain() : ""}${dgm}${chips ? `<div class="scpol"><span class="muted">Policies behind it:</span>${chips}</div>` : ""}
     <div class="scacts">${s.off ? `<span class="offtag">OFF</span><span class="offnote">Not deployed in this sandbox: ${escapeHtml(s.cost.replace(/^off · /, ""))}</span>`
       : `<button type="button" class="scrun" data-i="${i}"${running ? " disabled" : ""}>▶ Run${s.runLabel ? ` (${s.runLabel})` : s.slow ? " (takes minutes)" : ""}</button>`}
       ${scTry(s) ? `<button type="button" class="secondary" data-act="custom" title="Fill in the request builder with this scenario's caller, target and prompt; change anything, then send it yourself">✎ Customize${inline ? "" : " in the builder"}</button>` : ""}
@@ -8749,10 +8813,9 @@ function scSelect(i, focus = false) {
   scReveal(i);
   if (focus) $("scList").querySelector(`.scrow[data-i="${i}"]`)?.focus({ preventScroll: true });
 }
-function scOpen(i) {  // shows one scenario in the picker, ready to run
-  setMode("guided"); collapseLaunch(false); miniLaunch(false);
+function scOpen(i) {  // shows one scenario in the picker pop-out, ready to run
+  setMode("guided"); collapseLaunch(false);
   window.scFocus(i);
-  $("launch").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 function scRun(i) { scExpanded = true; scSelect(i); $("scPick").querySelector(".scrun")?.click(); }
 function scNext(si) {  // { i, tour, k, of } of the next runnable scenario after si, or null
@@ -8776,12 +8839,12 @@ function renderScenarios() {
         <button class="all" id="btnAll"></button></div>
       <div class="scchips" id="scChips" role="toolbar" aria-label="Scenario topics"></div>
       <div class="scpick" id="scPick"><div class="sclist" id="scList" role="listbox" aria-label="Scenarios"></div><div class="scpv" id="scPv" aria-live="polite"></div></div>`;
-    $("scSearch").addEventListener("input", () => { scQ = $("scSearch").value; scRender(); });
+    $("scSearch").addEventListener("input", () => { scQ = $("scSearch").value; scExpanded = false; scRender(); });
     $("scSearch").addEventListener("keydown", e => {
       if (e.key === "ArrowDown" || e.key === "Enter") { e.preventDefault(); scSelect(scSel, true); }
       else if (e.key === "Escape" && scQ) { e.stopPropagation(); scQ = $("scSearch").value = ""; scRender(); }
     });
-    $("scChips").addEventListener("click", e => { const b = e.target.closest("button[data-topic]"); if (!b) return; scTopic = b.dataset.topic; scQ = $("scSearch").value = ""; scRender(); });
+    $("scChips").addEventListener("click", e => { const b = e.target.closest("button[data-topic]"); if (!b) return; scTopic = b.dataset.topic; scQ = $("scSearch").value = ""; scExpanded = false; scRender(); });
     $("scChips").addEventListener("change", e => { if (e.target.id === "scOff") { scShowOff = e.target.checked; scRender(); } });
     $("scList").addEventListener("click", e => {
       const r = e.target.closest(".scrow"); if (!r) return;
@@ -8799,11 +8862,9 @@ function renderScenarios() {
     $("scPick").addEventListener("click", e => {
       const b = e.target.closest(".scpv [data-act], .scpv [data-ctl], .scexp [data-act], .scexp [data-ctl]"); if (!b) return;
       e.preventDefault();
-      if (b.dataset.ctl) openPolMap(Number(b.dataset.sc), b.dataset.ctl);
+      if (b.dataset.ctl) { collapseLaunch(true); openPolMap(Number(b.dataset.sc), b.dataset.ctl); }
       else if (b.dataset.act === "custom") scCustomize(SCENARIOS[scSel]);
-      else if (b.dataset.act === "play") scPlay(b.dataset.flow);
-      else if (b.dataset.act === "gw") { scGw = b.dataset.gw; scPane(); scReveal(scSel); }
-      else if (b.dataset.act === "tiercmp") { const i = Number(b.dataset.i); showTab("why"); showPsec("tier"); if (agScSel !== i) agScOpen(i); }
+      else if (b.dataset.act === "play") { collapseLaunch(true); scPlay(b.dataset.flow); }
     });
     new ResizeObserver(() => { if (scInline() !== $("scPick").classList.contains("inline")) { scPane(); scReveal(scSel); } else requestAnimationFrame(() => dgFit($("scPick"))); }).observe($("scenarios"));
     $("btnAll").onclick = async () => {
@@ -8822,9 +8883,9 @@ function renderScenarios() {
   fillPolMapPicker();
   renderExplorer();
 }
-try { if (localStorage.getItem("sbx.mini")) miniLaunch(true); } catch {}
 init();
 </script>
 <script src="/copilot.js"></script>
+<script src="/guide.js"></script>
 </body>
 </html>
