@@ -5283,7 +5283,8 @@ function renderRunDetail(run, s) {
     + `</tbody></table>` : "";
   const idxs = run.calls.slice().reverse(), pick = run.calls.includes(selCall) ? selCall : idxs[0];
   const rows = idxs.map(i => callView(session.calls[i], i).row.replace("<tr ", `<tr class="click${i === pick ? " sel" : ""}" `)).join("");
-  const cmModes = !agents.length ? runCmModes(run) : null;
+  const cmModes = runCmModes(run);
+  const costCards = `<h2>Cost by agent / user (USD)</h2><div class="scroll">${byAgent}</div>${byWhat ? `<h2 style="margin-top:18px">What the gateway decided</h2><div class="scroll">${byWhat}</div>` : ""}`;
   const busy = running ? " disabled" : "";
   $("runDetail").innerHTML = `
     <div class="rhead"><span class="rtag">#${run.n}</span><span class="kind ${run.kind}">${run.chip}</span><h2>${escapeHtml(run.title)}</h2>
@@ -5302,8 +5303,9 @@ function renderRunDetail(run, s) {
     </div>
     <div class="grid2">
       <div class="card"><h2>${run.req ? "The request you built" : run.kind === "demo" ? `Scenarios run (${run.parts.length})` : "What the scenario did"}</h2>${what}</div>
-      <div class="card${cmModes?.length ? " cmtlcard" : ""}">${cmModes?.length ? cmTimelineCard(run, cmModes) : `<h2>Cost by agent / user (USD)</h2><div class="scroll">${byAgent}</div>${byWhat ? `<h2 style="margin-top:18px">What the gateway decided</h2><div class="scroll">${byWhat}</div>` : ""}`}</div>
+      <div class="card${cmModes?.length ? " cmtlcard" : ""}">${cmModes?.length ? cmTimelineCard(run, cmModes) : costCards}</div>
     </div>
+    ${cmModes?.length && agents.length ? `<div class="card" style="margin-top:16px">${costCards}</div>` : ""}
     ${idxs.length ? `<div class="card" style="margin-top:16px"><h2>Requests in this run <span class="muted">(click one to inspect it)</span></h2><div class="scroll"><table>
       <thead><tr><th>Time</th><th>Agent / user</th><th>Session</th><th>Surface</th><th>Status</th><th>Model / tool / agent</th><th>Governance</th><th>Tokens</th><th>Cost USD</th><th>Billed to</th><th>Backend</th><th>Latency</th><th>Detail</th><th>Evidence</th></tr></thead>
       <tbody>${rows}</tbody></table></div></div>
