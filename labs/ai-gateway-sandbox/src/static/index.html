@@ -1221,7 +1221,20 @@
   .rkv { grid-template-columns:130px 1fr; }
   #runDetail tr.click.sel td { background:var(--accent-light); }
   /* Policies & evidence: request log (under the scenario card, above the gateway flow) */
-  #evLogCard { scroll-margin-top:var(--stickyH, 130px); margin-bottom:16px; } #evLogCard[hidden] { display:none; }
+  #evLogCard { scroll-margin-top:var(--stickyH, 130px); margin-bottom:16px; padding:0; overflow:hidden; } #evLogCard[hidden] { display:none; }
+  /* collapsed by default: one line with the count and the latest (or selected) request; click to open the full log */
+  .evlsum { display:flex; align-items:center; gap:12px; padding:10px 16px; cursor:pointer; min-height:44px; user-select:none; }
+  .evlsum:hover { background:#faf9f8; } .evlsum:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+  .evlsum .evlttl { font-weight:600; font-size:14px; white-space:nowrap; } .evlsum .evlttl::before { content:"▸"; display:inline-block; width:14px; color:var(--muted); transition:transform .15s; }
+  .evlsum[aria-expanded="true"] .evlttl::before { transform:rotate(90deg); }
+  .evlstat { font-size:12px; color:var(--muted); white-space:nowrap; } .evlstat .bad { color:#a4262c; font-weight:600; }
+  .evllast { flex:1; min-width:0; font-size:12.5px; display:flex; align-items:center; gap:6px; overflow:hidden; white-space:nowrap; }
+  .evllast .lbl { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.3px; } .evllast .who { font-weight:600; overflow:hidden; text-overflow:ellipsis; }
+  .evllast .tgt { color:var(--muted); overflow:hidden; text-overflow:ellipsis; } .evllast .status { font-size:10.5px; padding:0 6px; }
+  .evllast .pulse { width:7px; height:7px; border-radius:50%; background:#107c10; flex:none; } .evllast .pulse.bad { background:#d13438; }
+  .evlopen { font-size:12px; color:#0f6cbd; white-space:nowrap; } .evlsum[aria-expanded="true"] .evlopen { color:var(--muted); }
+  .evlbody { padding:4px 16px 14px; border-top:1px solid var(--divider); } .evlhelp { flex:1; min-width:200px; font-size:12px; }
+  #sessionArea:has(#evLogCard:not([hidden])) .idlehint { display:none; }
   .evwho b { font-weight:600; } .evwho .badge { font-size:9.5px; padding:0 6px; margin-left:2px; } .evwho small { display:block; color:var(--muted); font-size:11px; }
   #evLog td.tgt { white-space:nowrap; }
   /* scenario card: the dropdown of this session's scenario runs stands in for the title */
@@ -1230,7 +1243,7 @@
   #scRunSel:hover:not(:disabled), #scRunSel:focus-visible { border-color:#8a8886; background-color:#fff; } #scRunSel:disabled { opacity:1; cursor:default; }
   #scRunSel option, #scRunSel optgroup { font-size:13px; font-weight:400; }
   .schead:has(#scRunSel:not([hidden])) h2 { display:none; }
-  .evlbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px; } .evlbar h2 { margin:0; flex:1; min-width:180px; }
+  .evlbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:8px 0 4px; }
   .evlbar select { width:auto; max-width:320px; height:28px; font-size:12px; } .evlbar button { height:28px; padding:0 12px; font-size:12px; }
   .evlchk { display:inline-flex; align-items:center; gap:4px; font-size:12px; white-space:nowrap; }
   #evLogWrap { max-height:236px; margin-top:8px; border:1px solid var(--divider); border-radius:4px; } #evLogWrap:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
@@ -1247,6 +1260,20 @@
   .bench:has(.launch.collapsed) { display:contents; } .bench:has(.launch.collapsed) .launch { margin:16px 0; }
   .cvcol { position:relative; min-height:560px; min-width:0; }
   .cvcol > #cvCard { position:absolute; inset:0; display:flex; flex-direction:column; margin:0; }
+  /* the conversation reads like the focused pop-out: accent edge, a quiet header, one rounded composer */
+  #cvCard { border-top:3px solid var(--accent); border-radius:8px; padding:0; overflow:hidden; }
+  #cvCard .cvhead { padding:10px 12px 10px 18px; margin:0; border-bottom:1px solid var(--divider); }
+  #cvCard .cvhead h2 { font-size:15px; }
+  #cvCard .convo { padding:14px 18px 8px; }
+  #cvCard .cv-meter { margin:8px 18px 0; }
+  #cvCard .cv-compose { margin:10px 18px 0; padding:6px 6px 6px 14px; border:1px solid var(--border); border-radius:12px; background:#fff; align-items:center; transition:border-color .15s, box-shadow .15s; }
+  #cvCard .cv-compose:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px rgba(15,108,189,.15); }
+  #cvCard .cv-compose textarea { border:0; outline:0; box-shadow:none; resize:none; padding:8px 0; background:transparent; min-height:24px; height:38px; max-height:160px; }
+  #cvCard .cv-compose button { border-radius:8px; height:34px; padding:0 18px; }
+  #cvCard .cv-ctx { margin:6px 18px 12px; }
+  .convo:empty { justify-content:center; align-items:center; }
+  .convo:empty::before { max-width:380px; text-align:center; line-height:1.6; padding:24px; font-size:14px;
+    content:"Run a scenario or type a message below. Prompts, tool calls and answers show up here, with what the gateway decided for each."; }
   .cvcol > #cvCard .convo { flex:1 1 0; min-height:0; max-height:none; }
   .bench:has(.launch.collapsed) .cvcol { min-height:620px; margin-bottom:16px; }
   .bench .lbar { padding:10px 14px; gap:8px; } .bench .lbar .q { display:none; }
@@ -1467,8 +1494,14 @@
       </div>
     </div>
     <div class="card" id="evLogCard" hidden>
+      <div class="evlsum" id="evLogSum" role="button" tabindex="0" aria-expanded="false" aria-controls="evLogBody" title="Show or hide every request">
+        <span class="evlttl">Request log</span><span class="evlstat" id="evLogCount"></span>
+        <span class="evllast" id="evLogLast"></span>
+        <span class="evlopen" id="evLogOpen">Show all</span>
+      </div>
+      <div class="evlbody" id="evLogBody" hidden>
       <div class="evlbar">
-        <h2>Request log <span class="muted" id="evLogCount"></span> <span class="info" tabindex="0" data-tip="The calls of the scenario picked above (or every call from this page session), newest first, with who sent each one. Click a request (or use ↑ / ↓) to replay it in the gateway flow below and load its policy trace and Log Analytics rows.">i</span></h2>
+        <span class="muted evlhelp">Newest first. Click a request (or use ↑ / ↓) to replay it in the gateway flow below with its policy trace and Log Analytics rows.</span>
         <select id="evRunFilter" aria-label="Show requests from"></select>
         <label class="evlchk"><input type="checkbox" id="evBlockedOnly"/> Blocked only</label>
         <button class="secondary" id="evPrev" title="Previous request (↑)">↑ Previous</button>
@@ -1478,6 +1511,7 @@
         <thead><tr><th>#</th><th>Time · run</th><th>Requested by</th><th>Target</th><th>Status</th><th>Gateway decision</th><th>Backend</th><th>Tokens</th><th>Cost USD</th><th>Latency</th><th>Evidence</th></tr></thead>
         <tbody id="evLog"></tbody>
       </table></div>
+      </div>
     </div>
     <div class="kpis" id="kpiBar">
       <div class="kpi"><div class="l">Requests</div><div class="v" id="kCalls">0</div></div>
@@ -4043,7 +4077,7 @@ function cvCtx() {
 // all at once: the tier sets the sizes; each subscription key has a plan budget, and inside it every session has a cap
 // and every end user (x-gw-end-user) has their own budget. The first bucket to run out returns 403. Collapsed: the
 // buckets of the latest call (or the selected sender). Click to expand to every tier and subscription key.
-let cvMeterSeen = 0, cvMeterOpen = false, cvMeterMin = localStorage.getItem("cvMeterMin") === "1";
+let cvMeterSeen = 0, cvMeterOpen = false, cvMeterMin = localStorage.getItem("cvMeterMin") !== "0";  // one line until opened
 let cvMeterTab = localStorage.getItem("cvMeterTab") === "rate" ? "rate" : "budget", cvRateTick = null;  // Budgets or Rate limits tab
 const BUCKET_ID_TIP = "Demo shortcut: the subscription key picks the plan and key budget, and the x-session-id and x-gw-end-user headers pick the session and end-user buckets. "
   + "That keeps the deployment free of Entra ID user accounts and app roles. Every call already carries an Entra ID token that the gateway validates, so in production "
@@ -6900,6 +6934,24 @@ function vtable(row) { // one log record: the fields that matter first, the rest
 // Request log (under the scenario card): pick a call to replay it in the gateway flow and load its trace and logs.
 // It is scoped like the scenario card: evFilterRun is "all" or a scEntries() key (one scenario of a run, or a whole run).
 let evFilterRun = "all", evBlockedOnly = false, evAllPinned = false;  // evAllPinned: "All requests" picked, so new runs don't re-scope the log
+let evLogOpen = localStorage.getItem("evLogOpen") === "1";  // collapsed to its one-line summary unless opened
+function evLogSetOpen(on, remember = true) {
+  evLogOpen = on; if (remember) localStorage.setItem("evLogOpen", on ? "1" : "0");
+  $("evLogBody").hidden = !on; $("evLogSum").setAttribute("aria-expanded", on ? "true" : "false");
+  $("evLogOpen").textContent = on ? "Hide" : "Show all";
+}
+// the collapsed line: the selected request if one is open in the flow, else the newest one
+function evLogSummary(idxs) {
+  const i = idxs.includes(evIndex) ? evIndex : idxs[0], r = session.calls[i];
+  if (r === undefined) { $("evLogLast").innerHTML = ""; return; }
+  const h = r.headers || {}, a = byName(r.agent) || personaOf(r.agent), dec = h["x-gw-blocked-by"] || (r.status === 200 ? "allowed" : "");
+  $("evLogLast").innerHTML = `<span class="pulse${isBlocked(r) ? " bad" : ""}"></span><span class="lbl">${i === evIndex ? "Selected" : "Latest"}</span>`
+    + `<span class="who">#${i + 1} ${escapeHtml(a?.displayName || r.agent || "-")}</span><span class="tgt">→ ${resourceOf(r).replace(/ → -$/, "")}</span>`
+    + `<span class="status ${statusClass(r.status)}">${r.status}</span>${dec ? `<span class="muted">${escapeHtml(dec)}</span>` : ""}`
+    + `<span class="muted">· ${new Date(r.at || Date.now()).toLocaleTimeString()}</span>`;
+}
+$("evLogSum").onclick = () => evLogSetOpen(!evLogOpen);
+$("evLogSum").onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); evLogSetOpen(!evLogOpen); } };
 function evLogIdxs() {
   const e = evFilterRun === "all" ? null : scEntries().find(x => x.key === evFilterRun), only = e ? new Set(e.calls) : null;
   const out = [];
@@ -6930,11 +6982,13 @@ function evLogRow(r, i) {
 function renderEvLog() {
   const sel = $("evRunFilter"), entries = scEntries();
   $("evLogCard").hidden = !session.calls.length;
+  evLogSetOpen(evLogOpen, false);
   if (evFilterRun !== "all" && !entries.some(e => e.key === evFilterRun)) evFilterRun = "all";
   sel.innerHTML = `<option value="all">All requests</option>` + entries.map(e => `<option value="${e.key}">${escapeHtml(scEntryLabel(e, 52))}</option>`).join("");
   sel.value = evFilterRun; $("evBlockedOnly").checked = evBlockedOnly;
   const idxs = evLogIdxs(), blocked = idxs.filter(i => isBlocked(session.calls[i])).length;
-  $("evLogCount").textContent = session.calls.length ? `(${idxs.length} request${idxs.length === 1 ? "" : "s"}${blocked && !evBlockedOnly ? `, ${blocked} blocked` : ""})` : "";
+  $("evLogCount").innerHTML = session.calls.length ? `<b>${idxs.length}</b> request${idxs.length === 1 ? "" : "s"}${blocked && !evBlockedOnly ? ` · <span class="bad">${blocked} blocked</span>` : ""}` : "";
+  evLogSummary(idxs);
   $("evLog").innerHTML = idxs.length ? idxs.map(i => evLogRow(session.calls[i], i)).join("")
     : `<tr><td colspan="11" class="muted" style="padding:16px">${session.calls.length ? "No requests match this filter." : "No requests yet. Run a guided scenario or send a request, and every call shows up here."}</td></tr>`;
   const p = idxs.indexOf(evIndex);
@@ -6986,7 +7040,7 @@ async function showEvidence(i, attempt = 0, opts = {}) {
     $("evTrace").innerHTML = h["apim-trace-id"] ? `<div class="muted">Fetching the trace…</div>`
       : `<div class="muted">This call was not traced. Tick <b>Trace policies</b> before sending to record a policy-by-policy trace.</div>`;
     $("evLogs").innerHTML = `<div class="muted">Querying Log Analytics for request <code>${escapeHtml(h["x-gw-request-id"] || "-")}</code>…</div>`;
-    if (opts.scroll !== false) $("evLogCard").scrollIntoView({ behavior: "smooth" });
+    if (opts.scroll !== false) { evLogSetOpen(true, false); $("evLogCard").scrollIntoView({ behavior: "smooth" }); }
     window.gwFlow?.fromCall(r, i);
     if (h["apim-trace-id"]) { const done = busy($("evTrace").parentElement, "Fetching the policy trace…", "APIM request tracing");
       loadTrace(h["apim-trace-id"]).then(html => { if (run === evRun) $("evTrace").innerHTML = html; }).finally(done); }
