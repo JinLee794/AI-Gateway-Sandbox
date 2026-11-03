@@ -1317,18 +1317,35 @@
     #sessRail > #evLogCard { order:2; } #sessRail > .idlehint { order:3; }
     #sessRail #evLogCard .evlsum { flex-wrap:wrap; row-gap:4px; }
     #sessionArea > .busy { grid-column:2 / 3; grid-row:2 / 3; margin-bottom:16px; }
-    #evLogBody { position:fixed; top:0; right:0; bottom:0; width:clamp(700px, 44vw, 1040px); z-index:105; display:flex; flex-direction:column;
+    #evLogBody { position:fixed; top:0; right:0; bottom:0; width:var(--evlw, clamp(700px, 44vw, 1040px)); max-width:calc(100vw - 16px); z-index:105; display:flex; flex-direction:column;
                  padding:0; border-top:0; background:var(--bg); box-shadow:-8px 0 24px rgba(0,0,0,.18); animation:evlIn .18s ease-out; }
     #evLogBody[hidden] { display:none; }
     #evLogBody .evldhead { display:flex; }
+    #evLogBody .evlgrip { display:block; position:absolute; left:-4px; top:0; bottom:0; width:9px; cursor:col-resize; z-index:2; }
+    #evLogBody .evlgrip::after { content:""; position:absolute; left:3px; top:0; bottom:0; width:3px; background:transparent; transition:background .12s; }
+    #evLogBody .evlgrip:hover::after, #evLogBody .evlgrip:focus-visible::after, #evLogBody.resizing .evlgrip::after { background:var(--accent); }
+    #evLogBody .evlgrip:focus-visible { outline:none; }
+    #evLogBody.resizing { animation:none; user-select:none; }
     #evLogBody .evlbar { margin:0; padding:8px 16px; background:#fff; border-bottom:1px solid var(--divider); }
     #evLogBody #evLogWrap { flex:1; max-height:none; margin:12px 16px 84px; background:#fff; }  /* bottom room for the Copilot button */
     #evLogCard:has(#evLogBody:not([hidden])) .evlsum { background:var(--accent-light); }
   }
   .evldhead { display:none; align-items:center; gap:10px; padding:12px 16px; background:#fff; border-bottom:1px solid var(--divider); }
   .evldhead b { font-size:15px; } .evldhead .sp { flex:1; } .evldhead button { height:28px; padding:0 10px; }
+  .evlgrip { display:none; }
   @keyframes evlIn { from { transform:translateX(40px); opacity:0; } }
-  @media (prefers-reduced-motion: reduce) { #evLogBody { animation:none !important; } }
+  /* a clicked request opens its details in a row underneath (the conversation's request + answer cards and the gateway decision) */
+  #evLog tr.click td:first-child::before { content:"▸"; display:inline-block; width:12px; color:var(--muted); transition:transform .15s; }
+  #evLog tr.click.open td:first-child::before { transform:rotate(90deg); color:var(--accent); }
+  #evLog tr.click.open td { border-bottom-color:transparent; }
+  #evLog tr.evdet > td { padding:0; background:#faf9f8; border-bottom:1px solid var(--divider); white-space:normal; }
+  .evdbox { position:sticky; left:0; box-sizing:border-box; padding:10px 16px 12px 24px; box-shadow:inset 3px 0 0 var(--accent); white-space:normal; }
+  .evdbox.anim { animation:evdIn .22s ease-out; }
+  @keyframes evdIn { from { clip-path:inset(0 0 100% 0); opacity:.3; transform:translateY(-6px); } to { clip-path:inset(0 0 0 0); } }
+  .evdconv { display:flex; flex-direction:column; gap:8px; max-width:1100px; } .evdconv .cv-u, .evdconv .cv-a { max-width:min(88%, 900px); }
+  .evdact { display:flex; gap:8px; align-items:center; margin-top:10px; } .evdact .sp { flex:1; } .evdact button { height:28px; padding:0 12px; font-size:12px; }
+  #evLogWrap:has(tr.evdet) { max-height:480px; }
+  @media (prefers-reduced-motion: reduce) { #evLogBody, .evdbox.anim { animation:none !important; } }
   /* Very wide screens: the page is centred (main), so the header lines up with it */
   .pagehead { padding-left:max(24px, calc((100vw - 2200px) / 2 + 24px)); padding-right:max(24px, calc((100vw - 2200px) / 2 + 24px)); }
   /* Request inspector: the redacted HTTP calls app.py made through APIM for one result */
@@ -1547,7 +1564,9 @@
         <span class="evlopen" id="evLogOpen">Show all</span>
       </div>
       <div class="evlbody" id="evLogBody" hidden role="region" aria-label="Request log">
+      <div class="evlgrip" id="evLogGrip" role="separator" aria-orientation="vertical" aria-label="Resize the request log" tabindex="0" title="Drag to resize · double-click for full width"></div>
       <div class="evldhead"><b>Request log</b><span class="evlstat" id="evLogCount2"></span><span class="sp"></span>
+        <button class="secondary" id="evLogWide" aria-pressed="false" title="Widen the log to the full screen, or back">⤢ Full width</button>
         <button class="secondary" id="evLogClose" title="Close (Esc)" aria-label="Close the request log">✕</button></div>
       <div class="evlbar">
         <span class="muted evlhelp">Newest first. Click a request (or use ↑ / ↓) to replay it in the gateway flow below with its policy trace and Log Analytics rows.</span>
@@ -6987,6 +7006,7 @@ function vtable(row) { // one log record: the fields that matter first, the rest
 // Request log (under the scenario card): pick a call to replay it in the gateway flow and load its trace and logs.
 // It is scoped like the scenario card: evFilterRun is "all" or a scEntries() key (one scenario of a run, or a whole run).
 let evFilterRun = "all", evBlockedOnly = false, evAllPinned = false;  // evAllPinned: "All requests" picked, so new runs don't re-scope the log
+let evOpenIdx = null, evDetAnim = false;  // the request whose details row is open; evDetAnim: just opened, so it plays the drop-down
 let evLogOpen = localStorage.getItem("evLogOpen") === "1" && !matchMedia("(min-width:1500px)").matches;  // collapsed to its one-line summary unless opened (wide screens: the drawer never reopens by itself)
 function evLogSetOpen(on, remember = true) {
   evLogOpen = on; if (remember) localStorage.setItem("evLogOpen", on ? "1" : "0");
@@ -6999,6 +7019,31 @@ $("evLogClose").onclick = () => { evLogSetOpen(false); $("evLogSum").focus(); };
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && $("inspDrawer").hidden && evLogDrawer()) { evLogSetOpen(false); $("evLogSum").focus(); }
 });
+// drawer width: drag its left edge (or arrow keys on it), double-click it or use Full width; kept as "full", a width in px, or the default
+let evLogW = localStorage.getItem("evLogW");
+function evLogApplyW() {
+  const b = $("evLogBody"), full = evLogW === "full";
+  if (evLogW) b.style.setProperty("--evlw", full ? "calc(100vw - 16px)" : `${evLogW}px`); else b.style.removeProperty("--evlw");
+  $("evLogWide").textContent = full ? "⤡ Half width" : "⤢ Full width"; $("evLogWide").setAttribute("aria-pressed", String(full));
+}
+function evLogSetW(w, save = true) {
+  if (w !== null && w !== "full") w = w >= innerWidth - 48 ? "full" : String(Math.round(Math.max(560, w)));
+  evLogW = w; if (save) w ? localStorage.setItem("evLogW", w) : localStorage.removeItem("evLogW");
+  evLogApplyW();
+}
+evLogApplyW();
+$("evLogWide").onclick = () => evLogSetW(evLogW === "full" ? null : "full");
+(() => {
+  const g = $("evLogGrip"), b = $("evLogBody");
+  g.onpointerdown = (e) => { e.preventDefault(); g.setPointerCapture(e.pointerId); b.classList.add("resizing"); };
+  g.onpointermove = (e) => { if (g.hasPointerCapture(e.pointerId)) evLogSetW(innerWidth - e.clientX, false); };
+  g.onpointerup = g.onpointercancel = (e) => { if (!b.classList.contains("resizing")) return; b.classList.remove("resizing"); evLogSetW(evLogW); };
+  g.ondblclick = () => evLogSetW(evLogW === "full" ? null : "full");
+  g.onkeydown = (e) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault(); evLogSetW(b.getBoundingClientRect().width + (e.key === "ArrowLeft" ? 60 : -60));
+  };
+})();
 // the collapsed line: the selected request if one is open in the flow, else the newest one
 function evLogSummary(idxs) {
   const i = idxs.includes(evIndex) ? evIndex : idxs[0], r = session.calls[i];
@@ -7032,12 +7077,23 @@ function evLogRow(r, i) {
   const gov = h["x-gw-governance"] && h["x-gw-governance"] !== "none" ? `<span class="gov">${escapeHtml(h["x-gw-governance"])}</span>` : "";
   const decision = h["x-gw-blocked-by"] ? `<span class="src err">${escapeHtml(h["x-gw-blocked-by"])}</span>` : gov || (r.status === 200 ? "allowed" : "-");
   const tok = r.surface === "model" ? `${h["x-gw-prompt-tokens"] || "-"} / ${h["x-gw-completion-tokens"] || "-"}` : (r.tokens || "-");
-  return `<tr class="click${i === evIndex ? " sel" : ""}" data-idx="${i}"><td>${i + 1}</td><td>${new Date(r.at || Date.now()).toLocaleTimeString()}${r.run ? ` <span class="rtag">#${r.run}</span>` : ""}</td>
+  return `<tr class="click${i === evIndex ? " sel" : ""}${i === evOpenIdx ? " open" : ""}" data-idx="${i}" aria-expanded="${i === evOpenIdx}"><td>${i + 1}</td><td>${new Date(r.at || Date.now()).toLocaleTimeString()}${r.run ? ` <span class="rtag">#${r.run}</span>` : ""}</td>
     <td>${evWho(r)}</td><td class="tgt">${surfChip(r.surface)} ${resourceOf(r)}</td><td><span class="status ${statusClass(r.status)}">${r.status}</span></td><td>${decision}</td>
     <td title="${escapeHtml(route)}">${escapeHtml(h["x-gw-backend"] || "-")}${route.includes(" > ") ? ' <span class="gov">failover</span>' : ""}</td>
     <td>${tok}</td><td>${cost ? cost.toFixed(6) : "-"}</td><td>${r.latencyMs ?? "-"} ms</td>
     <td>${h["apim-trace-id"] ? "trace + logs" : h["x-gw-request-id"] ? "logs" : "-"}${(r.invocations || []).length ? ` · <a class="ev" title="The HTTP calls app.py made for this result (secrets masked)" onclick="openInspector(${i})">inspect</a>` : ""}</td></tr>`;
 }
+// the details row under an opened request: what was sent and what came back, as in the conversation, with its Details unfolded
+function evDetail(r, i) {
+  const ans = cvAnswer(r, i).replace("<details><summary>Details", "<details open><summary>Details");
+  return `<tr class="evdet" data-det="${i}"><td colspan="11"><div class="evdbox${evDetAnim ? " anim" : ""}">`
+    + `<div class="evdconv">${r.sent ? cvUser(r.sent, r.agent) : ""}${ans}</div>`
+    + `<div class="evdact"><button class="secondary" data-act="trace" title="The policy trace and Log Analytics rows for this request, under the gateway flow">Policy trace and logs ↓</button>`
+    + `<span class="sp"></span><button class="secondary" data-act="close">Collapse ▴</button></div></div></td></tr>`;
+}
+// the table can be wider than the log: keep the details box the width of the visible area (it is sticky on the left)
+function evDetFit() { const box = $("evLog").querySelector(".evdbox"); if (box) box.style.width = `${$("evLogWrap").clientWidth}px`; }
+new ResizeObserver(evDetFit).observe($("evLogWrap"));
 function renderEvLog() {
   const sel = $("evRunFilter"), entries = scEntries();
   $("evLogCard").hidden = !session.calls.length;
@@ -7048,27 +7104,46 @@ function renderEvLog() {
   const idxs = evLogIdxs(), blocked = idxs.filter(i => isBlocked(session.calls[i])).length;
   $("evLogCount").innerHTML = $("evLogCount2").innerHTML = session.calls.length ? `<b>${idxs.length}</b> request${idxs.length === 1 ? "" : "s"}${blocked && !evBlockedOnly ? ` · <span class="bad">${blocked} blocked</span>` : ""}` : "";
   evLogSummary(idxs);
-  $("evLog").innerHTML = idxs.length ? idxs.map(i => evLogRow(session.calls[i], i)).join("")
+  if (!idxs.includes(evOpenIdx)) evOpenIdx = null;
+  const keep = $("evLog").querySelector(`tr.evdet[data-det="${evOpenIdx}"]`), opened = evDetAnim;  // live re-renders keep the open details as they are
+  $("evLog").innerHTML = idxs.length ? idxs.map(i => evLogRow(session.calls[i], i) + (i === evOpenIdx ? evDetail(session.calls[i], i) : "")).join("")
     : `<tr><td colspan="11" class="muted" style="padding:16px">${session.calls.length ? "No requests match this filter." : "No requests yet. Run a guided scenario or send a request, and every call shows up here."}</td></tr>`;
+  if (keep && !opened) $("evLog").querySelector("tr.evdet")?.replaceWith(keep);
+  $("evLog").querySelector(".evdbox.anim")?.addEventListener("animationend", (e) => e.currentTarget.classList.remove("anim"), { once: true });
+  evDetAnim = false; evDetFit();
   const p = idxs.indexOf(evIndex);
   for (const [a, b] of [["evPrev", "evNext"], ["evPrev2", "evNext2"]]) { $(a).disabled = !idxs.length || p === 0; $(b).disabled = !idxs.length || p === idxs.length - 1; }
   $("evPos").textContent = p >= 0 ? `request ${p + 1} of ${idxs.length}` : "";
   const row = $("evLog").querySelector("tr.sel"), wrap = $("evLogWrap");
-  if (row) { // keep the selected row visible inside the log without scrolling the page
+  if (row) { // keep the selected row visible inside the log without scrolling the page; a just-opened one goes to the top so its details show
     const rr = row.getBoundingClientRect(), wr = wrap.getBoundingClientRect(), head = wrap.querySelector("thead").offsetHeight;
-    if (rr.top < wr.top + head || rr.bottom > wr.bottom) wrap.scrollTop += rr.top - wr.top - (wr.height - rr.height) / 2;
+    if (opened && row.classList.contains("open")) wrap.scrollTop += rr.top - wr.top - head;
+    else if (rr.top < wr.top + head || rr.bottom > wr.bottom) wrap.scrollTop += rr.top - wr.top - (wr.height - rr.height) / 2;
   }
 }
 function stepEvidence(d, opts) {
   const idxs = evLogIdxs();
   if (!idxs.length) return;
   const p = idxs.indexOf(evIndex), n = p < 0 ? idxs[0] : idxs[p + d];
-  if (n !== undefined) showEvidence(n, 0, opts);
+  if (n === undefined) return;
+  if (evOpenIdx !== null) { evOpenIdx = n; evDetAnim = true; }  // the open details follow the selection
+  showEvidence(n, 0, opts);
 }
 $("evLog").onclick = (e) => {
+  const act = e.target.closest("[data-act]");
+  if (act) {
+    const i = +act.closest("tr.evdet").dataset.det;
+    if (act.dataset.act === "close") { evOpenIdx = null; renderEvLog(); $("evLogWrap").focus({ preventScroll: true }); }
+    else { if (evIndex !== i) showEvidence(i, 0, { scroll: false }); $("evPanel").scrollIntoView({ behavior: "smooth", block: "start" }); }
+    return;
+  }
   const tr = e.target.closest("tr[data-idx]");
   if (!tr || e.target.closest("a")) return;
-  $("evLogWrap").focus({ preventScroll: true }); showEvidence(+tr.dataset.idx, 0, { scroll: false }); evRevealFlow();
+  const i = +tr.dataset.idx;
+  evOpenIdx = evOpenIdx === i ? null : i; evDetAnim = evOpenIdx !== null;
+  $("evLogWrap").focus({ preventScroll: true });
+  if (evOpenIdx === null) { renderEvLog(); return; }
+  showEvidence(i, 0, { scroll: false }); evRevealFlow();
 };
 // the flow sits under the log: when its diagram is off screen, scroll so the log's last rows and the flow are both in view
 function evRevealFlow() {
@@ -7076,6 +7151,9 @@ function evRevealFlow() {
   if (f.top > innerHeight - 260) scrollBy({ top: f.top - innerHeight * 0.38, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 }
 $("evLogWrap").onkeydown = (e) => {
+  if (e.key === "Enter" && e.target === $("evLogWrap") && evIndex != null && evLogIdxs().includes(evIndex)) {  // Enter opens or closes the selected request's details
+    e.preventDefault(); evOpenIdx = evOpenIdx === evIndex ? null : evIndex; evDetAnim = evOpenIdx !== null; renderEvLog(); return;
+  }
   if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
   e.preventDefault(); stepEvidence(e.key === "ArrowDown" ? 1 : -1, { scroll: false });
 };
