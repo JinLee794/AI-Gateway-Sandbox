@@ -1297,11 +1297,11 @@
   .preview .ptip .meta { font-size:12px; line-height:1.6; color:var(--muted); margin-top:6px; }
   .preview .ptip .hint { font-size:11px; color:var(--muted); margin-top:8px; border-top:1px solid var(--divider); padding-top:6px; }
   .gwmode .short { display:none; }
-  @media (min-width:1101px) { .bench:has(.launch.collapsed) .cvcol { min-height:clamp(520px, calc(100vh - 170px), 760px); } }
+  @media (min-width:1101px) { .bench:has(.launch.collapsed) .cvcol { min-height:clamp(560px, calc(100vh - 140px), 920px); } }
   @media (max-width:1100px) { .bench { grid-template-columns:1fr; } .cvcol, .bench:has(.launch.collapsed) .cvcol { min-height:0; }
     .cvcol > #cvCard { position:static; } .cvcol > #cvCard .convo { flex:none; min-height:300px; max-height:600px; } .cv-empty { flex:none; min-height:300px; } }
-  /* An empty conversation stays compact; it grows to the viewport once there is something to read */
-  @media (min-width:1101px) { .bench .cvcol:has(#convo:empty), .bench:has(.launch.collapsed) .cvcol:has(#convo:empty) { min-height:400px; } }
+  /* An empty conversation is already roomy (it's where a run plays out); it grows to the viewport once there is something to read */
+  @media (min-width:1101px) { .bench .cvcol:has(#convo:empty), .bench:has(.launch.collapsed) .cvcol:has(#convo:empty) { min-height:clamp(520px, calc(100vh - 320px), 780px); } }
   /* Wide screens: the launch bar spans the top, the conversation sits left and a live rail (scenario card, stats, request log)
      sits right; the gateway flow / session overview keep the full width below. #bench and #sessionArea dissolve into one grid
      (the run overlay busy() puts on #sessionArea is placed over the rail). The summary stays in the rail; opened, the full log is a
@@ -1312,10 +1312,15 @@
     #sessionArea { display:contents; }
     #tab-happened .launch { grid-column:1 / -1; grid-row:1; }
     #tab-happened .cvcol, #tab-happened > .bench:not(:has(.launch.collapsed)) { grid-column:1; grid-row:2; margin-bottom:16px; }
-    #sessionArea > #sessRail { grid-column:2; grid-row:2; display:flex; flex-direction:column; gap:12px; margin-bottom:16px; }
-    #sessRail > * { margin:0; } #sessRail > #kpiBar { order:1; grid-template-columns:repeat(3, minmax(0,1fr)); }
-    #sessRail > #evLogCard { order:2; } #sessRail > .idlehint { order:3; }
-    #sessRail #evLogCard .evlsum { flex-wrap:wrap; row-gap:4px; }
+    /* the rail never sets the row height (size containment): it stretches to the conversation's height; a tall scenario card
+       scrolls inside, and the request log fills what's left with a preview of its newest requests */
+    #sessionArea > #sessRail { grid-column:2; grid-row:2; display:flex; flex-direction:column; gap:12px; margin-bottom:16px; align-self:stretch; contain:size; }
+    #sessRail > * { margin:0; } #sessRail > #kpiBar { order:1; flex:none; grid-template-columns:repeat(3, minmax(0,1fr)); }
+    #sessRail > #scenario { flex:0 1 auto; min-height:180px; overflow:auto; overscroll-behavior:contain; }
+    #sessRail > #evLogCard { order:2; flex:1 1 0; min-height:200px; display:flex; flex-direction:column; } #sessRail > #evLogCard[hidden] { display:none; }
+    #sessRail > .idlehint { order:3; }
+    #sessRail #evLogCard .evlsum { flex:none; } #sessRail .evllast { display:none; } #sessRail .evlopen { margin-left:auto; }
+    #sessRail .evlpeek { display:block; flex:1 1 0; min-height:0; overflow:auto; overscroll-behavior:contain; border-top:1px solid var(--divider); }
     #sessionArea > .busy { grid-column:2 / 3; grid-row:2 / 3; margin-bottom:16px; }
     #evLogBody { position:fixed; top:0; right:0; bottom:0; width:var(--evlw, clamp(700px, 44vw, 1040px)); max-width:calc(100vw - 16px); z-index:105; display:flex; flex-direction:column;
                  padding:0; border-top:0; background:var(--bg); box-shadow:-8px 0 24px rgba(0,0,0,.18); animation:evlIn .18s ease-out; }
@@ -1333,6 +1338,20 @@
   .evldhead { display:none; align-items:center; gap:10px; padding:12px 16px; background:#fff; border-bottom:1px solid var(--divider); }
   .evldhead b { font-size:15px; } .evldhead .sp { flex:1; } .evldhead button { height:28px; padding:0 10px; }
   .evlgrip { display:none; }
+  /* wide screens: the request log's preview rows in the rail (click one to open it in the drawer) */
+  .evlpeek { display:none; }
+  .evp { display:grid; grid-template-columns:40px 38px minmax(0,1fr) auto; align-items:center; gap:8px; padding:6px 14px; border-bottom:1px solid var(--divider); cursor:pointer; }
+  .evp:hover { background:#faf9f8; } .evp:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+  .evp.sel { background:var(--accent-light); box-shadow:inset 3px 0 0 var(--accent); }
+  .evp .n { color:var(--muted); font-size:12px; } .evp .status { font-size:10.5px; padding:0 6px; justify-self:start; }
+  .evp .m { min-width:0; } .evp .m b, .evp .m small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .evp .m b { font-size:12.5px; font-weight:600; } .evp .m small { font-size:11.5px; color:var(--muted); } .evp .m .bad { color:#a4262c; }
+  .evp .r { text-align:right; font-size:11.5px; color:var(--muted); white-space:nowrap; line-height:1.35; }
+  .evpempty { padding:16px; font-size:12.5px; }
+  /* Stop: says it heard you at once, then the run winds down (the call in flight is cancelled) */
+  #btnStop:not(:disabled) { color:#a4262c; border-color:#d13438; } #btnStop:not(:disabled):hover { background:#fdf3f4; }
+  #btnStop.stopping { cursor:progress; display:inline-flex; align-items:center; gap:6px; }
+  .launch.stopping .lstat #runStatus { color:#a4262c; }
   @keyframes evlIn { from { transform:translateX(40px); opacity:0; } }
   /* a clicked request opens its details in a row underneath (the conversation's request + answer cards and the gateway decision) */
   #evLog tr.click td:first-child::before { content:"▸"; display:inline-block; width:12px; color:var(--muted); transition:transform .15s; }
@@ -1433,7 +1452,7 @@
       </div>
       <span class="sp"></span>
       <span class="lstat"><span class="live"></span><span class="spin sm" aria-hidden="true"></span><span class="muted" id="runStatus"></span></span>
-      <button class="secondary hidden" id="btnStop">Stop</button>
+      <button class="secondary hidden" id="btnStop" title="Stop the run: cancels the call in flight and skips the rest">■ Stop</button>
       <button class="secondary hidden" id="btnAgain" title="Run again">↻<span class="lbl"> Run again</span></button>
       <button class="hidden" id="btnNext"></button>
     </div>
@@ -1563,6 +1582,7 @@
         <span class="evllast" id="evLogLast"></span>
         <span class="evlopen" id="evLogOpen">Show all</span>
       </div>
+      <div class="evlpeek" id="evLogPeek" aria-label="Newest requests: pick one to open it in the request log"></div>
       <div class="evlbody" id="evLogBody" hidden role="region" aria-label="Request log">
       <div class="evlgrip" id="evLogGrip" role="separator" aria-orientation="vertical" aria-label="Resize the request log" tabindex="0" title="Drag to resize · double-click for full width"></div>
       <div class="evldhead"><b>Request log</b><span class="evlstat" id="evLogCount2"></span><span class="sp"></span>
@@ -3735,20 +3755,21 @@ function fillEndUsers() {
 }
 function newSessionId(prefix = "s") { return `${prefix}-${new Date().toISOString().slice(5, 16).replace(/[-T:]/g, "")}-${Math.random().toString(36).slice(2, 6)}`; }
 async function post(path, body) {
+  if (stopRequested) return { status: 0, stopped: true, error: "Stopped", agent: body.agent, headers: {} };  // Stop: the run's remaining calls never leave the browser
   const pend = cvPending(path, body), t0 = performance.now();
   pend.cid = newId();
   actWatch(pend);
   let r;
   try {  // a dead server or a non-JSON error page (e.g. a proxy 502) must fail the call, not leave the run stuck on "Sending…"
-    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-Call-Id": pend.cid }, body: JSON.stringify(body) });
+    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-Call-Id": pend.cid }, body: JSON.stringify(body), signal: runAbort?.signal });
     r = await res.json().catch(() => ({ error: `${path} answered HTTP ${res.status} without JSON` }));
-  } catch (e) { r = { error: `Can't reach the demo app (${e.message}). Is app.py still running?` }; }
+  } catch (e) { r = e.name === "AbortError" ? { error: "Stopped before the gateway answered.", stopped: true } : { error: `Can't reach the demo app (${e.message}). Is app.py still running?` }; }
   actDone(pend);
   if (r && typeof r === "object") r.e2eMs = Math.round(performance.now() - t0);
   releaseRunBusy();
   if (r.status === undefined) {
-    toast(r.error || "request failed");
-    const failed = { status: 0, agent: body.agent, surface: { "/api/mcp": "tool", "/api/a2a": "agent", "/api/image": "image" }[path] || "model", requestedModel: body.model, tool: body.tool, action: body.action, error: r.error, sent: pend.sent };
+    if (!r.stopped) toast(r.error || "request failed");
+    const failed = { status: 0, agent: body.agent, surface: { "/api/mcp": "tool", "/api/a2a": "agent", "/api/image": "image" }[path] || "model", requestedModel: body.model, tool: body.tool, action: body.action, error: r.error, stopped: !!r.stopped, sent: pend.sent };
     cvResult(pend, failed, -1); return failed;
   }
   Object.assign(r, { sent: pend.sent, cvKey: pend.key, cvLabel: pend.label });
@@ -3969,7 +3990,9 @@ function cvAnswer(r, idx) {
   else if (r.surface === "agent") target = `${surfChip("agent")} <b>sourcing-agent</b>`;
   else target = `${surfChip(r.surface || "model")} ${served && served !== r.requestedModel ? `${escapeHtml(r.requestedModel || "")} → ` : ""}<b>${escapeHtml(served || r.requestedModel || "model")}</b>`;
   let cls = "", body;
-  if (!ok) {
+  if (r.stopped) {
+    body = `<div class="cv-txt"><b>Stopped</b>\n<span class="muted">${escapeHtml(r.error || "Stopped before the gateway answered.")}</span></div>`;
+  } else if (!ok) {
     cls = r.status === 429 ? "warn" : "err";
     const by = h["x-gw-blocked-by"];
     body = `<div class="cv-txt">${by ? `<b>Blocked by ${escapeHtml(by)}</b>\n` : r.status ? "" : "<b>No answer from the demo app</b>\n"}${escapeHtml(r.error || `HTTP ${r.status}`)}${h["retry-after"] ? `\nRetry after ${escapeHtml(h["retry-after"])} s.` : ""}</div>`;
@@ -4095,7 +4118,8 @@ async function pause(ms, why) {
   const tick = () => { if (el) el.innerHTML = `<span class="spin sm" aria-hidden="true"></span>${escapeHtml(why)} · ${Math.max(0, Math.ceil((ms - (Date.now() - t0)) / 1000))} s`; };
   tick(); const iv = setInterval(tick, 1000);
   await sleep(ms); clearInterval(iv);
-  if (el) el.textContent = `${why.replace(/^Waiting|^Pausing|^Spacing/, m => ({ Waiting: "Waited", Pausing: "Paused", Spacing: "Spaced" })[m])} (${Math.round(ms / 1000)} s).`;
+  if (el && stopRequested) el.textContent = `${why}: skipped (stopped).`;
+  else if (el) el.textContent = `${why.replace(/^Waiting|^Pausing|^Spacing/, m => ({ Waiting: "Waited", Pausing: "Paused", Spacing: "Spaced" })[m])} (${Math.round(ms / 1000)} s).`;
 }
 function cvPending(path, body) {
   const sent = cvSentOf(path, body), grp = cvGroup(sent), p = { sent, key: grp.key, label: grp.label, el: null };
@@ -4919,8 +4943,12 @@ async function waitForChargeback(sessions, attempt = 0) {
 
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function setRunning(on, label = "") {
+  const stopped = !on && stopRequested;
+  if (stopped) label = "Stopped.";
   running = on; ["btnSend", "btnBurst", "btnSim", "btnReset", "btnList", "btnCard", "btnAgain", "cvSend"].forEach(id => $(id).disabled = on);
   document.querySelectorAll(".scenarios .scrun, #btnAll").forEach(b => b.disabled = on);
+  const sb = $("btnStop"); sb.disabled = false; sb.classList.remove("stopping"); sb.textContent = "■ Stop"; $("launch").classList.remove("stopping");
+  if (on) { stopRequested = false; runAbort = new AbortController(); stopWaiters.clear(); }
   $("btnStop").classList.toggle("hidden", !on); $("runStatus").textContent = label;
   $("launch").classList.toggle("running", on);
   releaseRunBusy(); fillScRunSel();
@@ -4929,7 +4957,8 @@ function setRunning(on, label = "") {
             collapseLaunch(true);  // close the pop-out: the conversation and the gateway flow show the run
             $("sessionArea").classList.remove("idle");
             runBusy = busy($("sessionArea"), label || "Running…", "Waiting for the gateway to answer. Results appear here as they arrive.", true); }
-  else { endRun(); nxRender(); }
+  else { endRun(); nxRender(); stopRequested = false; runAbort = null;
+         if (stopped) toast("Run stopped. A call the gateway had already received may still finish there."); }
   updateLaunch();
 }
 // Launch bar: one sticky line above the conversation. ▶ Scenarios and ✎ Build a request open ONE mode in a pop-out over the page
@@ -5019,6 +5048,9 @@ $("lsum").onclick = () => { if (lastRun) openRun(lastRun.n); };
 // Run history: each scenario, full demo or custom request becomes a run whose calls, cost and story can be analyzed later.
 // Finished runs are saved by app.py per signed-in user (Easy Auth Entra ID when hosted, a local file otherwise) and restored on the next visit.
 const runs = []; let curRun = null, curPart = null, stopRequested = false, selRun = null, selCall = null, curTab = "happened", hist = { enabled: false };
+let runAbort = null;  // aborts the run's in-flight fetches when Stop is pressed
+const stopWaiters = new Set();  // sleeps and waits that Stop cuts short
+const whenStopped = () => new Promise(r => { if (stopRequested) return r(); const f = () => { stopWaiters.delete(f); r(); }; stopWaiters.add(f); });
 const newId = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
 function startRun(run) {
   curRun = Object.assign(run, { id: newId(), n: runs.length ? runs[runs.length - 1].n + 1 : 1, started: Date.now(), ended: null, status: "running", calls: [], parts: [] });
@@ -5425,7 +5457,19 @@ $("btnSim").onclick = async () => {
   await Promise.all(inflight);
   setRunning(false, `Simulation finished after ${i} requests.`);
 };
-$("btnStop").onclick = () => { running = false; stopRequested = true; releaseRunBusy(); };
+// Stop: answers at once (the button turns into "Stopping…"), cancels the call in flight, cuts short any pause or budget-reset
+// wait, and makes the scenario's remaining calls return without reaching the gateway; the run then ends as "Stopped."
+function stopRun() {
+  if (!running || stopRequested) return;
+  running = false; stopRequested = true; releaseRunBusy();
+  const sb = $("btnStop"); sb.disabled = true; sb.classList.add("stopping");
+  sb.innerHTML = `<span class="spin sm" aria-hidden="true"></span>Stopping…`;
+  $("launch").classList.add("stopping");
+  $("runStatus").textContent = "Stopping: cancelling the call in flight and skipping the rest of the run…";
+  runAbort?.abort();
+  [...stopWaiters].forEach(f => f());
+}
+$("btnStop").onclick = stopRun;
 let resetSkipped = false;
 // A budget reset takes Azure 15-35 s to apply (app.py waits for the budget-epoch named value). So when a run finishes, the
 // next reset starts in the background: the next scenario usually finds the budgets already fresh and starts at once.
@@ -5470,16 +5514,19 @@ function resetWaitNote(what) {
 // a run never starts while a background reset is still applying: the budget epoch would change between its calls
 const resetNote = (r) => r?.error ? "The budget reset failed." : r?.skipped ? "Budgets were already fresh." : "";
 async function awaitResetAhead() {
-  if (!resetAhead) return;
+  if (!resetAhead || stopRequested) return;
   const done = resetWaitNote("Finishing the budget reset started after the last run");
   let r = null;
-  try { r = await resetAhead; } finally { done(resetNote(r)); }
+  try { r = await Promise.race([resetAhead, whenStopped()]); } finally { done(stopRequested ? "Stopped while the budget reset was applying (it finishes in the background)." : resetNote(r)); }
 }
 async function resetBudgets(force = false) {  // scenarios skip the reset when nothing was spent since the last one; the Reset button forces it
   await awaitResetAhead();
+  if (stopRequested) return false;
   const done = resetWaitNote("Resetting budgets");
   let r = {};
-  try { r = await postReset(!force); } finally { done(resetNote(r)); }
+  const p = postReset(!force);
+  try { r = await Promise.race([p, whenStopped().then(() => null)]); } finally { done(r ? resetNote(r) : "Stopped while the budget reset was applying (it finishes in the background)."); }
+  if (!r) { p.then(x => { if (x?.epoch && !x.skipped && !x.error) budgetsWereReset(x); }).catch(() => {}); return false; }
   if (r.error) { toast("Reset failed: " + r.error); return false; }
   // a background reset that finished moments ago still needs the gateway to pick up the new epoch (resetSettle, entraEpochApplied)
   resetSkipped = !!r.skipped && Date.now() - resetAheadAt > 60000;
@@ -7094,6 +7141,26 @@ function evDetail(r, i) {
 // the table can be wider than the log: keep the details box the width of the visible area (it is sticky on the left)
 function evDetFit() { const box = $("evLog").querySelector(".evdbox"); if (box) box.style.width = `${$("evLogWrap").clientWidth}px`; }
 new ResizeObserver(evDetFit).observe($("evLogWrap"));
+// the rail's preview (wide screens): the newest requests in the log's current scope, one compact line each
+function evPeekRow(r, i) {
+  const h = r.headers || {}, a = byName(r.agent) || personaOf(r.agent);
+  const dec = h["x-gw-blocked-by"] || (h["x-gw-governance"] && h["x-gw-governance"] !== "none" ? h["x-gw-governance"] : "");
+  return `<div class="evp${i === evIndex ? " sel" : ""}" role="button" tabindex="0" data-idx="${i}" title="Open request #${i + 1} in the request log">`
+    + `<span class="n">#${i + 1}</span><span class="status ${statusClass(r.status)}">${r.status}</span>`
+    + `<span class="m"><b>${escapeHtml(a?.displayName || r.agent || "-")}</b><small>${resourceOf(r).replace(/ → -$/, "")}${dec ? ` · <span class="${isBlocked(r) ? "bad" : ""}">${escapeHtml(dec)}</span>` : ""}</small></span>`
+    + `<span class="r">${r.latencyMs != null ? fmtLat(r.latencyMs) : ""}<br>${new Date(r.at || Date.now()).toLocaleTimeString()}</span></div>`;
+}
+function renderEvPeek(idxs) {
+  const pk = $("evLogPeek");
+  pk.innerHTML = idxs.length ? idxs.slice(0, 200).map(i => evPeekRow(session.calls[i], i)).join("")
+    : `<div class="muted evpempty">${session.calls.length ? "No requests match this filter." : ""}</div>`;
+  const s = pk.querySelector(".evp.sel");
+  if (s && pk.clientHeight) { const a = s.getBoundingClientRect(), b = pk.getBoundingClientRect(); if (a.top < b.top || a.bottom > b.bottom) pk.scrollTop += a.top - b.top - (b.height - a.height) / 2; }
+}
+// a preview row opens the drawer with that request's details unfolded (and replays it in the gateway flow)
+function evPeekOpen(i) { evOpenIdx = i; evDetAnim = true; evLogSetOpen(true, false); showEvidence(i, 0, { scroll: false }); $("evLogWrap").focus({ preventScroll: true }); }
+$("evLogPeek").onclick = (e) => { const p = e.target.closest(".evp"); if (p) evPeekOpen(+p.dataset.idx); };
+$("evLogPeek").onkeydown = (e) => { const p = e.target.closest?.(".evp"); if (p && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); evPeekOpen(+p.dataset.idx); } };
 function renderEvLog() {
   const sel = $("evRunFilter"), entries = scEntries();
   $("evLogCard").hidden = !session.calls.length;
@@ -7103,7 +7170,7 @@ function renderEvLog() {
   sel.value = evFilterRun; $("evBlockedOnly").checked = evBlockedOnly;
   const idxs = evLogIdxs(), blocked = idxs.filter(i => isBlocked(session.calls[i])).length;
   $("evLogCount").innerHTML = $("evLogCount2").innerHTML = session.calls.length ? `<b>${idxs.length}</b> request${idxs.length === 1 ? "" : "s"}${blocked && !evBlockedOnly ? ` · <span class="bad">${blocked} blocked</span>` : ""}` : "";
-  evLogSummary(idxs);
+  evLogSummary(idxs); renderEvPeek(idxs);
   if (!idxs.includes(evOpenIdx)) evOpenIdx = null;
   const keep = $("evLog").querySelector(`tr.evdet[data-det="${evOpenIdx}"]`), opened = evDetAnim;  // live re-renders keep the open details as they are
   $("evLog").innerHTML = idxs.length ? idxs.map(i => evLogRow(session.calls[i], i) + (i === evOpenIdx ? evDetail(session.calls[i], i) : "")).join("")
@@ -7225,7 +7292,11 @@ async function refreshMonitor() {
   done(); $("btnRefresh").disabled = false;
 }
 // ---------- Guided scenarios: small, bounded sequences of real calls through the gateway ----------
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const sleep = (ms) => new Promise(r => {
+  if (stopRequested) return r();
+  const f = () => { clearTimeout(t); stopWaiters.delete(f); r(); }, t = setTimeout(f, ms);
+  stopWaiters.add(f);
+});
 const ASK = "In two sentences, explain why an AI gateway helps control LLM costs.";
 const LONG = PRESETS["Long generation (expensive)"];
 const hdr = (r, k) => (r.headers || {})[k];
@@ -8209,10 +8280,11 @@ function cmRecord(r, a, model, label) {
   }
 }
 async function cmRun(body) {
+  if (stopRequested) return { error: "Stopped", stopped: true };
   try {
-    const res = await fetch("/api/codemode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, noToken: authOpts({}).noToken }) });
+    const res = await fetch("/api/codemode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, noToken: authOpts({}).noToken }), signal: runAbort?.signal });
     return await res.json().catch(() => ({ error: `/api/codemode answered HTTP ${res.status} without JSON` }));
-  } catch (e) { return { error: `Can't reach the demo app (${e.message}). Is app.py still running?` }; }
+  } catch (e) { return e.name === "AbortError" ? { error: "Stopped before the agent loop finished.", stopped: true } : { error: `Can't reach the demo app (${e.message}). Is app.py still running?` }; }
 }
 function cmStepLines(r, label, withAgent = true) {
   const calls = [...(r.modelCalls || []).map(c => ({ ...c, kind: "model" })), ...(r.toolCalls || []).map(c => ({ ...c, kind: "tool" }))].sort((x, y) => x.seq - y.seq);
@@ -8776,7 +8848,7 @@ async function runScenario(s) {
   // show the collapsed scenarios strip and the conversation under it (the run streams its prompts and answers there)
   const strip = $("tabsRow").offsetHeight + $("launch").offsetHeight, cv = $("cvCard").getBoundingClientRect().top;  // the tab row and the strip are sticky: put the conversation just under them
   if (cv < strip || cv > strip + 160) scrollTo({ top: scrollY + cv - strip - 10, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-  try { await awaitResetAhead(); if (running) await s.run(); } catch (e) { info("Scenario failed: " + escapeHtml(e.message)); }
+  try { await awaitResetAhead(); if (running) await s.run(); } catch (e) { if (!stopRequested) info("Scenario failed: " + escapeHtml(e.message)); }
   finally { $("sessionId").value = buildSession; $("endUser").value = buildEndUser; $("cacheScope").value = buildScope; cvCtx(); }
   snapPart(curPart);
   scNudge(SCENARIOS.indexOf(s), curPart?.calls || []);
