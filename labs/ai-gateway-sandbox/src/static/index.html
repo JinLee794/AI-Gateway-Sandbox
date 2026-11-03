@@ -1255,10 +1255,10 @@
   @media (max-width:1180px) { .runs { grid-template-columns:1fr; } .rlist { position:static; max-height:320px; } .rkpis { grid-template-columns:repeat(3,1fr); } }
   @media (max-width:760px) { .modes { flex-wrap:wrap; } }
   /* Workbench: the launch bar (one line) above the conversation; ▶ Scenarios / ✎ Build a request open as a pop-out. Agent plan details live in a hover card. */
-  .bench { display:grid; grid-template-columns:minmax(440px,5fr) minmax(0,6fr); gap:16px; margin:16px 0; align-items:stretch; }
+  .bench { display:grid; grid-template-columns:minmax(420px,4fr) minmax(0,6fr); gap:16px; margin:16px 0; align-items:stretch; }
   .bench .launch { margin:0; min-width:0; }
   .bench:has(.launch.collapsed) { display:contents; } .bench:has(.launch.collapsed) .launch { margin:16px 0; }
-  .cvcol { position:relative; min-height:560px; min-width:0; }
+  .cvcol { position:relative; min-height:640px; min-width:0; }
   .cvcol > #cvCard { position:absolute; inset:0; display:flex; flex-direction:column; margin:0; }
   /* the conversation reads like the focused pop-out: accent edge, a quiet header, one rounded composer */
   #cvCard { border-top:3px solid var(--accent); border-radius:8px; padding:0; overflow:hidden; }
@@ -1268,14 +1268,20 @@
   #cvCard .cv-meter { margin:8px 18px 0; }
   #cvCard .cv-compose { margin:10px 18px 0; padding:6px 6px 6px 14px; border:1px solid var(--border); border-radius:12px; background:#fff; align-items:center; transition:border-color .15s, box-shadow .15s; }
   #cvCard .cv-compose:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px rgba(15,108,189,.15); }
-  #cvCard .cv-compose textarea { border:0; outline:0; box-shadow:none; resize:none; padding:8px 0; background:transparent; min-height:24px; height:38px; max-height:160px; }
+  #cvCard .cv-compose textarea { border:0; outline:0; box-shadow:none; resize:none; padding:10px 0; background:transparent; min-height:24px; height:52px; max-height:200px; font-size:14px; }
   #cvCard .cv-compose button { border-radius:8px; height:34px; padding:0 18px; }
   #cvCard .cv-ctx { margin:6px 18px 12px; }
-  .convo:empty { justify-content:center; align-items:center; }
-  .convo:empty::before { max-width:380px; text-align:center; line-height:1.6; padding:24px; font-size:14px;
-    content:"Run a scenario or type a message below. Prompts, tool calls and answers show up here, with what the gateway decided for each."; }
+  /* empty conversation: a real placeholder (not ::before) so it can carry the ▶ Scenarios button */
+  #cvCard .convo:empty { display:none; }
+  #cvCard:has(.convo:not(:empty)) .cv-empty { display:none; }
+  .cv-empty { flex:1 1 0; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px; text-align:center; }
+  .cv-empty .ce-ic { width:44px; height:44px; border-radius:50%; background:var(--accent-light); color:var(--accent); display:grid; place-items:center; font-size:20px; }
+  .cv-empty h3 { margin:0; font-size:16px; font-weight:600; }
+  .cv-empty p { margin:0; max-width:400px; color:var(--muted); font-size:13.5px; line-height:1.6; }
+  .cv-empty .ce-act { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+  .cv-empty .ce-act button { border-radius:8px; height:36px; padding:0 18px; font-weight:600; }
   .cvcol > #cvCard .convo { flex:1 1 0; min-height:0; max-height:none; }
-  .bench:has(.launch.collapsed) .cvcol { min-height:620px; margin-bottom:16px; }
+  .bench:has(.launch.collapsed) .cvcol { min-height:720px; margin-bottom:16px; }
   .bench .lbar { padding:10px 14px; gap:8px; } .bench .lbar .q { display:none; }
   .bench .modes { flex:0 1 auto; min-width:0; } .bench .modes .or { display:none; } .bench .mode b { white-space:nowrap; }
   .bench .mode { flex:0 0 auto; padding:6px 14px 6px 8px; } .bench .mode small { display:none; } .bench .mode b { font-size:13px; }
@@ -1291,9 +1297,9 @@
   .preview .ptip .meta { font-size:12px; line-height:1.6; color:var(--muted); margin-top:6px; }
   .preview .ptip .hint { font-size:11px; color:var(--muted); margin-top:8px; border-top:1px solid var(--divider); padding-top:6px; }
   .gwmode .short { display:none; }
-  @media (min-width:1101px) { .bench:has(.launch.collapsed) .cvcol { min-height:clamp(440px, calc(100vh - 210px), 620px); } }
+  @media (min-width:1101px) { .bench:has(.launch.collapsed) .cvcol { min-height:clamp(520px, calc(100vh - 170px), 760px); } }
   @media (max-width:1100px) { .bench { grid-template-columns:1fr; } .cvcol, .bench:has(.launch.collapsed) .cvcol { min-height:0; }
-    .cvcol > #cvCard { position:static; } .cvcol > #cvCard .convo { flex:none; min-height:220px; max-height:560px; } }
+    .cvcol > #cvCard { position:static; } .cvcol > #cvCard .convo { flex:none; min-height:300px; max-height:600px; } .cv-empty { flex:none; min-height:300px; } }
   /* Request inspector: the redacted HTTP calls app.py made through APIM for one result */
   .insp { margin-top:12px; border:1px solid var(--border); border-radius:4px; background:var(--panel); }
   .insp > summary { cursor:pointer; padding:8px 12px; font-weight:600; font-size:13px; display:flex; align-items:center; gap:8px; list-style:none; }
@@ -1468,6 +1474,15 @@
         <button class="secondary" id="cvFullBtn" onclick="cvFull()" title="Show the conversation in a larger view (Esc or click outside to close)" aria-pressed="false">⤢ Expand</button>
       </div>
       <div class="convo" id="convo" aria-live="polite"></div>
+      <div class="cv-empty" id="cvEmpty">
+        <div class="ce-ic" aria-hidden="true">💬</div>
+        <h3>Nothing here yet</h3>
+        <p>Run a scenario to watch the gateway at work, or type a message below. Prompts, tool calls and answers show up here, with what the gateway decided for each.</p>
+        <div class="ce-act">
+          <button type="button" onclick="cvEmptyGo('guided')">▶ Browse scenarios</button>
+          <button type="button" class="secondary" onclick="cvEmptyGo('build')">✎ Build a request</button>
+        </div>
+      </div>
       <div class="cv-meter hidden" id="cvMeter" aria-live="polite" onclick="cvMeterToggle(event)" title="Click to switch between the latest caller and every caller"></div>
       <div class="cv-compose">
         <textarea id="cvInput" placeholder="Message the model…" aria-label="Message"></textarea>
@@ -4932,6 +4947,7 @@ function updateLaunch() {
 $("btnNext").onclick = () => { const i = Number($("btnNext").dataset.i); if (running || !SCENARIOS[i]) return; setMode("guided"); scRun(i); };
 $("lbody").addEventListener("click", e => { const b = e.target.closest("button"); if (b && !b.disabled) lastBtn = b; }, true);
 document.querySelectorAll(".modes .mode").forEach(b => b.onclick = () => { setMode(b.dataset.mode); collapseLaunch(false); });
+function cvEmptyGo(m) { document.querySelector(`.modes .mode[data-mode="${m}"]`)?.click(); }
 document.querySelectorAll(".lptab").forEach(b => b.onclick = () => { setMode(b.dataset.mode); (b.dataset.mode === "guided" ? $("scSearch") : $("callerBtn"))?.focus({ preventScroll: true }); });
 $("lpClose").onclick = () => collapseLaunch(true);
 // the pop-out closes on the dimmed page around it (a press that starts and ends there) and on Esc, after any menu, hover card or search inside it
