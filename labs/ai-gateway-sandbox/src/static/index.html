@@ -310,6 +310,10 @@
   .cmfl .s.sbx { background:#f1faf1; border:1px dashed #107c10; } .cmfl .s.fdy { background:#f4f0fa; border:1px dashed #8764b8; }
   .cmfl .s.bad { background:#fde7e9; border-color:#f1bbbc; } .cmfl .s.good { background:#dff6dd; border-color:#9fd89f; }
   .cmfl .ar { color:#a19f9d; font-size:12px; }
+  .cmfl .who { font-size:12px; padding:6px 10px; border-radius:6px; background:#fff; border:1px solid #e1dfdd; border-left:4px solid #605e5c; }
+  .cmfl .s.app { background:#f3f2f1; border-color:#c8c6c4; } .cmfl .s.mcp { background:#fff4ce; border-color:#f2c94c; }
+  .cmfl .cmp { display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; font-size:11.5px; color:#323130; padding:4px 2px; }
+  .cmfl .cmp span { white-space:nowrap; } .cmfl .cmp small { flex-basis:100%; color:#605e5c; font-size:11px; }
   .cmfl .gwnote { font-size:11px; color:#323130; padding:4px 10px; border-radius:6px; background:#e8f1fb; border:1px solid #c7e0f4; }
   .cmsbx { display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin-top:8px; font-size:11px; color:#605e5c; }
   .cmsbx button { font:600 11px Segoe UI,sans-serif; padding:2px 9px; border-radius:12px; border:1px solid #e1dfdd; background:#fff; color:#323130; cursor:pointer; }
@@ -323,8 +327,8 @@
   .cmmore ul { list-style:none; margin:0; padding:0; display:grid; gap:4px; } .cmmore li { display:flex; gap:7px; } .cmmore li > i { font-style:normal; flex:none; }
   .cmmore table { border-collapse:collapse; width:100%; table-layout:fixed; } .cmmore th:first-child { width:26px; } .cmmore td, .cmmore th { white-space:normal; overflow:visible; text-overflow:clip; max-width:none; } .cmmore td code { white-space:nowrap; } .cmmore th { text-align:left; font-weight:600; color:#605e5c; font-size:10.5px; padding:0 6px 3px; }
   .cmmore td { padding:4px 6px; border-top:1px solid #f3f2f1; vertical-align:top; } .cmmore td.bad { color:#a4262c; } .cmmore td.good { color:#0e700e; }
-  .cmmore .k { display:inline-grid; place-items:center; width:18px; height:18px; border-radius:50%; color:#fff; font-size:10px; }
-  .cmmore .k.a { background:#0078d4; } .cmmore .k.b { background:#8764b8; } .cmmore .k.c { background:#107c10; } .cmmore .k.d { background:#c239b3; }
+  .cmmore .k, .cmfl .k { display:inline-grid; place-items:center; width:18px; height:18px; border-radius:50%; color:#fff; font-size:10px; }
+  :is(.cmmore,.cmfl) .k.a { background:#0078d4; } :is(.cmmore,.cmfl) .k.b { background:#8764b8; } :is(.cmmore,.cmfl) .k.c { background:#107c10; } :is(.cmmore,.cmfl) .k.d { background:#c239b3; }
   .cmnm { display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin:4px 0; font:600 11px ui-monospace,Consolas,monospace; }
   .cmnm span { padding:2px 7px; border-radius:4px; color:#fff; } .cmnm small { font:400 10px Segoe UI,sans-serif; color:#605e5c; margin-right:6px; }
   .scexplain details { margin-top:6px; } .scexplain summary { cursor:pointer; font-weight:600; color:#323130; }
@@ -8117,16 +8121,15 @@ const SCENARIOS = [
     gist: "Experimental: one procurement task four ways (tool calling, Foundry tool search, code mode, search + execute), compared by the tokens each puts in the model's context.",
     policies: ["MCP tool entitlement", "tool pricing", "rate-limit-by-key (tool calls/min)", "llm-token-limit"],
     controls: ["tool-ent", "tool-price", "tool-rate", "model-price"],
-    preview: () => { const m = cmModel();
-      return dg.note("<b>A · tool calling</b>: every schema and every raw result goes back to the model")
-        + dg.row(dg.agent(cmTier()), dg.arrow("3 schemas"), dg.model(m, "one call per round"), dg.arrow("tool_calls"), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool"))
-        + dg.note("<b>B · tool search</b>: Foundry Toolbox finds each tool and relays the call")
-        + dg.row(dg.agent(cmTier()), dg.arrow("2 meta-tools"), dg.model(m, "searches, then calls"), dg.arrow("call_tool"), dg.node("Foundry Toolbox", "find · relay"), dg.arrow(), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool"))
-        + dg.note("<b>C · code mode</b>: one script; only what it prints goes back")
-        + dg.row(dg.agent(cmTier()), dg.arrow("typed stubs"), dg.model(m, "writes 1 script"), dg.arrow("script"), dg.node("Sandbox", "runs the script"), dg.arrow(), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool"))
-        + dg.note("<b>D · search + execute</b>: search a 1,000-op catalog, then run one script")
-        + dg.row(dg.agent(cmTier()), dg.arrow("domain index"), dg.model(m, "search, then 1 script"), dg.arrow("code"), dg.node("Sandbox", "catalog search · runs script"), dg.arrow(), dg.gw("MCP · each call"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool")); },
-    explain: () => `<div class="scexplain"><h4>How the four modes work <span class="exptag">EXPERIMENTAL</span></h4>
+    // How code mode works, in three steps. There is no Foundry agent: this app runs the loop and Foundry only serves the model.
+    preview: () => { const m = cmModel(), a = cmAgent();
+      return dg.note(`<b>How code mode works</b> · no Foundry agent here: <b>this app</b> runs the loop as <b>${escapeHtml(a?.displayName || "the agent")}</b> (just an APIM key), Foundry only serves the model`)
+        + dg.note("<b>① The model writes a script</b>: it gets the task and typed Python stubs, never raw tool output")
+        + dg.row(dg.node("Agent loop", "in this app", "who"), dg.arrow("task + stubs"), dg.gw("token limit"), dg.arrow(), dg.model(m, "Foundry model · writes 1 script"))
+        + dg.note(`<b>② A sandbox runs it</b>: each stub call is a real, governed gateway call`)
+        + dg.row(dg.node("Sandbox", cmSbxNow() === "hyperlight" ? "Hyperlight micro-VM" : "subprocess"), dg.arrow("each tool call"), dg.gw("MCP · allow-list · price · rate"), dg.arrow(), dg.node("Commerce tools", "MCP", "tool"))
+        + dg.note("<b>③ Only what the script prints goes back</b> to the model, which writes the answer. A, B and D run the same task for comparison."); },
+    explain: () => `<div class="scexplain"><h4>How code mode works <span class="exptag">EXPERIMENTAL</span></h4>
       ${cmFlowHtml()}
       ${cmSbxToggle()}
       ${cmMoreHtml()}</div>`,
@@ -8185,8 +8188,28 @@ function cmSbxPill(r) {
     : "Each script ran in a new isolated Python process (python -I) with an AST allow-list, a timeout and a call cap.";
   return `<span class="cmpill sbx${hl ? " hl" : ""}" title="${escapeHtml(title)}">${hl ? "🧊 Hyperlight" : "📦 subprocess"}${boot.length ? ` · ready in ${boot.map(v => `${v} ms`).join(" + ")}` : ""}${hl && cold != null ? ` <small>(cold build ${cold} ms, once)</small>` : ""}</span>`;
 }
-// Scenario 24's explain: each mode as a lane of steps, so the loop, the gateway hops and what reaches the model stand out.
+// Scenario 24's explain: how code mode works in three steps. There is no Foundry agent: this app runs the loop with an APIM key
+// and Foundry only serves the model. The four-mode comparison lives in the "Compare A-D" tab (cmLanesHtml).
 function cmFlowHtml() {
+  let i = 0;
+  const S = (k, ic, t) => `<span class="s ${k}" style="--i:${i++}">${ic} ${t}</span>`, ar = `<span class="ar">→</span>`;
+  const a = cmAgent(), sbx = cmSbxNow() === "hyperlight" ? "Hyperlight micro-VM" : "subprocess";
+  const steps = [
+    ["1", "The model writes one script", "sees the task + typed Python stubs, never tool output",
+      [S("app", "🖥️", "This app (agent loop)"), S("gw", "🛡️", "Gateway · token limit"), S("mdl", "🧠", `${escapeHtml(cmModel() || "model")} on Foundry`), S("good", "📜", "1 Python script")]],
+    ["2", "A sandbox runs it", "↺ once per tool call, never through the model",
+      [S("sbx", "📦", `Sandbox · ${sbx}`), S("gw", "🛡️", "Gateway · allow-list · price · rate"), S("mcp", "🧰", "Commerce tools (MCP)")]],
+    ["3", "Only printed facts go back", "1 model pass · context stays small",
+      [S("good", "🖨️", "print() output"), S("mdl", "🧠", "Model"), S("good", "✅", "Answer")]]];
+  return `<div class="cmfl">
+    <div class="who">🖥️ <b>No Foundry agent.</b> This app <i>is</i> the agent: it runs the loop as <b>${escapeHtml(a?.displayName || "the agent")}</b> with an APIM key. Foundry only serves the model.</div>
+    ${steps.map(([n, t, sub, st]) => `<div class="ln m-code"><div class="hd"><span class="lt">${n}</span><b>${t}</b><small>${sub}</small></div>
+      <div class="st">${st.join(ar)}</div></div>`).join("")}
+    <div class="cmp">Same task, for comparison: <span><b class="k a">A</b> tool calling</span><span><b class="k b">B</b> tool search (Foundry Toolbox)</span><span><b class="k d">D</b> search + execute</span><small>A and B put every raw result into the model's context. See <b>Compare A–D</b> below.</small></div>
+  </div>`;
+}
+// The "Compare A-D" tab: each mode as a lane of steps, so the loop, the gateway hops and what reaches the model stand out.
+function cmLanesHtml() {
   let i = 0;
   const S = (k, ic, t) => `<span class="s ${k}" style="--i:${i++}">${ic} ${t}</span>`;
   const lanes = [
@@ -8204,11 +8227,11 @@ function cmFlowHtml() {
     <div class="gwnote">🛡️ In every lane, each tool call is its own gateway call: allow-listed, priced, rate-limited, budgeted and logged. Model calls still pass the token limit.</div>
   </div>`;
 }
-
 // The explain's reference notes: closed tabs, one short panel at a time, so the lanes stay the focus.
 function cmMoreHtml() {
   const li = items => `<ul>${items.map(([ic, t]) => `<li><i>${ic}</i><span>${t}</span></li>`).join("")}</ul>`;
   const tabs = [
+    ["cmp", "🆚", "Compare A–D", cmLanesHtml()],
     ["how", "🔧", "Under the hood", `<table><tr><th></th><th>Model sees</th><th>Runs where</th><th>Back to the model</th></tr>
       <tr><td><b class="k a">A</b></td><td>every tool schema</td><td>gateway, one call per round</td><td class="bad">every raw result</td></tr>
       <tr><td><b class="k b">B</b></td><td><code>tool_search</code> + <code>call_tool</code> (+ auto-pinned tools)</td><td>Foundry relays → gateway</td><td class="bad">matched schemas + raw results</td></tr>
